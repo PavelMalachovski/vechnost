@@ -1,0 +1,12 @@
+services:
+  - type: worker
+    name: vechnost-bot
+    env: python
+    plan: free
+    buildCommand: pip install --upgrade pip && pip install .
+    startCommand: python -m vechnost_bot
+    envVars:
+      - key: TELEGRAM_BOT_TOKEN
+        sync: false  # Set this in Render dashboard
+      - key: LOG_LEVEL
+        value: INFO
