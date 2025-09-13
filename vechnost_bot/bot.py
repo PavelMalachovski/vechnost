@@ -1,8 +1,6 @@
 """Main bot application setup."""
 
-import asyncio
 import logging
-import threading
 
 from telegram.ext import Application, CallbackQueryHandler, CommandHandler
 
@@ -13,7 +11,6 @@ from .handlers import (
     reset_command,
     start_command,
 )
-from .health import run_health_server
 
 
 def setup_logging() -> None:
@@ -47,11 +44,6 @@ def run_bot() -> None:
     logger = logging.getLogger(__name__)
 
     try:
-        # Start health check server in a separate thread
-        health_thread = threading.Thread(target=run_health_server, daemon=True)
-        health_thread.start()
-        logger.info("Health check server started")
-
         application = create_application()
         logger.info("Starting Vechnost bot...")
         application.run_polling()

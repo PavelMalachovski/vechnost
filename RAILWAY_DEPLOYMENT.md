@@ -71,10 +71,10 @@ The project includes several Railway-specific configuration files:
 
 ### Common Issues
 
-1. **Healthcheck failures**:
-   - The bot includes a health check server on port 8080
-   - Railway will check `/health` endpoint to verify the service is running
-   - If healthcheck fails, check logs for startup errors
+1. **Deployment failures**:
+   - Railway monitors the bot process directly (no healthcheck endpoint needed)
+   - If the bot fails to start, check logs for startup errors
+   - Ensure `TELEGRAM_BOT_TOKEN` is set correctly
 
 2. **Bot not responding**:
    - Check if `TELEGRAM_BOT_TOKEN` is set correctly
