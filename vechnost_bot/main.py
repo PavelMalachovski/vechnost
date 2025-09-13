@@ -3,11 +3,11 @@
 import sys
 from pathlib import Path
 
+from vechnost_bot.bot import run_bot
+
 # Add the project root to Python path
 project_root = Path(__file__).parent.parent
 sys.path.insert(0, str(project_root))
-
-from vechnost_bot.bot import run_bot
 
 
 def main() -> None:

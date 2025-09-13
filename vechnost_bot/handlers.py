@@ -26,6 +26,9 @@ GAME_DATA = load_game_data()
 
 async def start_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """Handle the /start command."""
+    if not update.message:
+        return
+
     welcome_text = (
         "🎴 Welcome to Vechnost!\n\n"
         "This is an intimate card game designed to deepen your relationships through "
@@ -41,6 +44,9 @@ async def start_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
 
 async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """Handle the /help command."""
+    if not update.message:
+        return
+
     help_text = (
         "🎴 Vechnost Help\n\n"
         "**Themes:**\n"
@@ -65,6 +71,9 @@ async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
 
 async def reset_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """Handle the /reset command."""
+    if not update.message:
+        return
+
     reset_text = (
         "🔄 Reset Game\n\n"
         "Are you sure you want to reset your current game? "
@@ -80,11 +89,17 @@ async def reset_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
 async def handle_callback_query(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """Handle callback queries from inline keyboards."""
     query = update.callback_query
+    if not query or not update.effective_chat:
+        return
+
     await query.answer()
 
     chat_id = update.effective_chat.id
     session = get_session(chat_id)
     data = query.data
+
+    if not data:
+        return
 
     if data == "back_to_themes":
         await show_theme_selection(query)
@@ -185,6 +200,10 @@ async def handle_level_selection(query: Any, data: str, session: SessionState) -
     session.level = level
 
     # Check if content type selection is needed (Sex theme)
+    if not session.theme:
+        await query.edit_message_text("❌ No theme selected.")
+        return
+
     available_types = GAME_DATA.get_available_content_types(session.theme, level)
 
     if len(available_types) > 1:
@@ -221,6 +240,10 @@ async def handle_nsfw_confirmation(query: Any, session: SessionState) -> None:
     """Handle NSFW content confirmation."""
     session.is_nsfw_confirmed = True
 
+    if not session.theme:
+        await query.edit_message_text("❌ No theme selected.")
+        return
+
     available_levels = GAME_DATA.get_available_levels(session.theme)
     await show_level_selection(query, session.theme, available_levels)
 
@@ -241,6 +264,10 @@ async def handle_nsfw_denial(query: Any) -> None:
 
 async def start_game(query: Any, session: SessionState) -> None:
     """Start the game with current session settings."""
+    if not session.theme or not session.level:
+        await query.edit_message_text("❌ Invalid session state.")
+        return
+
     remaining_cards = get_remaining_cards_count(session, GAME_DATA)
 
     game_text = (
