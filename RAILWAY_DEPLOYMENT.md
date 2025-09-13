@@ -26,7 +26,8 @@ In your Railway project dashboard:
 2. Add the following environment variables:
 
 ```
-TELEGRAM_BOT_TOKEN=your_bot_token_here
+API_TOKEN_TELEGRAM=your_bot_token_here
+CHAT_ID=your_chat_id_here (optional)
 LOG_LEVEL=INFO
 ```
 
@@ -56,7 +57,8 @@ The project includes several Railway-specific configuration files:
 
 | Variable | Description | Required | Default |
 |----------|-------------|----------|---------|
-| `TELEGRAM_BOT_TOKEN` | Bot token from @BotFather | Yes | - |
+| `API_TOKEN_TELEGRAM` | Bot token from @BotFather | Yes | - |
+| `CHAT_ID` | Optional chat ID for debugging | No | - |
 | `LOG_LEVEL` | Logging level (DEBUG, INFO, WARNING, ERROR) | No | INFO |
 | `PYTHONPATH` | Python path (set automatically) | No | /app |
 | `PYTHONUNBUFFERED` | Unbuffered Python output (set automatically) | No | 1 |
