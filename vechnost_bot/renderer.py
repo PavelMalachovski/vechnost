@@ -17,8 +17,8 @@ PADDING = 20
 TEXT_MARGIN = 0.9  # 90% of image width for larger text
 LINE_SPACING = 1.25
 JPEG_QUALITY = 90
-DEFAULT_FONT_SIZE = 26
-MIN_FONT_SIZE = 26
+DEFAULT_FONT_SIZE = 80
+MIN_FONT_SIZE = 80
 
 # Font path
 FONT_PATH = Path(__file__).parent.parent / "assets" / "fonts" / "Montserrat-Regular.ttf"
