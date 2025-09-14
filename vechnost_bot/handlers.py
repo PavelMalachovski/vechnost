@@ -168,7 +168,12 @@ async def show_theme_selection(query: Any) -> None:
             reply_markup=get_theme_keyboard()
         )
     except Exception as edit_error:
-        logger.warning(f"Could not edit message text: {edit_error}, sending new message")
+        logger.warning(f"Could not edit message text: {edit_error}, deleting and sending new message")
+        # Delete the current message (photo) and send a new text message
+        try:
+            await query.message.delete()
+        except Exception as delete_error:
+            logger.warning(f"Could not delete message: {delete_error}")
         await query.message.reply_text(
             welcome_text,
             reply_markup=get_theme_keyboard()
@@ -241,7 +246,12 @@ async def show_level_selection(query: Any, theme: Theme, available_levels: list[
             reply_markup=get_level_keyboard(theme, available_levels)
         )
     except Exception as edit_error:
-        logger.warning(f"Could not edit message text: {edit_error}, sending new message")
+        logger.warning(f"Could not edit message text: {edit_error}, deleting and sending new message")
+        # Delete the current message (photo) and send a new text message
+        try:
+            await query.message.delete()
+        except Exception as delete_error:
+            logger.warning(f"Could not delete message: {delete_error}")
         await query.message.reply_text(
             level_text,
             reply_markup=get_level_keyboard(theme, available_levels)
@@ -325,7 +335,12 @@ async def show_calendar(query: Any, session: SessionState, page: int, content_ty
     try:
         await query.edit_message_text(header, reply_markup=keyboard)
     except Exception as edit_error:
-        logger.warning(f"Could not edit message text: {edit_error}, sending new message")
+        logger.warning(f"Could not edit message text: {edit_error}, deleting and sending new message")
+        # Delete the current message (photo) and send a new text message
+        try:
+            await query.message.delete()
+        except Exception as delete_error:
+            logger.warning(f"Could not delete message: {delete_error}")
         await query.message.reply_text(header, reply_markup=keyboard)
 
 

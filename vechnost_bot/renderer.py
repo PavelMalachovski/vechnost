@@ -17,8 +17,8 @@ PADDING = 60
 TEXT_MARGIN = 0.75  # 75% of image width for better readability
 LINE_SPACING = 1.25
 JPEG_QUALITY = 90
-DEFAULT_FONT_SIZE = 720
-MIN_FONT_SIZE = 360
+DEFAULT_FONT_SIZE = 1200
+MIN_FONT_SIZE = 800
 
 # Font path
 FONT_PATH = Path(__file__).parent.parent / "assets" / "fonts" / "DejaVuSans.ttf"
@@ -124,7 +124,7 @@ def _find_optimal_font_size(text: str, max_width: int, max_height: int) -> tuple
         if text_height <= max_height:
             return font, lines
 
-        font_size -= 2
+        font_size -= 10
 
     # If we can't fit even with minimum font size, return minimum
     font = _load_font(MIN_FONT_SIZE)
