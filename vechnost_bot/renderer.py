@@ -17,11 +17,11 @@ PADDING = 20
 TEXT_MARGIN = 0.9  # 90% of image width for larger text
 LINE_SPACING = 1.25
 JPEG_QUALITY = 90
-DEFAULT_FONT_SIZE = 100
-MIN_FONT_SIZE = 20
+DEFAULT_FONT_SIZE = 26
+MIN_FONT_SIZE = 26
 
 # Font path
-FONT_PATH = Path(__file__).parent.parent / "assets" / "fonts" / "DejaVuSans.ttf"
+FONT_PATH = Path(__file__).parent.parent / "assets" / "fonts" / "Montserrat-Regular.ttf"
 
 
 @lru_cache(maxsize=32)
@@ -52,34 +52,34 @@ def _load_background_image(bg_path: str) -> Optional[Image.Image]:
 def _load_font(size: int) -> Optional[ImageFont.FreeTypeFont]:
     """Load and cache font at specific size."""
     try:
+        # Try Montserrat first
         if FONT_PATH.exists():
             return ImageFont.truetype(str(FONT_PATH), size)
-        else:
-            # Try system fonts that support large sizes
-            system_fonts = [
-                "arial.ttf",
-                "Arial.ttf",
-                "calibri.ttf",
-                "Calibri.ttf",
-                "verdana.ttf",
-                "Verdana.ttf",
-                "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf",
-                "/usr/share/fonts/truetype/liberation/LiberationSans-Regular.ttf",
-                "/System/Library/Fonts/Arial.ttf",
-                "/System/Library/Fonts/Helvetica.ttc"
-            ]
 
-            for font_name in system_fonts:
-                try:
-                    return ImageFont.truetype(font_name, size)
-                except:
-                    continue
+        # Try system fonts that are similar to Montserrat
+        system_fonts = [
+            "C:/Windows/Fonts/arial.ttf",  # Arial is similar to Montserrat
+            "arial.ttf",
+            "Arial.ttf",
+            "calibri.ttf",
+            "Calibri.ttf",
+            "verdana.ttf",
+            "Verdana.ttf",
+            "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf",
+            "/usr/share/fonts/truetype/liberation/LiberationSans-Regular.ttf",
+            "/System/Library/Fonts/Arial.ttf",
+            "/System/Library/Fonts/Helvetica.ttc"
+        ]
 
-            # Last resort: use default font but scale it
-            logger.warning(f"Font file not found: {FONT_PATH}, using scaled default font")
-            default_font = ImageFont.load_default()
-            # Scale the default font to approximate the desired size
-            return default_font
+        for font_name in system_fonts:
+            try:
+                return ImageFont.truetype(font_name, size)
+            except:
+                continue
+
+        # Last resort: use default font
+        logger.warning(f"Font file not found: {FONT_PATH}, using default font")
+        return ImageFont.load_default()
     except Exception as e:
         logger.error(f"Error loading font at size {size}: {e}")
         return ImageFont.load_default()
