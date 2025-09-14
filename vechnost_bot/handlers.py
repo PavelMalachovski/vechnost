@@ -190,9 +190,11 @@ async def handle_theme_selection(query: Any, data: str, session: SessionState) -
     # Handle different theme types
     if theme == Theme.SEX:
         # Sex: Show calendar immediately with toggle
+        session.content_type = ContentType.QUESTIONS
         await show_sex_calendar(query, session, 0, ContentType.QUESTIONS)
     elif theme == Theme.PROVOCATION:
         # Provocation: Show calendar immediately
+        session.content_type = ContentType.QUESTIONS
         await show_calendar(query, session, 0, ContentType.QUESTIONS)
     else:
         # Acquaintance, For Couples: Show level selection
@@ -238,7 +240,8 @@ async def handle_level_selection(query: Any, data: str, session: SessionState) -
         await query.edit_message_text(ERROR_NO_THEME)
         return
 
-    # Show calendar for the selected level
+    # Set content type and show calendar for the selected level
+    session.content_type = ContentType.QUESTIONS
     await show_calendar(query, session, 0, ContentType.QUESTIONS)
 
 
@@ -376,7 +379,7 @@ async def handle_question_selection(query: Any, data: str, session: SessionState
     session.level = level_or_0 if level_or_0 > 0 else None
 
     # Get content type from current session or default to questions
-    content_type = session.content_type if hasattr(session, 'content_type') else ContentType.QUESTIONS
+    content_type = session.content_type
 
     # Get items
     items = GAME_DATA.get_content(theme, session.level, content_type)
@@ -429,7 +432,7 @@ async def handle_question_navigation(query: Any, data: str, session: SessionStat
     session.level = level_or_0 if level_or_0 > 0 else None
 
     # Get content type from current session or default to questions
-    content_type = session.content_type if hasattr(session, 'content_type') else ContentType.QUESTIONS
+    content_type = session.content_type
 
     # Get items
     items = GAME_DATA.get_content(theme, session.level, content_type)
@@ -531,6 +534,7 @@ async def handle_nsfw_confirmation(query: Any, session: SessionState) -> None:
 
     # For Sex theme, show calendar immediately
     if session.theme == Theme.SEX:
+        session.content_type = ContentType.QUESTIONS
         await show_sex_calendar(query, session, 0, ContentType.QUESTIONS)
     else:
         # For other themes, show level selection
