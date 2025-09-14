@@ -3,7 +3,7 @@
 import logging
 from typing import Any
 
-from telegram import Update
+from telegram import InputMediaPhoto, Update
 from telegram.ext import ContextTypes
 
 from .i18n import (
@@ -44,6 +44,7 @@ from .keyboards import (
 )
 from .logic import load_game_data
 from .models import ContentType, SessionState, Theme
+from .renderer import get_background_path, render_card
 from .storage import get_session, reset_session
 
 logger = logging.getLogger(__name__)
@@ -396,10 +397,26 @@ async def handle_question_selection(query: Any, data: str, session: SessionState
     # Show question with navigation
     keyboard = get_question_keyboard(topic_code, level_or_0, index, len(items))
 
-    await query.edit_message_text(
-        f"{header}\n\n{question}",
-        reply_markup=keyboard
-    )
+    # Try to render as image, fallback to text if it fails
+    try:
+        # Get background path
+        bg_path = get_background_path(topic_code, level_or_0, "q" if content_type == ContentType.QUESTIONS else "t")
+
+        # Render card image
+        image_data = render_card(question, bg_path)
+
+        # Send photo with navigation
+        await query.edit_message_media(
+            media=InputMediaPhoto(media=image_data),
+            reply_markup=keyboard
+        )
+    except Exception as e:
+        logger.error(f"Error rendering card image: {e}")
+        # Fallback to text message
+        await query.edit_message_text(
+            f"{header}\n\n{question}",
+            reply_markup=keyboard
+        )
 
 
 async def handle_question_navigation(query: Any, data: str, session: SessionState) -> None:
@@ -449,10 +466,26 @@ async def handle_question_navigation(query: Any, data: str, session: SessionStat
     # Show question with navigation
     keyboard = get_question_keyboard(topic_code, level_or_0, index, len(items))
 
-    await query.edit_message_text(
-        f"{header}\n\n{question}",
-        reply_markup=keyboard
-    )
+    # Try to render as image, fallback to text if it fails
+    try:
+        # Get background path
+        bg_path = get_background_path(topic_code, level_or_0, "q" if content_type == ContentType.QUESTIONS else "t")
+
+        # Render card image
+        image_data = render_card(question, bg_path)
+
+        # Send photo with navigation
+        await query.edit_message_media(
+            media=InputMediaPhoto(media=image_data),
+            reply_markup=keyboard
+        )
+    except Exception as e:
+        logger.error(f"Error rendering card image: {e}")
+        # Fallback to text message
+        await query.edit_message_text(
+            f"{header}\n\n{question}",
+            reply_markup=keyboard
+        )
 
 
 async def handle_toggle_content(query: Any, data: str, session: SessionState) -> None:

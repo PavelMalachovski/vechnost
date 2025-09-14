@@ -1,0 +1,19 @@
+# Background configuration for Vechnost bot
+# Maps topics and levels to background image paths
+
+map:
+  acq:
+    1: "assets/backgrounds/acq/acq_1.png"
+    2: "assets/backgrounds/acq/acq_2.png"
+    3: "assets/backgrounds/acq/acq_3.png"
+  couples:
+    1: "assets/backgrounds/couples/couples_1.png"
+    2: "assets/backgrounds/couples/couples_2.png"
+    3: "assets/backgrounds/couples/couples_3.png"
+  sex:
+    q: "assets/backgrounds/sex/questions.png"
+    t: "assets/backgrounds/sex/tasks.png"
+    default: "assets/backgrounds/sex/sex.png"
+  prov:
+    default: "assets/backgrounds/prov/prov.png"
+default: "assets/backgrounds/default.png"
