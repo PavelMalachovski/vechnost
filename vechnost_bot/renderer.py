@@ -21,7 +21,7 @@ DEFAULT_FONT_SIZE = 53
 MIN_FONT_SIZE = 53
 
 # Font path
-FONT_PATH = Path(__file__).parent.parent / "assets" / "fonts" / "Montserrat-Regular.ttf"
+FONT_PATH = Path(__file__).parent.parent / "assets" / "fonts" / "DejaVuSans.ttf"
 
 
 @lru_cache(maxsize=32)
@@ -56,14 +56,15 @@ def _load_font(size: int) -> Optional[ImageFont.FreeTypeFont]:
         if FONT_PATH.exists():
             return ImageFont.truetype(str(FONT_PATH), size)
 
-        # Try system fonts that are similar to Montserrat
+        # Try system fonts that support Cyrillic characters
         system_fonts = [
-            "C:/Windows/Fonts/calibri.ttf",  # Calibri is very similar to Montserrat
-            "C:/Windows/Fonts/arial.ttf",  # Arial is also similar to Montserrat
-            "calibri.ttf",
-            "Calibri.ttf",
+            "C:/Windows/Fonts/arial.ttf",  # Arial has good Cyrillic support
+            "C:/Windows/Fonts/calibri.ttf",  # Calibri also supports Cyrillic
+            "C:/Windows/Fonts/verdana.ttf",  # Verdana has excellent Cyrillic support
             "arial.ttf",
             "Arial.ttf",
+            "calibri.ttf",
+            "Calibri.ttf",
             "verdana.ttf",
             "Verdana.ttf",
             "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf",
