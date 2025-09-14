@@ -94,18 +94,18 @@ async def reset_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
 async def handle_callback_query(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """Handle callback queries from inline keyboards."""
     query = update.callback_query
-    if not query or not update.effective_chat:
-        logger.warning("Callback query received but missing query or chat")
+    if not query or not query.message or not query.message.chat:
+        logger.warning("Callback query received but missing query, message, or chat")
         return
 
-    logger.info(f"Callback query received: {query.data} from chat {update.effective_chat.id}")
+    chat_id = query.message.chat.id
+    logger.info(f"Callback query received: {query.data} from chat {chat_id}")
 
     try:
         await query.answer()
     except Exception as e:
         logger.error(f"Error answering callback query: {e}")
 
-    chat_id = update.effective_chat.id
     session = get_session(chat_id)
     data = query.data
 
@@ -387,7 +387,7 @@ async def handle_reset_request(query: Any) -> None:
 
 async def handle_reset_confirmation(query: Any, session: SessionState) -> None:
     """Handle reset confirmation."""
-    reset_session(query.effective_chat.id)
+    reset_session(query.message.chat.id)
 
     reset_text = (
         "🔄 Game Reset\n\n"
@@ -402,7 +402,7 @@ async def handle_reset_confirmation(query: Any, session: SessionState) -> None:
 
 async def handle_reset_cancel(query: Any) -> None:
     """Handle reset cancellation."""
-    chat_id = query.effective_chat.id
+    chat_id = query.message.chat.id
     session = get_session(chat_id)
     remaining_cards = get_remaining_cards_count(session, GAME_DATA)
 

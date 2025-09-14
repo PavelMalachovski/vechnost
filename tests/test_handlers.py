@@ -43,8 +43,9 @@ class TestHandlers:
         update.callback_query.data = "theme_Acquaintance"
         update.callback_query.answer = AsyncMock()
         update.callback_query.edit_message_text = AsyncMock()
-        update.effective_chat = MagicMock()
-        update.effective_chat.id = 12345
+        update.callback_query.message = MagicMock()
+        update.callback_query.message.chat = MagicMock()
+        update.callback_query.message.chat.id = 12345
         context = MagicMock()
 
         # Call the handler
@@ -61,8 +62,9 @@ class TestHandlers:
         update.callback_query = MagicMock()
         update.callback_query.data = "invalid_data"
         update.callback_query.answer = AsyncMock()
-        update.effective_chat = MagicMock()
-        update.effective_chat.id = 12345
+        update.callback_query.message = MagicMock()
+        update.callback_query.message.chat = MagicMock()
+        update.callback_query.message.chat.id = 12345
         context = MagicMock()
 
         # Call the handler
@@ -79,8 +81,9 @@ class TestHandlers:
         update.callback_query = MagicMock()
         update.callback_query.data = None
         update.callback_query.answer = AsyncMock()
-        update.effective_chat = MagicMock()
-        update.effective_chat.id = 12345
+        update.callback_query.message = MagicMock()
+        update.callback_query.message.chat = MagicMock()
+        update.callback_query.message.chat.id = 12345
         context = MagicMock()
 
         # Call the handler
@@ -95,8 +98,6 @@ class TestHandlers:
         # Mock update and context
         update = MagicMock()
         update.callback_query = None
-        update.effective_chat = MagicMock()
-        update.effective_chat.id = 12345
         context = MagicMock()
 
         # Call the handler (should return early)
