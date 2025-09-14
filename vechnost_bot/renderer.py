@@ -21,7 +21,7 @@ DEFAULT_FONT_SIZE = 80
 MIN_FONT_SIZE = 80
 
 # Font path
-FONT_PATH = Path(__file__).parent.parent / "assets" / "fonts" / "Montserrat-Regular.ttf"
+FONT_PATH = Path(__file__).parent.parent / "assets" / "fonts" / "DejaVuSans.ttf"
 
 
 @lru_cache(maxsize=32)
@@ -59,6 +59,7 @@ def _load_font(size: int) -> Optional[ImageFont.FreeTypeFont]:
         # Try system fonts that are similar to Montserrat
         system_fonts = [
             "C:/Windows/Fonts/arial.ttf",  # Arial is similar to Montserrat
+            "C:/Windows/Fonts/calibri.ttf",  # Calibri is also similar
             "arial.ttf",
             "Arial.ttf",
             "calibri.ttf",
