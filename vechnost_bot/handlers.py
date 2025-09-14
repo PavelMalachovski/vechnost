@@ -207,7 +207,7 @@ async def handle_callback_query(update: Update, context: ContextTypes.DEFAULT_TY
             pass
         else:
             logger.warning(f"Unknown callback data: {data}")
-            await query.edit_message_text(ERROR_UNKNOWN_CALLBACK)
+            await query.edit_message_text(t(chat_id, 'ui.error_unknown_callback'))
     except Exception as e:
         logger.error(f"Error handling callback query {data}: {e}")
         try:
@@ -242,11 +242,12 @@ async def show_theme_selection(query: Any) -> None:
 
 async def handle_theme_selection(query: Any, data: str, session: SessionState) -> None:
     """Handle theme selection."""
+    chat_id = query.message.chat.id
     theme_name = data.replace("theme_", "")
     try:
         theme = Theme(theme_name)
     except ValueError:
-        await query.edit_message_text(ERROR_INVALID_THEME)
+        await query.edit_message_text(t(chat_id, 'ui.error_invalid_theme'))
         return
 
     session.theme = theme
@@ -323,11 +324,12 @@ async def show_level_selection(query: Any, theme: Theme, available_levels: list[
 
 async def handle_level_selection(query: Any, data: str, session: SessionState) -> None:
     """Handle level selection."""
+    chat_id = query.message.chat.id
     level = int(data.replace("level_", ""))
     session.level = level
 
     if not session.theme:
-        await query.edit_message_text(ERROR_NO_THEME)
+        await query.edit_message_text(t(chat_id, 'ui.error_no_theme'))
         return
 
     # Set content type and show calendar for the selected level
@@ -337,8 +339,9 @@ async def handle_level_selection(query: Any, data: str, session: SessionState) -
 
 async def show_calendar(query: Any, session: SessionState, page: int, content_type: ContentType) -> None:
     """Show calendar for questions/tasks."""
+    chat_id = query.message.chat.id
     if not session.theme:
-        await query.edit_message_text(ERROR_NO_THEME)
+        await query.edit_message_text(t(chat_id, 'ui.error_no_theme'))
         return
 
     # Get topic code
@@ -415,10 +418,11 @@ async def show_sex_calendar(query: Any, session: SessionState, page: int, conten
 
 async def handle_calendar_page(query: Any, data: str, session: SessionState) -> None:
     """Handle calendar page navigation."""
+    chat_id = query.message.chat.id
     # Parse: cal:{topic}:{level_or_0}:{category}:{page}
     parts = data.split(":")
     if len(parts) != 5:
-        await query.edit_message_text(ERROR_UNKNOWN_CALLBACK)
+        await query.edit_message_text(t(chat_id, 'ui.error_unknown_callback'))
         return
 
     topic_code = parts[1]
@@ -436,7 +440,7 @@ async def handle_calendar_page(query: Any, data: str, session: SessionState) -> 
 
     theme = topic_to_theme.get(topic_code)
     if not theme:
-        await query.edit_message_text(ERROR_INVALID_THEME)
+        await query.edit_message_text(t(chat_id, 'ui.error_invalid_theme'))
         return
 
     # Set session state
@@ -452,10 +456,11 @@ async def handle_calendar_page(query: Any, data: str, session: SessionState) -> 
 
 async def handle_question_selection(query: Any, data: str, session: SessionState) -> None:
     """Handle question selection from calendar."""
+    chat_id = query.message.chat.id
     # Parse: q:{topic}:{level_or_0}:{index}
     parts = data.split(":")
     if len(parts) != 4:
-        await query.edit_message_text(ERROR_UNKNOWN_CALLBACK)
+        await query.edit_message_text(t(chat_id, 'ui.error_unknown_callback'))
         return
 
     topic_code = parts[1]
@@ -472,7 +477,7 @@ async def handle_question_selection(query: Any, data: str, session: SessionState
 
     theme = topic_to_theme.get(topic_code)
     if not theme:
-        await query.edit_message_text(ERROR_INVALID_THEME)
+        await query.edit_message_text(t(chat_id, 'ui.error_invalid_theme'))
         return
 
     # Set session state
@@ -532,10 +537,11 @@ async def handle_question_selection(query: Any, data: str, session: SessionState
 
 async def handle_question_navigation(query: Any, data: str, session: SessionState) -> None:
     """Handle navigation between questions."""
+    chat_id = query.message.chat.id
     # Parse: nav:{topic}:{level_or_0}:{index}
     parts = data.split(":")
     if len(parts) != 4:
-        await query.edit_message_text(ERROR_UNKNOWN_CALLBACK)
+        await query.edit_message_text(t(chat_id, 'ui.error_unknown_callback'))
         return
 
     topic_code = parts[1]
@@ -552,7 +558,7 @@ async def handle_question_navigation(query: Any, data: str, session: SessionStat
 
     theme = topic_to_theme.get(topic_code)
     if not theme:
-        await query.edit_message_text(ERROR_INVALID_THEME)
+        await query.edit_message_text(t(chat_id, 'ui.error_invalid_theme'))
         return
 
     # Set session state
@@ -612,10 +618,11 @@ async def handle_question_navigation(query: Any, data: str, session: SessionStat
 
 async def handle_toggle_content(query: Any, data: str, session: SessionState) -> None:
     """Handle toggling between questions and tasks (Sex only)."""
+    chat_id = query.message.chat.id
     # Parse: toggle:sex:{category}:{page}
     parts = data.split(":")
     if len(parts) != 4:
-        await query.edit_message_text(ERROR_UNKNOWN_CALLBACK)
+        await query.edit_message_text(t(chat_id, 'ui.error_unknown_callback'))
         return
 
     topic_code = parts[1]  # Should be "sex"
@@ -623,7 +630,7 @@ async def handle_toggle_content(query: Any, data: str, session: SessionState) ->
     page = int(parts[3])
 
     if topic_code != "sex":
-        await query.edit_message_text(ERROR_UNKNOWN_CALLBACK)
+        await query.edit_message_text(t(chat_id, 'ui.error_unknown_callback'))
         return
 
     # Set session state
@@ -640,10 +647,11 @@ async def handle_toggle_content(query: Any, data: str, session: SessionState) ->
 
 async def handle_back_navigation(query: Any, data: str, session: SessionState) -> None:
     """Handle back navigation."""
+    chat_id = query.message.chat.id
     # Parse: back:{where}
     parts = data.split(":")
     if len(parts) != 2:
-        await query.edit_message_text(ERROR_UNKNOWN_CALLBACK)
+        await query.edit_message_text(t(chat_id, 'ui.error_unknown_callback'))
         return
 
     where = parts[1]
@@ -678,15 +686,16 @@ async def handle_back_navigation(query: Any, data: str, session: SessionState) -
             # For other themes, show questions calendar
             await show_calendar(query, session, current_page, ContentType.QUESTIONS)
     else:
-        await query.edit_message_text(ERROR_UNKNOWN_CALLBACK)
+        await query.edit_message_text(t(chat_id, 'ui.error_unknown_callback'))
 
 
 async def handle_nsfw_confirmation(query: Any, session: SessionState) -> None:
     """Handle NSFW content confirmation."""
+    chat_id = query.message.chat.id
     session.is_nsfw_confirmed = True
 
     if not session.theme:
-        await query.edit_message_text(ERROR_NO_THEME)
+        await query.edit_message_text(t(chat_id, 'ui.error_no_theme'))
         return
 
     # For Sex theme, show calendar immediately
