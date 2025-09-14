@@ -401,15 +401,25 @@ async def handle_question_selection(query: Any, data: str, session: SessionState
     try:
         # Get background path
         bg_path = get_background_path(topic_code, level_or_0, "q" if content_type == ContentType.QUESTIONS else "t")
+        logger.info(f"Rendering card with background: {bg_path}")
 
         # Render card image
         image_data = render_card(question, bg_path)
+        logger.info(f"Card rendered successfully, size: {len(image_data.getvalue())} bytes")
 
-        # Send photo with navigation
-        await query.edit_message_media(
-            media=InputMediaPhoto(media=image_data),
-            reply_markup=keyboard
-        )
+        # Try to edit message to photo, fallback to new message if that fails
+        try:
+            await query.edit_message_media(
+                media=InputMediaPhoto(media=image_data),
+                reply_markup=keyboard
+            )
+        except Exception as edit_error:
+            logger.warning(f"Could not edit message to photo: {edit_error}, sending new message")
+            # Fallback: send new photo message
+            await query.message.reply_photo(
+                photo=image_data,
+                reply_markup=keyboard
+            )
     except Exception as e:
         logger.error(f"Error rendering card image: {e}")
         # Fallback to text message
@@ -470,15 +480,25 @@ async def handle_question_navigation(query: Any, data: str, session: SessionStat
     try:
         # Get background path
         bg_path = get_background_path(topic_code, level_or_0, "q" if content_type == ContentType.QUESTIONS else "t")
+        logger.info(f"Rendering card with background: {bg_path}")
 
         # Render card image
         image_data = render_card(question, bg_path)
+        logger.info(f"Card rendered successfully, size: {len(image_data.getvalue())} bytes")
 
-        # Send photo with navigation
-        await query.edit_message_media(
-            media=InputMediaPhoto(media=image_data),
-            reply_markup=keyboard
-        )
+        # Try to edit message to photo, fallback to new message if that fails
+        try:
+            await query.edit_message_media(
+                media=InputMediaPhoto(media=image_data),
+                reply_markup=keyboard
+            )
+        except Exception as edit_error:
+            logger.warning(f"Could not edit message to photo: {edit_error}, sending new message")
+            # Fallback: send new photo message
+            await query.message.reply_photo(
+                photo=image_data,
+                reply_markup=keyboard
+            )
     except Exception as e:
         logger.error(f"Error rendering card image: {e}")
         # Fallback to text message
