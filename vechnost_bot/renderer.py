@@ -17,8 +17,8 @@ PADDING = 20
 TEXT_MARGIN = 0.9  # 90% of image width for larger text
 LINE_SPACING = 1.25
 JPEG_QUALITY = 90
-DEFAULT_FONT_SIZE = 2000
-MIN_FONT_SIZE = 400
+DEFAULT_FONT_SIZE = 100
+MIN_FONT_SIZE = 20
 
 # Font path
 FONT_PATH = Path(__file__).parent.parent / "assets" / "fonts" / "DejaVuSans.ttf"
@@ -199,7 +199,7 @@ def render_card(text: str, bg_path: str, footer: Optional[str] = None) -> BytesI
 
             # Draw text with strong shadow for better readability without background
             draw.text((x + 4, y + 4), line, font=font, fill=(0, 0, 0, 255))  # Strong shadow
-            draw.text((x, y), line, font=font, fill=(255, 255, 255, 255))  # Main text
+            draw.text((x, y), line, font=font, fill=(245, 160, 227, 255))  # Main text - #F5A0E3
 
             current_y += int((bbox[3] - bbox[1]) * LINE_SPACING)
 
