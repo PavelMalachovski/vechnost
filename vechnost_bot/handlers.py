@@ -161,10 +161,18 @@ async def show_theme_selection(query: Any) -> None:
     """Show theme selection menu."""
     welcome_text = WELCOME_PROMPT
 
-    await query.edit_message_text(
-        welcome_text,
-        reply_markup=get_theme_keyboard()
-    )
+    # Handle both text and photo messages
+    try:
+        await query.edit_message_text(
+            welcome_text,
+            reply_markup=get_theme_keyboard()
+        )
+    except Exception as edit_error:
+        logger.warning(f"Could not edit message text: {edit_error}, sending new message")
+        await query.message.reply_text(
+            welcome_text,
+            reply_markup=get_theme_keyboard()
+        )
 
 
 async def handle_theme_selection(query: Any, data: str, session: SessionState) -> None:
@@ -226,10 +234,18 @@ async def show_level_selection(query: Any, theme: Theme, available_levels: list[
     theme_name = theme_names.get(theme, theme.value)
     level_text = f"{emoji} {theme_name}\n\n{LEVEL_PROMPT}"
 
-    await query.edit_message_text(
-        level_text,
-        reply_markup=get_level_keyboard(theme, available_levels)
-    )
+    # Handle both text and photo messages
+    try:
+        await query.edit_message_text(
+            level_text,
+            reply_markup=get_level_keyboard(theme, available_levels)
+        )
+    except Exception as edit_error:
+        logger.warning(f"Could not edit message text: {edit_error}, sending new message")
+        await query.message.reply_text(
+            level_text,
+            reply_markup=get_level_keyboard(theme, available_levels)
+        )
 
 
 async def handle_level_selection(query: Any, data: str, session: SessionState) -> None:
@@ -305,7 +321,12 @@ async def show_calendar(query: Any, session: SessionState, page: int, content_ty
         topic_code, level_or_0, category, page, items, total_pages, show_toggle
     )
 
-    await query.edit_message_text(header, reply_markup=keyboard)
+    # Handle both text and photo messages
+    try:
+        await query.edit_message_text(header, reply_markup=keyboard)
+    except Exception as edit_error:
+        logger.warning(f"Could not edit message text: {edit_error}, sending new message")
+        await query.message.reply_text(header, reply_markup=keyboard)
 
 
 async def show_sex_calendar(query: Any, session: SessionState, page: int, content_type: ContentType) -> None:
@@ -545,6 +566,7 @@ async def handle_back_navigation(query: Any, data: str, session: SessionState) -
         return
 
     where = parts[1]
+    logger.info(f"Back navigation to: {where}, theme: {session.theme}, level: {session.level}")
 
     if where == "themes":
         await show_theme_selection(query)
@@ -568,7 +590,7 @@ async def handle_back_navigation(query: Any, data: str, session: SessionState) -
 
         if session.theme == Theme.SEX:
             # For Sex, show the current content type
-            content_type = session.content_type if hasattr(session, 'content_type') else ContentType.QUESTIONS
+            content_type = session.content_type
             await show_sex_calendar(query, session, current_page, content_type)
         else:
             # For other themes, show questions calendar

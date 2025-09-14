@@ -17,8 +17,8 @@ PADDING = 60
 TEXT_MARGIN = 0.75  # 75% of image width for better readability
 LINE_SPACING = 1.25
 JPEG_QUALITY = 90
-DEFAULT_FONT_SIZE = 72
-MIN_FONT_SIZE = 36
+DEFAULT_FONT_SIZE = 720
+MIN_FONT_SIZE = 360
 
 # Font path
 FONT_PATH = Path(__file__).parent.parent / "assets" / "fonts" / "DejaVuSans.ttf"
@@ -165,24 +165,7 @@ def render_card(text: str, bg_path: str, footer: Optional[str] = None) -> BytesI
         _, total_text_height = _calculate_text_dimensions(lines, font)
         start_y = (CARD_HEIGHT - total_text_height) // 2
 
-        # Add semi-transparent overlay for better text readability
-        overlay = Image.new('RGBA', (CARD_WIDTH, CARD_HEIGHT), (0, 0, 0, 0))
-        overlay_draw = ImageDraw.Draw(overlay)
-
-        # Draw semi-transparent rectangle behind text area
-        text_rect_width = text_area_width + 40  # Extra padding
-        text_rect_height = total_text_height + 40
-        text_rect_x = (CARD_WIDTH - text_rect_width) // 2
-        text_rect_y = start_y - 20
-
-        overlay_draw.rectangle(
-            [text_rect_x, text_rect_y, text_rect_x + text_rect_width, text_rect_y + text_rect_height],
-            fill=(0, 0, 0, 120)  # More opaque black for better contrast
-        )
-
-        # Composite overlay onto card
-        card = Image.alpha_composite(card.convert('RGBA'), overlay).convert('RGB')
-        draw = ImageDraw.Draw(card)
+        # No background overlay - text will be rendered directly on the card
 
         # Draw text lines
         current_y = start_y
@@ -192,8 +175,8 @@ def render_card(text: str, bg_path: str, footer: Optional[str] = None) -> BytesI
             x = (CARD_WIDTH - line_width) // 2  # Center horizontally
             y = current_y
 
-            # Draw text with slight shadow for better readability
-            draw.text((x + 2, y + 2), line, font=font, fill=(0, 0, 0, 128))  # Shadow
+            # Draw text with strong shadow for better readability without background
+            draw.text((x + 4, y + 4), line, font=font, fill=(0, 0, 0, 255))  # Strong shadow
             draw.text((x, y), line, font=font, fill=(255, 255, 255, 255))  # Main text
 
             current_y += int((bbox[3] - bbox[1]) * LINE_SPACING)
