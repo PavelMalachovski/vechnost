@@ -96,13 +96,16 @@ def validate_session(session: SessionState, game_data: GameData) -> bool:
     if session.theme not in game_data.themes:
         return False
 
-    # Check if levels exist for theme
-    if "levels" not in game_data.themes[session.theme]:
-        return False
-
-    # Check if level exists for theme
-    if session.level not in game_data.themes[session.theme]["levels"]:
-        return False
+    # For themes without levels (Sex, Provocation), level 1 is always valid
+    if not game_data._has_levels_structure(session.theme):
+        if session.level != 1:
+            return False
+    else:
+        # For themes with levels (Acquaintance, For Couples)
+        if "levels" not in game_data.themes[session.theme]:
+            return False
+        if session.level not in game_data.themes[session.theme]["levels"]:
+            return False
 
     # Check if content type is available
     available_types = game_data.get_available_content_types(session.theme, session.level)

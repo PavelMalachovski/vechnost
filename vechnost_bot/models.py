@@ -42,16 +42,27 @@ class SessionState(BaseModel):
 class GameData(BaseModel):
     """Structure for loaded game data."""
 
-    themes: dict[Theme, dict[str, dict[int, dict[str, list[str]]]]] = Field(default_factory=dict)
+    themes: dict[Theme, dict] = Field(default_factory=dict)
 
     def get_available_themes(self) -> list[Theme]:
         """Get list of available themes."""
         return list(self.themes.keys())
 
+    def _has_levels_structure(self, theme: Theme) -> bool:
+        """Check if theme uses the levels structure."""
+        if theme not in self.themes:
+            return False
+        return "levels" in self.themes[theme]
+
     def get_available_levels(self, theme: Theme) -> list[int]:
         """Get available levels for a theme."""
         if theme not in self.themes:
             return []
+
+        # For themes without levels (Sex, Provocation), return [1] as default
+        if not self._has_levels_structure(theme):
+            return [1]
+
         if "levels" not in self.themes[theme]:
             return []
         return sorted(self.themes[theme]["levels"].keys())
@@ -60,6 +71,12 @@ class GameData(BaseModel):
         """Get content for a specific theme, level, and type."""
         if theme not in self.themes:
             return []
+
+        # For themes without levels (Sex, Provocation), get content directly
+        if not self._has_levels_structure(theme):
+            return self.themes[theme].get(content_type.value, [])
+
+        # For themes with levels (Acquaintance, For Couples)
         if "levels" not in self.themes[theme]:
             return []
         if level not in self.themes[theme]["levels"]:
@@ -70,12 +87,23 @@ class GameData(BaseModel):
         """Get available content types for a theme and level."""
         if theme not in self.themes:
             return []
+
+        available = []
+
+        # For themes without levels (Sex, Provocation), check theme directly
+        if not self._has_levels_structure(theme):
+            if "questions" in self.themes[theme]:
+                available.append(ContentType.QUESTIONS)
+            if "tasks" in self.themes[theme]:
+                available.append(ContentType.TASKS)
+            return available
+
+        # For themes with levels (Acquaintance, For Couples)
         if "levels" not in self.themes[theme]:
             return []
         if level not in self.themes[theme]["levels"]:
             return []
 
-        available = []
         level_data = self.themes[theme]["levels"][level]
         if "questions" in level_data:
             available.append(ContentType.QUESTIONS)

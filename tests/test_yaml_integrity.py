@@ -75,20 +75,17 @@ class TestYAMLIntegrity:
         assert theme in game_data.themes
         theme_data = game_data.themes[theme]
 
-        # Should have levels key
-        assert "levels" in theme_data
+        # Sex theme should NOT have levels key (direct structure)
+        assert "levels" not in theme_data
 
-        # Should have 1 level
-        assert 1 in theme_data["levels"]
+        # Should have questions and tasks directly
+        assert "questions" in theme_data
+        assert "tasks" in theme_data
 
-        level_data = theme_data["levels"][1]
-        assert "questions" in level_data
-        assert "tasks" in level_data
-
-        assert isinstance(level_data["questions"], list)
-        assert isinstance(level_data["tasks"], list)
-        assert len(level_data["questions"]) > 0
-        assert len(level_data["tasks"]) > 0
+        assert isinstance(theme_data["questions"], list)
+        assert isinstance(theme_data["tasks"], list)
+        assert len(theme_data["questions"]) > 0
+        assert len(theme_data["tasks"]) > 0
 
     def test_provocation_theme_structure(self):
         """Test Provocation theme structure."""
@@ -98,16 +95,13 @@ class TestYAMLIntegrity:
         assert theme in game_data.themes
         theme_data = game_data.themes[theme]
 
-        # Should have levels key
-        assert "levels" in theme_data
+        # Provocation theme should NOT have levels key (direct structure)
+        assert "levels" not in theme_data
 
-        # Should have 1 level
-        assert 1 in theme_data["levels"]
-
-        level_data = theme_data["levels"][1]
-        assert "questions" in level_data
-        assert isinstance(level_data["questions"], list)
-        assert len(level_data["questions"]) > 0
+        # Should have questions directly
+        assert "questions" in theme_data
+        assert isinstance(theme_data["questions"], list)
+        assert len(theme_data["questions"]) > 0
 
     def test_no_empty_strings_in_content(self):
         """Test that no content contains empty strings."""
