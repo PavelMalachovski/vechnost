@@ -169,7 +169,7 @@ async def handle_theme_selection(query: Any, data: str) -> None:
         await query.edit_message_text("❌ Invalid theme selected.")
         return
 
-    chat_id = query.effective_chat.id
+    chat_id = query.message.chat.id
     session = get_session(chat_id)
     session.theme = theme
 
