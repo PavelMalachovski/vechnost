@@ -1,0 +1,112 @@
+themes:
+  Acquaintance:
+    levels:
+      1:
+        questions:
+          - "What is your most significant memory in life? Why?"
+          - "What are you most grateful for today?"
+          - "What is your biggest dream?"
+          - "What makes you feel most alive?"
+          - "What is your greatest fear?"
+          - "What do you value most in relationships?"
+          - "What is your favorite way to spend time alone?"
+          - "What is something you've always wanted to learn?"
+          - "What is your most cherished possession?"
+          - "What is your ideal way to relax?"
+      2:
+        questions:
+          - "What is your most significant memory in life? Why?"
+          - "What are you most grateful for today?"
+          - "What is your biggest dream?"
+          - "What makes you feel most alive?"
+          - "What is your greatest fear?"
+          - "What do you value most in relationships?"
+          - "What is your favorite way to spend time alone?"
+          - "What is something you've always wanted to learn?"
+          - "What is your most cherished possession?"
+          - "What is your ideal way to relax?"
+      3:
+        questions:
+          - "What is your most significant memory in life? Why?"
+          - "What are you most grateful for today?"
+          - "What is your biggest dream?"
+          - "What makes you feel most alive?"
+          - "What is your greatest fear?"
+          - "What do you value most in relationships?"
+          - "What is your favorite way to spend time alone?"
+          - "What is something you've always wanted to learn?"
+          - "What is your most cherished possession?"
+          - "What is your ideal way to relax?"
+  For Couples:
+    levels:
+      1:
+        questions:
+          - "What is your most significant memory in life? Why?"
+          - "What are you most grateful for today?"
+          - "What is your biggest dream?"
+          - "What makes you feel most alive?"
+          - "What is your greatest fear?"
+          - "What do you value most in relationships?"
+          - "What is your favorite way to spend time alone?"
+          - "What is something you've always wanted to learn?"
+          - "What is your most cherished possession?"
+          - "What is your ideal way to relax?"
+      2:
+        questions:
+          - "What is your most significant memory in life? Why?"
+          - "What are you most grateful for today?"
+          - "What is your biggest dream?"
+          - "What makes you feel most alive?"
+          - "What is your greatest fear?"
+          - "What do you value most in relationships?"
+          - "What is your favorite way to spend time alone?"
+          - "What is something you've always wanted to learn?"
+          - "What is your most cherished possession?"
+          - "What is your ideal way to relax?"
+      3:
+        questions:
+          - "What is your most significant memory in life? Why?"
+          - "What are you most grateful for today?"
+          - "What is your biggest dream?"
+          - "What makes you feel most alive?"
+          - "What is your greatest fear?"
+          - "What do you value most in relationships?"
+          - "What is your favorite way to spend time alone?"
+          - "What is something you've always wanted to learn?"
+          - "What is your most cherished possession?"
+          - "What is your ideal way to relax?"
+  Sex:
+    questions:
+      - "What is your most significant memory in life? Why?"
+      - "What are you most grateful for today?"
+      - "What is your biggest dream?"
+      - "What makes you feel most alive?"
+      - "What is your greatest fear?"
+      - "What do you value most in relationships?"
+      - "What is your favorite way to spend time alone?"
+      - "What is something you've always wanted to learn?"
+      - "What is your most cherished possession?"
+      - "What is your ideal way to relax?"
+    tasks:
+      - "Share your most significant memory in life and why it matters to you."
+      - "Express gratitude for something specific today."
+      - "Describe your biggest dream in detail."
+      - "Tell what makes you feel most alive."
+      - "Share your greatest fear and how you cope with it."
+      - "Explain what you value most in relationships."
+      - "Describe your favorite way to spend time alone."
+      - "Share something you've always wanted to learn."
+      - "Tell about your most cherished possession."
+      - "Describe your ideal way to relax."
+  Provocation:
+    questions:
+      - "What is your most significant memory in life? Why?"
+      - "What are you most grateful for today?"
+      - "What is your biggest dream?"
+      - "What makes you feel most alive?"
+      - "What is your greatest fear?"
+      - "What do you value most in relationships?"
+      - "What is your favorite way to spend time alone?"
+      - "What is something you've always wanted to learn?"
+      - "What is your most cherished possession?"
+      - "What is your ideal way to relax?"

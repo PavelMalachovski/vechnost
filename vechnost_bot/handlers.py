@@ -1,39 +1,13 @@
 """Message and callback handlers for the Vechnost bot."""
 
 import logging
+from pathlib import Path
 from typing import Any
 
 from telegram import InputMediaPhoto, Update
 from telegram.ext import ContextTypes
 
-from .i18n import (
-    CALENDAR_HEADER,
-    CALENDAR_SEX_QUESTIONS,
-    CALENDAR_SEX_TASKS,
-    ERROR_INVALID_THEME,
-    ERROR_NO_THEME,
-    ERROR_UNKNOWN_CALLBACK,
-    HELP_COMMANDS,
-    HELP_HOW_TO_PLAY,
-    HELP_THEMES,
-    HELP_TITLE,
-    LEVEL_PROMPT,
-    NSFW_ACCESS_DENIED,
-    NSFW_WARNING_TEXT,
-    NSFW_WARNING_TITLE,
-    QUESTION_HEADER,
-    RESET_CANCELLED,
-    RESET_COMPLETED,
-    RESET_CONFIRM_TEXT,
-    RESET_TITLE,
-    TOPIC_ACQUAINTANCE,
-    TOPIC_FOR_COUPLES,
-    TOPIC_PROVOCATION,
-    TOPIC_SEX,
-    WELCOME_PROMPT,
-    WELCOME_SUBTITLE,
-    WELCOME_TITLE,
-)
+from .i18n import t, get_content, detect_language_from_code, set_lang
 from .keyboards import (
     get_calendar_keyboard,
     get_level_keyboard,
@@ -43,14 +17,19 @@ from .keyboards import (
     get_theme_keyboard,
 )
 from .logic import load_game_data
-from .models import ContentType, SessionState, Theme
+from .models import ContentType, GameData, SessionState, Theme
 from .renderer import get_background_path, render_card
 from .storage import get_session, reset_session
 
 logger = logging.getLogger(__name__)
 
-# Load game data once at module level
-GAME_DATA = load_game_data()
+# Game data will be loaded per language as needed
+
+def get_game_data(chat_id: int) -> GameData:
+    """Get game data for the user's language."""
+    from .i18n import get_lang
+    lang = get_lang(chat_id)
+    return load_game_data(lang)
 
 
 async def start_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
@@ -58,17 +37,94 @@ async def start_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
     if not update.message:
         return
 
-    logger.info(f"Start command received from chat {update.effective_chat.id}")
+    chat_id = update.effective_chat.id
+    logger.info(f"Start command received from chat {chat_id}")
 
-    welcome_text = f"{WELCOME_TITLE}\n\n{WELCOME_SUBTITLE}\n\n{WELCOME_PROMPT}"
+    # Detect user's language preference
+    user_lang = detect_language_from_code(update.effective_user.language_code)
 
-    keyboard = get_theme_keyboard()
-    logger.info(f"Sending theme keyboard with {len(keyboard.inline_keyboard)} rows")
+    # Show welcome image with language picker
+    welcome_caption = f"{t(chat_id, 'ui.welcome_title')}\n\n{t(chat_id, 'ui.welcome_sub')}\n\n{t(chat_id, 'ui.choose_language')}"
+
+    # Create language selection keyboard
+    from telegram import InlineKeyboardButton, InlineKeyboardMarkup
+    keyboard = InlineKeyboardMarkup([
+        [
+            InlineKeyboardButton("🇷🇺 Русский", callback_data="lang:set:ru"),
+            InlineKeyboardButton("🇬🇧 English", callback_data="lang:set:en"),
+        ],
+        [
+            InlineKeyboardButton("🇨🇿 Čeština", callback_data="lang:set:cs"),
+        ]
+    ])
+
+    # Try to send welcome image, fallback to text if image not available
+    try:
+        welcome_image_path = Path(__file__).parent.parent / "assets" / "welcome.png"
+        if welcome_image_path.exists():
+            await update.message.reply_photo(
+                photo=open(welcome_image_path, 'rb'),
+                caption=welcome_caption,
+                reply_markup=keyboard
+            )
+        else:
+            await update.message.reply_text(
+                welcome_caption,
+                reply_markup=keyboard
+            )
+    except Exception as e:
+        logger.warning(f"Could not send welcome image: {e}")
+        await update.message.reply_text(
+            welcome_caption,
+            reply_markup=keyboard
+        )
+
+
+async def language_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """Handle the /language command."""
+    if not update.message:
+        return
+
+    chat_id = update.effective_chat.id
+    logger.info(f"Language command received from chat {chat_id}")
+
+    # Show language picker
+    welcome_caption = f"{t(chat_id, 'ui.choose_language')}"
+
+    # Create language selection keyboard
+    from telegram import InlineKeyboardButton, InlineKeyboardMarkup
+    keyboard = InlineKeyboardMarkup([
+        [
+            InlineKeyboardButton("🇷🇺 Русский", callback_data="lang:set:ru"),
+            InlineKeyboardButton("🇬🇧 English", callback_data="lang:set:en"),
+        ],
+        [
+            InlineKeyboardButton("🇨🇿 Čeština", callback_data="lang:set:cs"),
+        ]
+    ])
 
     await update.message.reply_text(
-        welcome_text,
+        welcome_caption,
         reply_markup=keyboard
     )
+
+
+async def handle_language_selection(query: Any, data: str) -> None:
+    """Handle language selection callback."""
+    # Parse: lang:set:{lang}
+    parts = data.split(":")
+    if len(parts) != 3:
+        await query.edit_message_text(t(query.message.chat.id, 'ui.error_generic'))
+        return
+
+    lang = parts[2]
+    chat_id = query.message.chat.id
+
+    # Set user language
+    set_lang(chat_id, lang)
+
+    # Show topic selection with localized text
+    await show_theme_selection(query)
 
 
 async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
@@ -76,7 +132,8 @@ async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
     if not update.message:
         return
 
-    help_text = f"{HELP_TITLE}\n\n{HELP_THEMES}{HELP_HOW_TO_PLAY}{HELP_COMMANDS}"
+    chat_id = update.effective_chat.id
+    help_text = t(chat_id, 'ui.help_text')
 
     await update.message.reply_text(help_text)
 
@@ -117,7 +174,9 @@ async def handle_callback_query(update: Update, context: ContextTypes.DEFAULT_TY
         return
 
     try:
-        if data == "back:themes":
+        if data.startswith("lang:set:"):
+            await handle_language_selection(query, data)
+        elif data == "back:themes":
             await show_theme_selection(query)
         elif data.startswith("theme_"):
             await handle_theme_selection(query, data, session)
@@ -159,13 +218,14 @@ async def handle_callback_query(update: Update, context: ContextTypes.DEFAULT_TY
 
 async def show_theme_selection(query: Any) -> None:
     """Show theme selection menu."""
-    welcome_text = WELCOME_PROMPT
+    chat_id = query.message.chat.id
+    welcome_text = t(chat_id, 'ui.topics_title')
 
     # Handle both text and photo messages
     try:
         await query.edit_message_text(
             welcome_text,
-            reply_markup=get_theme_keyboard()
+            reply_markup=get_theme_keyboard(chat_id)
         )
     except Exception as edit_error:
         logger.warning(f"Could not edit message text: {edit_error}, deleting and sending new message")
@@ -176,7 +236,7 @@ async def show_theme_selection(query: Any) -> None:
             logger.warning(f"Could not delete message: {delete_error}")
         await query.message.reply_text(
             welcome_text,
-            reply_markup=get_theme_keyboard()
+            reply_markup=get_theme_keyboard(chat_id)
         )
 
 
@@ -192,12 +252,13 @@ async def handle_theme_selection(query: Any, data: str, session: SessionState) -
     session.theme = theme
 
     # Check if NSFW confirmation is needed
-    if GAME_DATA.has_nsfw_content(theme) and not session.is_nsfw_confirmed:
-        nsfw_text = f"{NSFW_WARNING_TITLE}\n\n{NSFW_WARNING_TEXT}"
+    game_data = get_game_data(chat_id)
+    if game_data.has_nsfw_content(theme) and not session.is_nsfw_confirmed:
+        nsfw_text = f"{t(chat_id, 'ui.nsfw_warning')}"
 
         await query.edit_message_text(
             nsfw_text,
-            reply_markup=get_nsfw_confirmation_keyboard()
+            reply_markup=get_nsfw_confirmation_keyboard(chat_id)
         )
         return
 
@@ -212,7 +273,7 @@ async def handle_theme_selection(query: Any, data: str, session: SessionState) -
         await show_calendar(query, session, 0, ContentType.QUESTIONS)
     else:
         # Acquaintance, For Couples: Show level selection
-        available_levels = GAME_DATA.get_available_levels(theme)
+        available_levels = game_data.get_available_levels(theme)
         if not available_levels:
             await query.edit_message_text("❌ Уровни недоступны для этой темы.")
             return
@@ -221,11 +282,13 @@ async def handle_theme_selection(query: Any, data: str, session: SessionState) -
 
 async def show_level_selection(query: Any, theme: Theme, available_levels: list[int]) -> None:
     """Show level selection menu."""
+    chat_id = query.message.chat.id
+
     theme_names = {
-        Theme.ACQUAINTANCE: TOPIC_ACQUAINTANCE,
-        Theme.FOR_COUPLES: TOPIC_FOR_COUPLES,
-        Theme.SEX: TOPIC_SEX,
-        Theme.PROVOCATION: TOPIC_PROVOCATION,
+        Theme.ACQUAINTANCE: t(chat_id, 'ui.topic_acq'),
+        Theme.FOR_COUPLES: t(chat_id, 'ui.topic_couples'),
+        Theme.SEX: t(chat_id, 'ui.topic_sex'),
+        Theme.PROVOCATION: t(chat_id, 'ui.topic_prov'),
     }
 
     theme_emojis = {
@@ -237,13 +300,13 @@ async def show_level_selection(query: Any, theme: Theme, available_levels: list[
 
     emoji = theme_emojis.get(theme, "🎴")
     theme_name = theme_names.get(theme, theme.value)
-    level_text = f"{emoji} {theme_name}\n\n{LEVEL_PROMPT}"
+    level_text = f"{emoji} {theme_name}\n\n{t(chat_id, 'ui.choose_level')}"
 
     # Handle both text and photo messages
     try:
         await query.edit_message_text(
             level_text,
-            reply_markup=get_level_keyboard(theme, available_levels)
+            reply_markup=get_level_keyboard(theme, available_levels, chat_id)
         )
     except Exception as edit_error:
         logger.warning(f"Could not edit message text: {edit_error}, deleting and sending new message")
@@ -254,7 +317,7 @@ async def show_level_selection(query: Any, theme: Theme, available_levels: list[
             logger.warning(f"Could not delete message: {delete_error}")
         await query.message.reply_text(
             level_text,
-            reply_markup=get_level_keyboard(theme, available_levels)
+            reply_markup=get_level_keyboard(theme, available_levels, chat_id)
         )
 
 
@@ -294,7 +357,8 @@ async def show_calendar(query: Any, session: SessionState, page: int, content_ty
     category = "q" if content_type == ContentType.QUESTIONS else "t"
 
     # Get items
-    items = GAME_DATA.get_content(session.theme, session.level, content_type)
+    game_data = get_game_data(chat_id)
+    items = game_data.get_content(session.theme, session.level, content_type)
     if not items:
         await query.edit_message_text("❌ Контент недоступен.")
         return
@@ -419,7 +483,8 @@ async def handle_question_selection(query: Any, data: str, session: SessionState
     content_type = session.content_type
 
     # Get items
-    items = GAME_DATA.get_content(theme, session.level, content_type)
+    game_data = get_game_data(chat_id)
+    items = game_data.get_content(theme, session.level, content_type)
     if not items or index >= len(items):
         await query.edit_message_text("❌ Вопрос недоступен.")
         return
@@ -498,7 +563,8 @@ async def handle_question_navigation(query: Any, data: str, session: SessionStat
     content_type = session.content_type
 
     # Get items
-    items = GAME_DATA.get_content(theme, session.level, content_type)
+    game_data = get_game_data(chat_id)
+    items = game_data.get_content(theme, session.level, content_type)
     if not items or index >= len(items):
         await query.edit_message_text("❌ Вопрос недоступен.")
         return
@@ -589,7 +655,8 @@ async def handle_back_navigation(query: Any, data: str, session: SessionState) -
         if not session.theme:
             await show_theme_selection(query)
             return
-        available_levels = GAME_DATA.get_available_levels(session.theme)
+        game_data = get_game_data(chat_id)
+        available_levels = game_data.get_available_levels(session.theme)
         if available_levels:
             await show_level_selection(query, session.theme, available_levels)
         else:
@@ -628,7 +695,8 @@ async def handle_nsfw_confirmation(query: Any, session: SessionState) -> None:
         await show_sex_calendar(query, session, 0, ContentType.QUESTIONS)
     else:
         # For other themes, show level selection
-        available_levels = GAME_DATA.get_available_levels(session.theme)
+        game_data = get_game_data(chat_id)
+        available_levels = game_data.get_available_levels(session.theme)
         if available_levels:
             await show_level_selection(query, session.theme, available_levels)
         else:

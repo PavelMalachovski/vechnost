@@ -2,54 +2,35 @@
 
 from telegram import InlineKeyboardButton, InlineKeyboardMarkup
 
-from .i18n import (
-    BACK,
-    BACK_TO_LEVELS,
-    BACK_TO_THEMES,
-    CALENDAR_SEX_QUESTIONS,
-    CALENDAR_SEX_TASKS,
-    LEVEL_1,
-    LEVEL_2,
-    LEVEL_3,
-    NEXT_PAGE,
-    NEXT_QUESTION,
-    PAGE_FORMAT,
-    PREV_PAGE,
-    PREV_QUESTION,
-    SEX_TOGGLE,
-    TOPIC_ACQUAINTANCE,
-    TOPIC_FOR_COUPLES,
-    TOPIC_PROVOCATION,
-    TOPIC_SEX,
-)
+from .i18n import t
 from .models import ContentType, Theme
 
 
-def get_theme_keyboard() -> InlineKeyboardMarkup:
+def get_theme_keyboard(chat_id: int) -> InlineKeyboardMarkup:
     """Get keyboard for theme selection."""
     keyboard = [
-        [InlineKeyboardButton(f"🤝 {TOPIC_ACQUAINTANCE}", callback_data="theme_Acquaintance")],
-        [InlineKeyboardButton(f"💕 {TOPIC_FOR_COUPLES}", callback_data="theme_For Couples")],
-        [InlineKeyboardButton(f"🔥 {TOPIC_SEX}", callback_data="theme_Sex")],
-        [InlineKeyboardButton(f"⚡ {TOPIC_PROVOCATION}", callback_data="theme_Provocation")],
+        [InlineKeyboardButton(f"🤝 {t(chat_id, 'ui.topic_acq')}", callback_data="theme_Acquaintance")],
+        [InlineKeyboardButton(f"💕 {t(chat_id, 'ui.topic_couples')}", callback_data="theme_For Couples")],
+        [InlineKeyboardButton(f"🔥 {t(chat_id, 'ui.topic_sex')}", callback_data="theme_Sex")],
+        [InlineKeyboardButton(f"⚡ {t(chat_id, 'ui.topic_prov')}", callback_data="theme_Provocation")],
     ]
     return InlineKeyboardMarkup(keyboard)
 
 
-def get_level_keyboard(theme: Theme, available_levels: list[int]) -> InlineKeyboardMarkup:
+def get_level_keyboard(theme: Theme, available_levels: list[int], chat_id: int) -> InlineKeyboardMarkup:
     """Get keyboard for level selection."""
     keyboard = []
 
-    level_texts = {1: LEVEL_1, 2: LEVEL_2, 3: LEVEL_3}
+    level_texts = {1: t(chat_id, 'ui.level_1'), 2: t(chat_id, 'ui.level_2'), 3: t(chat_id, 'ui.level_3')}
 
     for level in available_levels:
-        button_text = level_texts.get(level, f"Уровень {level}")
+        button_text = level_texts.get(level, f"{t(chat_id, 'ui.level_1')} {level}")
         if theme == Theme.SEX:
             button_text = f"🔥 {button_text}"
         keyboard.append([InlineKeyboardButton(button_text, callback_data=f"level_{level}")])
 
     # Add back button
-    keyboard.append([InlineKeyboardButton(f"← {BACK_TO_THEMES}", callback_data="back:themes")])
+    keyboard.append([InlineKeyboardButton(f"← {t(chat_id, 'ui.back_topics')}", callback_data="back:themes")])
 
     return InlineKeyboardMarkup(keyboard)
 
@@ -192,16 +173,14 @@ def get_question_keyboard(
     return InlineKeyboardMarkup(keyboard)
 
 
-def get_nsfw_confirmation_keyboard() -> InlineKeyboardMarkup:
+def get_nsfw_confirmation_keyboard(chat_id: int) -> InlineKeyboardMarkup:
     """Get keyboard for NSFW content confirmation."""
-    from .i18n import NSFW_CONFIRM, NSFW_DENY
-
     keyboard = [
         [
-            InlineKeyboardButton(NSFW_CONFIRM, callback_data="nsfw_confirm"),
-            InlineKeyboardButton(NSFW_DENY, callback_data="nsfw_deny"),
+            InlineKeyboardButton(t(chat_id, 'ui.nsfw_confirm'), callback_data="nsfw_confirm"),
+            InlineKeyboardButton(t(chat_id, 'ui.nsfw_deny'), callback_data="nsfw_deny"),
         ],
-        [InlineKeyboardButton(f"← {BACK_TO_THEMES}", callback_data="back:themes")],
+        [InlineKeyboardButton(f"← {t(chat_id, 'ui.back_topics')}", callback_data="back:themes")],
     ]
     return InlineKeyboardMarkup(keyboard)
 

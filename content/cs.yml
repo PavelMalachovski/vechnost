@@ -1,0 +1,112 @@
+themes:
+  Acquaintance:
+    levels:
+      1:
+        questions:
+          - "Jaká je vaše nejvýznamnější vzpomínka v životě? Proč?"
+          - "Za co jste dnes nejvíce vděční?"
+          - "Jaký je váš největší sen?"
+          - "Co vás činí nejvíce živými?"
+          - "Jaký je váš největší strach?"
+          - "Co si nejvíce ceníte ve vztazích?"
+          - "Jaký je váš oblíbený způsob trávení času o samotě?"
+          - "Co jste se vždy chtěli naučit?"
+          - "Co je vaše nejcennější vlastnictví?"
+          - "Jaký je váš ideální způsob relaxace?"
+      2:
+        questions:
+          - "Jaká je vaše nejvýznamnější vzpomínka v životě? Proč?"
+          - "Za co jste dnes nejvíce vděční?"
+          - "Jaký je váš největší sen?"
+          - "Co vás činí nejvíce živými?"
+          - "Jaký je váš největší strach?"
+          - "Co si nejvíce ceníte ve vztazích?"
+          - "Jaký je váš oblíbený způsob trávení času o samotě?"
+          - "Co jste se vždy chtěli naučit?"
+          - "Co je vaše nejcennější vlastnictví?"
+          - "Jaký je váš ideální způsob relaxace?"
+      3:
+        questions:
+          - "Jaká je vaše nejvýznamnější vzpomínka v životě? Proč?"
+          - "Za co jste dnes nejvíce vděční?"
+          - "Jaký je váš největší sen?"
+          - "Co vás činí nejvíce živými?"
+          - "Jaký je váš největší strach?"
+          - "Co si nejvíce ceníte ve vztazích?"
+          - "Jaký je váš oblíbený způsob trávení času o samotě?"
+          - "Co jste se vždy chtěli naučit?"
+          - "Co je vaše nejcennější vlastnictví?"
+          - "Jaký je váš ideální způsob relaxace?"
+  For Couples:
+    levels:
+      1:
+        questions:
+          - "Jaká je vaše nejvýznamnější vzpomínka v životě? Proč?"
+          - "Za co jste dnes nejvíce vděční?"
+          - "Jaký je váš největší sen?"
+          - "Co vás činí nejvíce živými?"
+          - "Jaký je váš největší strach?"
+          - "Co si nejvíce ceníte ve vztazích?"
+          - "Jaký je váš oblíbený způsob trávení času o samotě?"
+          - "Co jste se vždy chtěli naučit?"
+          - "Co je vaše nejcennější vlastnictví?"
+          - "Jaký je váš ideální způsob relaxace?"
+      2:
+        questions:
+          - "Jaká je vaše nejvýznamnější vzpomínka v životě? Proč?"
+          - "Za co jste dnes nejvíce vděční?"
+          - "Jaký je váš největší sen?"
+          - "Co vás činí nejvíce živými?"
+          - "Jaký je váš největší strach?"
+          - "Co si nejvíce ceníte ve vztazích?"
+          - "Jaký je váš oblíbený způsob trávení času o samotě?"
+          - "Co jste se vždy chtěli naučit?"
+          - "Co je vaše nejcennější vlastnictví?"
+          - "Jaký je váš ideální způsob relaxace?"
+      3:
+        questions:
+          - "Jaká je vaše nejvýznamnější vzpomínka v životě? Proč?"
+          - "Za co jste dnes nejvíce vděční?"
+          - "Jaký je váš největší sen?"
+          - "Co vás činí nejvíce živými?"
+          - "Jaký je váš největší strach?"
+          - "Co si nejvíce ceníte ve vztazích?"
+          - "Jaký je váš oblíbený způsob trávení času o samotě?"
+          - "Co jste se vždy chtěli naučit?"
+          - "Co je vaše nejcennější vlastnictví?"
+          - "Jaký je váš ideální způsob relaxace?"
+  Sex:
+    questions:
+      - "Jaká je vaše nejvýznamnější vzpomínka v životě? Proč?"
+      - "Za co jste dnes nejvíce vděční?"
+      - "Jaký je váš největší sen?"
+      - "Co vás činí nejvíce živými?"
+      - "Jaký je váš největší strach?"
+      - "Co si nejvíce ceníte ve vztazích?"
+      - "Jaký je váš oblíbený způsob trávení času o samotě?"
+      - "Co jste se vždy chtěli naučit?"
+      - "Co je vaše nejcennější vlastnictví?"
+      - "Jaký je váš ideální způsob relaxace?"
+    tasks:
+      - "Sdílejte svou nejvýznamnější vzpomínku v životě a proč je pro vás důležitá."
+      - "Vyjádřete vděčnost za něco konkrétního dnes."
+      - "Popište svůj největší sen do detailu."
+      - "Řekněte, co vás činí nejvíce živými."
+      - "Sdílejte svůj největší strach a jak se s ním vyrovnáváte."
+      - "Vysvětlete, co si nejvíce ceníte ve vztazích."
+      - "Popište svůj oblíbený způsob trávení času o samotě."
+      - "Sdílejte něco, co jste se vždy chtěli naučit."
+      - "Řekněte o svém nejcennějším vlastnictví."
+      - "Popište svůj ideální způsob relaxace."
+  Provocation:
+    questions:
+      - "Jaká je vaše nejvýznamnější vzpomínka v životě? Proč?"
+      - "Za co jste dnes nejvíce vděční?"
+      - "Jaký je váš největší sen?"
+      - "Co vás činí nejvíce živými?"
+      - "Jaký je váš největší strach?"
+      - "Co si nejvíce ceníte ve vztazích?"
+      - "Jaký je váš oblíbený způsob trávení času o samotě?"
+      - "Co jste se vždy chtěli naučit?"
+      - "Co je vaše nejcennější vlastnictví?"
+      - "Jaký je váš ideální způsob relaxace?"

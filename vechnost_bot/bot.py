@@ -8,6 +8,7 @@ from .config import create_bot, get_log_level
 from .handlers import (
     handle_callback_query,
     help_command,
+    language_command,
     reset_command,
     start_command,
 )
@@ -30,6 +31,7 @@ def create_application() -> Application:
     # Add command handlers
     application.add_handler(CommandHandler("start", start_command))
     application.add_handler(CommandHandler("help", help_command))
+    application.add_handler(CommandHandler("language", language_command))
     application.add_handler(CommandHandler("reset", reset_command))
 
     # Add callback query handler
@@ -37,7 +39,7 @@ def create_application() -> Application:
 
     logger = logging.getLogger(__name__)
     logger.info("Application created with handlers:")
-    logger.info("- Command handlers: start, help, reset")
+    logger.info("- Command handlers: start, help, language, reset")
     logger.info("- Callback query handler: handle_callback_query")
 
     return application

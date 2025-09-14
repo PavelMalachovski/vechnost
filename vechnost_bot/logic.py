@@ -5,16 +5,11 @@ import random
 from .models import GameData, SessionState, Theme
 
 
-def load_game_data() -> GameData:
-    """Load game data from YAML file."""
-    from pathlib import Path
+def load_game_data(lang: str = "ru") -> GameData:
+    """Load game data from YAML file for specific language."""
+    from .i18n import get_content
 
-    import yaml
-
-    yaml_path = Path(__file__).parent.parent / "data" / "questions.yaml"
-
-    with open(yaml_path, encoding="utf-8") as f:
-        data = yaml.safe_load(f)
+    data = get_content(lang)
 
     # Convert string keys to Theme enum
     themes = {}
