@@ -62,7 +62,11 @@ def _load_font(size: int) -> Optional[ImageFont.FreeTypeFont]:
                 "calibri.ttf",
                 "Calibri.ttf",
                 "verdana.ttf",
-                "Verdana.ttf"
+                "Verdana.ttf",
+                "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf",
+                "/usr/share/fonts/truetype/liberation/LiberationSans-Regular.ttf",
+                "/System/Library/Fonts/Arial.ttf",
+                "/System/Library/Fonts/Helvetica.ttc"
             ]
 
             for font_name in system_fonts:
