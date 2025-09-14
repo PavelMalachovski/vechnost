@@ -34,12 +34,15 @@ def draw_card(
     game_data: GameData
 ) -> str | None:
     """Draw a random card that hasn't been drawn yet."""
-    if not session.theme or not session.level:
+    if not session.theme:
         return None
+
+    # For themes without levels, level can be None
+    level = session.level if game_data._has_levels_structure(session.theme) else None
 
     available_content = game_data.get_content(
         session.theme,
-        session.level,
+        level,
         session.content_type
     )
 
@@ -61,12 +64,15 @@ def draw_card(
 
 def get_remaining_cards_count(session: SessionState, game_data: GameData) -> int:
     """Get the number of remaining cards for the current session."""
-    if not session.theme or not session.level:
+    if not session.theme:
         return 0
+
+    # For themes without levels, level can be None
+    level = session.level if game_data._has_levels_structure(session.theme) else None
 
     available_content = game_data.get_content(
         session.theme,
-        session.level,
+        level,
         session.content_type
     )
 
@@ -89,26 +95,29 @@ def is_session_complete(session: SessionState, game_data: GameData) -> bool:
 
 def validate_session(session: SessionState, game_data: GameData) -> bool:
     """Validate that the current session state is valid."""
-    if not session.theme or not session.level:
+    if not session.theme:
         return False
 
     # Check if theme exists
     if session.theme not in game_data.themes:
         return False
 
-    # For themes without levels (Sex, Provocation), level 1 is always valid
+    # For themes without levels (Sex, Provocation), level should be None
     if not game_data._has_levels_structure(session.theme):
-        if session.level != 1:
+        if session.level is not None:
             return False
     else:
         # For themes with levels (Acquaintance, For Couples)
+        if not session.level:
+            return False
         if "levels" not in game_data.themes[session.theme]:
             return False
         if session.level not in game_data.themes[session.theme]["levels"]:
             return False
 
     # Check if content type is available
-    available_types = game_data.get_available_content_types(session.theme, session.level)
+    level = session.level if game_data._has_levels_structure(session.theme) else None
+    available_types = game_data.get_available_content_types(session.theme, level)
     if session.content_type not in available_types:
         return False
 

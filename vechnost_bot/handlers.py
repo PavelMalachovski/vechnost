@@ -173,12 +173,6 @@ async def handle_theme_selection(query: Any, data: str) -> None:
     session = get_session(chat_id)
     session.theme = theme
 
-    available_levels = GAME_DATA.get_available_levels(theme)
-
-    if not available_levels:
-        await query.edit_message_text("❌ No levels available for this theme.")
-        return
-
     # Check if NSFW confirmation is needed
     if GAME_DATA.has_nsfw_content(theme) and not session.is_nsfw_confirmed:
         nsfw_text = (
@@ -192,6 +186,30 @@ async def handle_theme_selection(query: Any, data: str) -> None:
             nsfw_text,
             reply_markup=get_nsfw_confirmation_keyboard()
         )
+        return
+
+    # For themes without levels (Sex, Provocation), go directly to content type selection
+    if not GAME_DATA._has_levels_structure(theme):
+        session.level = None
+        available_types = GAME_DATA.get_available_content_types(theme, None)
+
+        if len(available_types) > 1:
+            # Multiple content types available, show selection
+            content_text = f"🔥 {theme.value}\n\nChoose content type:"
+            await query.edit_message_text(
+                content_text,
+                reply_markup=get_content_type_keyboard(theme, available_types)
+            )
+        else:
+            # Only one content type, set it and start game
+            session.content_type = available_types[0]
+            await start_game(query, session)
+        return
+
+    available_levels = GAME_DATA.get_available_levels(theme)
+
+    if not available_levels:
+        await query.edit_message_text("❌ No levels available for this theme.")
         return
 
     await show_level_selection(query, theme, available_levels)
@@ -285,18 +303,32 @@ async def handle_nsfw_denial(query: Any) -> None:
 
 async def start_game(query: Any, session: SessionState) -> None:
     """Start the game with current session settings."""
-    if not session.theme or not session.level:
+    if not session.theme:
+        await query.edit_message_text("❌ Invalid session state.")
+        return
+
+    # For themes with levels, level is required
+    if GAME_DATA._has_levels_structure(session.theme) and not session.level:
         await query.edit_message_text("❌ Invalid session state.")
         return
 
     remaining_cards = get_remaining_cards_count(session, GAME_DATA)
 
-    game_text = (
-        f"🎴 {session.theme.value} - Level {session.level}\n"
-        f"📋 {session.content_type.value.title()}\n\n"
-        f"Cards remaining: {remaining_cards}\n\n"
-        "Ready to draw your first card?"
-    )
+    # Format game text based on whether theme has levels
+    if GAME_DATA._has_levels_structure(session.theme):
+        game_text = (
+            f"🎴 {session.theme.value} - Level {session.level}\n"
+            f"📋 {session.content_type.value.title()}\n\n"
+            f"Cards remaining: {remaining_cards}\n\n"
+            "Ready to draw your first card?"
+        )
+    else:
+        game_text = (
+            f"🎴 {session.theme.value}\n"
+            f"📋 {session.content_type.value.title()}\n\n"
+            f"Cards remaining: {remaining_cards}\n\n"
+            "Ready to draw your first card?"
+        )
 
     await query.edit_message_text(
         game_text,
@@ -336,11 +368,17 @@ async def handle_draw_card(query: Any, session: SessionState) -> None:
 
 async def handle_toggle_content(query: Any, session: SessionState) -> None:
     """Handle toggling between questions and tasks."""
-    if not session.theme or not session.level:
+    if not session.theme:
         await query.edit_message_text("❌ No active game session.")
         return
 
-    available_types = GAME_DATA.get_available_content_types(session.theme, session.level)
+    # For themes with levels, level is required
+    if GAME_DATA._has_levels_structure(session.theme) and not session.level:
+        await query.edit_message_text("❌ No active game session.")
+        return
+
+    level = session.level if GAME_DATA._has_levels_structure(session.theme) else None
+    available_types = GAME_DATA.get_available_content_types(session.theme, level)
 
     if len(available_types) <= 1:
         await query.edit_message_text(
@@ -420,6 +458,11 @@ async def handle_reset_cancel(query: Any) -> None:
 async def handle_back_to_levels(query: Any, session: SessionState) -> None:
     """Handle going back to level selection."""
     if not session.theme:
+        await show_theme_selection(query)
+        return
+
+    # For themes without levels, go back to theme selection
+    if not GAME_DATA._has_levels_structure(session.theme):
         await show_theme_selection(query)
         return
 
