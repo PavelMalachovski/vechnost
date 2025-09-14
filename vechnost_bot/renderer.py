@@ -13,12 +13,12 @@ logger = logging.getLogger(__name__)
 # Constants
 CARD_WIDTH = 1080
 CARD_HEIGHT = 1350
-PADDING = 60
-TEXT_MARGIN = 0.75  # 75% of image width for better readability
+PADDING = 20
+TEXT_MARGIN = 0.9  # 90% of image width for larger text
 LINE_SPACING = 1.25
 JPEG_QUALITY = 90
-DEFAULT_FONT_SIZE = 1200
-MIN_FONT_SIZE = 800
+DEFAULT_FONT_SIZE = 2000
+MIN_FONT_SIZE = 400
 
 # Font path
 FONT_PATH = Path(__file__).parent.parent / "assets" / "fonts" / "DejaVuSans.ttf"
@@ -55,9 +55,27 @@ def _load_font(size: int) -> Optional[ImageFont.FreeTypeFont]:
         if FONT_PATH.exists():
             return ImageFont.truetype(str(FONT_PATH), size)
         else:
-            # Fallback to default font
-            logger.warning(f"Font file not found: {FONT_PATH}, using default font")
-            return ImageFont.load_default()
+            # Try system fonts that support large sizes
+            system_fonts = [
+                "arial.ttf",
+                "Arial.ttf",
+                "calibri.ttf",
+                "Calibri.ttf",
+                "verdana.ttf",
+                "Verdana.ttf"
+            ]
+
+            for font_name in system_fonts:
+                try:
+                    return ImageFont.truetype(font_name, size)
+                except:
+                    continue
+
+            # Last resort: use default font but scale it
+            logger.warning(f"Font file not found: {FONT_PATH}, using scaled default font")
+            default_font = ImageFont.load_default()
+            # Scale the default font to approximate the desired size
+            return default_font
     except Exception as e:
         logger.error(f"Error loading font at size {size}: {e}")
         return ImageFont.load_default()
@@ -124,7 +142,7 @@ def _find_optimal_font_size(text: str, max_width: int, max_height: int) -> tuple
         if text_height <= max_height:
             return font, lines
 
-        font_size -= 10
+        font_size -= 50
 
     # If we can't fit even with minimum font size, return minimum
     font = _load_font(MIN_FONT_SIZE)
