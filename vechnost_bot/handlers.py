@@ -29,6 +29,8 @@ async def start_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
     if not update.message:
         return
 
+    logger.info(f"Start command received from chat {update.effective_chat.id}")
+
     welcome_text = (
         "🎴 Welcome to Vechnost!\n\n"
         "This is an intimate card game designed to deepen your relationships through "
@@ -36,9 +38,12 @@ async def start_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
         "Choose a theme to begin your journey:"
     )
 
+    keyboard = get_theme_keyboard()
+    logger.info(f"Sending theme keyboard with {len(keyboard.inline_keyboard)} rows")
+
     await update.message.reply_text(
         welcome_text,
-        reply_markup=get_theme_keyboard()
+        reply_markup=keyboard
     )
 
 
@@ -90,41 +95,57 @@ async def handle_callback_query(update: Update, context: ContextTypes.DEFAULT_TY
     """Handle callback queries from inline keyboards."""
     query = update.callback_query
     if not query or not update.effective_chat:
+        logger.warning("Callback query received but missing query or chat")
         return
 
-    await query.answer()
+    logger.info(f"Callback query received: {query.data} from chat {update.effective_chat.id}")
+
+    try:
+        await query.answer()
+    except Exception as e:
+        logger.error(f"Error answering callback query: {e}")
 
     chat_id = update.effective_chat.id
     session = get_session(chat_id)
     data = query.data
 
     if not data:
+        logger.warning("Callback query received with no data")
         return
 
-    if data == "back_to_themes":
-        await show_theme_selection(query)
-    elif data.startswith("theme_"):
-        await handle_theme_selection(query, data)
-    elif data.startswith("level_"):
-        await handle_level_selection(query, data, session)
-    elif data.startswith("content_"):
-        await handle_content_type_selection(query, data, session)
-    elif data == "nsfw_confirm":
-        await handle_nsfw_confirmation(query, session)
-    elif data == "nsfw_deny":
-        await handle_nsfw_denial(query)
-    elif data == "draw_card":
-        await handle_draw_card(query, session)
-    elif data == "toggle_content":
-        await handle_toggle_content(query, session)
-    elif data == "reset_game":
-        await handle_reset_request(query)
-    elif data == "reset_confirm":
-        await handle_reset_confirmation(query, session)
-    elif data == "reset_cancel":
-        await handle_reset_cancel(query)
-    elif data == "back_to_levels":
-        await handle_back_to_levels(query, session)
+    try:
+        if data == "back_to_themes":
+            await show_theme_selection(query)
+        elif data.startswith("theme_"):
+            await handle_theme_selection(query, data)
+        elif data.startswith("level_"):
+            await handle_level_selection(query, data, session)
+        elif data.startswith("content_"):
+            await handle_content_type_selection(query, data, session)
+        elif data == "nsfw_confirm":
+            await handle_nsfw_confirmation(query, session)
+        elif data == "nsfw_deny":
+            await handle_nsfw_denial(query)
+        elif data == "draw_card":
+            await handle_draw_card(query, session)
+        elif data == "toggle_content":
+            await handle_toggle_content(query, session)
+        elif data == "reset_game":
+            await handle_reset_request(query)
+        elif data == "reset_confirm":
+            await handle_reset_confirmation(query, session)
+        elif data == "reset_cancel":
+            await handle_reset_cancel(query)
+        elif data == "back_to_levels":
+            await handle_back_to_levels(query, session)
+        else:
+            logger.warning(f"Unknown callback data: {data}")
+    except Exception as e:
+        logger.error(f"Error handling callback query {data}: {e}")
+        try:
+            await query.edit_message_text("❌ An error occurred. Please try again.")
+        except Exception as edit_error:
+            logger.error(f"Error editing message: {edit_error}")
 
 
 async def show_theme_selection(query: Any) -> None:

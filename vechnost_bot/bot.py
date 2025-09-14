@@ -35,6 +35,11 @@ def create_application() -> Application:
     # Add callback query handler
     application.add_handler(CallbackQueryHandler(handle_callback_query))
 
+    logger = logging.getLogger(__name__)
+    logger.info("Application created with handlers:")
+    logger.info("- Command handlers: start, help, reset")
+    logger.info("- Callback query handler: handle_callback_query")
+
     return application
 
 
