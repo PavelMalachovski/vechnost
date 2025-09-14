@@ -17,11 +17,11 @@ PADDING = 20
 TEXT_MARGIN = 0.9  # 90% of image width for larger text
 LINE_SPACING = 1.25
 JPEG_QUALITY = 90
-DEFAULT_FONT_SIZE = 80
-MIN_FONT_SIZE = 80
+DEFAULT_FONT_SIZE = 53
+MIN_FONT_SIZE = 53
 
 # Font path
-FONT_PATH = Path(__file__).parent.parent / "assets" / "fonts" / "DejaVuSans.ttf"
+FONT_PATH = Path(__file__).parent.parent / "assets" / "fonts" / "Montserrat-Regular.ttf"
 
 
 @lru_cache(maxsize=32)
@@ -58,12 +58,12 @@ def _load_font(size: int) -> Optional[ImageFont.FreeTypeFont]:
 
         # Try system fonts that are similar to Montserrat
         system_fonts = [
-            "C:/Windows/Fonts/arial.ttf",  # Arial is similar to Montserrat
-            "C:/Windows/Fonts/calibri.ttf",  # Calibri is also similar
-            "arial.ttf",
-            "Arial.ttf",
+            "C:/Windows/Fonts/calibri.ttf",  # Calibri is very similar to Montserrat
+            "C:/Windows/Fonts/arial.ttf",  # Arial is also similar to Montserrat
             "calibri.ttf",
             "Calibri.ttf",
+            "arial.ttf",
+            "Arial.ttf",
             "verdana.ttf",
             "Verdana.ttf",
             "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf",
