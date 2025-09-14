@@ -2,16 +2,36 @@
 
 from telegram import InlineKeyboardButton, InlineKeyboardMarkup
 
+from .i18n import (
+    BACK,
+    BACK_TO_LEVELS,
+    BACK_TO_THEMES,
+    CALENDAR_SEX_QUESTIONS,
+    CALENDAR_SEX_TASKS,
+    LEVEL_1,
+    LEVEL_2,
+    LEVEL_3,
+    NEXT_PAGE,
+    NEXT_QUESTION,
+    PAGE_FORMAT,
+    PREV_PAGE,
+    PREV_QUESTION,
+    SEX_TOGGLE,
+    TOPIC_ACQUAINTANCE,
+    TOPIC_FOR_COUPLES,
+    TOPIC_PROVOCATION,
+    TOPIC_SEX,
+)
 from .models import ContentType, Theme
 
 
 def get_theme_keyboard() -> InlineKeyboardMarkup:
     """Get keyboard for theme selection."""
     keyboard = [
-        [InlineKeyboardButton("🤝 Acquaintance", callback_data="theme_Acquaintance")],
-        [InlineKeyboardButton("💕 For Couples", callback_data="theme_For Couples")],
-        [InlineKeyboardButton("🔥 Sex", callback_data="theme_Sex")],
-        [InlineKeyboardButton("⚡ Provocation", callback_data="theme_Provocation")],
+        [InlineKeyboardButton(f"🤝 {TOPIC_ACQUAINTANCE}", callback_data="theme_Acquaintance")],
+        [InlineKeyboardButton(f"💕 {TOPIC_FOR_COUPLES}", callback_data="theme_For Couples")],
+        [InlineKeyboardButton(f"🔥 {TOPIC_SEX}", callback_data="theme_Sex")],
+        [InlineKeyboardButton(f"⚡ {TOPIC_PROVOCATION}", callback_data="theme_Provocation")],
     ]
     return InlineKeyboardMarkup(keyboard)
 
@@ -19,68 +39,181 @@ def get_theme_keyboard() -> InlineKeyboardMarkup:
 def get_level_keyboard(theme: Theme, available_levels: list[int]) -> InlineKeyboardMarkup:
     """Get keyboard for level selection."""
     keyboard = []
+
+    level_texts = {1: LEVEL_1, 2: LEVEL_2, 3: LEVEL_3}
+
     for level in available_levels:
-        button_text = f"Level {level}"
+        button_text = level_texts.get(level, f"Уровень {level}")
         if theme == Theme.SEX:
-            button_text = f"🔥 Level {level}"
+            button_text = f"🔥 {button_text}"
         keyboard.append([InlineKeyboardButton(button_text, callback_data=f"level_{level}")])
 
     # Add back button
-    keyboard.append([InlineKeyboardButton("← Back to Themes", callback_data="back_to_themes")])
+    keyboard.append([InlineKeyboardButton(f"← {BACK_TO_THEMES}", callback_data="back:themes")])
 
     return InlineKeyboardMarkup(keyboard)
 
 
-def get_content_type_keyboard(available_types: list[ContentType]) -> InlineKeyboardMarkup:
-    """Get keyboard for content type selection (Sex theme only)."""
+def get_calendar_keyboard(
+    topic: str,
+    level_or_0: int,
+    category: str,
+    page: int,
+    items: list[str],
+    total_pages: int,
+    show_toggle: bool = False
+) -> InlineKeyboardMarkup:
+    """
+    Build calendar-style keyboard with 7 columns, 4 rows (28 items per page).
+
+    Args:
+        topic: Topic code (acq, couples, sex, prov)
+        level_or_0: Level number or 0 if no levels
+        category: 'q' for questions, 't' for tasks
+        page: Current page (0-based)
+        items: List of all items for this topic/level/category
+        total_pages: Total number of pages
+        show_toggle: Whether to show Sex toggle button
+    """
     keyboard = []
 
-    if ContentType.QUESTIONS in available_types:
-        keyboard.append([InlineKeyboardButton("❓ Questions", callback_data="content_questions")])
+    # Calculate start and end indices for current page
+    items_per_page = 28  # 4 rows × 7 columns
+    start_idx = page * items_per_page
+    end_idx = min(start_idx + items_per_page, len(items))
+    page_items = items[start_idx:end_idx]
 
-    if ContentType.TASKS in available_types:
-        keyboard.append([InlineKeyboardButton("🎯 Tasks", callback_data="content_tasks")])
+    # Add toggle button for Sex theme (only for Sex)
+    if show_toggle:
+        toggle_text = SEX_TOGGLE
+        other_category = 't' if category == 'q' else 'q'
+        keyboard.append([InlineKeyboardButton(
+            toggle_text,
+            callback_data=f"toggle:sex:{other_category}:{page}"
+        )])
+
+    # Build calendar grid (4 rows × 7 columns)
+    for row in range(4):
+        row_start = row * 7
+        row_end = min(row_start + 7, len(page_items))
+        if row_start < len(page_items):
+            row_buttons = []
+            for i in range(row_start, row_end):
+                item_idx = start_idx + i
+                button_text = str(item_idx + 1)  # 1-based numbering
+                row_buttons.append(InlineKeyboardButton(
+                    button_text,
+                    callback_data=f"q:{topic}:{level_or_0}:{item_idx}"
+                ))
+            keyboard.append(row_buttons)
+
+    # Add pagination row
+    if total_pages > 1:
+        pagination_buttons = []
+
+        # Previous page button
+        if page > 0:
+            pagination_buttons.append(InlineKeyboardButton(
+                PREV_PAGE,
+                callback_data=f"cal:{topic}:{level_or_0}:{category}:{page-1}"
+            ))
+        else:
+            pagination_buttons.append(InlineKeyboardButton(" ", callback_data="noop"))
+
+        # Page indicator
+        page_text = PAGE_FORMAT.format(current=page+1, total=total_pages)
+        pagination_buttons.append(InlineKeyboardButton(page_text, callback_data="noop"))
+
+        # Next page button
+        if page < total_pages - 1:
+            pagination_buttons.append(InlineKeyboardButton(
+                NEXT_PAGE,
+                callback_data=f"cal:{topic}:{level_or_0}:{category}:{page+1}"
+            ))
+        else:
+            pagination_buttons.append(InlineKeyboardButton(" ", callback_data="noop"))
+
+        keyboard.append(pagination_buttons)
 
     # Add back button
-    keyboard.append([InlineKeyboardButton("← Back to Levels", callback_data="back_to_levels")])
+    if level_or_0 == 0:
+        # No levels, go back to themes
+        keyboard.append([InlineKeyboardButton(f"← {BACK_TO_THEMES}", callback_data="back:themes")])
+    else:
+        # Has levels, go back to level selection
+        keyboard.append([InlineKeyboardButton(f"← {BACK_TO_LEVELS}", callback_data="back:levels")])
 
     return InlineKeyboardMarkup(keyboard)
 
 
-def get_game_keyboard(remaining_cards: int) -> InlineKeyboardMarkup:
-    """Get keyboard for game actions."""
+def get_question_keyboard(
+    topic: str,
+    level_or_0: int,
+    current_index: int,
+    total_items: int
+) -> InlineKeyboardMarkup:
+    """
+    Get keyboard for displaying a question with navigation.
+
+    Args:
+        topic: Topic code (acq, couples, sex, prov)
+        level_or_0: Level number or 0 if no levels
+        current_index: Current question index (0-based)
+        total_items: Total number of items in this category
+    """
     keyboard = []
 
-    if remaining_cards > 0:
-        keyboard.append([InlineKeyboardButton("🎲 Draw Next Card", callback_data="draw_card")])
+    # Navigation row
+    nav_buttons = []
 
-    # Add toggle for Sex theme
-    keyboard.append([InlineKeyboardButton("🔄 Switch Questions/Tasks", callback_data="toggle_content")])
+    # Previous question button
+    if current_index > 0:
+        nav_buttons.append(InlineKeyboardButton(
+            PREV_QUESTION,
+            callback_data=f"nav:{topic}:{level_or_0}:{current_index-1}"
+        ))
+    else:
+        nav_buttons.append(InlineKeyboardButton(" ", callback_data="noop"))
 
-    # Add reset button
-    keyboard.append([InlineKeyboardButton("🔄 Reset Game", callback_data="reset_game")])
+    # Next question button
+    if current_index < total_items - 1:
+        nav_buttons.append(InlineKeyboardButton(
+            NEXT_QUESTION,
+            callback_data=f"nav:{topic}:{level_or_0}:{current_index+1}"
+        ))
+    else:
+        nav_buttons.append(InlineKeyboardButton(" ", callback_data="noop"))
+
+    keyboard.append(nav_buttons)
+
+    # Back button
+    keyboard.append([InlineKeyboardButton(f"← {BACK}", callback_data="back:calendar")])
 
     return InlineKeyboardMarkup(keyboard)
 
 
 def get_nsfw_confirmation_keyboard() -> InlineKeyboardMarkup:
     """Get keyboard for NSFW content confirmation."""
+    from .i18n import NSFW_CONFIRM, NSFW_DENY
+
     keyboard = [
         [
-            InlineKeyboardButton("✅ I'm 18+", callback_data="nsfw_confirm"),
-            InlineKeyboardButton("❌ I'm under 18", callback_data="nsfw_deny"),
+            InlineKeyboardButton(NSFW_CONFIRM, callback_data="nsfw_confirm"),
+            InlineKeyboardButton(NSFW_DENY, callback_data="nsfw_deny"),
         ],
-        [InlineKeyboardButton("← Back to Themes", callback_data="back_to_themes")],
+        [InlineKeyboardButton(f"← {BACK_TO_THEMES}", callback_data="back:themes")],
     ]
     return InlineKeyboardMarkup(keyboard)
 
 
 def get_reset_confirmation_keyboard() -> InlineKeyboardMarkup:
     """Get keyboard for reset confirmation."""
+    from .i18n import RESET_YES, RESET_CANCEL
+
     keyboard = [
         [
-            InlineKeyboardButton("✅ Yes, Reset", callback_data="reset_confirm"),
-            InlineKeyboardButton("❌ Cancel", callback_data="reset_cancel"),
+            InlineKeyboardButton(RESET_YES, callback_data="reset_confirm"),
+            InlineKeyboardButton(RESET_CANCEL, callback_data="reset_cancel"),
         ],
     ]
     return InlineKeyboardMarkup(keyboard)

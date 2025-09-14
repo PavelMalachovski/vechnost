@@ -6,15 +6,43 @@ from typing import Any
 from telegram import Update
 from telegram.ext import ContextTypes
 
+from .i18n import (
+    CALENDAR_HEADER,
+    CALENDAR_SEX_QUESTIONS,
+    CALENDAR_SEX_TASKS,
+    ERROR_INVALID_THEME,
+    ERROR_NO_THEME,
+    ERROR_UNKNOWN_CALLBACK,
+    HELP_COMMANDS,
+    HELP_HOW_TO_PLAY,
+    HELP_THEMES,
+    HELP_TITLE,
+    LEVEL_PROMPT,
+    NSFW_ACCESS_DENIED,
+    NSFW_WARNING_TEXT,
+    NSFW_WARNING_TITLE,
+    QUESTION_HEADER,
+    RESET_CANCELLED,
+    RESET_COMPLETED,
+    RESET_CONFIRM_TEXT,
+    RESET_TITLE,
+    TOPIC_ACQUAINTANCE,
+    TOPIC_FOR_COUPLES,
+    TOPIC_PROVOCATION,
+    TOPIC_SEX,
+    WELCOME_PROMPT,
+    WELCOME_SUBTITLE,
+    WELCOME_TITLE,
+)
 from .keyboards import (
-    get_content_type_keyboard,
-    get_game_keyboard,
+    get_calendar_keyboard,
     get_level_keyboard,
     get_nsfw_confirmation_keyboard,
+    get_question_keyboard,
     get_reset_confirmation_keyboard,
     get_theme_keyboard,
 )
-from .logic import can_draw_card, draw_card, get_remaining_cards_count, load_game_data
+from .logic import load_game_data
 from .models import ContentType, SessionState, Theme
 from .storage import get_session, reset_session
 
@@ -31,12 +59,7 @@ async def start_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
 
     logger.info(f"Start command received from chat {update.effective_chat.id}")
 
-    welcome_text = (
-        "🎴 Welcome to Vechnost!\n\n"
-        "This is an intimate card game designed to deepen your relationships through "
-        "meaningful conversations.\n\n"
-        "Choose a theme to begin your journey:"
-    )
+    welcome_text = f"{WELCOME_TITLE}\n\n{WELCOME_SUBTITLE}\n\n{WELCOME_PROMPT}"
 
     keyboard = get_theme_keyboard()
     logger.info(f"Sending theme keyboard with {len(keyboard.inline_keyboard)} rows")
@@ -52,24 +75,7 @@ async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
     if not update.message:
         return
 
-    help_text = (
-        "🎴 Vechnost Help\n\n"
-        "**Themes:**\n"
-        "• 🤝 Acquaintance - Get to know each other better\n"
-        "• 💕 For Couples - Deepen your relationship\n"
-        "• 🔥 Sex - Intimate questions and tasks (18+)\n"
-        "• ⚡ Provocation - Challenging scenarios\n\n"
-        "**How to play:**\n"
-        "1. Choose a theme\n"
-        "2. Select a level\n"
-        "3. Draw cards and answer questions\n"
-        "4. Discuss your answers together\n\n"
-        "**Commands:**\n"
-        "• /start - Start a new game\n"
-        "• /help - Show this help\n"
-        "• /reset - Reset current game\n\n"
-        "Enjoy your intimate conversations! 💕"
-    )
+    help_text = f"{HELP_TITLE}\n\n{HELP_THEMES}{HELP_HOW_TO_PLAY}{HELP_COMMANDS}"
 
     await update.message.reply_text(help_text)
 
@@ -79,11 +85,7 @@ async def reset_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
     if not update.message:
         return
 
-    reset_text = (
-        "🔄 Reset Game\n\n"
-        "Are you sure you want to reset your current game? "
-        "This will clear your progress and start over."
-    )
+    reset_text = f"{RESET_TITLE}\n\n{RESET_CONFIRM_TEXT}"
 
     await update.message.reply_text(
         reset_text,
@@ -114,45 +116,49 @@ async def handle_callback_query(update: Update, context: ContextTypes.DEFAULT_TY
         return
 
     try:
-        if data == "back_to_themes":
+        if data == "back:themes":
             await show_theme_selection(query)
         elif data.startswith("theme_"):
-            await handle_theme_selection(query, data)
+            await handle_theme_selection(query, data, session)
         elif data.startswith("level_"):
             await handle_level_selection(query, data, session)
-        elif data.startswith("content_"):
-            await handle_content_type_selection(query, data, session)
+        elif data.startswith("cal:"):
+            await handle_calendar_page(query, data, session)
+        elif data.startswith("q:"):
+            await handle_question_selection(query, data, session)
+        elif data.startswith("nav:"):
+            await handle_question_navigation(query, data, session)
+        elif data.startswith("toggle:"):
+            await handle_toggle_content(query, data, session)
+        elif data.startswith("back:"):
+            await handle_back_navigation(query, data, session)
         elif data == "nsfw_confirm":
             await handle_nsfw_confirmation(query, session)
         elif data == "nsfw_deny":
             await handle_nsfw_denial(query)
-        elif data == "draw_card":
-            await handle_draw_card(query, session)
-        elif data == "toggle_content":
-            await handle_toggle_content(query, session)
         elif data == "reset_game":
             await handle_reset_request(query)
         elif data == "reset_confirm":
             await handle_reset_confirmation(query, session)
         elif data == "reset_cancel":
-            await handle_reset_cancel(query)
-        elif data == "back_to_levels":
-            await handle_back_to_levels(query, session)
+            await handle_reset_cancel(query, session)
+        elif data == "noop":
+            # No operation - do nothing
+            pass
         else:
             logger.warning(f"Unknown callback data: {data}")
+            await query.edit_message_text(ERROR_UNKNOWN_CALLBACK)
     except Exception as e:
         logger.error(f"Error handling callback query {data}: {e}")
         try:
-            await query.edit_message_text("❌ An error occurred. Please try again.")
+            await query.edit_message_text("❌ Произошла ошибка. Попробуйте снова.")
         except Exception as edit_error:
             logger.error(f"Error editing message: {edit_error}")
 
 
 async def show_theme_selection(query: Any) -> None:
     """Show theme selection menu."""
-    welcome_text = (
-        "🎴 Choose a theme to begin your journey:"
-    )
+    welcome_text = WELCOME_PROMPT
 
     await query.edit_message_text(
         welcome_text,
@@ -160,27 +166,20 @@ async def show_theme_selection(query: Any) -> None:
     )
 
 
-async def handle_theme_selection(query: Any, data: str) -> None:
+async def handle_theme_selection(query: Any, data: str, session: SessionState) -> None:
     """Handle theme selection."""
     theme_name = data.replace("theme_", "")
     try:
         theme = Theme(theme_name)
     except ValueError:
-        await query.edit_message_text("❌ Invalid theme selected.")
+        await query.edit_message_text(ERROR_INVALID_THEME)
         return
 
-    chat_id = query.message.chat.id
-    session = get_session(chat_id)
     session.theme = theme
 
     # Check if NSFW confirmation is needed
     if GAME_DATA.has_nsfw_content(theme) and not session.is_nsfw_confirmed:
-        nsfw_text = (
-            "⚠️ NSFW Content Warning\n\n"
-            "The Sex theme contains adult content including explicit questions and tasks. "
-            "You must be 18 or older to access this content.\n\n"
-            "Are you 18 or older?"
-        )
+        nsfw_text = f"{NSFW_WARNING_TITLE}\n\n{NSFW_WARNING_TEXT}"
 
         await query.edit_message_text(
             nsfw_text,
@@ -188,35 +187,31 @@ async def handle_theme_selection(query: Any, data: str) -> None:
         )
         return
 
-    # For themes without levels (Sex, Provocation), go directly to content type selection
-    if not GAME_DATA._has_levels_structure(theme):
-        session.level = None
-        available_types = GAME_DATA.get_available_content_types(theme, None)
-
-        if len(available_types) > 1:
-            # Multiple content types available, show selection
-            content_text = f"🔥 {theme.value}\n\nChoose content type:"
-            await query.edit_message_text(
-                content_text,
-                reply_markup=get_content_type_keyboard(theme, available_types)
-            )
-        else:
-            # Only one content type, set it and start game
-            session.content_type = available_types[0]
-            await start_game(query, session)
-        return
-
-    available_levels = GAME_DATA.get_available_levels(theme)
-
-    if not available_levels:
-        await query.edit_message_text("❌ No levels available for this theme.")
-        return
-
-    await show_level_selection(query, theme, available_levels)
+    # Handle different theme types
+    if theme == Theme.SEX:
+        # Sex: Show calendar immediately with toggle
+        await show_sex_calendar(query, session, 0, ContentType.QUESTIONS)
+    elif theme == Theme.PROVOCATION:
+        # Provocation: Show calendar immediately
+        await show_calendar(query, session, 0, ContentType.QUESTIONS)
+    else:
+        # Acquaintance, For Couples: Show level selection
+        available_levels = GAME_DATA.get_available_levels(theme)
+        if not available_levels:
+            await query.edit_message_text("❌ Уровни недоступны для этой темы.")
+            return
+        await show_level_selection(query, theme, available_levels)
 
 
 async def show_level_selection(query: Any, theme: Theme, available_levels: list[int]) -> None:
     """Show level selection menu."""
+    theme_names = {
+        Theme.ACQUAINTANCE: TOPIC_ACQUAINTANCE,
+        Theme.FOR_COUPLES: TOPIC_FOR_COUPLES,
+        Theme.SEX: TOPIC_SEX,
+        Theme.PROVOCATION: TOPIC_PROVOCATION,
+    }
+
     theme_emojis = {
         Theme.ACQUAINTANCE: "🤝",
         Theme.FOR_COUPLES: "💕",
@@ -225,7 +220,8 @@ async def show_level_selection(query: Any, theme: Theme, available_levels: list[
     }
 
     emoji = theme_emojis.get(theme, "🎴")
-    level_text = f"{emoji} {theme.value}\n\nSelect a level:"
+    theme_name = theme_names.get(theme, theme.value)
+    level_text = f"{emoji} {theme_name}\n\n{LEVEL_PROMPT}"
 
     await query.edit_message_text(
         level_text,
@@ -238,41 +234,291 @@ async def handle_level_selection(query: Any, data: str, session: SessionState) -
     level = int(data.replace("level_", ""))
     session.level = level
 
-    # Check if content type selection is needed (Sex theme)
     if not session.theme:
-        await query.edit_message_text("❌ No theme selected.")
+        await query.edit_message_text(ERROR_NO_THEME)
         return
 
-    available_types = GAME_DATA.get_available_content_types(session.theme, level)
+    # Show calendar for the selected level
+    await show_calendar(query, session, 0, ContentType.QUESTIONS)
 
-    if len(available_types) > 1:
-        # Multiple content types available, show selection
-        content_text = (
-            f"🔥 {session.theme.value} - Level {level}\n\n"
-            "Choose content type:"
-        )
 
-        await query.edit_message_text(
-            content_text,
-            reply_markup=get_content_type_keyboard(available_types)
-        )
+async def show_calendar(query: Any, session: SessionState, page: int, content_type: ContentType) -> None:
+    """Show calendar for questions/tasks."""
+    if not session.theme:
+        await query.edit_message_text(ERROR_NO_THEME)
+        return
+
+    # Get topic code
+    topic_codes = {
+        Theme.ACQUAINTANCE: "acq",
+        Theme.FOR_COUPLES: "couples",
+        Theme.SEX: "sex",
+        Theme.PROVOCATION: "prov"
+    }
+    topic_code = topic_codes.get(session.theme, "unknown")
+
+    # Get level (0 if no levels)
+    level_or_0 = session.level if session.level is not None else 0
+
+    # Get category code
+    category = "q" if content_type == ContentType.QUESTIONS else "t"
+
+    # Get items
+    items = GAME_DATA.get_content(session.theme, session.level, content_type)
+    if not items:
+        await query.edit_message_text("❌ Контент недоступен.")
+        return
+
+    # Calculate total pages
+    items_per_page = 28
+    total_pages = (len(items) + items_per_page - 1) // items_per_page
+
+    # Ensure page is within bounds
+    page = max(0, min(page, total_pages - 1))
+
+    # Build header text
+    if session.theme == Theme.SEX:
+        if content_type == ContentType.QUESTIONS:
+            header = CALENDAR_SEX_QUESTIONS
+        else:
+            header = CALENDAR_SEX_TASKS
     else:
-        # Only one content type, start game
-        session.content_type = available_types[0]
-        await start_game(query, session)
+        theme_names = {
+            Theme.ACQUAINTANCE: TOPIC_ACQUAINTANCE,
+            Theme.FOR_COUPLES: TOPIC_FOR_COUPLES,
+            Theme.PROVOCATION: TOPIC_PROVOCATION,
+        }
+        theme_name = theme_names.get(session.theme, session.theme.value)
+        if session.level:
+            header = f"{theme_name} — Уровень {session.level}"
+        else:
+            header = f"{theme_name} — {CALENDAR_HEADER}"
+
+    # Show toggle only for Sex theme
+    show_toggle = (session.theme == Theme.SEX)
+
+    keyboard = get_calendar_keyboard(
+        topic_code, level_or_0, category, page, items, total_pages, show_toggle
+    )
+
+    await query.edit_message_text(header, reply_markup=keyboard)
 
 
-async def handle_content_type_selection(query: Any, data: str, session: SessionState) -> None:
-    """Handle content type selection."""
-    content_type_str = data.replace("content_", "")
-    try:
-        content_type = ContentType(content_type_str)
-    except ValueError:
-        await query.edit_message_text("❌ Invalid content type selected.")
+async def show_sex_calendar(query: Any, session: SessionState, page: int, content_type: ContentType) -> None:
+    """Show Sex calendar with toggle."""
+    await show_calendar(query, session, page, content_type)
+
+
+async def handle_calendar_page(query: Any, data: str, session: SessionState) -> None:
+    """Handle calendar page navigation."""
+    # Parse: cal:{topic}:{level_or_0}:{category}:{page}
+    parts = data.split(":")
+    if len(parts) != 5:
+        await query.edit_message_text(ERROR_UNKNOWN_CALLBACK)
         return
 
+    topic_code = parts[1]
+    level_or_0 = int(parts[2])
+    category = parts[3]
+    page = int(parts[4])
+
+    # Convert topic code to theme
+    topic_to_theme = {
+        "acq": Theme.ACQUAINTANCE,
+        "couples": Theme.FOR_COUPLES,
+        "sex": Theme.SEX,
+        "prov": Theme.PROVOCATION
+    }
+
+    theme = topic_to_theme.get(topic_code)
+    if not theme:
+        await query.edit_message_text(ERROR_INVALID_THEME)
+        return
+
+    # Set session state
+    session.theme = theme
+    session.level = level_or_0 if level_or_0 > 0 else None
+
+    # Convert category to content type
+    content_type = ContentType.QUESTIONS if category == "q" else ContentType.TASKS
+
+    # Show calendar
+    await show_calendar(query, session, page, content_type)
+
+
+async def handle_question_selection(query: Any, data: str, session: SessionState) -> None:
+    """Handle question selection from calendar."""
+    # Parse: q:{topic}:{level_or_0}:{index}
+    parts = data.split(":")
+    if len(parts) != 4:
+        await query.edit_message_text(ERROR_UNKNOWN_CALLBACK)
+        return
+
+    topic_code = parts[1]
+    level_or_0 = int(parts[2])
+    index = int(parts[3])
+
+    # Convert topic code to theme
+    topic_to_theme = {
+        "acq": Theme.ACQUAINTANCE,
+        "couples": Theme.FOR_COUPLES,
+        "sex": Theme.SEX,
+        "prov": Theme.PROVOCATION
+    }
+
+    theme = topic_to_theme.get(topic_code)
+    if not theme:
+        await query.edit_message_text(ERROR_INVALID_THEME)
+        return
+
+    # Set session state
+    session.theme = theme
+    session.level = level_or_0 if level_or_0 > 0 else None
+
+    # Get content type from current session or default to questions
+    content_type = session.content_type if hasattr(session, 'content_type') else ContentType.QUESTIONS
+
+    # Get items
+    items = GAME_DATA.get_content(theme, session.level, content_type)
+    if not items or index >= len(items):
+        await query.edit_message_text("❌ Вопрос недоступен.")
+        return
+
+    # Get the question
+    question = items[index]
+
+    # Build header
+    header = QUESTION_HEADER.format(current=index+1, total=len(items))
+
+    # Show question with navigation
+    keyboard = get_question_keyboard(topic_code, level_or_0, index, len(items))
+
+    await query.edit_message_text(
+        f"{header}\n\n{question}",
+        reply_markup=keyboard
+    )
+
+
+async def handle_question_navigation(query: Any, data: str, session: SessionState) -> None:
+    """Handle navigation between questions."""
+    # Parse: nav:{topic}:{level_or_0}:{index}
+    parts = data.split(":")
+    if len(parts) != 4:
+        await query.edit_message_text(ERROR_UNKNOWN_CALLBACK)
+        return
+
+    topic_code = parts[1]
+    level_or_0 = int(parts[2])
+    index = int(parts[3])
+
+    # Convert topic code to theme
+    topic_to_theme = {
+        "acq": Theme.ACQUAINTANCE,
+        "couples": Theme.FOR_COUPLES,
+        "sex": Theme.SEX,
+        "prov": Theme.PROVOCATION
+    }
+
+    theme = topic_to_theme.get(topic_code)
+    if not theme:
+        await query.edit_message_text(ERROR_INVALID_THEME)
+        return
+
+    # Set session state
+    session.theme = theme
+    session.level = level_or_0 if level_or_0 > 0 else None
+
+    # Get content type from current session or default to questions
+    content_type = session.content_type if hasattr(session, 'content_type') else ContentType.QUESTIONS
+
+    # Get items
+    items = GAME_DATA.get_content(theme, session.level, content_type)
+    if not items or index >= len(items):
+        await query.edit_message_text("❌ Вопрос недоступен.")
+        return
+
+    # Get the question
+    question = items[index]
+
+    # Build header
+    header = QUESTION_HEADER.format(current=index+1, total=len(items))
+
+    # Show question with navigation
+    keyboard = get_question_keyboard(topic_code, level_or_0, index, len(items))
+
+    await query.edit_message_text(
+        f"{header}\n\n{question}",
+        reply_markup=keyboard
+    )
+
+
+async def handle_toggle_content(query: Any, data: str, session: SessionState) -> None:
+    """Handle toggling between questions and tasks (Sex only)."""
+    # Parse: toggle:sex:{category}:{page}
+    parts = data.split(":")
+    if len(parts) != 4:
+        await query.edit_message_text(ERROR_UNKNOWN_CALLBACK)
+        return
+
+    topic_code = parts[1]  # Should be "sex"
+    category = parts[2]    # "q" or "t"
+    page = int(parts[3])
+
+    if topic_code != "sex":
+        await query.edit_message_text(ERROR_UNKNOWN_CALLBACK)
+        return
+
+    # Set session state
+    session.theme = Theme.SEX
+    session.level = None  # Sex has no levels
+
+    # Convert category to content type
+    content_type = ContentType.QUESTIONS if category == "q" else ContentType.TASKS
     session.content_type = content_type
-    await start_game(query, session)
+
+    # Show calendar
+    await show_sex_calendar(query, session, page, content_type)
+
+
+async def handle_back_navigation(query: Any, data: str, session: SessionState) -> None:
+    """Handle back navigation."""
+    # Parse: back:{where}
+    parts = data.split(":")
+    if len(parts) != 2:
+        await query.edit_message_text(ERROR_UNKNOWN_CALLBACK)
+        return
+
+    where = parts[1]
+
+    if where == "themes":
+        await show_theme_selection(query)
+    elif where == "levels":
+        if not session.theme:
+            await show_theme_selection(query)
+            return
+        available_levels = GAME_DATA.get_available_levels(session.theme)
+        if available_levels:
+            await show_level_selection(query, session.theme, available_levels)
+        else:
+            await show_theme_selection(query)
+    elif where == "calendar":
+        # Go back to calendar - need to determine which calendar
+        if not session.theme:
+            await show_theme_selection(query)
+            return
+
+        # Determine current page (default to 0)
+        current_page = 0
+
+        if session.theme == Theme.SEX:
+            # For Sex, show the current content type
+            content_type = session.content_type if hasattr(session, 'content_type') else ContentType.QUESTIONS
+            await show_sex_calendar(query, session, current_page, content_type)
+        else:
+            # For other themes, show questions calendar
+            await show_calendar(query, session, current_page, ContentType.QUESTIONS)
+    else:
+        await query.edit_message_text(ERROR_UNKNOWN_CALLBACK)
 
 
 async def handle_nsfw_confirmation(query: Any, session: SessionState) -> None:
@@ -280,142 +526,32 @@ async def handle_nsfw_confirmation(query: Any, session: SessionState) -> None:
     session.is_nsfw_confirmed = True
 
     if not session.theme:
-        await query.edit_message_text("❌ No theme selected.")
+        await query.edit_message_text(ERROR_NO_THEME)
         return
 
-    available_levels = GAME_DATA.get_available_levels(session.theme)
-    await show_level_selection(query, session.theme, available_levels)
+    # For Sex theme, show calendar immediately
+    if session.theme == Theme.SEX:
+        await show_sex_calendar(query, session, 0, ContentType.QUESTIONS)
+    else:
+        # For other themes, show level selection
+        available_levels = GAME_DATA.get_available_levels(session.theme)
+        if available_levels:
+            await show_level_selection(query, session.theme, available_levels)
+        else:
+            await show_theme_selection(query)
 
 
 async def handle_nsfw_denial(query: Any) -> None:
     """Handle NSFW content denial."""
-    denial_text = (
-        "❌ Access Denied\n\n"
-        "You must be 18 or older to access NSFW content. "
-        "Please choose a different theme."
-    )
-
     await query.edit_message_text(
-        denial_text,
+        NSFW_ACCESS_DENIED,
         reply_markup=get_theme_keyboard()
-    )
-
-
-async def start_game(query: Any, session: SessionState) -> None:
-    """Start the game with current session settings."""
-    if not session.theme:
-        await query.edit_message_text("❌ Invalid session state.")
-        return
-
-    # For themes with levels, level is required
-    if GAME_DATA._has_levels_structure(session.theme) and not session.level:
-        await query.edit_message_text("❌ Invalid session state.")
-        return
-
-    remaining_cards = get_remaining_cards_count(session, GAME_DATA)
-
-    # Format game text based on whether theme has levels
-    if GAME_DATA._has_levels_structure(session.theme):
-        game_text = (
-            f"🎴 {session.theme.value} - Level {session.level}\n"
-            f"📋 {session.content_type.value.title()}\n\n"
-            f"Cards remaining: {remaining_cards}\n\n"
-            "Ready to draw your first card?"
-        )
-    else:
-        game_text = (
-            f"🎴 {session.theme.value}\n"
-            f"📋 {session.content_type.value.title()}\n\n"
-            f"Cards remaining: {remaining_cards}\n\n"
-            "Ready to draw your first card?"
-        )
-
-    await query.edit_message_text(
-        game_text,
-        reply_markup=get_game_keyboard(remaining_cards)
-    )
-
-
-async def handle_draw_card(query: Any, session: SessionState) -> None:
-    """Handle drawing a card."""
-    if not can_draw_card(session, GAME_DATA):
-        await query.edit_message_text(
-            "🎉 Congratulations! You've completed all cards in this level.\n\n"
-            "Would you like to start a new game?",
-            reply_markup=get_theme_keyboard()
-        )
-        return
-
-    card = draw_card(session, GAME_DATA)
-    if not card:
-        await query.edit_message_text("❌ No cards available.")
-        return
-
-    remaining_cards = get_remaining_cards_count(session, GAME_DATA)
-
-    card_text = (
-        f"🎴 **{session.content_type.value.title()}**\n\n"
-        f"{card}\n\n"
-        f"Cards remaining: {remaining_cards}"
-    )
-
-    await query.edit_message_text(
-        card_text,
-        reply_markup=get_game_keyboard(remaining_cards),
-        parse_mode="Markdown"
-    )
-
-
-async def handle_toggle_content(query: Any, session: SessionState) -> None:
-    """Handle toggling between questions and tasks."""
-    if not session.theme:
-        await query.edit_message_text("❌ No active game session.")
-        return
-
-    # For themes with levels, level is required
-    if GAME_DATA._has_levels_structure(session.theme) and not session.level:
-        await query.edit_message_text("❌ No active game session.")
-        return
-
-    level = session.level if GAME_DATA._has_levels_structure(session.theme) else None
-    available_types = GAME_DATA.get_available_content_types(session.theme, level)
-
-    if len(available_types) <= 1:
-        await query.edit_message_text(
-            "❌ Only one content type available for this level.",
-            reply_markup=get_game_keyboard(get_remaining_cards_count(session, GAME_DATA))
-        )
-        return
-
-    # Toggle content type
-    current_index = available_types.index(session.content_type)
-    next_index = (current_index + 1) % len(available_types)
-    session.content_type = available_types[next_index]
-
-    # Reset drawn cards for new content type
-    session.drawn_cards.clear()
-
-    remaining_cards = get_remaining_cards_count(session, GAME_DATA)
-
-    toggle_text = (
-        f"🔄 Switched to {session.content_type.value.title()}\n\n"
-        f"Cards remaining: {remaining_cards}\n\n"
-        "Ready to draw your first card?"
-    )
-
-    await query.edit_message_text(
-        toggle_text,
-        reply_markup=get_game_keyboard(remaining_cards)
     )
 
 
 async def handle_reset_request(query: Any) -> None:
     """Handle reset game request."""
-    reset_text = (
-        "🔄 Reset Game\n\n"
-        "Are you sure you want to reset your current game? "
-        "This will clear your progress and start over."
-    )
+    reset_text = f"{RESET_TITLE}\n\n{RESET_CONFIRM_TEXT}"
 
     await query.edit_message_text(
         reset_text,
@@ -427,44 +563,15 @@ async def handle_reset_confirmation(query: Any, session: SessionState) -> None:
     """Handle reset confirmation."""
     reset_session(query.message.chat.id)
 
-    reset_text = (
-        "🔄 Game Reset\n\n"
-        "Your game has been reset. Choose a theme to start a new game:"
-    )
-
     await query.edit_message_text(
-        reset_text,
+        RESET_COMPLETED,
         reply_markup=get_theme_keyboard()
     )
 
 
-async def handle_reset_cancel(query: Any) -> None:
+async def handle_reset_cancel(query: Any, session: SessionState) -> None:
     """Handle reset cancellation."""
-    chat_id = query.message.chat.id
-    session = get_session(chat_id)
-    remaining_cards = get_remaining_cards_count(session, GAME_DATA)
-
-    cancel_text = (
-        "❌ Reset cancelled.\n\n"
-        "Your game continues as before."
-    )
-
     await query.edit_message_text(
-        cancel_text,
-        reply_markup=get_game_keyboard(remaining_cards)
+        RESET_CANCELLED,
+        reply_markup=get_theme_keyboard()
     )
-
-
-async def handle_back_to_levels(query: Any, session: SessionState) -> None:
-    """Handle going back to level selection."""
-    if not session.theme:
-        await show_theme_selection(query)
-        return
-
-    # For themes without levels, go back to theme selection
-    if not GAME_DATA._has_levels_structure(session.theme):
-        await show_theme_selection(query)
-        return
-
-    available_levels = GAME_DATA.get_available_levels(session.theme)
-    await show_level_selection(query, session.theme, available_levels)
