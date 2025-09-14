@@ -14,11 +14,11 @@ logger = logging.getLogger(__name__)
 CARD_WIDTH = 1080
 CARD_HEIGHT = 1350
 PADDING = 60
-TEXT_MARGIN = 0.8  # 80% of image width
+TEXT_MARGIN = 0.75  # 75% of image width for better readability
 LINE_SPACING = 1.25
 JPEG_QUALITY = 90
-DEFAULT_FONT_SIZE = 46
-MIN_FONT_SIZE = 20
+DEFAULT_FONT_SIZE = 72
+MIN_FONT_SIZE = 36
 
 # Font path
 FONT_PATH = Path(__file__).parent.parent / "assets" / "fonts" / "DejaVuSans.ttf"
@@ -177,7 +177,7 @@ def render_card(text: str, bg_path: str, footer: Optional[str] = None) -> BytesI
 
         overlay_draw.rectangle(
             [text_rect_x, text_rect_y, text_rect_x + text_rect_width, text_rect_y + text_rect_height],
-            fill=(0, 0, 0, 60)  # Semi-transparent black
+            fill=(0, 0, 0, 120)  # More opaque black for better contrast
         )
 
         # Composite overlay onto card
