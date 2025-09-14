@@ -398,14 +398,17 @@ async def handle_question_selection(query: Any, data: str, session: SessionState
     keyboard = get_question_keyboard(topic_code, level_or_0, index, len(items))
 
     # Try to render as image, fallback to text if it fails
+    print(f"DEBUG: Attempting to render image for {topic_code}:{level_or_0}:{index}")
     try:
         # Get background path
         bg_path = get_background_path(topic_code, level_or_0, "q" if content_type == ContentType.QUESTIONS else "t")
         logger.info(f"Rendering card with background: {bg_path}")
+        print(f"DEBUG: Background path resolved to: {bg_path}")
 
         # Render card image
         image_data = render_card(question, bg_path)
         logger.info(f"Card rendered successfully, size: {len(image_data.getvalue())} bytes")
+        print(f"DEBUG: Card rendered successfully, size: {len(image_data.getvalue())} bytes")
 
         # Try to edit message to photo, fallback to new message if that fails
         try:
@@ -421,7 +424,7 @@ async def handle_question_selection(query: Any, data: str, session: SessionState
                 reply_markup=keyboard
             )
     except Exception as e:
-        logger.error(f"Error rendering card image: {e}")
+        logger.error(f"Error rendering card image: {e}", exc_info=True)
         # Fallback to text message
         await query.edit_message_text(
             f"{header}\n\n{question}",
@@ -477,14 +480,17 @@ async def handle_question_navigation(query: Any, data: str, session: SessionStat
     keyboard = get_question_keyboard(topic_code, level_or_0, index, len(items))
 
     # Try to render as image, fallback to text if it fails
+    print(f"DEBUG: Attempting to render image for {topic_code}:{level_or_0}:{index}")
     try:
         # Get background path
         bg_path = get_background_path(topic_code, level_or_0, "q" if content_type == ContentType.QUESTIONS else "t")
         logger.info(f"Rendering card with background: {bg_path}")
+        print(f"DEBUG: Background path resolved to: {bg_path}")
 
         # Render card image
         image_data = render_card(question, bg_path)
         logger.info(f"Card rendered successfully, size: {len(image_data.getvalue())} bytes")
+        print(f"DEBUG: Card rendered successfully, size: {len(image_data.getvalue())} bytes")
 
         # Try to edit message to photo, fallback to new message if that fails
         try:
@@ -500,7 +506,7 @@ async def handle_question_navigation(query: Any, data: str, session: SessionStat
                 reply_markup=keyboard
             )
     except Exception as e:
-        logger.error(f"Error rendering card image: {e}")
+        logger.error(f"Error rendering card image: {e}", exc_info=True)
         # Fallback to text message
         await query.edit_message_text(
             f"{header}\n\n{question}",
