@@ -9,7 +9,7 @@ A production-ready Telegram bot for the Vechnost card game - an intimate convers
 - **NSFW Protection**: 18+ confirmation required for Sex theme
 - **Dual Content Types**: Questions and Tasks (Sex theme only)
 - **Session Management**: Track progress and prevent duplicate cards
-- **Modern UI**: Inline keyboards for intuitive navigation
+- **Modern UI**: Inline keyboard for intuitive navigation
 
 ## Quick Start
 
