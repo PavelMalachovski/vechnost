@@ -6,34 +6,7 @@ from typing import Any
 from telegram import InputMediaPhoto, Update
 from telegram.ext import ContextTypes
 
-from .i18n import (
-    CALENDAR_HEADER,
-    CALENDAR_SEX_QUESTIONS,
-    CALENDAR_SEX_TASKS,
-    ERROR_INVALID_THEME,
-    ERROR_NO_THEME,
-    ERROR_UNKNOWN_CALLBACK,
-    HELP_COMMANDS,
-    HELP_HOW_TO_PLAY,
-    HELP_THEMES,
-    HELP_TITLE,
-    LEVEL_PROMPT,
-    NSFW_ACCESS_DENIED,
-    NSFW_WARNING_TEXT,
-    NSFW_WARNING_TITLE,
-    QUESTION_HEADER,
-    RESET_CANCELLED,
-    RESET_COMPLETED,
-    RESET_CONFIRM_TEXT,
-    RESET_TITLE,
-    TOPIC_ACQUAINTANCE,
-    TOPIC_FOR_COUPLES,
-    TOPIC_PROVOCATION,
-    TOPIC_SEX,
-    WELCOME_PROMPT,
-    WELCOME_SUBTITLE,
-    WELCOME_TITLE,
-)
+from .i18n import Language, get_text, detect_language_from_text
 from .monitoring import (
     log_bot_event,
     log_callback_event,
@@ -50,6 +23,7 @@ from .keyboards import (
     get_reset_confirmation_keyboard,
     get_theme_keyboard,
 )
+from .language_keyboards import get_language_selection_keyboard
 from .logic import load_game_data
 from .models import ContentType, SessionState, Theme
 from .renderer import get_background_path, render_card
@@ -76,10 +50,13 @@ async def start_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
     logger.info(f"Start command received from chat {update.effective_chat.id}")
     log_bot_event("start_command", user_id=user_id, username=username)
 
-    welcome_text = f"{WELCOME_TITLE}\n\n{WELCOME_SUBTITLE}\n\n{WELCOME_PROMPT}"
+    # Detect language from user's message or default to Russian
+    detected_language = detect_language_from_text(update.message.text or "")
 
-    keyboard = get_theme_keyboard()
-    logger.info(f"Sending theme keyboard with {len(keyboard.inline_keyboard)} rows")
+    welcome_text = f"{get_text('welcome.title', detected_language)}\n\n{get_text('welcome.subtitle', detected_language)}\n\n{get_text('welcome.prompt', detected_language)}"
+
+    keyboard = get_language_selection_keyboard(detected_language)
+    logger.info(f"Sending language selection keyboard with {len(keyboard.inline_keyboard)} rows")
 
     await update.message.reply_text(
         welcome_text,
@@ -92,7 +69,12 @@ async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
     if not update.message:
         return
 
-    help_text = f"{HELP_TITLE}\n\n{HELP_THEMES}{HELP_HOW_TO_PLAY}{HELP_COMMANDS}"
+    # Get session to determine language
+    chat_id = update.effective_chat.id
+    session = get_session(chat_id)
+    language = session.language
+
+    help_text = f"{get_text('help.title', language)}\n\n{get_text('help.themes', language)}{get_text('help.how_to_play', language)}{get_text('help.commands', language)}"
 
     await update.message.reply_text(help_text)
 
@@ -102,11 +84,16 @@ async def reset_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
     if not update.message:
         return
 
-    reset_text = f"{RESET_TITLE}\n\n{RESET_CONFIRM_TEXT}"
+    # Get session to determine language
+    chat_id = update.effective_chat.id
+    session = get_session(chat_id)
+    language = session.language
+
+    reset_text = f"{get_text('reset.title', language)}\n\n{get_text('reset.confirm_text', language)}"
 
     await update.message.reply_text(
         reset_text,
-        reply_markup=get_reset_confirmation_keyboard()
+        reply_markup=get_reset_confirmation_keyboard(language)
     )
 
 

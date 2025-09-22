@@ -4,7 +4,7 @@ import logging
 from abc import ABC, abstractmethod
 from typing import Any, Dict, Type
 
-from telegram import InputMediaPhoto, Update
+from telegram import InputMediaPhoto, InlineKeyboardButton, InlineKeyboardMarkup, Update
 from telegram.ext import ContextTypes
 
 from .callback_models import (
@@ -12,6 +12,9 @@ from .callback_models import (
     CalendarCallbackData,
     CallbackAction,
     CallbackData,
+    LanguageBackCallbackData,
+    LanguageCallbackData,
+    LanguageConfirmCallbackData,
     LevelCallbackData,
     NavigationCallbackData,
     QuestionCallbackData,
@@ -19,28 +22,7 @@ from .callback_models import (
     ThemeCallbackData,
     ToggleCallbackData,
 )
-from .i18n import (
-    CALENDAR_HEADER,
-    CALENDAR_SEX_QUESTIONS,
-    CALENDAR_SEX_TASKS,
-    ERROR_INVALID_THEME,
-    ERROR_NO_THEME,
-    ERROR_UNKNOWN_CALLBACK,
-    LEVEL_PROMPT,
-    NSFW_ACCESS_DENIED,
-    NSFW_WARNING_TEXT,
-    NSFW_WARNING_TITLE,
-    QUESTION_HEADER,
-    RESET_CANCELLED,
-    RESET_COMPLETED,
-    RESET_CONFIRM_TEXT,
-    RESET_TITLE,
-    TOPIC_ACQUAINTANCE,
-    TOPIC_FOR_COUPLES,
-    TOPIC_PROVOCATION,
-    TOPIC_SEX,
-    WELCOME_PROMPT,
-)
+from .i18n import Language, get_text, get_language_name, get_supported_languages
 from .keyboards import (
     get_calendar_keyboard,
     get_level_keyboard,
@@ -49,6 +31,7 @@ from .keyboards import (
     get_reset_confirmation_keyboard,
     get_theme_keyboard,
 )
+from .language_keyboards import get_language_selection_keyboard
 from .logic import load_game_data
 from .models import ContentType, SessionState, Theme
 from .renderer import get_background_path, render_card
@@ -77,17 +60,17 @@ class ThemeHandler(CallbackHandler):
         try:
             theme = Theme(callback_data.theme_name)
         except ValueError:
-            await query.edit_message_text(ERROR_INVALID_THEME)
+            await query.edit_message_text(get_text('errors.invalid_theme', session.language))
             return
 
         session.theme = theme
 
         # Check if NSFW confirmation is needed
         if GAME_DATA.has_nsfw_content(theme) and not session.is_nsfw_confirmed:
-            nsfw_text = f"{NSFW_WARNING_TITLE}\n\n{NSFW_WARNING_TEXT}"
+            nsfw_text = f"{get_text('nsfw.warning_title', session.language)}\n\n{get_text('nsfw.warning_text', session.language)}"
             await query.edit_message_text(
                 nsfw_text,
-                reply_markup=get_nsfw_confirmation_keyboard()
+                reply_markup=get_nsfw_confirmation_keyboard(session.language)
             )
             return
 
@@ -135,7 +118,7 @@ class ThemeHandler(CallbackHandler):
     async def _show_calendar(self, query: Any, session: SessionState, page: int, content_type: ContentType) -> None:
         """Show calendar for questions/tasks."""
         if not session.theme:
-            await query.edit_message_text(ERROR_NO_THEME)
+            await query.edit_message_text(get_text('errors.no_theme', session.language))
             return
 
         # Get topic code
@@ -218,7 +201,7 @@ class LevelHandler(CallbackHandler):
         session.level = callback_data.level
 
         if not session.theme:
-            await query.edit_message_text(ERROR_NO_THEME)
+            await query.edit_message_text(get_text('errors.no_theme', session.language))
             return
 
         # Set content type and show calendar for the selected level
@@ -228,7 +211,7 @@ class LevelHandler(CallbackHandler):
     async def _show_calendar(self, query: Any, session: SessionState, page: int, content_type: ContentType) -> None:
         """Show calendar for questions/tasks."""
         if not session.theme:
-            await query.edit_message_text(ERROR_NO_THEME)
+            await query.edit_message_text(get_text('errors.no_theme', session.language))
             return
 
         # Get topic code
@@ -314,7 +297,7 @@ class CalendarHandler(CallbackHandler):
 
         theme = topic_to_theme.get(callback_data.topic)
         if not theme:
-            await query.edit_message_text(ERROR_INVALID_THEME)
+            await query.edit_message_text(get_text('errors.invalid_theme', session.language))
             return
 
         # Set session state
@@ -331,7 +314,7 @@ class CalendarHandler(CallbackHandler):
     async def _show_calendar(self, query: Any, session: SessionState, page: int, content_type: ContentType) -> None:
         """Show calendar for questions/tasks."""
         if not session.theme:
-            await query.edit_message_text(ERROR_NO_THEME)
+            await query.edit_message_text(get_text('errors.no_theme', session.language))
             return
 
         # Get topic code
@@ -417,7 +400,7 @@ class QuestionHandler(CallbackHandler):
 
         theme = topic_to_theme.get(callback_data.topic)
         if not theme:
-            await query.edit_message_text(ERROR_INVALID_THEME)
+            await query.edit_message_text(get_text('errors.invalid_theme', session.language))
             return
 
         # Set session state
@@ -437,7 +420,7 @@ class QuestionHandler(CallbackHandler):
         question = items[callback_data.index]
 
         # Build header
-        header = QUESTION_HEADER.format(current=callback_data.index+1, total=len(items))
+        header = get_text('question.header', session.language).format(current=callback_data.index+1, total=len(items))
 
         # Show question with navigation
         keyboard = get_question_keyboard(
@@ -494,7 +477,7 @@ class NavigationHandler(CallbackHandler):
 
         theme = topic_to_theme.get(callback_data.topic)
         if not theme:
-            await query.edit_message_text(ERROR_INVALID_THEME)
+            await query.edit_message_text(get_text('errors.invalid_theme', session.language))
             return
 
         # Set session state
@@ -514,7 +497,7 @@ class NavigationHandler(CallbackHandler):
         question = items[callback_data.index]
 
         # Build header
-        header = QUESTION_HEADER.format(current=callback_data.index+1, total=len(items))
+        header = get_text('question.header', session.language).format(current=callback_data.index+1, total=len(items))
 
         # Show question with navigation
         keyboard = get_question_keyboard(
@@ -562,7 +545,7 @@ class ToggleHandler(CallbackHandler):
     async def handle(self, query: Any, callback_data: ToggleCallbackData, session: SessionState) -> None:
         """Handle toggling between questions and tasks (Sex only)."""
         if callback_data.topic != "sex":
-            await query.edit_message_text(ERROR_UNKNOWN_CALLBACK)
+            await query.edit_message_text(get_text('errors.unknown_callback', session.language))
             return
 
         # Set session state
@@ -579,7 +562,7 @@ class ToggleHandler(CallbackHandler):
     async def _show_sex_calendar(self, query: Any, session: SessionState, page: int, content_type: ContentType) -> None:
         """Show Sex calendar with toggle."""
         if not session.theme:
-            await query.edit_message_text(ERROR_NO_THEME)
+            await query.edit_message_text(get_text('errors.no_theme', session.language))
             return
 
         # Get topic code
@@ -686,7 +669,7 @@ class BackHandler(CallbackHandler):
                 # For other themes, show questions calendar
                 await self._show_calendar(query, session, current_page, ContentType.QUESTIONS)
         else:
-            await query.edit_message_text(ERROR_UNKNOWN_CALLBACK)
+            await query.edit_message_text(get_text('errors.unknown_callback', session.language))
 
     async def _show_theme_selection(self, query: Any) -> None:
         """Show theme selection menu."""
@@ -720,7 +703,7 @@ class BackHandler(CallbackHandler):
     async def _show_calendar(self, query: Any, session: SessionState, page: int, content_type: ContentType) -> None:
         """Show calendar for questions/tasks."""
         if not session.theme:
-            await query.edit_message_text(ERROR_NO_THEME)
+            await query.edit_message_text(get_text('errors.no_theme', session.language))
             return
 
         # Get topic code
@@ -803,9 +786,9 @@ class SimpleActionHandler(CallbackHandler):
         if callback_data.action == CallbackAction.NSFW_CONFIRM:
             await self._handle_nsfw_confirmation(query, session)
         elif callback_data.action == CallbackAction.NSFW_DENY:
-            await self._handle_nsfw_denial(query)
+            await self._handle_nsfw_denial(query, session)
         elif callback_data.action == CallbackAction.RESET_GAME:
-            await self._handle_reset_request(query)
+            await self._handle_reset_request(query, session)
         elif callback_data.action == CallbackAction.RESET_CONFIRM:
             await self._handle_reset_confirmation(query, session)
         elif callback_data.action == CallbackAction.RESET_CANCEL:
@@ -815,14 +798,14 @@ class SimpleActionHandler(CallbackHandler):
             pass
         else:
             logger.warning(f"Unknown simple action: {callback_data.action}")
-            await query.edit_message_text(ERROR_UNKNOWN_CALLBACK)
+            await query.edit_message_text(get_text('errors.unknown_callback', session.language))
 
     async def _handle_nsfw_confirmation(self, query: Any, session: SessionState) -> None:
         """Handle NSFW content confirmation."""
         session.is_nsfw_confirmed = True
 
         if not session.theme:
-            await query.edit_message_text(ERROR_NO_THEME)
+            await query.edit_message_text(get_text('errors.no_theme', session.language))
             return
 
         # For Sex theme, show calendar immediately
@@ -837,34 +820,34 @@ class SimpleActionHandler(CallbackHandler):
             else:
                 await self._show_theme_selection(query)
 
-    async def _handle_nsfw_denial(self, query: Any) -> None:
+    async def _handle_nsfw_denial(self, query: Any, session: SessionState) -> None:
         """Handle NSFW content denial."""
         await query.edit_message_text(
-            NSFW_ACCESS_DENIED,
-            reply_markup=get_theme_keyboard()
+            get_text('nsfw.access_denied', session.language),
+            reply_markup=get_theme_keyboard(session.language)
         )
 
-    async def _handle_reset_request(self, query: Any) -> None:
+    async def _handle_reset_request(self, query: Any, session: SessionState) -> None:
         """Handle reset game request."""
-        reset_text = f"{RESET_TITLE}\n\n{RESET_CONFIRM_TEXT}"
+        reset_text = f"{get_text('reset.title', session.language)}\n\n{get_text('reset.confirm_text', session.language)}"
         await query.edit_message_text(
             reset_text,
-            reply_markup=get_reset_confirmation_keyboard()
+            reply_markup=get_reset_confirmation_keyboard(session.language)
         )
 
     async def _handle_reset_confirmation(self, query: Any, session: SessionState) -> None:
         """Handle reset confirmation."""
         reset_session(query.message.chat.id)
         await query.edit_message_text(
-            RESET_COMPLETED,
-            reply_markup=get_theme_keyboard()
+            get_text('reset.completed', session.language),
+            reply_markup=get_theme_keyboard(session.language)
         )
 
     async def _handle_reset_cancel(self, query: Any, session: SessionState) -> None:
         """Handle reset cancellation."""
         await query.edit_message_text(
-            RESET_CANCELLED,
-            reply_markup=get_theme_keyboard()
+            get_text('reset.cancelled', session.language),
+            reply_markup=get_theme_keyboard(session.language)
         )
 
     async def _show_theme_selection(self, query: Any) -> None:
@@ -899,7 +882,7 @@ class SimpleActionHandler(CallbackHandler):
     async def _show_sex_calendar(self, query: Any, session: SessionState, page: int, content_type: ContentType) -> None:
         """Show Sex calendar with toggle."""
         if not session.theme:
-            await query.edit_message_text(ERROR_NO_THEME)
+            await query.edit_message_text(get_text('errors.no_theme', session.language))
             return
 
         # Get topic code
@@ -988,6 +971,9 @@ class CallbackHandlerRegistry:
             CallbackAction.RESET_CONFIRM: SimpleActionHandler(),
             CallbackAction.RESET_CANCEL: SimpleActionHandler(),
             CallbackAction.NOOP: SimpleActionHandler(),
+            CallbackAction.LANGUAGE: LanguageHandler(),
+            CallbackAction.LANGUAGE_CONFIRM: LanguageConfirmHandler(),
+            CallbackAction.LANGUAGE_BACK: LanguageBackHandler(),
         }
 
     async def handle_callback(self, query: Any, data: str) -> None:
@@ -1004,7 +990,7 @@ class CallbackHandlerRegistry:
             handler = self._handlers.get(callback_data.action)
             if not handler:
                 logger.warning(f"No handler found for action: {callback_data.action}")
-                await query.edit_message_text(ERROR_UNKNOWN_CALLBACK)
+                await query.edit_message_text(get_text('errors.unknown_callback', session.language))
                 return
 
             # Handle the callback
@@ -1012,13 +998,116 @@ class CallbackHandlerRegistry:
 
         except ValueError as e:
             logger.warning(f"Invalid callback data: {data}, error: {e}")
-            await query.edit_message_text(ERROR_UNKNOWN_CALLBACK)
+            # Get session for error message
+            chat_id = query.message.chat.id
+            session = get_session(chat_id)
+            await query.edit_message_text(get_text('errors.unknown_callback', session.language))
         except Exception as e:
             logger.error(f"Error handling callback query {data}: {e}", exc_info=True)
             try:
                 await query.edit_message_text("❌ Произошла ошибка. Попробуйте снова.")
             except Exception as edit_error:
                 logger.error(f"Error editing message: {edit_error}")
+
+
+class LanguageHandler(CallbackHandler):
+    """Handler for language selection callbacks."""
+
+    async def handle(self, query: Any, callback_data: LanguageCallbackData, session: SessionState) -> None:
+        """Handle language selection."""
+        try:
+            language = Language(callback_data.language_code)
+        except ValueError:
+            await query.edit_message_text(get_text('errors.unknown_callback', session.language))
+            return
+
+        # Show language confirmation
+        language_name = get_language_name(language, session.language)
+        confirm_text = f"{get_text('language.confirm_title', session.language)}\n\n{language_name}\n\n{get_text('language.confirm_subtitle', session.language)}"
+
+        keyboard = InlineKeyboardMarkup([
+            [
+                InlineKeyboardButton(
+                    f"✓ {get_text('language.confirm', session.language)}",
+                    callback_data=f"lang_confirm_{language.value}"
+                ),
+                InlineKeyboardButton(
+                    f"← {get_text('navigation.back', session.language)}",
+                    callback_data="lang_back"
+                )
+            ]
+        ])
+
+        await self._edit_or_send_message(query, confirm_text, keyboard)
+
+    async def _edit_or_send_message(self, query: Any, text: str, keyboard: Any) -> None:
+        """Edit message or send new one if editing fails."""
+        try:
+            await query.edit_message_text(text, reply_markup=keyboard)
+        except Exception as edit_error:
+            logger.warning(f"Could not edit message text: {edit_error}, deleting and sending new message")
+            try:
+                await query.message.delete()
+            except Exception as delete_error:
+                logger.warning(f"Could not delete message: {delete_error}")
+            await query.message.reply_text(text, reply_markup=keyboard)
+
+
+class LanguageConfirmHandler(CallbackHandler):
+    """Handler for language confirmation callbacks."""
+
+    async def handle(self, query: Any, callback_data: LanguageConfirmCallbackData, session: SessionState) -> None:
+        """Handle language confirmation."""
+        try:
+            language = Language(callback_data.language_code)
+        except ValueError:
+            await query.edit_message_text(get_text('errors.unknown_callback', session.language))
+            return
+
+        # Update session language
+        session.language = language
+
+        # Show theme selection
+        welcome_text = f"{get_text('welcome.title', language)}\n\n{get_text('welcome.subtitle', language)}\n\n{get_text('welcome.prompt', language)}"
+        keyboard = get_theme_keyboard(language)
+
+        await self._edit_or_send_message(query, welcome_text, keyboard)
+
+    async def _edit_or_send_message(self, query: Any, text: str, keyboard: Any) -> None:
+        """Edit message or send new one if editing fails."""
+        try:
+            await query.edit_message_text(text, reply_markup=keyboard)
+        except Exception as edit_error:
+            logger.warning(f"Could not edit message text: {edit_error}, deleting and sending new message")
+            try:
+                await query.message.delete()
+            except Exception as delete_error:
+                logger.warning(f"Could not delete message: {delete_error}")
+            await query.message.reply_text(text, reply_markup=keyboard)
+
+
+class LanguageBackHandler(CallbackHandler):
+    """Handler for language selection back navigation."""
+
+    async def handle(self, query: Any, callback_data: LanguageBackCallbackData, session: SessionState) -> None:
+        """Handle language selection back navigation."""
+        # Show language selection again
+        welcome_text = f"{get_text('welcome.title', session.language)}\n\n{get_text('welcome.subtitle', session.language)}\n\n{get_text('welcome.prompt', session.language)}"
+        keyboard = get_language_selection_keyboard(session.language)
+
+        await self._edit_or_send_message(query, welcome_text, keyboard)
+
+    async def _edit_or_send_message(self, query: Any, text: str, keyboard: Any) -> None:
+        """Edit message or send new one if editing fails."""
+        try:
+            await query.edit_message_text(text, reply_markup=keyboard)
+        except Exception as edit_error:
+            logger.warning(f"Could not edit message text: {edit_error}, deleting and sending new message")
+            try:
+                await query.message.delete()
+            except Exception as delete_error:
+                logger.warning(f"Could not delete message: {delete_error}")
+            await query.message.reply_text(text, reply_markup=keyboard)
 
 
 # Global registry instance

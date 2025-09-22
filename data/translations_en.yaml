@@ -1,0 +1,86 @@
+# English UI translations
+welcome:
+  title: "🎴 Vechnost"
+  subtitle: "Card game for getting to know each other"
+  prompt: "Choose language / Выберите язык / Vyberte jazyk"
+
+language:
+  selection_title: "🌍 Choose Language"
+  selection_subtitle: "Select your preferred language / Выберите язык / Vyberte jazyk"
+  confirm_title: "✅ Language Selected"
+  confirm_subtitle: "Language has been set / Язык выбран / Jazyk nastaven"
+  confirm: "Confirm"
+
+themes:
+  Acquaintance: "🤝 Acquaintance"
+  "For Couples": "💕 For Couples"
+  Sex: "🔥 Sex"
+  Provocation: "⚡ Provocation"
+
+level:
+  prompt: "Choose difficulty level:"
+
+calendar:
+  header: "Questions Calendar"
+  sex_questions: "🔥 Sex — Questions"
+  sex_tasks: "🔥 Sex — Tasks"
+
+question:
+  header: "Question {current} of {total}"
+
+navigation:
+  back: "← Back"
+  next: "Next →"
+  previous: "← Previous"
+  toggle_questions: "❓ Questions"
+  toggle_tasks: "📝 Tasks"
+
+nsfw:
+  warning_title: "⚠️ Warning"
+  warning_text: "This theme contains adult content. Continue?"
+  access_denied: "❌ Access denied"
+
+reset:
+  title: "🔄 Reset Game"
+  confirm_text: "Are you sure you want to reset the game?"
+  completed: "✅ Game reset"
+  cancelled: "❌ Reset cancelled"
+
+help:
+  title: "📖 Help"
+  themes: "🎴 Themes:\n• Acquaintance - questions for getting to know each other\n• For Couples - questions for couples\n• Sex - intimate questions and tasks\n• Provocation - provocative questions\n\n"
+  how_to_play: "🎮 How to play:\n1. Choose a theme\n2. Select difficulty level\n3. Answer questions one by one\n4. Discuss answers with each other\n\n"
+  commands: "⌨️ Commands:\n/start - start the game\n/help - show help\n/reset - reset the game"
+
+reset:
+  title: "🔄 Reset Game"
+  confirm_text: "Are you sure you want to reset the game?"
+  completed: "✅ Game reset"
+  cancelled: "❌ Reset cancelled"
+  confirm: "Yes"
+  cancel: "No"
+
+nsfw:
+  warning_title: "⚠️ Warning"
+  warning_text: "This theme contains adult content. Continue?"
+  access_denied: "❌ Access denied"
+  confirm: "Yes"
+  deny: "No"
+
+navigation:
+  back: "← Back"
+  next: "Next →"
+  previous: "← Previous"
+  toggle_questions: "❓ Questions"
+  toggle_tasks: "📝 Tasks"
+  page: "Page {current} of {total}"
+
+level:
+  level: "Level"
+
+errors:
+  invalid_theme: "❌ Invalid theme"
+  no_theme: "❌ No theme selected"
+  unknown_callback: "❌ Unknown command"
+  content_unavailable: "❌ Content unavailable"
+  question_unavailable: "❌ Question unavailable"

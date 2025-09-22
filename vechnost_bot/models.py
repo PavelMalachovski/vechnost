@@ -4,6 +4,8 @@ from enum import Enum
 
 from pydantic import BaseModel, Field
 
+from .i18n import Language
+
 
 class Theme(str, Enum):
     """Available game themes."""
@@ -29,6 +31,7 @@ class SessionState(BaseModel):
     content_type: ContentType = ContentType.QUESTIONS
     drawn_cards: set[str] = Field(default_factory=set)
     is_nsfw_confirmed: bool = False
+    language: Language = Language.RUSSIAN
 
     def reset(self) -> None:
         """Reset the session to initial state."""
@@ -37,6 +40,7 @@ class SessionState(BaseModel):
         self.content_type = ContentType.QUESTIONS
         self.drawn_cards.clear()
         self.is_nsfw_confirmed = False
+        # Keep language setting when resetting
 
 
 class GameData(BaseModel):

@@ -22,6 +22,9 @@ class CallbackAction(str, Enum):
     RESET_CONFIRM = "reset_confirm"
     RESET_CANCEL = "reset_cancel"
     NOOP = "noop"
+    LANGUAGE = "lang"
+    LANGUAGE_CONFIRM = "lang_confirm"
+    LANGUAGE_BACK = "lang_back"
 
 
 class CallbackData(BaseModel):
@@ -56,6 +59,12 @@ class CallbackData(BaseModel):
             return ToggleCallbackData.parse(data)
         elif data.startswith("back:"):
             return BackCallbackData.parse(data)
+        elif data.startswith("lang_confirm_"):
+            return LanguageConfirmCallbackData.parse(data)
+        elif data.startswith("lang_"):
+            return LanguageCallbackData.parse(data)
+        elif data == "lang_back":
+            return LanguageBackCallbackData.parse(data)
         elif data in ["nsfw_confirm", "nsfw_deny", "reset_game", "reset_confirm", "reset_cancel", "noop"]:
             return SimpleCallbackData.parse(data)
         else:
@@ -304,3 +313,55 @@ class SimpleCallbackData(CallbackData):
             raise ValueError(f"Unknown simple action: {data}")
 
         return cls(raw_data=data, action=action)
+
+
+class LanguageCallbackData(CallbackData):
+    """Callback data for language selection."""
+
+    action: CallbackAction = CallbackAction.LANGUAGE
+    language_code: str
+
+    @classmethod
+    def parse(cls, data: str) -> "LanguageCallbackData":
+        """Parse language callback data."""
+        if not data.startswith("lang_"):
+            raise ValueError(f"Invalid language callback data: {data}")
+
+        language_code = data[5:]  # Remove "lang_" prefix
+        if not language_code:
+            raise ValueError("Empty language code")
+
+        return cls(raw_data=data, language_code=language_code)
+
+
+class LanguageConfirmCallbackData(CallbackData):
+    """Callback data for language confirmation."""
+
+    action: CallbackAction = CallbackAction.LANGUAGE_CONFIRM
+    language_code: str
+
+    @classmethod
+    def parse(cls, data: str) -> "LanguageConfirmCallbackData":
+        """Parse language confirmation callback data."""
+        if not data.startswith("lang_confirm_"):
+            raise ValueError(f"Invalid language confirmation callback data: {data}")
+
+        language_code = data[13:]  # Remove "lang_confirm_" prefix
+        if not language_code:
+            raise ValueError("Empty language code")
+
+        return cls(raw_data=data, language_code=language_code)
+
+
+class LanguageBackCallbackData(CallbackData):
+    """Callback data for language selection back navigation."""
+
+    action: CallbackAction = CallbackAction.LANGUAGE_BACK
+
+    @classmethod
+    def parse(cls, data: str) -> "LanguageBackCallbackData":
+        """Parse language back callback data."""
+        if data != "lang_back":
+            raise ValueError(f"Invalid language back callback data: {data}")
+
+        return cls(raw_data=data)

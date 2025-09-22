@@ -1,0 +1,86 @@
+# Czech UI translations
+welcome:
+  title: "🎴 Vechnost"
+  subtitle: "Karetní hra pro seznámení"
+  prompt: "Vyberte jazyk / Choose language / Выберите язык"
+
+language:
+  selection_title: "🌍 Vyberte jazyk"
+  selection_subtitle: "Choose your language / Выберите язык / Vyberte si jazyk"
+  confirm_title: "✅ Jazyk vybrán"
+  confirm_subtitle: "Language selected / Язык выбран / Jazyk nastaven"
+  confirm: "Potvrdit"
+
+themes:
+  Acquaintance: "🤝 Seznámení"
+  "For Couples": "💕 Pro páry"
+  Sex: "🔥 Sex"
+  Provocation: "⚡ Provokace"
+
+level:
+  prompt: "Vyberte úroveň obtížnosti:"
+
+calendar:
+  header: "Kalendář otázek"
+  sex_questions: "🔥 Sex — Otázky"
+  sex_tasks: "🔥 Sex — Úkoly"
+
+question:
+  header: "Otázka {current} z {total}"
+
+navigation:
+  back: "← Zpět"
+  next: "Další →"
+  previous: "← Předchozí"
+  toggle_questions: "❓ Otázky"
+  toggle_tasks: "📝 Úkoly"
+
+nsfw:
+  warning_title: "⚠️ Varování"
+  warning_text: "Toto téma obsahuje obsah pro dospělé. Pokračovat?"
+  access_denied: "❌ Přístup zamítnut"
+
+reset:
+  title: "🔄 Reset hry"
+  confirm_text: "Jste si jisti, že chcete resetovat hru?"
+  completed: "✅ Hra resetována"
+  cancelled: "❌ Reset zrušen"
+
+help:
+  title: "📖 Nápověda"
+  themes: "🎴 Témata:\n• Seznámení - otázky pro seznámení\n• Pro páry - otázky pro páry\n• Sex - intimní otázky a úkoly\n• Provokace - provokativní otázky\n\n"
+  how_to_play: "🎮 Jak hrát:\n1. Vyberte téma\n2. Zvolte úroveň obtížnosti\n3. Odpovídejte na otázky postupně\n4. Diskutujte o odpovědích mezi sebou\n\n"
+  commands: "⌨️ Příkazy:\n/start - začít hru\n/help - zobrazit nápovědu\n/reset - resetovat hru"
+
+reset:
+  title: "🔄 Reset hry"
+  confirm_text: "Jste si jisti, že chcete resetovat hru?"
+  completed: "✅ Hra resetována"
+  cancelled: "❌ Reset zrušen"
+  confirm: "Ano"
+  cancel: "Ne"
+
+nsfw:
+  warning_title: "⚠️ Varování"
+  warning_text: "Toto téma obsahuje obsah pro dospělé. Pokračovat?"
+  access_denied: "❌ Přístup zamítnut"
+  confirm: "Ano"
+  deny: "Ne"
+
+navigation:
+  back: "← Zpět"
+  next: "Další →"
+  previous: "← Předchozí"
+  toggle_questions: "❓ Otázky"
+  toggle_tasks: "📝 Úkoly"
+  page: "Stránka {current} z {total}"
+
+level:
+  level: "Úroveň"
+
+errors:
+  invalid_theme: "❌ Neplatné téma"
+  no_theme: "❌ Žádné téma nevybráno"
+  unknown_callback: "❌ Neznámý příkaz"
+  content_unavailable: "❌ Obsah není k dispozici"
+  question_unavailable: "❌ Otázka není k dispozici"
