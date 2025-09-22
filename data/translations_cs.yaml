@@ -1,10 +1,7 @@
 # Czech UI translations
 welcome:
-  title: "Vechnost"
-  subtitle: "Karetní hra pro seznámení"
-  description: "Interaktivní hra s otázkami a úkoly, která vám pomůže lépe se poznat. Vyberte téma, úroveň obtížnosti a začněte vzrušující cestu do světa komunikace!"
-  features: "✨ **Funkce:**\n• 4 témata: Seznámení, Pro páry, Sex, Provokace\n• Různé úrovně obtížnosti\n• Krásné karty s otázkami\n• Podpora 3 jazyků\n• Intuitivní rozhraní"
-  prompt: "Vyberte jazyk / Choose language / Выберите язык"
+  language_prompt: "Vyberte jazyk pro začátek hry"
+  welcome_message: "Vítejte ve VECHNOST 💕\n\nHra pro páry vytvořená k:\n❤️‍🔥 opravdovému poznání sebe navzájem\n🔥 překročení hranic běžných rozhovorů\n💎 objevení nových stránek sebe a partnera\n\nVyberte jeden z balíčků a otevřete nový svět:\n✨ Pro seznamování a první schůzky\n♥️ Pro páry a budování intimity\n❤️‍🔥 Provokace — neočekávané otázky odhalující hloubku\n🔥 Sex a provokační blok"
 
 language:
   selection_title: "🌍 Vyberte jazyk"
@@ -14,10 +11,10 @@ language:
   confirm: "Potvrdit"
 
 themes:
-  Acquaintance: "🤝 Seznámení"
-  "For Couples": "💕 Pro páry"
+  Acquaintance: "✨ Seznámení"
+  "For Couples": "♥️ Pro páry"
   Sex: "🔥 Sex"
-  Provocation: "⚡ Provokace"
+  Provocation: "❤️‍🔥 Provokace"
 
 level:
   prompt: "Vyberte úroveň obtížnosti:"

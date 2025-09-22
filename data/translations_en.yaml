@@ -1,10 +1,7 @@
 # English UI translations
 welcome:
-  title: "Vechnost"
-  subtitle: "Card game for getting to know each other"
-  description: "An interactive game with questions and tasks that will help you get to know each other better. Choose a theme, difficulty level, and start an exciting journey into the world of communication!"
-  features: "✨ **Features:**\n• 4 themes: Acquaintance, For Couples, Sex, Provocation\n• Different difficulty levels\n• Beautiful question cards\n• Support for 3 languages\n• Intuitive interface"
-  prompt: "Choose language / Выберите язык / Vyberte jazyk"
+  language_prompt: "Select your language to start the game"
+  welcome_message: "Welcome to VECHNOST 💕\n\nThe game for couples created to:\n❤️‍🔥 truly get to know each other\n🔥 go beyond ordinary conversations\n💎 discover new sides of yourself and your partner\n\nChoose one of the decks and open a new world:\n✨ For dating and first meetings\n♥️ For couples and building intimacy\n❤️‍🔥 Provocations — unexpected questions that reveal depth\n🔥 Sex & provocation block"
 
 language:
   selection_title: "🌍 Choose Language"
@@ -14,10 +11,10 @@ language:
   confirm: "Confirm"
 
 themes:
-  Acquaintance: "🤝 Acquaintance"
-  "For Couples": "💕 For Couples"
+  Acquaintance: "✨ Acquaintance"
+  "For Couples": "♥️ For Couples"
   Sex: "🔥 Sex"
-  Provocation: "⚡ Provocation"
+  Provocation: "❤️‍🔥 Provocation"
 
 level:
   prompt: "Choose difficulty level:"

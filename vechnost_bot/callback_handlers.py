@@ -90,15 +90,10 @@ class ThemeHandler(CallbackHandler):
             session.content_type = ContentType.QUESTIONS
             await self._show_calendar(query, session, 0, ContentType.QUESTIONS)
         else:
-            # Acquaintance, For Couples: Show level selection
-            logger.info(f"Getting available levels for theme {theme}")
-            available_levels = localized_game_data.get_available_levels(theme, session.language)
-            if not available_levels:
-                logger.error(f"No available levels for theme {theme}")
-                await query.edit_message_text(get_text('errors.no_theme', session.language))
-                return
-            logger.info(f"Available levels: {available_levels}")
-            await self._show_level_selection(query, theme, available_levels, session)
+            # Acquaintance, For Couples: Show calendar directly
+            logger.info(f"Showing calendar for theme {theme}")
+            session.content_type = ContentType.QUESTIONS
+            await self._show_calendar(query, session, 0, ContentType.QUESTIONS)
 
     async def _show_level_selection(self, query: Any, theme: Theme, available_levels: list[int], session: SessionState) -> None:
         """Show level selection menu."""
@@ -677,11 +672,9 @@ class BackHandler(CallbackHandler):
             if not session.theme:
                 await self._show_theme_selection(query, session)
                 return
-            available_levels = localized_game_data.get_available_levels(session.theme, session.language)
-            if available_levels:
-                await self._show_level_selection(query, session.theme, available_levels)
-            else:
-                await self._show_theme_selection(query, session)
+            # Go directly to calendar since we removed level selection
+            session.content_type = ContentType.QUESTIONS
+            await self._show_calendar(query, session, 0, ContentType.QUESTIONS)
         elif destination == "calendar":
             # Go back to calendar - need to determine which calendar
             if not session.theme:
@@ -1108,8 +1101,8 @@ class LanguageConfirmHandler(CallbackHandler):
         # Update session language
         session.language = language
 
-        # Show theme selection
-        welcome_text = f"{get_text('welcome.title', language)}\n\n{get_text('welcome.subtitle', language)}\n\n{get_text('welcome.prompt', language)}"
+        # Show welcome message and theme selection
+        welcome_text = get_text('welcome.welcome_message', language)
         keyboard = get_theme_keyboard(language)
 
         await self._edit_or_send_message(query, welcome_text, keyboard)

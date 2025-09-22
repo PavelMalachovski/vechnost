@@ -18,7 +18,7 @@ CARD_WIDTH = 1080
 CARD_HEIGHT = 1350
 PADDING = 20
 TEXT_MARGIN = 0.9  # 90% of image width for larger text
-LINE_SPACING = 1.25
+LINE_SPACING = 1.0
 JPEG_QUALITY = 90
 DEFAULT_FONT_SIZE = 53
 MIN_FONT_SIZE = 53
@@ -206,8 +206,7 @@ def render_card(text: str, bg_path: str, footer: Optional[str] = None) -> BytesI
             x = (CARD_WIDTH - line_width) // 2  # Center horizontally
             y = current_y
 
-            # Draw text with strong shadow for better readability without background
-            draw.text((x + 4, y + 4), line, font=font, fill=(0, 0, 0, 255))  # Strong shadow
+            # Draw text without shadow
             draw.text((x, y), line, font=font, fill=(245, 160, 227, 255))  # Main text - #F5A0E3
 
             current_y += int((bbox[3] - bbox[1]) * LINE_SPACING)

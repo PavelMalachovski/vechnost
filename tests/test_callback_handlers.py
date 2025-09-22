@@ -56,11 +56,11 @@ class TestThemeHandler:
             theme_name="Acquaintance"
         )
 
-        with patch.object(handler, '_show_level_selection') as mock_show_level:
+        with patch.object(handler, '_show_calendar') as mock_show_calendar:
             await handler.handle(mock_query, callback_data, session)
 
             assert session.theme == Theme.ACQUAINTANCE
-            mock_show_level.assert_called_once()
+            mock_show_calendar.assert_called_once()
 
     @pytest.mark.asyncio
     async def test_handle_theme_selection_sex(self, handler, mock_query, session):
@@ -367,13 +367,10 @@ class TestBackHandler:
             destination="levels"
         )
 
-        with patch('vechnost_bot.callback_handlers.localized_game_data') as mock_game_data:
-            mock_game_data.get_available_levels.return_value = [1, 2, 3]
+        with patch.object(handler, '_show_calendar') as mock_show_calendar:
+            await handler.handle(mock_query, callback_data, session)
 
-            with patch.object(handler, '_show_level_selection') as mock_show_level:
-                await handler.handle(mock_query, callback_data, session)
-
-                mock_show_level.assert_called_once()
+            mock_show_calendar.assert_called_once()
 
     @pytest.mark.asyncio
     async def test_handle_back_to_calendar(self, handler, mock_query, session):

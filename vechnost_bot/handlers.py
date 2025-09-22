@@ -54,7 +54,8 @@ async def start_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
     # Detect language from user's message or default to Russian
     detected_language = detect_language_from_text(update.message.text or "")
 
-    welcome_text = f"🎴 **{get_text('welcome.title', detected_language)}**\n\n{get_text('welcome.subtitle', detected_language)}\n\n{get_text('welcome.description', detected_language)}\n\n{get_text('welcome.features', detected_language)}\n\n{get_text('welcome.prompt', detected_language)}"
+    # Simple welcome text for language selection
+    welcome_text = get_text('welcome.language_prompt', detected_language)
 
     keyboard = get_language_selection_keyboard(detected_language)
     logger.info(f"Sending language selection keyboard with {len(keyboard.inline_keyboard)} rows")
