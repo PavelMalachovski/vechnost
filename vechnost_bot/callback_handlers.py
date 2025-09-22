@@ -158,6 +158,9 @@ class ThemeHandler(CallbackHandler):
         # Ensure page is within bounds
         page = max(0, min(page, total_pages - 1))
 
+        # Calculate remaining count
+        remaining_count = len(items)
+
         # Build header text
         if session.theme == Theme.SEX:
             if content_type == ContentType.QUESTIONS:
@@ -254,6 +257,9 @@ class LevelHandler(CallbackHandler):
 
         # Ensure page is within bounds
         page = max(0, min(page, total_pages - 1))
+
+        # Calculate remaining count
+        remaining_count = len(items)
 
         # Build header text
         if session.theme == Theme.SEX:
@@ -361,6 +367,9 @@ class CalendarHandler(CallbackHandler):
 
         # Ensure page is within bounds
         page = max(0, min(page, total_pages - 1))
+
+        # Calculate remaining count
+        remaining_count = len(items)
 
         # Build header text
         if session.theme == Theme.SEX:
@@ -614,6 +623,9 @@ class ToggleHandler(CallbackHandler):
         # Ensure page is within bounds
         page = max(0, min(page, total_pages - 1))
 
+        # Calculate remaining count
+        remaining_count = len(items)
+
         # Build header text
         if session.theme == Theme.SEX:
             if content_type == ContentType.QUESTIONS:
@@ -756,6 +768,9 @@ class BackHandler(CallbackHandler):
 
         # Ensure page is within bounds
         page = max(0, min(page, total_pages - 1))
+
+        # Calculate remaining count
+        remaining_count = len(items)
 
         # Build header text
         if session.theme == Theme.SEX:
@@ -940,6 +955,9 @@ class SimpleActionHandler(CallbackHandler):
         # Ensure page is within bounds
         page = max(0, min(page, total_pages - 1))
 
+        # Calculate remaining count
+        remaining_count = len(items)
+
         # Build header text
         if session.theme == Theme.SEX:
             if content_type == ContentType.QUESTIONS:
@@ -1055,24 +1073,14 @@ class LanguageHandler(CallbackHandler):
             await query.edit_message_text(get_text('errors.unknown_callback', session.language))
             return
 
-        # Show language confirmation
-        language_name = get_language_name(language, session.language)
-        confirm_text = f"{get_text('language.confirm_title', session.language)}\n\n{language_name}\n\n{get_text('language.confirm_subtitle', session.language)}"
+        # Update session language and show welcome message directly
+        session.language = language
 
-        keyboard = InlineKeyboardMarkup([
-            [
-                InlineKeyboardButton(
-                    f"✓ {get_text('language.confirm', session.language)}",
-                    callback_data=f"lang_confirm_{language.value}"
-                ),
-                InlineKeyboardButton(
-                    get_text('navigation.back', session.language),
-                    callback_data="lang_back"
-                )
-            ]
-        ])
+        # Show welcome message and theme selection
+        welcome_text = get_text('welcome.welcome_message', language)
+        keyboard = get_theme_keyboard(language)
 
-        await self._edit_or_send_message(query, confirm_text, keyboard)
+        await self._edit_or_send_message(query, welcome_text, keyboard)
 
     async def _edit_or_send_message(self, query: Any, text: str, keyboard: Any) -> None:
         """Edit message or send new one if editing fails."""
