@@ -196,9 +196,7 @@ themes:
         - Dokázal/a byste mě finančně podpořit v případě krizové situace nebo začátku nového projektu? Myslíte si, že je to důležité nebo obtížné ve vztazích?
         - Co je pro vás skutečná intimita - kontakt těl, myslí nebo duší? A dokážete to zvládnout, když se to skutečně stane?
   Sex:
-    levels:
-      1:
-        questions:
+    questions:
         - Jaká je tvoje největší sexuální fantazie?
         - Jaká je tvoje oblíbená pozice?
         - Co tě nejvíce vzrušuje?
@@ -229,37 +227,66 @@ themes:
         - Jaké je tvoje největší sexuální přání?
         - Jaký je tvůj oblíbený způsob hravosti?
         - Co tě nejvíce vzrušuje na partnerovi?
-        tasks:
-        - Dej partnerovi smyslnou masáž
-        - Napiš partnerovi sprostý text
-        - Zkuste spolu novou pozici
-        - Dej partnerovi překvapivý polibek
-        - Zkuste spolu role-playing
-        - Dej partnerovi kompliment o jeho těle
-        - Zkuste nové místo pro intimitu
-        - Dej partnerovi smyslný tanec
-        - Zkuste spolu novou techniku
-        - Dej partnerovi překvapivý dotek
-        - Zkuste nový způsob komunikace během intimity
-        - Dej partnerovi smyslný pohled
-        - Zkuste nový způsob budování očekávání
-        - Dej partnerovi překvapivý dárek
-        - Zkuste nový způsob vyjádření touhy
-        - Dej partnerovi smyslný šepot
-        - Zkuste nový způsob zkoumání sebe navzájem
-        - Dej partnerovi překvapivé pohlazení
-        - Zkuste nový způsob intimity
-        - Dej partnerovi smyslné gesto
-        - Zkuste nový způsob spojení
-        - Dej partnerovi překvapivé objetí
-        - Zkuste nový způsob hravosti
-        - Dej partnerovi smyslný úsměv
-        - Zkuste nový způsob romantiky
-        - Dej partnerovi překvapivý polibek na zvláštní místo
-        - Zkuste nový způsob dobrodružství
-        - Dej partnerovi smyslný kompliment
-        - Zkuste nový způsob vášně
-        - Dej partnerovi překvapivý dotek zvláštním způsobem
+        - Měl/a jsi někdy sexuální fantazie o příbuzném někoho z tvých spolužáků?
+        - Když jsi chodil/a do školy, měl/a jsi sexuální fantazie o někom ze třídy?
+        - Měl/a jsi někdy sexuální fantazie o někom z tvých příbuzných?
+        - Měl/a jsi fantazie o sexu s někým mnohem starším nebo mladším než ty?
+        - Která pozice ti přináší největší potěšení? Která pozice tě nejvíce vzrušuje?
+        - Sexuální asociace: který nápoj se ti zdá nejvíce sexuální? Které jídlo?
+        - Jaký je tvůj postoj k análnímu sexu? Měl/a jsi zkušenost s análním sexem?
+        - Chtěl/a bys pozvat třetí osobu do páru? Jak bychom vybírali třetí osobu?
+        - Chtěl/a bys se zúčastnit orgie? Jak se stavíš k takovým večírkům?
+        - Která je tvoje nejcitlivější erotogenní zóna?
+        - Jak rozumíš, že jsi sexuálně nekompatibilní s partnerem?
+        - Věnuješ pozornost partnerovu tělu během sexu? Všímáš si mateřských znamének, jizev, tetování?
+        - Které dotyky tě nejvíce vzrušují?
+        - Které akce tvého partnera tě nejvíce vzrušují, i když nejsou sexuální?
+        - Význam polibků v různých fázích intimity. Které polibky se ti zdají nejintimnější?
+        - Jaký je tvůj oblíbený typ polibku - jednoduchý, dotykový, se sáním rtů, francouzský polibek?
+        - Jaký je tvůj postoj k kousání, škrábání, štípání během sexu? Považuješ je za přijatelné?
+        - Jak se stavíš k cucflekům? Měly by se nechávat a proč?
+        - Kdo "vede" během aktu? Kdo reguluje proces? Kdo je aktivnější?
+        - Které akce partnera během sexu považuješ za neschopnost nebo nezkušenost?
+        - Časové rozpětí: jaký je pro tebe ideální čas na pohlavní styk? A jaký je maximum?
+        - Co se děje po sexu? Chceš zůstat blízko, líbat se, objímat, nebo raději být sám/sama?
+        - Zvyšování vášně pomocí fantazií a her. Jak se stavíš k rolovým hrám?
+        - Měl/a jsi sex s osobou svého pohlaví? Chtěl/a bys to zkusit?
+        - Jak raději ukončuješ akt - na obličej, břicho, záda atd.?
+        - Chtěl/a bys sledovat, jak tvůj partner má sex s někým jiným?
+        - Jaký je tvůj postoj k prostituci? Využíval/a jsi jejich služeb? Jak se k tomu stavíš?
+        - Jaký je tvůj postoj ke striptýzu? Preferuješ doma nebo v klubu?
+        - Dokázal/a bys mít vztah s pornoherečkou/hercem, striptérkou/striptérem?
+        - Měl/a jsi zkušenost s erotickou masáží? Jak se k tomu stavíš?
+        - Jak se stavíš k afrodiziakům - nápojům, kořením, použití olejů a krémů?
+        - Jak často by podle tebe měl být sex?
+        - Stydíš se za své tělo nebo své reakce během sexu?
+        - Jsou na těle místa, kterých je lepší se nedotýkat?
+        - Jaká je tvoje sexuální fantazie, kterou jsi ještě nerealizoval/a?
+        - Můžeš partnerovi přímo říct: \"Tohle se mi nelíbí\" nebo \"Chci tohle\"?
+        - Měl/a jsi traumatickou zkušenost související se sexem? Ovlivňuje to tvé současné vztahy?
+        - Máš strachy: \"nejsem dostatečný/á\", \"nevzrušuji\", \"můžu ztratit partnera\"?
+        - Dosahuješ orgasmus pokaždé? Je to pro tebe důležité?
+        - Kdo je tvůj "hall pass"? Ta celebrita, se kterou je to možné - a já nemám nic proti?
+        - Předstíral/a jsi orgasmus? Jak často? Proč?
+        - Je na tvém těle zóna, kterou chceš, aby partner více "zkoumal"?
+        - Co je nejvíce "špinavá" nebo "zakázaná" věc, která tě vzrušuje?
+        - Cítíš, že můžeš obětovat své touhy během sexu pro partnerovo potěšení?
+        - Měl/a jsi sex s osobou jiné rasy? S kým bys chtěl/a zkusit?
+        - Která kategorie porna se ti zdá odporná a podle tvého názoru by neměla existovat?
+        - Vytvořte mapu těla. Označte místa na těle rty nebo rukama jako "území potěšení".
+        - 10 dotyků. Dotýkejte se partnera různými způsoby. Používejte různé části těla.
+        - Dýchání na kůži. Jeden partner zavře oči, druhý dýchá na krk, hruď, břicho.
+        - Zrcadlo. Opakujte partnerovy akce: polibky, pohyby, dotyky.
+        - 30 sekund na svádění. Každý po sobě musí maximálně vzrušit svého partnera za 30 sekund.
+        - Sexuální šepot. Řekni partnerovi svou fantazii do ucha šepotem.
+        - Psaní na těle. Napiš slovo nebo frázi na partnerovo tělo pouze jazykem.
+        - Hra Ano/Ne. Dotýkejte se partnera na různých místech a druhý partner odpovídá "ano" nebo "ne".
+        - Hlasové vzrušení. Přečti erotický příběh nebo svou fantazii nahlas.
+        - Hra se zrcadlem. Tvůj partner sedí před zrcadlem a dívá se. Ty v tuto chvíli děláš vše za jeho zády.
+        - Škála tlaku. Najděte ideální sílu tlaku: hlaďte, poplácávejte, tlačte, mačkejte na různých místech.
+        - Zákaz rukou. Pohybujte se po partnerovi rameny, nosem, tvářemi atd., ruce jsou za zády.
+        - Zákaz hranic. Vedejte prsty po partnerových intimních místech - bradavky, genitálie, ale nedotýkejte se jich přímo.
+        - Procvičování sexuálních pohybů. Zapněte hudbu a tancujte salsu, maximálně pohybujte boky a pánví.
   Provocation:
     questions:
         - Jaký je tvůj nejkontroverznější názor?
