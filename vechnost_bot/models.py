@@ -15,6 +15,16 @@ class Theme(str, Enum):
     SEX = "Sex"
     PROVOCATION = "Provocation"
 
+    def value_short(self) -> str:
+        """Get short value for callback data."""
+        mapping = {
+            Theme.ACQUAINTANCE: "acq",
+            Theme.FOR_COUPLES: "couples",
+            Theme.SEX: "sex",
+            Theme.PROVOCATION: "prov"
+        }
+        return mapping[self]
+
 
 class ContentType(str, Enum):
     """Types of content available."""

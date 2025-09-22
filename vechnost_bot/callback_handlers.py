@@ -94,10 +94,10 @@ class ThemeHandler(CallbackHandler):
     async def _show_level_selection(self, query: Any, theme: Theme, available_levels: list[int]) -> None:
         """Show level selection menu."""
         theme_names = {
-            Theme.ACQUAINTANCE: TOPIC_ACQUAINTANCE,
-            Theme.FOR_COUPLES: TOPIC_FOR_COUPLES,
-            Theme.SEX: TOPIC_SEX,
-            Theme.PROVOCATION: TOPIC_PROVOCATION,
+            Theme.ACQUAINTANCE: Theme.ACQUAINTANCE.value_short(),
+            Theme.FOR_COUPLES: Theme.FOR_COUPLES.value_short(),
+            Theme.SEX: Theme.SEX.value_short(),
+            Theme.PROVOCATION: Theme.PROVOCATION.value_short(),
         }
 
         theme_emojis = {
@@ -679,10 +679,10 @@ class BackHandler(CallbackHandler):
     async def _show_level_selection(self, query: Any, theme: Theme, available_levels: list[int]) -> None:
         """Show level selection menu."""
         theme_names = {
-            Theme.ACQUAINTANCE: TOPIC_ACQUAINTANCE,
-            Theme.FOR_COUPLES: TOPIC_FOR_COUPLES,
-            Theme.SEX: TOPIC_SEX,
-            Theme.PROVOCATION: TOPIC_PROVOCATION,
+            Theme.ACQUAINTANCE: Theme.ACQUAINTANCE.value_short(),
+            Theme.FOR_COUPLES: Theme.FOR_COUPLES.value_short(),
+            Theme.SEX: Theme.SEX.value_short(),
+            Theme.PROVOCATION: Theme.PROVOCATION.value_short(),
         }
 
         theme_emojis = {
@@ -858,10 +858,10 @@ class SimpleActionHandler(CallbackHandler):
     async def _show_level_selection(self, query: Any, theme: Theme, available_levels: list[int]) -> None:
         """Show level selection menu."""
         theme_names = {
-            Theme.ACQUAINTANCE: TOPIC_ACQUAINTANCE,
-            Theme.FOR_COUPLES: TOPIC_FOR_COUPLES,
-            Theme.SEX: TOPIC_SEX,
-            Theme.PROVOCATION: TOPIC_PROVOCATION,
+            Theme.ACQUAINTANCE: Theme.ACQUAINTANCE.value_short(),
+            Theme.FOR_COUPLES: Theme.FOR_COUPLES.value_short(),
+            Theme.SEX: Theme.SEX.value_short(),
+            Theme.PROVOCATION: Theme.PROVOCATION.value_short(),
         }
 
         theme_emojis = {
