@@ -51,7 +51,7 @@ class I18nManager:
 
                 # Merge translations
                 self.translations[language] = {
-                    **ui_translations,
+                    "ui": ui_translations,
                     "questions": questions_translations
                 }
 
@@ -77,7 +77,7 @@ class I18nManager:
         try:
             # Navigate through nested keys (e.g., "welcome.title")
             keys = key.split('.')
-            value = self.translations.get(language, {})
+            value = self.translations.get(language, {}).get("ui", {})
 
             for k in keys:
                 if isinstance(value, dict) and k in value:
