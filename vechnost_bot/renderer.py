@@ -207,7 +207,7 @@ def render_card(text: str, bg_path: str, footer: Optional[str] = None) -> BytesI
             y = current_y
 
             # Draw text without shadow
-            draw.text((x, y), line, font=font, fill=(245, 160, 227, 255))  # Main text - #F5A0E3
+            draw.text((x, y), line, font=font, fill=(53, 0, 39, 255))  # Main text - Dark maroon #350027
 
             current_y += int((bbox[3] - bbox[1]) * LINE_SPACING)
 

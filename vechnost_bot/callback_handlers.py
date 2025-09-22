@@ -708,7 +708,7 @@ class BackHandler(CallbackHandler):
 
     async def _show_theme_selection(self, query: Any, session: SessionState) -> None:
         """Show theme selection menu."""
-        welcome_text = get_text('welcome.prompt', session.language)
+        welcome_text = get_text('welcome.welcome_message', session.language)
         await self._edit_or_send_message(query, welcome_text, get_theme_keyboard(session.language))
 
     async def _show_level_selection(self, query: Any, theme: Theme, available_levels: list[int], session: SessionState) -> None:
@@ -892,9 +892,9 @@ class SimpleActionHandler(CallbackHandler):
             reply_markup=get_theme_keyboard(session.language)
         )
 
-    async def _show_theme_selection(self, query: Any) -> None:
+    async def _show_theme_selection(self, query: Any, session: SessionState) -> None:
         """Show theme selection menu."""
-        welcome_text = get_text('welcome.prompt', session.language)
+        welcome_text = get_text('welcome.welcome_message', session.language)
         await self._edit_or_send_message(query, welcome_text, get_theme_keyboard(session.language))
 
     async def _show_level_selection(self, query: Any, theme: Theme, available_levels: list[int], session: SessionState) -> None:
