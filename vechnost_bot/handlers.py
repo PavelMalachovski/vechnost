@@ -34,6 +34,14 @@ from .i18n import (
     WELCOME_SUBTITLE,
     WELCOME_TITLE,
 )
+from .monitoring import (
+    log_bot_event,
+    log_callback_event,
+    log_session_event,
+    set_user_context,
+    track_errors,
+    track_performance,
+)
 from .keyboards import (
     get_calendar_keyboard,
     get_level_keyboard,
@@ -53,12 +61,20 @@ logger = logging.getLogger(__name__)
 GAME_DATA = load_game_data()
 
 
+@track_performance("start_command")
 async def start_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """Handle the /start command."""
     if not update.message:
         return
 
+    user_id = update.effective_user.id
+    username = update.effective_user.username
+
+    # Set user context for monitoring
+    set_user_context(user_id, username)
+
     logger.info(f"Start command received from chat {update.effective_chat.id}")
+    log_bot_event("start_command", user_id=user_id, username=username)
 
     welcome_text = f"{WELCOME_TITLE}\n\n{WELCOME_SUBTITLE}\n\n{WELCOME_PROMPT}"
 
@@ -94,6 +110,7 @@ async def reset_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
     )
 
 
+@track_performance("callback_query")
 async def handle_callback_query(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """Handle callback queries from inline keyboards."""
     query = update.callback_query
@@ -102,59 +119,24 @@ async def handle_callback_query(update: Update, context: ContextTypes.DEFAULT_TY
         return
 
     chat_id = query.message.chat.id
+    user_id = update.effective_user.id if update.effective_user else None
+
     logger.info(f"Callback query received: {query.data} from chat {chat_id}")
+    log_callback_event(query.data, user_id or chat_id)
 
     try:
         await query.answer()
     except Exception as e:
         logger.error(f"Error answering callback query: {e}")
 
-    session = get_session(chat_id)
     data = query.data
-
     if not data:
         logger.warning("Callback query received with no data")
         return
 
-    try:
-        if data == "back:themes":
-            await show_theme_selection(query)
-        elif data.startswith("theme_"):
-            await handle_theme_selection(query, data, session)
-        elif data.startswith("level_"):
-            await handle_level_selection(query, data, session)
-        elif data.startswith("cal:"):
-            await handle_calendar_page(query, data, session)
-        elif data.startswith("q:"):
-            await handle_question_selection(query, data, session)
-        elif data.startswith("nav:"):
-            await handle_question_navigation(query, data, session)
-        elif data.startswith("toggle:"):
-            await handle_toggle_content(query, data, session)
-        elif data.startswith("back:"):
-            await handle_back_navigation(query, data, session)
-        elif data == "nsfw_confirm":
-            await handle_nsfw_confirmation(query, session)
-        elif data == "nsfw_deny":
-            await handle_nsfw_denial(query)
-        elif data == "reset_game":
-            await handle_reset_request(query)
-        elif data == "reset_confirm":
-            await handle_reset_confirmation(query, session)
-        elif data == "reset_cancel":
-            await handle_reset_cancel(query, session)
-        elif data == "noop":
-            # No operation - do nothing
-            pass
-        else:
-            logger.warning(f"Unknown callback data: {data}")
-            await query.edit_message_text(ERROR_UNKNOWN_CALLBACK)
-    except Exception as e:
-        logger.error(f"Error handling callback query {data}: {e}")
-        try:
-            await query.edit_message_text("❌ Произошла ошибка. Попробуйте снова.")
-        except Exception as edit_error:
-            logger.error(f"Error editing message: {edit_error}")
+    # Use the new callback handler registry
+    from .callback_handlers import callback_registry
+    await callback_registry.handle_callback(query, data)
 
 
 async def show_theme_selection(query: Any) -> None:

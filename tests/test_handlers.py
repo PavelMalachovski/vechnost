@@ -62,9 +62,12 @@ class TestHandlers:
         update.callback_query = MagicMock()
         update.callback_query.data = "invalid_data"
         update.callback_query.answer = AsyncMock()
+        update.callback_query.edit_message_text = AsyncMock()
         update.callback_query.message = MagicMock()
         update.callback_query.message.chat = MagicMock()
         update.callback_query.message.chat.id = 12345
+        update.effective_user = MagicMock()
+        update.effective_user.id = 12345
         context = MagicMock()
 
         # Call the handler
@@ -84,6 +87,8 @@ class TestHandlers:
         update.callback_query.message = MagicMock()
         update.callback_query.message.chat = MagicMock()
         update.callback_query.message.chat.id = 12345
+        update.effective_user = MagicMock()
+        update.effective_user.id = 12345
         context = MagicMock()
 
         # Call the handler

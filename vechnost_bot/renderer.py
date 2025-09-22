@@ -1,12 +1,15 @@
 """Image rendering module for Vechnost bot cards."""
 
 import logging
+import time
 from functools import lru_cache
 from io import BytesIO
 from pathlib import Path
 from typing import Optional
 
 from PIL import Image, ImageDraw, ImageFont
+
+from .monitoring import log_image_rendering_event, track_performance
 
 logger = logging.getLogger(__name__)
 
@@ -156,6 +159,7 @@ def _find_optimal_font_size(text: str, max_width: int, max_height: int) -> tuple
     return font, lines
 
 
+@track_performance("render_card")
 def render_card(text: str, bg_path: str, footer: Optional[str] = None) -> BytesIO:
     """
     Render a card with text overlaid on background.
@@ -168,6 +172,9 @@ def render_card(text: str, bg_path: str, footer: Optional[str] = None) -> BytesI
     Returns:
         BytesIO object containing JPEG image data
     """
+    start_time = time.time()
+    success = False
+
     try:
         # Load background image
         background = _load_background_image(bg_path)
@@ -210,11 +217,20 @@ def render_card(text: str, bg_path: str, footer: Optional[str] = None) -> BytesI
         card.save(output, format='JPEG', quality=JPEG_QUALITY, optimize=True)
         output.seek(0)
 
+        success = True
         return output
 
     except Exception as e:
         logger.error(f"Error rendering card: {e}")
         raise
+    finally:
+        duration = time.time() - start_time
+        log_image_rendering_event(
+            success=success,
+            duration=duration,
+            text_length=len(text),
+            bg_path=bg_path
+        )
 
 
 def get_background_path(topic: str, level_or_0: int, category: str) -> str:
