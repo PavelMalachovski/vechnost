@@ -58,15 +58,19 @@ class ThemeHandler(CallbackHandler):
     async def handle(self, query: Any, callback_data: ThemeCallbackData, session: SessionState) -> None:
         """Handle theme selection."""
         try:
+            logger.info(f"Handling theme selection: {callback_data.theme_name}, language: {session.language}")
             theme = Theme(callback_data.theme_name)
-        except ValueError:
+        except ValueError as e:
+            logger.error(f"Invalid theme: {callback_data.theme_name}, error: {e}")
             await query.edit_message_text(get_text('errors.invalid_theme', session.language))
             return
 
         session.theme = theme
+        logger.info(f"Set theme to: {theme}")
 
         # Check if NSFW confirmation is needed
         if localized_game_data.has_nsfw_content(theme, session.language) and not session.is_nsfw_confirmed:
+            logger.info(f"NSFW content detected for theme {theme}")
             nsfw_text = f"{get_text('nsfw.warning_title', session.language)}\n\n{get_text('nsfw.warning_text', session.language)}"
             await query.edit_message_text(
                 nsfw_text,
@@ -77,43 +81,53 @@ class ThemeHandler(CallbackHandler):
         # Handle different theme types
         if theme == Theme.SEX:
             # Sex: Show calendar immediately with toggle
+            logger.info("Showing sex calendar")
             session.content_type = ContentType.QUESTIONS
             await self._show_calendar(query, session, 0, ContentType.QUESTIONS)
         elif theme == Theme.PROVOCATION:
             # Provocation: Show calendar immediately
+            logger.info("Showing provocation calendar")
             session.content_type = ContentType.QUESTIONS
             await self._show_calendar(query, session, 0, ContentType.QUESTIONS)
         else:
             # Acquaintance, For Couples: Show level selection
+            logger.info(f"Getting available levels for theme {theme}")
             available_levels = localized_game_data.get_available_levels(theme, session.language)
             if not available_levels:
+                logger.error(f"No available levels for theme {theme}")
                 await query.edit_message_text(get_text('errors.no_theme', session.language))
                 return
+            logger.info(f"Available levels: {available_levels}")
             await self._show_level_selection(query, theme, available_levels, session)
 
     async def _show_level_selection(self, query: Any, theme: Theme, available_levels: list[int], session: SessionState) -> None:
         """Show level selection menu."""
-        theme_names = {
-            Theme.ACQUAINTANCE: Theme.ACQUAINTANCE.value_short(),
-            Theme.FOR_COUPLES: Theme.FOR_COUPLES.value_short(),
-            Theme.SEX: Theme.SEX.value_short(),
-            Theme.PROVOCATION: Theme.PROVOCATION.value_short(),
-        }
+        try:
+            theme_names = {
+                Theme.ACQUAINTANCE: Theme.ACQUAINTANCE.value_short(),
+                Theme.FOR_COUPLES: Theme.FOR_COUPLES.value_short(),
+                Theme.SEX: Theme.SEX.value_short(),
+                Theme.PROVOCATION: Theme.PROVOCATION.value_short(),
+            }
 
-        theme_emojis = {
-            Theme.ACQUAINTANCE: "🤝",
-            Theme.FOR_COUPLES: "💕",
-            Theme.SEX: "🔥",
-            Theme.PROVOCATION: "⚡",
-        }
+            theme_emojis = {
+                Theme.ACQUAINTANCE: "🤝",
+                Theme.FOR_COUPLES: "💕",
+                Theme.SEX: "🔥",
+                Theme.PROVOCATION: "⚡",
+            }
 
-        emoji = theme_emojis.get(theme, "🎴")
-        theme_name = theme_names.get(theme, theme.value)
-        level_text = f"{emoji} {theme_name}\n\n{get_text('level.prompt', session.language)}"
+            emoji = theme_emojis.get(theme, "🎴")
+            theme_name = theme_names.get(theme, theme.value)
+            level_text = f"{emoji} {theme_name}\n\n{get_text('level.prompt', session.language)}"
 
-        await self._edit_or_send_message(
-            query, level_text, get_level_keyboard(theme, available_levels, session.language)
-        )
+            logger.info(f"Showing level selection for theme {theme}, levels {available_levels}, language {session.language}")
+            await self._edit_or_send_message(
+                query, level_text, get_level_keyboard(theme, available_levels, session.language)
+            )
+        except Exception as e:
+            logger.error(f"Error in _show_level_selection: {e}", exc_info=True)
+            await query.edit_message_text(get_text('errors.unknown_callback', session.language))
 
     async def _show_calendar(self, query: Any, session: SessionState, page: int, content_type: ContentType) -> None:
         """Show calendar for questions/tasks."""
@@ -1029,7 +1043,10 @@ class CallbackHandlerRegistry:
         except Exception as e:
             logger.error(f"Error handling callback query {data}: {e}", exc_info=True)
             try:
-                await query.edit_message_text(get_text('errors.unknown_callback', Language.RUSSIAN))
+                # Get session for error message
+                chat_id = query.message.chat.id
+                session = get_session(chat_id)
+                await query.edit_message_text(get_text('errors.unknown_callback', session.language))
             except Exception as edit_error:
                 logger.error(f"Error editing message: {edit_error}")
 
