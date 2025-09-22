@@ -193,9 +193,7 @@ themes:
         - Zkuste nový způsob vášně
         - Dej partnerovi překvapivý dotek zvláštním způsobem
   Provocation:
-    levels:
-      1:
-        questions:
+    questions:
         - Jaký je tvůj nejkontroverznější názor?
         - Co je nejprovokativnější věc, kterou jsi kdy řekl/a?
         - Co je nejšokující věc, kterou jsi kdy udělal/a?

@@ -193,9 +193,7 @@ themes:
         - Try a new way to be passionate
         - Give your partner a surprise touch in a special way
   Provocation:
-    levels:
-      1:
-        questions:
+    questions:
         - What is the most controversial opinion you hold?
         - What is the most provocative thing you've ever said?
         - What is the most shocking thing you've ever done?

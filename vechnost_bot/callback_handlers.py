@@ -114,7 +114,7 @@ class ThemeHandler(CallbackHandler):
 
             emoji = theme_emojis.get(theme, "🎴")
             theme_name = theme_names.get(theme, theme.value)
-            level_text = f"{emoji} {theme_name}\n\n{get_text('level.prompt', session.language)}"
+            level_text = f"{emoji} {theme_name}"
 
             logger.info(f"Showing level selection for theme {theme}, levels {available_levels}, language {session.language}")
             await self._edit_or_send_message(
@@ -729,7 +729,7 @@ class BackHandler(CallbackHandler):
 
         emoji = theme_emojis.get(theme, "🎴")
         theme_name = theme_names.get(theme, theme.value)
-        level_text = f"{emoji} {theme_name}\n\n{get_text('level.prompt', session.language)}"
+        level_text = f"{emoji} {theme_name}"
 
         await self._edit_or_send_message(
             query, level_text, get_level_keyboard(theme, available_levels, session.language)
@@ -915,7 +915,7 @@ class SimpleActionHandler(CallbackHandler):
 
         emoji = theme_emojis.get(theme, "🎴")
         theme_name = theme_names.get(theme, theme.value)
-        level_text = f"{emoji} {theme_name}\n\n{get_text('level.prompt', session.language)}"
+        level_text = f"{emoji} {theme_name}"
 
         await self._edit_or_send_message(
             query, level_text, get_level_keyboard(theme, available_levels, session.language)

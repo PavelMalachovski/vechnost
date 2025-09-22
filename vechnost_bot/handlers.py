@@ -218,7 +218,7 @@ async def show_level_selection(query: Any, theme: Theme, available_levels: list[
 
     emoji = theme_emojis.get(theme, "🎴")
     theme_name = theme_names.get(theme, theme.value)
-    level_text = f"{emoji} {theme_name}\n\n{get_text('level.prompt', session.language)}"
+    level_text = f"{emoji} {theme_name}"
 
     # Handle both text and photo messages
     try:
