@@ -139,7 +139,7 @@ def get_question_keyboard(
     nav_row = []
     if question_idx > 0:
         nav_row.append(InlineKeyboardButton(
-            f"← {get_text('navigation.previous', language)}",
+            get_text('navigation.previous', language),
             callback_data=f"nav:{topic_code}:{level_or_0}:{question_idx-1}"
         ))
 

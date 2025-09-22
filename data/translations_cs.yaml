@@ -1,7 +1,9 @@
 # Czech UI translations
 welcome:
-  title: "🎴 Vechnost"
+  title: "Vechnost"
   subtitle: "Karetní hra pro seznámení"
+  description: "Interaktivní hra s otázkami a úkoly, která vám pomůže lépe se poznat. Vyberte téma, úroveň obtížnosti a začněte vzrušující cestu do světa komunikace!"
+  features: "✨ **Funkce:**\n• 4 témata: Seznámení, Pro páry, Sex, Provokace\n• Různé úrovně obtížnosti\n• Krásné karty s otázkami\n• Podpora 3 jazyků\n• Intuitivní rozhraní"
   prompt: "Vyberte jazyk / Choose language / Выберите язык"
 
 language:

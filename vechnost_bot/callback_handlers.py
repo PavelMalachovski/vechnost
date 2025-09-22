@@ -175,7 +175,7 @@ class ThemeHandler(CallbackHandler):
         show_toggle = (session.theme == Theme.SEX)
 
         keyboard = get_calendar_keyboard(
-            topic_code, level_or_0, category, page, items, total_pages, show_toggle
+            topic_code, level_or_0, category, page, items, total_pages, show_toggle, session.language
         )
 
         await self._edit_or_send_message(query, header, keyboard)
@@ -272,7 +272,7 @@ class LevelHandler(CallbackHandler):
         show_toggle = (session.theme == Theme.SEX)
 
         keyboard = get_calendar_keyboard(
-            topic_code, level_or_0, category, page, items, total_pages, show_toggle
+            topic_code, level_or_0, category, page, items, total_pages, show_toggle, session.language
         )
 
         await self._edit_or_send_message(query, header, keyboard)
@@ -379,7 +379,7 @@ class CalendarHandler(CallbackHandler):
         show_toggle = (session.theme == Theme.SEX)
 
         keyboard = get_calendar_keyboard(
-            topic_code, level_or_0, category, page, items, total_pages, show_toggle
+            topic_code, level_or_0, category, page, items, total_pages, show_toggle, session.language
         )
 
         await self._edit_or_send_message(query, header, keyboard)
@@ -436,7 +436,7 @@ class QuestionHandler(CallbackHandler):
 
         # Show question with navigation
         keyboard = get_question_keyboard(
-            callback_data.topic, callback_data.level_or_0, callback_data.index, len(items)
+            callback_data.topic, callback_data.level_or_0, callback_data.index, len(items), session.language
         )
 
         # Try to render as image, fallback to text if it fails
@@ -513,7 +513,7 @@ class NavigationHandler(CallbackHandler):
 
         # Show question with navigation
         keyboard = get_question_keyboard(
-            callback_data.topic, callback_data.level_or_0, callback_data.index, len(items)
+            callback_data.topic, callback_data.level_or_0, callback_data.index, len(items), session.language
         )
 
         # Try to render as image, fallback to text if it fails
@@ -631,7 +631,7 @@ class ToggleHandler(CallbackHandler):
         show_toggle = (session.theme == Theme.SEX)
 
         keyboard = get_calendar_keyboard(
-            topic_code, level_or_0, category, page, items, total_pages, show_toggle
+            topic_code, level_or_0, category, page, items, total_pages, show_toggle, session.language
         )
 
         await self._edit_or_send_message(query, header, keyboard)
@@ -690,7 +690,7 @@ class BackHandler(CallbackHandler):
     async def _show_theme_selection(self, query: Any) -> None:
         """Show theme selection menu."""
         welcome_text = get_text('welcome.prompt', session.language)
-        await self._edit_or_send_message(query, welcome_text, get_theme_keyboard())
+        await self._edit_or_send_message(query, welcome_text, get_theme_keyboard(session.language))
 
     async def _show_level_selection(self, query: Any, theme: Theme, available_levels: list[int], session: SessionState) -> None:
         """Show level selection menu."""
@@ -776,7 +776,7 @@ class BackHandler(CallbackHandler):
         show_toggle = (session.theme == Theme.SEX)
 
         keyboard = get_calendar_keyboard(
-            topic_code, level_or_0, category, page, items, total_pages, show_toggle
+            topic_code, level_or_0, category, page, items, total_pages, show_toggle, session.language
         )
 
         await self._edit_or_send_message(query, header, keyboard)
@@ -873,7 +873,7 @@ class SimpleActionHandler(CallbackHandler):
     async def _show_theme_selection(self, query: Any) -> None:
         """Show theme selection menu."""
         welcome_text = get_text('welcome.prompt', session.language)
-        await self._edit_or_send_message(query, welcome_text, get_theme_keyboard())
+        await self._edit_or_send_message(query, welcome_text, get_theme_keyboard(session.language))
 
     async def _show_level_selection(self, query: Any, theme: Theme, available_levels: list[int], session: SessionState) -> None:
         """Show level selection menu."""
@@ -959,7 +959,7 @@ class SimpleActionHandler(CallbackHandler):
         show_toggle = (session.theme == Theme.SEX)
 
         keyboard = get_calendar_keyboard(
-            topic_code, level_or_0, category, page, items, total_pages, show_toggle
+            topic_code, level_or_0, category, page, items, total_pages, show_toggle, session.language
         )
 
         await self._edit_or_send_message(query, header, keyboard)
@@ -1056,7 +1056,7 @@ class LanguageHandler(CallbackHandler):
                     callback_data=f"lang_confirm_{language.value}"
                 ),
                 InlineKeyboardButton(
-                    f"← {get_text('navigation.back', session.language)}",
+                    get_text('navigation.back', session.language),
                     callback_data="lang_back"
                 )
             ]

@@ -27,6 +27,7 @@ from .language_keyboards import get_language_selection_keyboard
 from .logic import load_game_data
 from .models import ContentType, SessionState, Theme
 from .renderer import get_background_path, render_card
+from .logo_generator import generate_welcome_image_with_logo
 from .storage import get_session, reset_session
 
 logger = logging.getLogger(__name__)
@@ -53,15 +54,27 @@ async def start_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
     # Detect language from user's message or default to Russian
     detected_language = detect_language_from_text(update.message.text or "")
 
-    welcome_text = f"{get_text('welcome.title', detected_language)}\n\n{get_text('welcome.subtitle', detected_language)}\n\n{get_text('welcome.prompt', detected_language)}"
+    welcome_text = f"🎴 **{get_text('welcome.title', detected_language)}**\n\n{get_text('welcome.subtitle', detected_language)}\n\n{get_text('welcome.description', detected_language)}\n\n{get_text('welcome.features', detected_language)}\n\n{get_text('welcome.prompt', detected_language)}"
 
     keyboard = get_language_selection_keyboard(detected_language)
     logger.info(f"Sending language selection keyboard with {len(keyboard.inline_keyboard)} rows")
 
-    await update.message.reply_text(
-        welcome_text,
-        reply_markup=keyboard
-    )
+    # Try to send welcome image, fallback to text if it fails
+    try:
+        welcome_image = generate_welcome_image_with_logo(welcome_text, detected_language.value)
+        await update.message.reply_photo(
+            photo=welcome_image,
+            caption=welcome_text,
+            reply_markup=keyboard,
+            parse_mode='Markdown'
+        )
+    except Exception as e:
+        logger.warning(f"Failed to generate welcome image: {e}, sending text only")
+        await update.message.reply_text(
+            welcome_text,
+            reply_markup=keyboard,
+            parse_mode='Markdown'
+        )
 
 
 async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
