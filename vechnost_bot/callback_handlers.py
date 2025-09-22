@@ -139,14 +139,14 @@ class ThemeHandler(CallbackHandler):
         }
         topic_code = topic_codes.get(session.theme, "unknown")
 
-        # Get level (0 if no levels)
-        level_or_0 = session.level if session.level is not None else 0
+        # Get level (1 if no levels, since themes start from level 1)
+        level_or_0 = session.level if session.level is not None else 1
 
         # Get category code
         category = "q" if content_type == ContentType.QUESTIONS else "t"
 
         # Get items
-        items = localized_game_data.get_content(session.theme, session.level, content_type, session.language)
+        items = localized_game_data.get_content(session.theme, level_or_0, content_type, session.language)
         if not items:
             await query.edit_message_text(get_text('errors.content_unavailable', session.language))
             return
@@ -236,14 +236,14 @@ class LevelHandler(CallbackHandler):
         }
         topic_code = topic_codes.get(session.theme, "unknown")
 
-        # Get level (0 if no levels)
-        level_or_0 = session.level if session.level is not None else 0
+        # Get level (1 if no levels, since themes start from level 1)
+        level_or_0 = session.level if session.level is not None else 1
 
         # Get category code
         category = "q" if content_type == ContentType.QUESTIONS else "t"
 
         # Get items
-        items = localized_game_data.get_content(session.theme, session.level, content_type, session.language)
+        items = localized_game_data.get_content(session.theme, level_or_0, content_type, session.language)
         if not items:
             await query.edit_message_text(get_text('errors.content_unavailable', session.language))
             return
@@ -343,14 +343,14 @@ class CalendarHandler(CallbackHandler):
         }
         topic_code = topic_codes.get(session.theme, "unknown")
 
-        # Get level (0 if no levels)
-        level_or_0 = session.level if session.level is not None else 0
+        # Get level (1 if no levels, since themes start from level 1)
+        level_or_0 = session.level if session.level is not None else 1
 
         # Get category code
         category = "q" if content_type == ContentType.QUESTIONS else "t"
 
         # Get items
-        items = localized_game_data.get_content(session.theme, session.level, content_type, session.language)
+        items = localized_game_data.get_content(session.theme, level_or_0, content_type, session.language)
         if not items:
             await query.edit_message_text(get_text('errors.content_unavailable', session.language))
             return
@@ -595,14 +595,14 @@ class ToggleHandler(CallbackHandler):
         }
         topic_code = topic_codes.get(session.theme, "unknown")
 
-        # Get level (0 if no levels)
-        level_or_0 = session.level if session.level is not None else 0
+        # Get level (1 if no levels, since themes start from level 1)
+        level_or_0 = session.level if session.level is not None else 1
 
         # Get category code
         category = "q" if content_type == ContentType.QUESTIONS else "t"
 
         # Get items
-        items = localized_game_data.get_content(session.theme, session.level, content_type, session.language)
+        items = localized_game_data.get_content(session.theme, level_or_0, content_type, session.language)
         if not items:
             await query.edit_message_text(get_text('errors.content_unavailable', session.language))
             return
@@ -738,14 +738,14 @@ class BackHandler(CallbackHandler):
         }
         topic_code = topic_codes.get(session.theme, "unknown")
 
-        # Get level (0 if no levels)
-        level_or_0 = session.level if session.level is not None else 0
+        # Get level (1 if no levels, since themes start from level 1)
+        level_or_0 = session.level if session.level is not None else 1
 
         # Get category code
         category = "q" if content_type == ContentType.QUESTIONS else "t"
 
         # Get items
-        items = localized_game_data.get_content(session.theme, session.level, content_type, session.language)
+        items = localized_game_data.get_content(session.theme, level_or_0, content_type, session.language)
         if not items:
             await query.edit_message_text(get_text('errors.content_unavailable', session.language))
             return
@@ -921,14 +921,14 @@ class SimpleActionHandler(CallbackHandler):
         }
         topic_code = topic_codes.get(session.theme, "unknown")
 
-        # Get level (0 if no levels)
-        level_or_0 = session.level if session.level is not None else 0
+        # Get level (1 if no levels, since themes start from level 1)
+        level_or_0 = session.level if session.level is not None else 1
 
         # Get category code
         category = "q" if content_type == ContentType.QUESTIONS else "t"
 
         # Get items
-        items = localized_game_data.get_content(session.theme, session.level, content_type, session.language)
+        items = localized_game_data.get_content(session.theme, level_or_0, content_type, session.language)
         if not items:
             await query.edit_message_text(get_text('errors.content_unavailable', session.language))
             return

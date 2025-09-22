@@ -11,19 +11,19 @@ def get_theme_keyboard(language: Language = Language.RUSSIAN) -> InlineKeyboardM
     """Get keyboard for theme selection."""
     keyboard = [
         [InlineKeyboardButton(
-            f"🤝 {get_text('themes.Acquaintance', language)}",
+            get_text('themes.Acquaintance', language),
             callback_data="theme_Acquaintance"
         )],
         [InlineKeyboardButton(
-            f"💕 {get_text('themes.For Couples', language)}",
+            get_text('themes.For Couples', language),
             callback_data="theme_For Couples"
         )],
         [InlineKeyboardButton(
-            f"🔥 {get_text('themes.Sex', language)}",
+            get_text('themes.Sex', language),
             callback_data="theme_Sex"
         )],
         [InlineKeyboardButton(
-            f"⚡ {get_text('themes.Provocation', language)}",
+            get_text('themes.Provocation', language),
             callback_data="theme_Provocation"
         )],
     ]
