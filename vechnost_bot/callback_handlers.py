@@ -22,7 +22,7 @@ from .callback_models import (
     ThemeCallbackData,
     ToggleCallbackData,
 )
-from .i18n import Language, get_text, get_language_name, get_supported_languages
+from .i18n import Language, get_text, get_language_name, get_supported_languages, format_number
 from .keyboards import (
     get_calendar_keyboard,
     get_level_keyboard,
@@ -89,9 +89,9 @@ class ThemeHandler(CallbackHandler):
             if not available_levels:
                 await query.edit_message_text("❌ Уровни недоступны для этой темы.")
                 return
-            await self._show_level_selection(query, theme, available_levels)
+            await self._show_level_selection(query, theme, available_levels, session)
 
-    async def _show_level_selection(self, query: Any, theme: Theme, available_levels: list[int]) -> None:
+    async def _show_level_selection(self, query: Any, theme: Theme, available_levels: list[int], session: SessionState) -> None:
         """Show level selection menu."""
         theme_names = {
             Theme.ACQUAINTANCE: Theme.ACQUAINTANCE.value_short(),
@@ -112,7 +112,7 @@ class ThemeHandler(CallbackHandler):
         level_text = f"{emoji} {theme_name}\n\n{get_text('level.prompt', session.language)}"
 
         await self._edit_or_send_message(
-            query, level_text, get_level_keyboard(theme, available_levels)
+            query, level_text, get_level_keyboard(theme, available_levels, session.language)
         )
 
     async def _show_calendar(self, query: Any, session: SessionState, page: int, content_type: ContentType) -> None:
@@ -152,20 +152,24 @@ class ThemeHandler(CallbackHandler):
         # Build header text
         if session.theme == Theme.SEX:
             if content_type == ContentType.QUESTIONS:
-                header = CALENDAR_SEX_QUESTIONS
+                header = get_text('calendar.sex_questions', session.language)
             else:
-                header = CALENDAR_SEX_TASKS
+                header = get_text('calendar.sex_tasks', session.language)
         else:
             theme_names = {
-                Theme.ACQUAINTANCE: TOPIC_ACQUAINTANCE,
-                Theme.FOR_COUPLES: TOPIC_FOR_COUPLES,
-                Theme.PROVOCATION: TOPIC_PROVOCATION,
+                Theme.ACQUAINTANCE: Theme.ACQUAINTANCE.value_short(),
+                Theme.FOR_COUPLES: Theme.FOR_COUPLES.value_short(),
+                Theme.PROVOCATION: Theme.PROVOCATION.value_short(),
             }
             theme_name = theme_names.get(session.theme, session.theme.value)
             if session.level:
                 header = f"{theme_name} — Уровень {session.level}"
             else:
-                header = f"{theme_name} — {CALENDAR_HEADER}"
+                header = get_text('calendar.header', session.language).format(
+                    theme=theme_name,
+                    level=format_number(session.level, session.language) if session.level else "",
+                    remaining_count=format_number(remaining_count, session.language)
+                )
 
         # Show toggle only for Sex theme
         show_toggle = (session.theme == Theme.SEX)
@@ -245,20 +249,24 @@ class LevelHandler(CallbackHandler):
         # Build header text
         if session.theme == Theme.SEX:
             if content_type == ContentType.QUESTIONS:
-                header = CALENDAR_SEX_QUESTIONS
+                header = get_text('calendar.sex_questions', session.language)
             else:
-                header = CALENDAR_SEX_TASKS
+                header = get_text('calendar.sex_tasks', session.language)
         else:
             theme_names = {
-                Theme.ACQUAINTANCE: TOPIC_ACQUAINTANCE,
-                Theme.FOR_COUPLES: TOPIC_FOR_COUPLES,
-                Theme.PROVOCATION: TOPIC_PROVOCATION,
+                Theme.ACQUAINTANCE: Theme.ACQUAINTANCE.value_short(),
+                Theme.FOR_COUPLES: Theme.FOR_COUPLES.value_short(),
+                Theme.PROVOCATION: Theme.PROVOCATION.value_short(),
             }
             theme_name = theme_names.get(session.theme, session.theme.value)
             if session.level:
                 header = f"{theme_name} — Уровень {session.level}"
             else:
-                header = f"{theme_name} — {CALENDAR_HEADER}"
+                header = get_text('calendar.header', session.language).format(
+                    theme=theme_name,
+                    level=format_number(session.level, session.language) if session.level else "",
+                    remaining_count=format_number(remaining_count, session.language)
+                )
 
         # Show toggle only for Sex theme
         show_toggle = (session.theme == Theme.SEX)
@@ -348,20 +356,24 @@ class CalendarHandler(CallbackHandler):
         # Build header text
         if session.theme == Theme.SEX:
             if content_type == ContentType.QUESTIONS:
-                header = CALENDAR_SEX_QUESTIONS
+                header = get_text('calendar.sex_questions', session.language)
             else:
-                header = CALENDAR_SEX_TASKS
+                header = get_text('calendar.sex_tasks', session.language)
         else:
             theme_names = {
-                Theme.ACQUAINTANCE: TOPIC_ACQUAINTANCE,
-                Theme.FOR_COUPLES: TOPIC_FOR_COUPLES,
-                Theme.PROVOCATION: TOPIC_PROVOCATION,
+                Theme.ACQUAINTANCE: Theme.ACQUAINTANCE.value_short(),
+                Theme.FOR_COUPLES: Theme.FOR_COUPLES.value_short(),
+                Theme.PROVOCATION: Theme.PROVOCATION.value_short(),
             }
             theme_name = theme_names.get(session.theme, session.theme.value)
             if session.level:
                 header = f"{theme_name} — Уровень {session.level}"
             else:
-                header = f"{theme_name} — {CALENDAR_HEADER}"
+                header = get_text('calendar.header', session.language).format(
+                    theme=theme_name,
+                    level=format_number(session.level, session.language) if session.level else "",
+                    remaining_count=format_number(remaining_count, session.language)
+                )
 
         # Show toggle only for Sex theme
         show_toggle = (session.theme == Theme.SEX)
@@ -596,20 +608,24 @@ class ToggleHandler(CallbackHandler):
         # Build header text
         if session.theme == Theme.SEX:
             if content_type == ContentType.QUESTIONS:
-                header = CALENDAR_SEX_QUESTIONS
+                header = get_text('calendar.sex_questions', session.language)
             else:
-                header = CALENDAR_SEX_TASKS
+                header = get_text('calendar.sex_tasks', session.language)
         else:
             theme_names = {
-                Theme.ACQUAINTANCE: TOPIC_ACQUAINTANCE,
-                Theme.FOR_COUPLES: TOPIC_FOR_COUPLES,
-                Theme.PROVOCATION: TOPIC_PROVOCATION,
+                Theme.ACQUAINTANCE: Theme.ACQUAINTANCE.value_short(),
+                Theme.FOR_COUPLES: Theme.FOR_COUPLES.value_short(),
+                Theme.PROVOCATION: Theme.PROVOCATION.value_short(),
             }
             theme_name = theme_names.get(session.theme, session.theme.value)
             if session.level:
                 header = f"{theme_name} — Уровень {session.level}"
             else:
-                header = f"{theme_name} — {CALENDAR_HEADER}"
+                header = get_text('calendar.header', session.language).format(
+                    theme=theme_name,
+                    level=format_number(session.level, session.language) if session.level else "",
+                    remaining_count=format_number(remaining_count, session.language)
+                )
 
         # Show toggle only for Sex theme
         show_toggle = (session.theme == Theme.SEX)
@@ -676,7 +692,7 @@ class BackHandler(CallbackHandler):
         welcome_text = get_text('welcome.prompt', session.language)
         await self._edit_or_send_message(query, welcome_text, get_theme_keyboard())
 
-    async def _show_level_selection(self, query: Any, theme: Theme, available_levels: list[int]) -> None:
+    async def _show_level_selection(self, query: Any, theme: Theme, available_levels: list[int], session: SessionState) -> None:
         """Show level selection menu."""
         theme_names = {
             Theme.ACQUAINTANCE: Theme.ACQUAINTANCE.value_short(),
@@ -697,7 +713,7 @@ class BackHandler(CallbackHandler):
         level_text = f"{emoji} {theme_name}\n\n{get_text('level.prompt', session.language)}"
 
         await self._edit_or_send_message(
-            query, level_text, get_level_keyboard(theme, available_levels)
+            query, level_text, get_level_keyboard(theme, available_levels, session.language)
         )
 
     async def _show_calendar(self, query: Any, session: SessionState, page: int, content_type: ContentType) -> None:
@@ -737,20 +753,24 @@ class BackHandler(CallbackHandler):
         # Build header text
         if session.theme == Theme.SEX:
             if content_type == ContentType.QUESTIONS:
-                header = CALENDAR_SEX_QUESTIONS
+                header = get_text('calendar.sex_questions', session.language)
             else:
-                header = CALENDAR_SEX_TASKS
+                header = get_text('calendar.sex_tasks', session.language)
         else:
             theme_names = {
-                Theme.ACQUAINTANCE: TOPIC_ACQUAINTANCE,
-                Theme.FOR_COUPLES: TOPIC_FOR_COUPLES,
-                Theme.PROVOCATION: TOPIC_PROVOCATION,
+                Theme.ACQUAINTANCE: Theme.ACQUAINTANCE.value_short(),
+                Theme.FOR_COUPLES: Theme.FOR_COUPLES.value_short(),
+                Theme.PROVOCATION: Theme.PROVOCATION.value_short(),
             }
             theme_name = theme_names.get(session.theme, session.theme.value)
             if session.level:
                 header = f"{theme_name} — Уровень {session.level}"
             else:
-                header = f"{theme_name} — {CALENDAR_HEADER}"
+                header = get_text('calendar.header', session.language).format(
+                    theme=theme_name,
+                    level=format_number(session.level, session.language) if session.level else "",
+                    remaining_count=format_number(remaining_count, session.language)
+                )
 
         # Show toggle only for Sex theme
         show_toggle = (session.theme == Theme.SEX)
@@ -855,7 +875,7 @@ class SimpleActionHandler(CallbackHandler):
         welcome_text = get_text('welcome.prompt', session.language)
         await self._edit_or_send_message(query, welcome_text, get_theme_keyboard())
 
-    async def _show_level_selection(self, query: Any, theme: Theme, available_levels: list[int]) -> None:
+    async def _show_level_selection(self, query: Any, theme: Theme, available_levels: list[int], session: SessionState) -> None:
         """Show level selection menu."""
         theme_names = {
             Theme.ACQUAINTANCE: Theme.ACQUAINTANCE.value_short(),
@@ -876,7 +896,7 @@ class SimpleActionHandler(CallbackHandler):
         level_text = f"{emoji} {theme_name}\n\n{get_text('level.prompt', session.language)}"
 
         await self._edit_or_send_message(
-            query, level_text, get_level_keyboard(theme, available_levels)
+            query, level_text, get_level_keyboard(theme, available_levels, session.language)
         )
 
     async def _show_sex_calendar(self, query: Any, session: SessionState, page: int, content_type: ContentType) -> None:
@@ -916,20 +936,24 @@ class SimpleActionHandler(CallbackHandler):
         # Build header text
         if session.theme == Theme.SEX:
             if content_type == ContentType.QUESTIONS:
-                header = CALENDAR_SEX_QUESTIONS
+                header = get_text('calendar.sex_questions', session.language)
             else:
-                header = CALENDAR_SEX_TASKS
+                header = get_text('calendar.sex_tasks', session.language)
         else:
             theme_names = {
-                Theme.ACQUAINTANCE: TOPIC_ACQUAINTANCE,
-                Theme.FOR_COUPLES: TOPIC_FOR_COUPLES,
-                Theme.PROVOCATION: TOPIC_PROVOCATION,
+                Theme.ACQUAINTANCE: Theme.ACQUAINTANCE.value_short(),
+                Theme.FOR_COUPLES: Theme.FOR_COUPLES.value_short(),
+                Theme.PROVOCATION: Theme.PROVOCATION.value_short(),
             }
             theme_name = theme_names.get(session.theme, session.theme.value)
             if session.level:
                 header = f"{theme_name} — Уровень {session.level}"
             else:
-                header = f"{theme_name} — {CALENDAR_HEADER}"
+                header = get_text('calendar.header', session.language).format(
+                    theme=theme_name,
+                    level=format_number(session.level, session.language) if session.level else "",
+                    remaining_count=format_number(remaining_count, session.language)
+                )
 
         # Show toggle only for Sex theme
         show_toggle = (session.theme == Theme.SEX)
