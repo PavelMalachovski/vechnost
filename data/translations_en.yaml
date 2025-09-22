@@ -29,7 +29,7 @@ calendar:
   sex_tasks: "🔥 Sex — Tasks"
 
 question:
-  header: "Question {current} of {total}"
+  header: "{current} of {total}"
 
 navigation:
   back: "← Back"

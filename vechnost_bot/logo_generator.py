@@ -61,7 +61,7 @@ def generate_welcome_image_with_logo(text: str, language: str = "en") -> io.Byte
     """Generate a welcome image with the Vechnost logo and text."""
     # Create a larger image for the welcome message
     width = 600
-    height = 400
+    height = 500
 
     # Background color based on language theme
     if language == "cs":
@@ -75,30 +75,51 @@ def generate_welcome_image_with_logo(text: str, language: str = "en") -> io.Byte
     draw = ImageDraw.Draw(image)
 
     # Generate and paste the logo
-    logo = generate_vechnost_logo(400, 150)
+    logo = generate_vechnost_logo(400, 120)
     logo_img = Image.open(logo)
 
     # Paste logo at the top
     image.paste(logo_img, (100, 20))
 
-    # Add text below the logo
+    # Add text below the logo with better formatting
     try:
-        font = ImageFont.truetype("arial.ttf", 16)
+        title_font = ImageFont.truetype("arial.ttf", 24)
+        body_font = ImageFont.truetype("arial.ttf", 14)
     except (OSError, IOError):
-        font = ImageFont.load_default()
+        try:
+            title_font = ImageFont.truetype("DejaVuSans-Bold.ttf", 24)
+            body_font = ImageFont.truetype("DejaVuSans.ttf", 14)
+        except (OSError, IOError):
+            title_font = ImageFont.load_default()
+            body_font = ImageFont.load_default()
 
-    # Split text into lines and draw them
+    # Split text into lines and draw them with proper formatting
     lines = text.split('\n')
-    y_offset = 200
+    y_offset = 160
 
-    for line in lines:
+    for i, line in enumerate(lines):
         if line.strip():  # Skip empty lines
+            # Use different fonts for different types of content
+            if line.startswith('**') and line.endswith('**'):
+                # This is a title
+                clean_line = line.replace('**', '').replace('🎴', '').strip()
+                font = title_font
+                color = (101, 28, 50)  # Dark maroon
+            elif line.startswith('✨'):
+                # This is features section
+                font = body_font
+                color = (50, 50, 50)
+            else:
+                # Regular text
+                font = body_font
+                color = (70, 70, 70)
+
             # Calculate text position
             bbox = draw.textbbox((0, 0), line, font=font)
             text_width = bbox[2] - bbox[0]
             x = (width - text_width) // 2
-            draw.text((x, y_offset), line, font=font, fill=(50, 50, 50))
-            y_offset += 25
+            draw.text((x, y_offset), line, font=font, fill=color)
+            y_offset += 30 if font == title_font else 20
 
     # Convert to BytesIO
     img_bytes = io.BytesIO()

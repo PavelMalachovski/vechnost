@@ -29,7 +29,7 @@ calendar:
   sex_tasks: "📝 Задания"
 
 question:
-  header: "Вопрос {current} из {total}"
+  header: "{current} из {total}"
 
 navigation:
   back: "← Назад"

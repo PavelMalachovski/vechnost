@@ -29,7 +29,7 @@ calendar:
   sex_tasks: "🔥 Sex — Úkoly"
 
 question:
-  header: "Otázka {current} z {total}"
+  header: "{current} z {total}"
 
 navigation:
   back: "← Zpět"

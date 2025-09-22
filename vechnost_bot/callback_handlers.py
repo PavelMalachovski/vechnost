@@ -658,20 +658,20 @@ class BackHandler(CallbackHandler):
         logger.info(f"Back navigation to: {destination}, theme: {session.theme}, level: {session.level}")
 
         if destination == "themes":
-            await self._show_theme_selection(query)
+            await self._show_theme_selection(query, session)
         elif destination == "levels":
             if not session.theme:
-                await self._show_theme_selection(query)
+                await self._show_theme_selection(query, session)
                 return
             available_levels = localized_game_data.get_available_levels(session.theme, session.language)
             if available_levels:
                 await self._show_level_selection(query, session.theme, available_levels)
             else:
-                await self._show_theme_selection(query)
+                await self._show_theme_selection(query, session)
         elif destination == "calendar":
             # Go back to calendar - need to determine which calendar
             if not session.theme:
-                await self._show_theme_selection(query)
+                await self._show_theme_selection(query, session)
                 return
 
             # Determine current page (default to 0)
@@ -687,7 +687,7 @@ class BackHandler(CallbackHandler):
         else:
             await query.edit_message_text(get_text('errors.unknown_callback', session.language))
 
-    async def _show_theme_selection(self, query: Any) -> None:
+    async def _show_theme_selection(self, query: Any, session: SessionState) -> None:
         """Show theme selection menu."""
         welcome_text = get_text('welcome.prompt', session.language)
         await self._edit_or_send_message(query, welcome_text, get_theme_keyboard(session.language))
@@ -838,7 +838,7 @@ class SimpleActionHandler(CallbackHandler):
             if available_levels:
                 await self._show_level_selection(query, session.theme, available_levels)
             else:
-                await self._show_theme_selection(query)
+                await self._show_theme_selection(query, session)
 
     async def _handle_nsfw_denial(self, query: Any, session: SessionState) -> None:
         """Handle NSFW content denial."""

@@ -16,7 +16,13 @@ def get_language_selection_keyboard(current_language: Language = Language.RUSSIA
         for j in range(2):
             if i + j < len(languages):
                 lang = languages[i + j]
-                lang_name = get_language_name(lang, current_language)
+                # Use short language codes
+                lang_codes = {
+                    Language.RUSSIAN: "RU",
+                    Language.ENGLISH: "EN",
+                    Language.CZECH: "CZ"
+                }
+                lang_name = lang_codes[lang]
                 # Add checkmark if it's the current language
                 if lang == current_language:
                     lang_name = f"✓ {lang_name}"
