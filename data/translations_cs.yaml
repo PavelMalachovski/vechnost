@@ -19,9 +19,10 @@ themes:
 
 level:
   prompt: "Vyberte úroveň obtížnosti:"
+  level: "Úroveň"
 
 calendar:
-  header: "Kalendář otázek"
+  header: "Kalendář: {theme} - Úroveň {level}\nZbývající karty: {remaining_count}"
   sex_questions: "🔥 Sex — Otázky"
   sex_tasks: "🔥 Sex — Úkoly"
 
@@ -34,23 +35,14 @@ navigation:
   previous: "← Předchozí"
   toggle_questions: "❓ Otázky"
   toggle_tasks: "📝 Úkoly"
+  page: "Stránka {current} z {total}"
 
 nsfw:
   warning_title: "⚠️ Varování"
   warning_text: "Toto téma obsahuje obsah pro dospělé. Pokračovat?"
   access_denied: "❌ Přístup zamítnut"
-
-reset:
-  title: "🔄 Reset hry"
-  confirm_text: "Jste si jisti, že chcete resetovat hru?"
-  completed: "✅ Hra resetována"
-  cancelled: "❌ Reset zrušen"
-
-help:
-  title: "📖 Nápověda"
-  themes: "🎴 Témata:\n• Seznámení - otázky pro seznámení\n• Pro páry - otázky pro páry\n• Sex - intimní otázky a úkoly\n• Provokace - provokativní otázky\n\n"
-  how_to_play: "🎮 Jak hrát:\n1. Vyberte téma\n2. Zvolte úroveň obtížnosti\n3. Odpovídejte na otázky postupně\n4. Diskutujte o odpovědích mezi sebou\n\n"
-  commands: "⌨️ Příkazy:\n/start - začít hru\n/help - zobrazit nápovědu\n/reset - resetovat hru"
+  confirm: "Ano"
+  deny: "Ne"
 
 reset:
   title: "🔄 Reset hry"
@@ -60,23 +52,11 @@ reset:
   confirm: "Ano"
   cancel: "Ne"
 
-nsfw:
-  warning_title: "⚠️ Varování"
-  warning_text: "Toto téma obsahuje obsah pro dospělé. Pokračovat?"
-  access_denied: "❌ Přístup zamítnut"
-  confirm: "Ano"
-  deny: "Ne"
-
-navigation:
-  back: "← Zpět"
-  next: "Další →"
-  previous: "← Předchozí"
-  toggle_questions: "❓ Otázky"
-  toggle_tasks: "📝 Úkoly"
-  page: "Stránka {current} z {total}"
-
-level:
-  level: "Úroveň"
+help:
+  title: "📖 Nápověda"
+  themes: "🎴 Témata:\n• Seznámení - otázky pro seznámení\n• Pro páry - otázky pro páry\n• Sex - intimní otázky a úkoly\n• Provokace - provokativní otázky\n\n"
+  how_to_play: "🎮 Jak hrát:\n1. Vyberte téma\n2. Zvolte úroveň obtížnosti\n3. Odpovídejte na otázky postupně\n4. Diskutujte o odpovědích mezi sebou\n\n"
+  commands: "⌨️ Příkazy:\n/start - začít hru\n/help - zobrazit nápovědu\n/reset - resetovat hru"
 
 errors:
   invalid_theme: "❌ Neplatné téma"

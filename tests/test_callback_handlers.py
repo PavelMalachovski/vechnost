@@ -70,10 +70,10 @@ class TestThemeHandler:
             theme_name="Sex"
         )
 
-        with patch('vechnost_bot.callback_handlers.GAME_DATA') as mock_game_data:
+        with patch('vechnost_bot.callback_handlers.localized_game_data') as mock_game_data:
             mock_game_data.has_nsfw_content.return_value = False
 
-            with patch.object(handler, '_show_sex_calendar') as mock_show_calendar:
+            with patch.object(handler, '_show_calendar') as mock_show_calendar:
                 await handler.handle(mock_query, callback_data, session)
 
                 assert session.theme == Theme.SEX
@@ -226,7 +226,7 @@ class TestQuestionHandler:
             index=5
         )
 
-        with patch('vechnost_bot.callback_handlers.GAME_DATA') as mock_game_data:
+        with patch('vechnost_bot.callback_handlers.localized_game_data') as mock_game_data:
             mock_game_data.get_content.return_value = ["q1", "q2", "q3", "q4", "q5", "q6"]
 
             with patch('vechnost_bot.callback_handlers.get_background_path') as mock_bg_path:
@@ -265,7 +265,7 @@ class TestQuestionHandler:
             index=10
         )
 
-        with patch('vechnost_bot.callback_handlers.GAME_DATA') as mock_game_data:
+        with patch('vechnost_bot.callback_handlers.localized_game_data') as mock_game_data:
             mock_game_data.get_content.return_value = ["q1", "q2", "q3"]
 
             await handler.handle(mock_query, callback_data, session)
@@ -367,7 +367,7 @@ class TestBackHandler:
             destination="levels"
         )
 
-        with patch('vechnost_bot.callback_handlers.GAME_DATA') as mock_game_data:
+        with patch('vechnost_bot.callback_handlers.localized_game_data') as mock_game_data:
             mock_game_data.get_available_levels.return_value = [1, 2, 3]
 
             with patch.object(handler, '_show_level_selection') as mock_show_level:

@@ -1,32 +1,86 @@
 """Game logic for the Vechnost bot."""
 
 import random
+from typing import Dict, Any
 
-from .models import GameData, SessionState, Theme
+from .models import GameData, SessionState, Theme, ContentType
+from .i18n import Language, i18n_manager
+
+
+class LocalizedGameData:
+    """Game data that loads content based on language."""
+
+    def __init__(self):
+        self._cached_data: Dict[Language, GameData] = {}
+
+    def get_game_data(self, language: Language = Language.RUSSIAN) -> GameData:
+        """Get game data for a specific language."""
+        if language not in self._cached_data:
+            self._cached_data[language] = self._load_game_data_for_language(language)
+        return self._cached_data[language]
+
+    def _load_game_data_for_language(self, language: Language) -> GameData:
+        """Load game data for a specific language."""
+        from pathlib import Path
+        import yaml
+
+        # Try to load translated content first
+        if language != Language.RUSSIAN:
+            translated_file = Path(__file__).parent.parent / "data" / f"questions_{language.value}.yaml"
+            if translated_file.exists():
+                try:
+                    with open(translated_file, encoding="utf-8") as f:
+                        data = yaml.safe_load(f)
+                    return self._create_game_data_from_yaml(data)
+                except Exception as e:
+                    print(f"Failed to load translated content for {language.value}: {e}")
+
+        # Fallback to Russian (original) content
+        yaml_path = Path(__file__).parent.parent / "data" / "questions.yaml"
+        with open(yaml_path, encoding="utf-8") as f:
+            data = yaml.safe_load(f)
+        return self._create_game_data_from_yaml(data)
+
+    def _create_game_data_from_yaml(self, data: Dict[str, Any]) -> GameData:
+        """Create GameData from YAML data."""
+        themes = {}
+        for theme_name, theme_data in data.get("themes", {}).items():
+            try:
+                theme = Theme(theme_name)
+                themes[theme] = theme_data
+            except ValueError:
+                # Skip unknown themes
+                continue
+        return GameData(themes=themes)
+
+    def get_content(self, theme: Theme, level: int | None, content_type: ContentType, language: Language = Language.RUSSIAN) -> list[str]:
+        """Get content for a specific theme, level, and content type in the specified language."""
+        game_data = self.get_game_data(language)
+        return game_data.get_content(theme, level, content_type)
+
+    def get_available_levels(self, theme: Theme, language: Language = Language.RUSSIAN) -> list[int]:
+        """Get available levels for a theme in the specified language."""
+        game_data = self.get_game_data(language)
+        return game_data.get_available_levels(theme)
+
+    def get_total_cards_in_level(self, theme: Theme, level: int, content_type: ContentType, language: Language = Language.RUSSIAN) -> int:
+        """Get total number of cards in a level for the specified language."""
+        game_data = self.get_game_data(language)
+        return game_data.get_total_cards_in_level(theme, level, content_type)
+
+    def has_nsfw_content(self, theme: Theme, language: Language = Language.RUSSIAN) -> bool:
+        """Check if theme has NSFW content."""
+        game_data = self.get_game_data(language)
+        return game_data.has_nsfw_content(theme)
+
+
+# Global instance
+localized_game_data = LocalizedGameData()
 
 
 def load_game_data() -> GameData:
-    """Load game data from YAML file."""
-    from pathlib import Path
-
-    import yaml
-
-    yaml_path = Path(__file__).parent.parent / "data" / "questions.yaml"
-
-    with open(yaml_path, encoding="utf-8") as f:
-        data = yaml.safe_load(f)
-
-    # Convert string keys to Theme enum
-    themes = {}
-    for theme_name, theme_data in data.get("themes", {}).items():
-        try:
-            theme = Theme(theme_name)
-            themes[theme] = theme_data
-        except ValueError:
-            # Skip unknown themes
-            continue
-
-    return GameData(themes=themes)
+    """Load game data from YAML file (deprecated - use localized_game_data instead)."""
+    return localized_game_data.get_game_data(Language.RUSSIAN)
 
 
 def draw_card(

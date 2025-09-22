@@ -32,7 +32,7 @@ from .keyboards import (
     get_theme_keyboard,
 )
 from .language_keyboards import get_language_selection_keyboard
-from .logic import load_game_data
+from .logic import load_game_data, localized_game_data
 from .models import ContentType, SessionState, Theme
 from .renderer import get_background_path, render_card
 from .storage import get_session, reset_session
@@ -66,7 +66,7 @@ class ThemeHandler(CallbackHandler):
         session.theme = theme
 
         # Check if NSFW confirmation is needed
-        if GAME_DATA.has_nsfw_content(theme) and not session.is_nsfw_confirmed:
+        if localized_game_data.has_nsfw_content(theme, session.language) and not session.is_nsfw_confirmed:
             nsfw_text = f"{get_text('nsfw.warning_title', session.language)}\n\n{get_text('nsfw.warning_text', session.language)}"
             await query.edit_message_text(
                 nsfw_text,
@@ -78,16 +78,16 @@ class ThemeHandler(CallbackHandler):
         if theme == Theme.SEX:
             # Sex: Show calendar immediately with toggle
             session.content_type = ContentType.QUESTIONS
-            await self._show_sex_calendar(query, session, 0, ContentType.QUESTIONS)
+            await self._show_calendar(query, session, 0, ContentType.QUESTIONS)
         elif theme == Theme.PROVOCATION:
             # Provocation: Show calendar immediately
             session.content_type = ContentType.QUESTIONS
             await self._show_calendar(query, session, 0, ContentType.QUESTIONS)
         else:
             # Acquaintance, For Couples: Show level selection
-            available_levels = GAME_DATA.get_available_levels(theme)
+            available_levels = localized_game_data.get_available_levels(theme, session.language)
             if not available_levels:
-                await query.edit_message_text("❌ Уровни недоступны для этой темы.")
+                await query.edit_message_text(get_text('errors.no_theme', session.language))
                 return
             await self._show_level_selection(query, theme, available_levels, session)
 
@@ -137,9 +137,9 @@ class ThemeHandler(CallbackHandler):
         category = "q" if content_type == ContentType.QUESTIONS else "t"
 
         # Get items
-        items = GAME_DATA.get_content(session.theme, session.level, content_type)
+        items = localized_game_data.get_content(session.theme, session.level, content_type, session.language)
         if not items:
-            await query.edit_message_text("❌ Контент недоступен.")
+            await query.edit_message_text(get_text('errors.content_unavailable', session.language))
             return
 
         # Calculate total pages
@@ -234,9 +234,9 @@ class LevelHandler(CallbackHandler):
         category = "q" if content_type == ContentType.QUESTIONS else "t"
 
         # Get items
-        items = GAME_DATA.get_content(session.theme, session.level, content_type)
+        items = localized_game_data.get_content(session.theme, session.level, content_type, session.language)
         if not items:
-            await query.edit_message_text("❌ Контент недоступен.")
+            await query.edit_message_text(get_text('errors.content_unavailable', session.language))
             return
 
         # Calculate total pages
@@ -341,9 +341,9 @@ class CalendarHandler(CallbackHandler):
         category = "q" if content_type == ContentType.QUESTIONS else "t"
 
         # Get items
-        items = GAME_DATA.get_content(session.theme, session.level, content_type)
+        items = localized_game_data.get_content(session.theme, session.level, content_type, session.language)
         if not items:
-            await query.edit_message_text("❌ Контент недоступен.")
+            await query.edit_message_text(get_text('errors.content_unavailable', session.language))
             return
 
         # Calculate total pages
@@ -423,7 +423,7 @@ class QuestionHandler(CallbackHandler):
         content_type = session.content_type
 
         # Get items
-        items = GAME_DATA.get_content(theme, session.level, content_type)
+        items = localized_game_data.get_content(theme, session.level, content_type, session.language)
         if not items or callback_data.index >= len(items):
             await query.edit_message_text("❌ Вопрос недоступен.")
             return
@@ -500,7 +500,7 @@ class NavigationHandler(CallbackHandler):
         content_type = session.content_type
 
         # Get items
-        items = GAME_DATA.get_content(theme, session.level, content_type)
+        items = localized_game_data.get_content(theme, session.level, content_type, session.language)
         if not items or callback_data.index >= len(items):
             await query.edit_message_text("❌ Вопрос недоступен.")
             return
@@ -593,9 +593,9 @@ class ToggleHandler(CallbackHandler):
         category = "q" if content_type == ContentType.QUESTIONS else "t"
 
         # Get items
-        items = GAME_DATA.get_content(session.theme, session.level, content_type)
+        items = localized_game_data.get_content(session.theme, session.level, content_type, session.language)
         if not items:
-            await query.edit_message_text("❌ Контент недоступен.")
+            await query.edit_message_text(get_text('errors.content_unavailable', session.language))
             return
 
         # Calculate total pages
@@ -663,7 +663,7 @@ class BackHandler(CallbackHandler):
             if not session.theme:
                 await self._show_theme_selection(query)
                 return
-            available_levels = GAME_DATA.get_available_levels(session.theme)
+            available_levels = localized_game_data.get_available_levels(session.theme, session.language)
             if available_levels:
                 await self._show_level_selection(query, session.theme, available_levels)
             else:
@@ -738,9 +738,9 @@ class BackHandler(CallbackHandler):
         category = "q" if content_type == ContentType.QUESTIONS else "t"
 
         # Get items
-        items = GAME_DATA.get_content(session.theme, session.level, content_type)
+        items = localized_game_data.get_content(session.theme, session.level, content_type, session.language)
         if not items:
-            await query.edit_message_text("❌ Контент недоступен.")
+            await query.edit_message_text(get_text('errors.content_unavailable', session.language))
             return
 
         # Calculate total pages
@@ -834,7 +834,7 @@ class SimpleActionHandler(CallbackHandler):
             await self._show_sex_calendar(query, session, 0, ContentType.QUESTIONS)
         else:
             # For other themes, show level selection
-            available_levels = GAME_DATA.get_available_levels(session.theme)
+            available_levels = localized_game_data.get_available_levels(session.theme, session.language)
             if available_levels:
                 await self._show_level_selection(query, session.theme, available_levels)
             else:
@@ -921,9 +921,9 @@ class SimpleActionHandler(CallbackHandler):
         category = "q" if content_type == ContentType.QUESTIONS else "t"
 
         # Get items
-        items = GAME_DATA.get_content(session.theme, session.level, content_type)
+        items = localized_game_data.get_content(session.theme, session.level, content_type, session.language)
         if not items:
-            await query.edit_message_text("❌ Контент недоступен.")
+            await query.edit_message_text(get_text('errors.content_unavailable', session.language))
             return
 
         # Calculate total pages
@@ -1029,7 +1029,7 @@ class CallbackHandlerRegistry:
         except Exception as e:
             logger.error(f"Error handling callback query {data}: {e}", exc_info=True)
             try:
-                await query.edit_message_text("❌ Произошла ошибка. Попробуйте снова.")
+                await query.edit_message_text(get_text('errors.unknown_callback', Language.RUSSIAN))
             except Exception as edit_error:
                 logger.error(f"Error editing message: {edit_error}")
 

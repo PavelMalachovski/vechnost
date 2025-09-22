@@ -42,7 +42,7 @@ def get_level_keyboard(theme: Theme, available_levels: list[int], language: Lang
 
     # Add back button
     keyboard.append([InlineKeyboardButton(
-        f"← {get_text('navigation.back', language)}",
+        get_text('navigation.back', language),
         callback_data="back:themes"
     )])
 
@@ -95,7 +95,7 @@ def get_calendar_keyboard(
 
     if page < total_pages - 1:
         nav_row.append(InlineKeyboardButton(
-            f"{get_text('navigation.next', language)} →",
+            get_text('navigation.next', language),
             callback_data=f"cal:{topic_code}:{level_or_0}:{category}:{page+1}"
         ))
 
@@ -118,7 +118,7 @@ def get_calendar_keyboard(
 
     # Back button
     keyboard.append([InlineKeyboardButton(
-        f"← {get_text('navigation.back', language)}",
+        get_text('navigation.back', language),
         callback_data="back:levels"
     )])
 
@@ -150,7 +150,7 @@ def get_question_keyboard(
 
     if question_idx < total_questions - 1:
         nav_row.append(InlineKeyboardButton(
-            f"{get_text('navigation.next', language)} →",
+            get_text('navigation.next', language),
             callback_data=f"nav:{topic_code}:{level_or_0}:{question_idx+1}"
         ))
 
@@ -158,7 +158,7 @@ def get_question_keyboard(
 
     # Back button
     keyboard.append([InlineKeyboardButton(
-        f"← {get_text('navigation.back', language)}",
+        get_text('navigation.back', language),
         callback_data="back:calendar"
     )])
 
