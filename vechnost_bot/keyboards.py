@@ -135,18 +135,13 @@ def get_question_keyboard(
     """Get keyboard for question navigation."""
     keyboard = []
 
-    # Navigation row
+    # Navigation row (without question number)
     nav_row = []
     if question_idx > 0:
         nav_row.append(InlineKeyboardButton(
             get_text('navigation.previous', language),
             callback_data=f"nav:{topic_code}:{level_or_0}:{question_idx-1}"
         ))
-
-    nav_row.append(InlineKeyboardButton(
-        f"{get_text('question.header', language).format(current=question_idx+1, total=total_questions)}",
-        callback_data="noop"
-    ))
 
     if question_idx < total_questions - 1:
         nav_row.append(InlineKeyboardButton(
@@ -156,11 +151,17 @@ def get_question_keyboard(
 
     keyboard.append(nav_row)
 
-    # Back button
-    keyboard.append([InlineKeyboardButton(
-        get_text('navigation.back', language),
-        callback_data="back:calendar"
-    )])
+    # Question number and back button row
+    keyboard.append([
+        InlineKeyboardButton(
+            f"{get_text('question.header', language).format(current=question_idx+1, total=total_questions)}",
+            callback_data="noop"
+        ),
+        InlineKeyboardButton(
+            get_text('navigation.back', language),
+            callback_data="back:calendar"
+        )
+    ])
 
     return InlineKeyboardMarkup(keyboard)
 
