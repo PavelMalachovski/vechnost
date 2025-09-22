@@ -119,7 +119,7 @@ def get_calendar_keyboard(
     # Back button
     keyboard.append([InlineKeyboardButton(
         get_text('navigation.back', language),
-        callback_data="back:levels"
+        callback_data="back:themes"
     )])
 
     return InlineKeyboardMarkup(keyboard)

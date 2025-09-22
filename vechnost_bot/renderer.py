@@ -22,6 +22,7 @@ LINE_SPACING = 1.0
 JPEG_QUALITY = 90
 DEFAULT_FONT_SIZE = 53
 MIN_FONT_SIZE = 53
+FIXED_FONT_SIZE = 53  # Fixed font size for consistency
 
 # Font path
 FONT_PATH = Path(__file__).parent.parent / "assets" / "fonts" / "DejaVuSans.ttf"
@@ -137,24 +138,13 @@ def _calculate_text_dimensions(lines: list[str], font: ImageFont.FreeTypeFont) -
 
 
 def _find_optimal_font_size(text: str, max_width: int, max_height: int) -> tuple[ImageFont.FreeTypeFont, list[str]]:
-    """Find the largest font size that fits the text within constraints."""
-    font_size = DEFAULT_FONT_SIZE
+    """Use fixed font size for consistency across all cards."""
+    # Use fixed font size for consistency (like card #1 from Acquaintance)
+    font = _load_font(FIXED_FONT_SIZE)
+    if not font:
+        # Fallback to default if font loading fails
+        font = _load_font(DEFAULT_FONT_SIZE)
 
-    while font_size >= MIN_FONT_SIZE:
-        font = _load_font(font_size)
-        if not font:
-            break
-
-        lines = _wrap_text(text, font, max_width)
-        text_width, text_height = _calculate_text_dimensions(lines, font)
-
-        if text_height <= max_height:
-            return font, lines
-
-        font_size -= 50
-
-    # If we can't fit even with minimum font size, return minimum
-    font = _load_font(MIN_FONT_SIZE)
     lines = _wrap_text(text, font, max_width)
     return font, lines
 
