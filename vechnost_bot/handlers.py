@@ -126,15 +126,15 @@ async def handle_callback_query(update: Update, context: ContextTypes.DEFAULT_TY
     await callback_registry.handle_callback(query, data)
 
 
-async def show_theme_selection(query: Any) -> None:
+async def show_theme_selection(query: Any, session: SessionState) -> None:
     """Show theme selection menu."""
-    welcome_text = WELCOME_PROMPT
+    welcome_text = get_text('welcome.prompt', session.language)
 
     # Handle both text and photo messages
     try:
         await query.edit_message_text(
             welcome_text,
-            reply_markup=get_theme_keyboard()
+            reply_markup=get_theme_keyboard(session.language)
         )
     except Exception as edit_error:
         logger.warning(f"Could not edit message text: {edit_error}, deleting and sending new message")
@@ -155,14 +155,14 @@ async def handle_theme_selection(query: Any, data: str, session: SessionState) -
     try:
         theme = Theme(theme_name)
     except ValueError:
-        await query.edit_message_text(ERROR_INVALID_THEME)
+        await query.edit_message_text(get_text('errors.invalid_theme', session.language))
         return
 
     session.theme = theme
 
     # Check if NSFW confirmation is needed
     if GAME_DATA.has_nsfw_content(theme) and not session.is_nsfw_confirmed:
-        nsfw_text = f"{NSFW_WARNING_TITLE}\n\n{NSFW_WARNING_TEXT}"
+        nsfw_text = f"{get_text('nsfw.warning_title', session.language)}\n\n{get_text('nsfw.warning_text', session.language)}"
 
         await query.edit_message_text(
             nsfw_text,
@@ -185,10 +185,10 @@ async def handle_theme_selection(query: Any, data: str, session: SessionState) -
         if not available_levels:
             await query.edit_message_text("❌ Уровни недоступны для этой темы.")
             return
-        await show_level_selection(query, theme, available_levels)
+        await show_level_selection(query, theme, available_levels, session)
 
 
-async def show_level_selection(query: Any, theme: Theme, available_levels: list[int]) -> None:
+async def show_level_selection(query: Any, theme: Theme, available_levels: list[int], session: SessionState) -> None:
     """Show level selection menu."""
     theme_names = {
         Theme.ACQUAINTANCE: Theme.ACQUAINTANCE.value_short(),
@@ -206,13 +206,13 @@ async def show_level_selection(query: Any, theme: Theme, available_levels: list[
 
     emoji = theme_emojis.get(theme, "🎴")
     theme_name = theme_names.get(theme, theme.value)
-    level_text = f"{emoji} {theme_name}\n\n{LEVEL_PROMPT}"
+    level_text = f"{emoji} {theme_name}\n\n{get_text('level.prompt', session.language)}"
 
     # Handle both text and photo messages
     try:
         await query.edit_message_text(
             level_text,
-            reply_markup=get_level_keyboard(theme, available_levels)
+            reply_markup=get_level_keyboard(theme, available_levels, session.language)
         )
     except Exception as edit_error:
         logger.warning(f"Could not edit message text: {edit_error}, deleting and sending new message")
@@ -233,7 +233,7 @@ async def handle_level_selection(query: Any, data: str, session: SessionState) -
     session.level = level
 
     if not session.theme:
-        await query.edit_message_text(ERROR_NO_THEME)
+        await query.edit_message_text(get_text('errors.no_theme', session.language))
         return
 
     # Set content type and show calendar for the selected level
@@ -244,7 +244,7 @@ async def handle_level_selection(query: Any, data: str, session: SessionState) -
 async def show_calendar(query: Any, session: SessionState, page: int, content_type: ContentType) -> None:
     """Show calendar for questions/tasks."""
     if not session.theme:
-        await query.edit_message_text(ERROR_NO_THEME)
+        await query.edit_message_text(get_text('errors.no_theme', session.language))
         return
 
     # Get topic code
@@ -323,7 +323,7 @@ async def handle_calendar_page(query: Any, data: str, session: SessionState) -> 
     # Parse: cal:{topic}:{level_or_0}:{category}:{page}
     parts = data.split(":")
     if len(parts) != 5:
-        await query.edit_message_text(ERROR_UNKNOWN_CALLBACK)
+        await query.edit_message_text(get_text('errors.unknown_callback', session.language))
         return
 
     topic_code = parts[1]
@@ -341,7 +341,7 @@ async def handle_calendar_page(query: Any, data: str, session: SessionState) -> 
 
     theme = topic_to_theme.get(topic_code)
     if not theme:
-        await query.edit_message_text(ERROR_INVALID_THEME)
+        await query.edit_message_text(get_text('errors.invalid_theme', session.language))
         return
 
     # Set session state
@@ -360,7 +360,7 @@ async def handle_question_selection(query: Any, data: str, session: SessionState
     # Parse: q:{topic}:{level_or_0}:{index}
     parts = data.split(":")
     if len(parts) != 4:
-        await query.edit_message_text(ERROR_UNKNOWN_CALLBACK)
+        await query.edit_message_text(get_text('errors.unknown_callback', session.language))
         return
 
     topic_code = parts[1]
@@ -377,7 +377,7 @@ async def handle_question_selection(query: Any, data: str, session: SessionState
 
     theme = topic_to_theme.get(topic_code)
     if not theme:
-        await query.edit_message_text(ERROR_INVALID_THEME)
+        await query.edit_message_text(get_text('errors.invalid_theme', session.language))
         return
 
     # Set session state
@@ -439,7 +439,7 @@ async def handle_question_navigation(query: Any, data: str, session: SessionStat
     # Parse: nav:{topic}:{level_or_0}:{index}
     parts = data.split(":")
     if len(parts) != 4:
-        await query.edit_message_text(ERROR_UNKNOWN_CALLBACK)
+        await query.edit_message_text(get_text('errors.unknown_callback', session.language))
         return
 
     topic_code = parts[1]
@@ -456,7 +456,7 @@ async def handle_question_navigation(query: Any, data: str, session: SessionStat
 
     theme = topic_to_theme.get(topic_code)
     if not theme:
-        await query.edit_message_text(ERROR_INVALID_THEME)
+        await query.edit_message_text(get_text('errors.invalid_theme', session.language))
         return
 
     # Set session state
@@ -518,7 +518,7 @@ async def handle_toggle_content(query: Any, data: str, session: SessionState) ->
     # Parse: toggle:sex:{category}:{page}
     parts = data.split(":")
     if len(parts) != 4:
-        await query.edit_message_text(ERROR_UNKNOWN_CALLBACK)
+        await query.edit_message_text(get_text('errors.unknown_callback', session.language))
         return
 
     topic_code = parts[1]  # Should be "sex"
@@ -526,7 +526,7 @@ async def handle_toggle_content(query: Any, data: str, session: SessionState) ->
     page = int(parts[3])
 
     if topic_code != "sex":
-        await query.edit_message_text(ERROR_UNKNOWN_CALLBACK)
+        await query.edit_message_text(get_text('errors.unknown_callback', session.language))
         return
 
     # Set session state
@@ -546,7 +546,7 @@ async def handle_back_navigation(query: Any, data: str, session: SessionState) -
     # Parse: back:{where}
     parts = data.split(":")
     if len(parts) != 2:
-        await query.edit_message_text(ERROR_UNKNOWN_CALLBACK)
+        await query.edit_message_text(get_text('errors.unknown_callback', session.language))
         return
 
     where = parts[1]
@@ -580,7 +580,7 @@ async def handle_back_navigation(query: Any, data: str, session: SessionState) -
             # For other themes, show questions calendar
             await show_calendar(query, session, current_page, ContentType.QUESTIONS)
     else:
-        await query.edit_message_text(ERROR_UNKNOWN_CALLBACK)
+        await query.edit_message_text(get_text('errors.unknown_callback', session.language))
 
 
 async def handle_nsfw_confirmation(query: Any, session: SessionState) -> None:
@@ -588,7 +588,7 @@ async def handle_nsfw_confirmation(query: Any, session: SessionState) -> None:
     session.is_nsfw_confirmed = True
 
     if not session.theme:
-        await query.edit_message_text(ERROR_NO_THEME)
+        await query.edit_message_text(get_text('errors.no_theme', session.language))
         return
 
     # For Sex theme, show calendar immediately
@@ -604,21 +604,21 @@ async def handle_nsfw_confirmation(query: Any, session: SessionState) -> None:
             await show_theme_selection(query)
 
 
-async def handle_nsfw_denial(query: Any) -> None:
+async def handle_nsfw_denial(query: Any, session: SessionState) -> None:
     """Handle NSFW content denial."""
     await query.edit_message_text(
-        NSFW_ACCESS_DENIED,
-        reply_markup=get_theme_keyboard()
+        get_text('nsfw.access_denied', session.language),
+        reply_markup=get_theme_keyboard(session.language)
     )
 
 
-async def handle_reset_request(query: Any) -> None:
+async def handle_reset_request(query: Any, session: SessionState) -> None:
     """Handle reset game request."""
-    reset_text = f"{RESET_TITLE}\n\n{RESET_CONFIRM_TEXT}"
+    reset_text = f"{get_text('reset.title', session.language)}\n\n{get_text('reset.confirm_text', session.language)}"
 
     await query.edit_message_text(
         reset_text,
-        reply_markup=get_reset_confirmation_keyboard()
+        reply_markup=get_reset_confirmation_keyboard(session.language)
     )
 
 

@@ -109,7 +109,7 @@ class ThemeHandler(CallbackHandler):
 
         emoji = theme_emojis.get(theme, "🎴")
         theme_name = theme_names.get(theme, theme.value)
-        level_text = f"{emoji} {theme_name}\n\n{LEVEL_PROMPT}"
+        level_text = f"{emoji} {theme_name}\n\n{get_text('level.prompt', session.language)}"
 
         await self._edit_or_send_message(
             query, level_text, get_level_keyboard(theme, available_levels)
@@ -673,7 +673,7 @@ class BackHandler(CallbackHandler):
 
     async def _show_theme_selection(self, query: Any) -> None:
         """Show theme selection menu."""
-        welcome_text = WELCOME_PROMPT
+        welcome_text = get_text('welcome.prompt', session.language)
         await self._edit_or_send_message(query, welcome_text, get_theme_keyboard())
 
     async def _show_level_selection(self, query: Any, theme: Theme, available_levels: list[int]) -> None:
@@ -694,7 +694,7 @@ class BackHandler(CallbackHandler):
 
         emoji = theme_emojis.get(theme, "🎴")
         theme_name = theme_names.get(theme, theme.value)
-        level_text = f"{emoji} {theme_name}\n\n{LEVEL_PROMPT}"
+        level_text = f"{emoji} {theme_name}\n\n{get_text('level.prompt', session.language)}"
 
         await self._edit_or_send_message(
             query, level_text, get_level_keyboard(theme, available_levels)
@@ -852,7 +852,7 @@ class SimpleActionHandler(CallbackHandler):
 
     async def _show_theme_selection(self, query: Any) -> None:
         """Show theme selection menu."""
-        welcome_text = WELCOME_PROMPT
+        welcome_text = get_text('welcome.prompt', session.language)
         await self._edit_or_send_message(query, welcome_text, get_theme_keyboard())
 
     async def _show_level_selection(self, query: Any, theme: Theme, available_levels: list[int]) -> None:
@@ -873,7 +873,7 @@ class SimpleActionHandler(CallbackHandler):
 
         emoji = theme_emojis.get(theme, "🎴")
         theme_name = theme_names.get(theme, theme.value)
-        level_text = f"{emoji} {theme_name}\n\n{LEVEL_PROMPT}"
+        level_text = f"{emoji} {theme_name}\n\n{get_text('level.prompt', session.language)}"
 
         await self._edit_or_send_message(
             query, level_text, get_level_keyboard(theme, available_levels)
