@@ -256,11 +256,8 @@ class ToggleCallbackData(CallbackData):
             raise ValueError(f"Invalid toggle callback format: {data}")
 
         topic = parts[1]
-        category = parts[2]
-        try:
-            page = int(parts[3])
-        except ValueError as e:
-            raise ValueError(f"Invalid page number in toggle callback: {e}")
+        page = int(parts[2])
+        category = parts[3]
 
         if category not in ["q", "t"]:
             raise ValueError(f"Invalid category: {category}")

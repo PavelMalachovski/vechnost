@@ -79,7 +79,7 @@ class TestCallbackData:
 
     def test_parse_toggle_callback(self):
         """Test parsing toggle callback data."""
-        data = "toggle:sex:t:0"
+        data = "toggle:sex:0:t"
         callback_data = CallbackData.parse(data)
 
         assert isinstance(callback_data, ToggleCallbackData)
@@ -276,7 +276,7 @@ class TestToggleCallbackData:
 
     def test_parse_valid_toggle(self):
         """Test parsing valid toggle data."""
-        data = "toggle:sex:q:0"
+        data = "toggle:sex:0:q"
         callback_data = ToggleCallbackData.parse(data)
 
         assert callback_data.action == CallbackAction.TOGGLE
@@ -293,14 +293,14 @@ class TestToggleCallbackData:
         with pytest.raises(ValueError, match="Invalid toggle callback format"):
             ToggleCallbackData.parse("toggle:sex:q")
 
-        with pytest.raises(ValueError, match="Invalid page number"):
-            ToggleCallbackData.parse("toggle:sex:q:abc")
+        with pytest.raises(ValueError, match="invalid literal for int"):
+            ToggleCallbackData.parse("toggle:sex:abc:q")
 
         with pytest.raises(ValueError, match="Invalid category"):
-            ToggleCallbackData.parse("toggle:sex:x:0")
+            ToggleCallbackData.parse("toggle:sex:0:x")
 
         with pytest.raises(ValueError, match="Page out of range"):
-            ToggleCallbackData.parse("toggle:sex:q:-1")
+            ToggleCallbackData.parse("toggle:sex:-1:q")
 
 
 class TestBackCallbackData:

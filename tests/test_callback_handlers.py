@@ -56,11 +56,11 @@ class TestThemeHandler:
             theme_name="Acquaintance"
         )
 
-        with patch.object(handler, '_show_calendar') as mock_show_calendar:
+        with patch.object(handler, '_show_level_selection') as mock_show_level_selection:
             await handler.handle(mock_query, callback_data, session)
 
             assert session.theme == Theme.ACQUAINTANCE
-            mock_show_calendar.assert_called_once()
+            mock_show_level_selection.assert_called_once()
 
     @pytest.mark.asyncio
     async def test_handle_theme_selection_sex(self, handler, mock_query, session):

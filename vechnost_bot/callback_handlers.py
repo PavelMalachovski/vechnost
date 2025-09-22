@@ -90,10 +90,10 @@ class ThemeHandler(CallbackHandler):
             session.content_type = ContentType.QUESTIONS
             await self._show_calendar(query, session, 0, ContentType.QUESTIONS)
         else:
-            # Acquaintance, For Couples: Show calendar directly
-            logger.info(f"Showing calendar for theme {theme}")
-            session.content_type = ContentType.QUESTIONS
-            await self._show_calendar(query, session, 0, ContentType.QUESTIONS)
+            # Acquaintance, For Couples: Show level selection
+            logger.info(f"Showing level selection for theme {theme}")
+            available_levels = localized_game_data.get_available_levels(theme, session.language)
+            await self._show_level_selection(query, theme, available_levels, session)
 
     async def _show_level_selection(self, query: Any, theme: Theme, available_levels: list[int], session: SessionState) -> None:
         """Show level selection menu."""
