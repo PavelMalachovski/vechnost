@@ -31,7 +31,7 @@ question:
 navigation:
   back: "← Назад"
   next: "Следующий →"
-  previous: "Предыдущий"
+  previous: "← Предыдущий"
   toggle_questions: "Вопросы"
   toggle_tasks: "Задания"
   page: "Страница {current} из {total}"

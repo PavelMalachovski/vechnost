@@ -31,7 +31,7 @@ question:
 navigation:
   back: "← Zpět"
   next: "Další →"
-  previous: "Předchozí"
+  previous: "← Předchozí"
   toggle_questions: "Otázky"
   toggle_tasks: "Úkoly"
   page: "Stránka {current} z {total}"

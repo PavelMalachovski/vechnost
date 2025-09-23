@@ -31,7 +31,7 @@ question:
 navigation:
   back: "← Back"
   next: "Next →"
-  previous: "Previous"
+  previous: "← Previous"
   toggle_questions: "Questions"
   toggle_tasks: "Tasks"
   page: "Page {current} of {total}"
