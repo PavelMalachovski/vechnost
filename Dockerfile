@@ -25,10 +25,11 @@ FROM python:3.11-slim AS production
 # Set working directory
 WORKDIR /app
 
-# Install runtime dependencies including Redis client tools
+# Install runtime dependencies including Redis server and client tools
 RUN apt-get update && apt-get install -y \
     libjpeg62-turbo \
     zlib1g \
+    redis-server \
     redis-tools \
     curl \
     && rm -rf /var/lib/apt/lists/* \

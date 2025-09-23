@@ -221,8 +221,12 @@ class RedisManager:
             logger.info("shutdown_signal_received", signal=signum)
             self._shutdown_requested = True
 
-        signal.signal(signal.SIGINT, signal_handler)
-        signal.signal(signal.SIGTERM, signal_handler)
+        try:
+            signal.signal(signal.SIGINT, signal_handler)
+            signal.signal(signal.SIGTERM, signal_handler)
+        except (OSError, ValueError) as e:
+            # Signal handling may not work in all environments (e.g., some Docker setups)
+            logger.warning("signal_handler_setup_failed", error=str(e))
 
     async def is_shutdown_requested(self) -> bool:
         """Check if shutdown was requested."""

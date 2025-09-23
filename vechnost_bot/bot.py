@@ -43,19 +43,42 @@ def create_application() -> Application:
     return application
 
 
-async def initialize_redis() -> bool:
-    """Initialize Redis with auto-start."""
+def initialize_redis_sync() -> bool:
+    """Initialize Redis with auto-start (synchronous wrapper)."""
     logger = logging.getLogger(__name__)
     try:
-        redis_started = await initialize_redis_auto_start()
-        if redis_started:
-            logger.info("Redis auto-started successfully")
-        else:
-            logger.warning("Redis auto-start failed, using in-memory storage")
-        return redis_started
+        # Create a new event loop for Redis initialization
+        loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(loop)
+
+        try:
+            redis_started = loop.run_until_complete(initialize_redis_auto_start())
+            if redis_started:
+                logger.info("Redis auto-started successfully")
+            else:
+                logger.warning("Redis auto-start failed, using in-memory storage")
+            return redis_started
+        finally:
+            loop.close()
+
     except Exception as e:
         logger.error(f"Redis initialization error: {e}")
         return False
+
+
+def cleanup_redis_sync():
+    """Cleanup Redis (synchronous wrapper)."""
+    try:
+        loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(loop)
+
+        try:
+            loop.run_until_complete(cleanup_redis_auto_start())
+        finally:
+            loop.close()
+    except Exception as e:
+        logger = logging.getLogger(__name__)
+        logger.error(f"Redis cleanup error: {e}")
 
 
 @track_performance("bot_startup")
@@ -65,8 +88,8 @@ def run_bot() -> None:
     logger = logging.getLogger(__name__)
 
     try:
-        # Initialize Redis with auto-start
-        redis_started = asyncio.run(initialize_redis())
+        # Initialize Redis with auto-start (synchronous)
+        redis_started = initialize_redis_sync()
 
         application = create_application()
         logger.info("Starting Vechnost bot...")
@@ -74,9 +97,9 @@ def run_bot() -> None:
         application.run_polling()
     except KeyboardInterrupt:
         logger.info("Bot shutdown requested")
-        asyncio.run(cleanup_redis_auto_start())
+        cleanup_redis_sync()
     except Exception as e:
         logger.error(f"Error running bot: {e}")
         log_bot_event("bot_error", error=str(e))
-        asyncio.run(cleanup_redis_auto_start())
+        cleanup_redis_sync()
         raise
