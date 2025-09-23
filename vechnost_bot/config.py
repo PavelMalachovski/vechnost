@@ -1,8 +1,31 @@
 """Configuration management for the bot."""
 
 import os
+from dataclasses import dataclass
 
 from telegram import Bot
+
+
+@dataclass
+class Config:
+    """Configuration class for the bot."""
+
+    token: str
+    log_level: str = "INFO"
+    environment: str = "development"
+
+    @classmethod
+    def from_env(cls) -> "Config":
+        """Create config from environment variables."""
+        token = os.getenv("API_TOKEN_TELEGRAM") or os.getenv("TELEGRAM_BOT_TOKEN")
+        if not token:
+            raise ValueError("TELEGRAM_BOT_TOKEN environment variable is required")
+
+        return cls(
+            token=token,
+            log_level=os.getenv("LOG_LEVEL", "INFO").upper(),
+            environment=os.getenv("ENVIRONMENT", "development")
+        )
 
 
 def get_bot_token() -> str:

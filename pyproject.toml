@@ -29,6 +29,8 @@ dependencies = [
     "sentry-sdk>=1.40.0",
     "babel>=2.12.0",
     "pycountry>=22.3.0",
+    "aiofiles>=23.0.0",
+    "aiohttp>=3.8.0",
 ]
 
 [project.optional-dependencies]

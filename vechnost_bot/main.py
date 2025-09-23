@@ -16,6 +16,7 @@ def main() -> None:
         run_bot()
     except KeyboardInterrupt:
         print("\nBot stopped by user.")
+        sys.exit(0)
     except Exception as e:
         print(f"Error: {e}")
         sys.exit(1)
