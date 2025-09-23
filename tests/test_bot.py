@@ -6,7 +6,7 @@ from unittest.mock import MagicMock, patch, AsyncMock
 from telegram.ext import Application
 
 from vechnost_bot.bot import create_application, run_bot, setup_logging
-from vechnost_bot.config import Config
+from vechnost_bot.config import Settings
 
 
 class TestBotSetup:
@@ -55,29 +55,30 @@ class TestBotSetup:
 class TestConfig:
     """Test configuration management."""
 
-    def test_config_defaults(self):
-        """Test default configuration values."""
-        config = Config(token="test_token")
+    def test_settings_defaults(self):
+        """Test default settings values."""
+        with patch.dict(os.environ, {"TELEGRAM_BOT_TOKEN": "test_token"}):
+            settings = Settings()
 
-        assert config.token == "test_token"
-        assert config.log_level == "INFO"
-        assert config.environment == "development"
+            assert settings.telegram_bot_token == "test_token"
+            assert settings.log_level == "INFO"
+            assert settings.environment == "development"
 
     @patch.dict(os.environ, {
         "TELEGRAM_BOT_TOKEN": "test_token",
         "LOG_LEVEL": "DEBUG",
         "ENVIRONMENT": "production"
     })
-    def test_config_from_env(self):
-        """Test configuration from environment variables."""
-        config = Config.from_env()
+    def test_settings_from_env(self):
+        """Test settings from environment variables."""
+        settings = Settings()
 
-        assert config.token == "test_token"
-        assert config.log_level == "DEBUG"
-        assert config.environment == "production"
+        assert settings.telegram_bot_token == "test_token"
+        assert settings.log_level == "DEBUG"
+        assert settings.environment == "production"
 
     @patch.dict(os.environ, {}, clear=True)
-    def test_config_validation(self):
-        """Test configuration validation."""
-        with pytest.raises(ValueError, match="TELEGRAM_BOT_TOKEN environment variable is required"):
-            Config.from_env()
+    def test_settings_validation(self):
+        """Test settings validation."""
+        with pytest.raises(ValueError):
+            Settings()

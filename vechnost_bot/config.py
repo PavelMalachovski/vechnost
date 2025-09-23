@@ -1,53 +1,87 @@
-"""Configuration management for the bot."""
+"""Configuration management for the bot using Pydantic Settings."""
 
-import os
-from dataclasses import dataclass
-
+from typing import Optional
+from pydantic import Field, RedisDsn
+from pydantic_settings import BaseSettings, SettingsConfigDict
 from telegram import Bot
 
 
-@dataclass
-class Config:
-    """Configuration class for the bot."""
+class Settings(BaseSettings):
+    """Application settings using Pydantic Settings."""
 
-    token: str
-    log_level: str = "INFO"
-    environment: str = "development"
+    model_config = SettingsConfigDict(
+        env_file=".env",
+        env_file_encoding="utf-8",
+        case_sensitive=False
+    )
 
-    @classmethod
-    def from_env(cls) -> "Config":
-        """Create config from environment variables."""
-        token = os.getenv("API_TOKEN_TELEGRAM") or os.getenv("TELEGRAM_BOT_TOKEN")
-        if not token:
-            raise ValueError("TELEGRAM_BOT_TOKEN environment variable is required")
+    # Telegram Bot Configuration
+    telegram_bot_token: str = Field(
+        validation_alias="TELEGRAM_BOT_TOKEN",
+        description="Telegram bot token"
+    )
 
-        return cls(
-            token=token,
-            log_level=os.getenv("LOG_LEVEL", "INFO").upper(),
-            environment=os.getenv("ENVIRONMENT", "development")
-        )
+    # Logging Configuration
+    log_level: str = Field(
+        default="INFO",
+        description="Logging level"
+    )
+
+    # Environment Configuration
+    environment: str = Field(
+        default="development",
+        description="Application environment"
+    )
+
+    # Redis Configuration
+    redis_url: RedisDsn = Field(
+        default="redis://localhost:6379",
+        description="Redis connection URL"
+    )
+
+    redis_db: int = Field(
+        default=0,
+        description="Redis database number"
+    )
+
+    # Optional Configuration
+    chat_id: Optional[str] = Field(
+        default=None,
+        description="Optional chat ID for notifications"
+    )
+
+    # Sentry Configuration
+    sentry_dsn: Optional[str] = Field(
+        default=None,
+        description="Sentry DSN for error tracking"
+    )
+
+    # Performance Configuration
+    max_connections: int = Field(
+        default=20,
+        description="Maximum Redis connections"
+    )
+
+    session_ttl: int = Field(
+        default=3600,
+        description="Session TTL in seconds"
+    )
 
 
-def get_bot_token() -> str:
-    """Get the Telegram bot token from environment variables."""
-    # Support both old and new environment variable names
-    token = os.getenv("API_TOKEN_TELEGRAM") or os.getenv("TELEGRAM_BOT_TOKEN")
-    if not token:
-        raise ValueError("API_TOKEN_TELEGRAM or TELEGRAM_BOT_TOKEN environment variable is required")
-    return token
-
-
-def get_log_level() -> str:
-    """Get the log level from environment variables."""
-    return os.getenv("LOG_LEVEL", "INFO").upper()
-
-
-def get_chat_id() -> str | None:
-    """Get the chat ID from environment variables (optional)."""
-    return os.getenv("CHAT_ID")
+# Global settings instance
+settings = Settings()
 
 
 def create_bot() -> Bot:
     """Create a Telegram bot instance."""
-    token = get_bot_token()
-    return Bot(token=token)
+    return Bot(token=settings.telegram_bot_token)
+
+
+def get_log_level() -> str:
+    """Get the log level from settings."""
+    return settings.log_level.upper()
+
+
+def get_chat_id() -> Optional[str]:
+    """Get the chat ID from settings."""
+    return settings.chat_id

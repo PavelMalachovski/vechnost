@@ -1,72 +1,104 @@
 """Tests for storage module."""
 
-from vechnost_bot.models import SessionState
-from vechnost_bot.storage import SESSIONS, delete_session, get_session, reset_session
+import pytest
+from unittest.mock import AsyncMock, patch
+from vechnost_bot.models import SessionState, Language
+from vechnost_bot.storage import delete_session, get_session, reset_session
 
 
 class TestStorage:
     """Test storage functionality."""
 
-    def setup_method(self):
-        """Clear sessions before each test."""
-        SESSIONS.clear()
-
-    def test_get_session_new(self):
+    @pytest.mark.asyncio
+    async def test_get_session_new(self):
         """Test getting a new session."""
         chat_id = 12345
-        session = get_session(chat_id)
 
-        assert isinstance(session, SessionState)
-        assert chat_id in SESSIONS
-        assert SESSIONS[chat_id] is session
+        with patch('vechnost_bot.storage.get_redis_storage') as mock_get_storage:
+            mock_storage = AsyncMock()
+            mock_storage.get_session.return_value = None
+            mock_storage.save_session = AsyncMock()
+            mock_get_storage.return_value = mock_storage
 
-    def test_get_session_existing(self):
+            session = await get_session(chat_id)
+
+            assert isinstance(session, SessionState)
+            assert session.language == Language.RUSSIAN
+            mock_storage.save_session.assert_called_once()
+
+    @pytest.mark.asyncio
+    async def test_get_session_existing(self):
         """Test getting an existing session."""
         chat_id = 12345
-        session1 = get_session(chat_id)
-        session2 = get_session(chat_id)
+        existing_session = SessionState(chat_id=chat_id, language=Language.ENGLISH)
 
-        assert session1 is session2
-        assert len(SESSIONS) == 1
+        with patch('vechnost_bot.storage.get_redis_storage') as mock_get_storage:
+            mock_storage = AsyncMock()
+            mock_storage.get_session.return_value = existing_session
+            mock_get_storage.return_value = mock_storage
 
-    def test_reset_session_existing(self):
+            session = await get_session(chat_id)
+
+            assert session is existing_session
+            assert session.language == Language.ENGLISH
+
+    @pytest.mark.asyncio
+    async def test_reset_session_existing(self):
         """Test resetting an existing session."""
         chat_id = 12345
-        session = get_session(chat_id)
-        session.theme = "Acquaintance"
-        session.level = 1
+        existing_session = SessionState(chat_id=chat_id, language=Language.ENGLISH)
 
-        reset_session(chat_id)
+        with patch('vechnost_bot.storage.get_redis_storage') as mock_get_storage:
+            mock_storage = AsyncMock()
+            mock_storage.get_session.return_value = existing_session
+            mock_storage.save_session = AsyncMock()
+            mock_get_storage.return_value = mock_storage
 
-        assert session.theme is None
-        assert session.level is None
-        assert chat_id in SESSIONS
+            await reset_session(chat_id)
 
-    def test_reset_session_new(self):
+            assert existing_session.language == Language.RUSSIAN
+            mock_storage.save_session.assert_called_once()
+
+    @pytest.mark.asyncio
+    async def test_reset_session_new(self):
         """Test resetting a non-existing session."""
         chat_id = 12345
 
-        reset_session(chat_id)
+        with patch('vechnost_bot.storage.get_redis_storage') as mock_get_storage:
+            mock_storage = AsyncMock()
+            mock_storage.get_session.return_value = None
+            mock_storage.save_session = AsyncMock()
+            mock_get_storage.return_value = mock_storage
 
-        assert chat_id in SESSIONS
-        assert isinstance(SESSIONS[chat_id], SessionState)
+            await reset_session(chat_id)
 
-    def test_delete_session_existing(self):
+            mock_storage.save_session.assert_called_once()
+
+    @pytest.mark.asyncio
+    async def test_delete_session_existing(self):
         """Test deleting an existing session."""
         chat_id = 12345
-        get_session(chat_id)
 
-        assert chat_id in SESSIONS
+        with patch('vechnost_bot.storage.get_redis_storage') as mock_get_storage:
+            mock_storage = AsyncMock()
+            mock_storage.delete_session = AsyncMock()
+            mock_get_storage.return_value = mock_storage
 
-        delete_session(chat_id)
+            await delete_session(chat_id)
 
-        assert chat_id not in SESSIONS
+            mock_storage.delete_session.assert_called_once_with(chat_id)
 
-    def test_delete_session_non_existing(self):
+    @pytest.mark.asyncio
+    async def test_delete_session_non_existing(self):
         """Test deleting a non-existing session."""
         chat_id = 12345
 
-        # Should not raise an error
-        delete_session(chat_id)
+        with patch('vechnost_bot.storage.get_redis_storage') as mock_get_storage:
+            mock_storage = AsyncMock()
+            mock_storage.delete_session = AsyncMock()
+            mock_get_storage.return_value = mock_storage
 
-        assert chat_id not in SESSIONS
+            # Should not raise an error
+            await delete_session(chat_id)
+
+            mock_storage.delete_session.assert_called_once_with(chat_id)
