@@ -22,8 +22,8 @@ level:
 
 calendar:
   header: "{theme} - Уровень {level}\nОсталось карточек: {remaining_count}"
-  sex_questions: "Секс - Вопросы"
-  sex_tasks: "Секс - Задания"
+  sex_questions: "🔥 Секс - Вопросы"
+  sex_tasks: "🔥 Секс - Задания"
 
 question:
   header: "{current} из {total}"
@@ -31,7 +31,7 @@ question:
 navigation:
   back: "← Назад"
   next: "Следующий →"
-  previous: "← Предыдущий"
+  previous: "Предыдущий"
   toggle_questions: "Вопросы"
   toggle_tasks: "Задания"
   page: "Страница {current} из {total}"

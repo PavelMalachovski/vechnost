@@ -22,8 +22,8 @@ level:
 
 calendar:
   header: "{theme} - Level {level}\nRemaining cards: {remaining_count}"
-  sex_questions: "Sex - Questions"
-  sex_tasks: "Sex - Tasks"
+  sex_questions: "🔥 Sex - Questions"
+  sex_tasks: "🔥 Sex - Tasks"
 
 question:
   header: "{current} of {total}"
@@ -31,7 +31,7 @@ question:
 navigation:
   back: "← Back"
   next: "Next →"
-  previous: "← Previous"
+  previous: "Previous"
   toggle_questions: "Questions"
   toggle_tasks: "Tasks"
   page: "Page {current} of {total}"
