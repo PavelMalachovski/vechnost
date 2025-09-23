@@ -21,9 +21,9 @@ level:
   level: "Úroveň"
 
 calendar:
-  header: "Kalendář: {theme} - Úroveň {level}\nZbývající karty: {remaining_count}"
-  sex_questions: "🔥 Sex — Otázky"
-  sex_tasks: "🔥 Sex — Úkoly"
+  header: "{theme} - Úroveň {level}\nZbývající karty: {remaining_count}"
+  sex_questions: "Sex - Otázky"
+  sex_tasks: "Sex - Úkoly"
 
 question:
   header: "{current} z {total}"
@@ -32,8 +32,8 @@ navigation:
   back: "← Zpět"
   next: "Další →"
   previous: "← Předchozí"
-  toggle_questions: "❓ Otázky"
-  toggle_tasks: "📝 Úkoly"
+  toggle_questions: "Otázky"
+  toggle_tasks: "Úkoly"
   page: "Stránka {current} z {total}"
 
 nsfw:

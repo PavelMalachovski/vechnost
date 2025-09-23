@@ -23,8 +23,8 @@ def get_language_selection_keyboard(current_language: Language = Language.RUSSIA
                     Language.CZECH: "CZ"
                 }
                 lang_name = lang_codes[lang]
-                # Add checkmark if it's the current language
-                if lang == current_language:
+                # Don't add checkmark for Russian (RU)
+                if lang == current_language and lang != Language.RUSSIAN:
                     lang_name = f"✓ {lang_name}"
 
                 row.append(InlineKeyboardButton(
