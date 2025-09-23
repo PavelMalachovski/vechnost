@@ -35,7 +35,8 @@ from .language_keyboards import get_language_selection_keyboard
 from .logic import load_game_data, localized_game_data
 from .models import ContentType, SessionState, Theme
 from .renderer import get_background_path, render_card
-from .storage import get_session, reset_session
+from .storage import get_session
+from .hybrid_storage import get_redis_storage
 
 logger = logging.getLogger(__name__)
 
@@ -200,14 +201,17 @@ class LevelHandler(CallbackHandler):
 
     async def handle(self, query: Any, callback_data: LevelCallbackData, session: SessionState) -> None:
         """Handle level selection."""
+        logger.info(f"Handling level selection: {callback_data.level}, theme: {session.theme}")
         session.level = callback_data.level
 
         if not session.theme:
+            logger.error(f"Theme not set in session! Theme: {session.theme}, Level: {session.level}")
             await query.edit_message_text(get_text('errors.no_theme', session.language))
             return
 
         # Set content type and show calendar for the selected level
         session.content_type = ContentType.QUESTIONS
+        logger.info(f"Showing calendar for theme: {session.theme}, level: {session.level}")
         await self._show_calendar(query, session, 0, ContentType.QUESTIONS)
 
     async def _show_calendar(self, query: Any, session: SessionState, page: int, content_type: ContentType) -> None:
@@ -1002,6 +1006,10 @@ class CallbackHandlerRegistry:
 
             # Handle the callback
             await handler.handle(query, callback_data, session)
+
+            # Save session after handler modifies it
+            storage = await get_redis_storage()
+            await storage.save_session(chat_id, session)
 
         except ValueError as e:
             logger.warning(f"Invalid callback data: {data}, error: {e}")
