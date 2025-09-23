@@ -160,7 +160,8 @@ class ThemeHandler(CallbackHandler):
                 # Provocation: show only theme name without level and card count
                 header = theme_name
             elif session.level:
-                header = f"{theme_name} - Уровень {session.level}"
+                level_text = get_text('level.level', session.language)
+                header = f"{theme_name} - {level_text} {session.level}"
             else:
                 header = get_text('calendar.header', session.language).format(
                     theme=theme_name,
@@ -259,7 +260,8 @@ class LevelHandler(CallbackHandler):
                 # Provocation: show only theme name without level and card count
                 header = theme_name
             elif session.level:
-                header = f"{theme_name} - Уровень {session.level}"
+                level_text = get_text('level.level', session.language)
+                header = f"{theme_name} - {level_text} {session.level}"
             else:
                 header = get_text('calendar.header', session.language).format(
                     theme=theme_name,
@@ -368,7 +370,8 @@ class CalendarHandler(CallbackHandler):
                 # Provocation: show only theme name without level and card count
                 header = theme_name
             elif session.level:
-                header = f"{theme_name} - Уровень {session.level}"
+                level_text = get_text('level.level', session.language)
+                header = f"{theme_name} - {level_text} {session.level}"
             else:
                 header = get_text('calendar.header', session.language).format(
                     theme=theme_name,
@@ -622,7 +625,8 @@ class ToggleHandler(CallbackHandler):
                 # Provocation: show only theme name without level and card count
                 header = theme_name
             elif session.level:
-                header = f"{theme_name} - Уровень {session.level}"
+                level_text = get_text('level.level', session.language)
+                header = f"{theme_name} - {level_text} {session.level}"
             else:
                 header = get_text('calendar.header', session.language).format(
                     theme=theme_name,
@@ -753,7 +757,8 @@ class BackHandler(CallbackHandler):
                 # Provocation: show only theme name without level and card count
                 header = theme_name
             elif session.level:
-                header = f"{theme_name} - Уровень {session.level}"
+                level_text = get_text('level.level', session.language)
+                header = f"{theme_name} - {level_text} {session.level}"
             else:
                 header = get_text('calendar.header', session.language).format(
                     theme=theme_name,
@@ -924,7 +929,8 @@ class SimpleActionHandler(CallbackHandler):
                 # Provocation: show only theme name without level and card count
                 header = theme_name
             elif session.level:
-                header = f"{theme_name} - Уровень {session.level}"
+                level_text = get_text('level.level', session.language)
+                header = f"{theme_name} - {level_text} {session.level}"
             else:
                 header = get_text('calendar.header', session.language).format(
                     theme=theme_name,
