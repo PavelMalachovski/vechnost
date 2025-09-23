@@ -851,7 +851,7 @@ class SimpleActionHandler(CallbackHandler):
 
     async def _handle_reset_confirmation(self, query: Any, session: SessionState) -> None:
         """Handle reset confirmation."""
-        reset_session(query.message.chat.id)
+        await reset_session(query.message.chat.id)
         await query.edit_message_text(
             get_text('reset.completed', session.language),
             reply_markup=get_theme_keyboard(session.language)
@@ -991,7 +991,7 @@ class CallbackHandlerRegistry:
 
             # Get session
             chat_id = query.message.chat.id
-            session = get_session(chat_id)
+            session = await get_session(chat_id)
 
             # Get appropriate handler
             handler = self._handlers.get(callback_data.action)
@@ -1007,14 +1007,14 @@ class CallbackHandlerRegistry:
             logger.warning(f"Invalid callback data: {data}, error: {e}")
             # Get session for error message
             chat_id = query.message.chat.id
-            session = get_session(chat_id)
+            session = await get_session(chat_id)
             await query.edit_message_text(get_text('errors.unknown_callback', session.language))
         except Exception as e:
             logger.error(f"Error handling callback query {data}: {e}", exc_info=True)
             try:
                 # Get session for error message
                 chat_id = query.message.chat.id
-                session = get_session(chat_id)
+                session = await get_session(chat_id)
                 await query.edit_message_text(get_text('errors.unknown_callback', session.language))
             except Exception as edit_error:
                 logger.error(f"Error editing message: {edit_error}")

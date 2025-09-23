@@ -83,7 +83,7 @@ async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
 
     # Get session to determine language
     chat_id = update.effective_chat.id
-    session = get_session(chat_id)
+    session = await get_session(chat_id)
     language = session.language
 
     help_text = f"{get_text('help.title', language)}\n\n{get_text('help.themes', language)}{get_text('help.how_to_play', language)}{get_text('help.commands', language)}"
@@ -98,7 +98,7 @@ async def reset_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
 
     # Get session to determine language
     chat_id = update.effective_chat.id
-    session = get_session(chat_id)
+    session = await get_session(chat_id)
     language = session.language
 
     reset_text = f"{get_text('reset.title', language)}\n\n{get_text('reset.confirm_text', language)}"
@@ -636,7 +636,7 @@ async def handle_reset_request(query: Any, session: SessionState) -> None:
 
 async def handle_reset_confirmation(query: Any, session: SessionState) -> None:
     """Handle reset confirmation."""
-    reset_session(query.message.chat.id)
+    await reset_session(query.message.chat.id)
 
     await query.edit_message_text(
         RESET_COMPLETED,
