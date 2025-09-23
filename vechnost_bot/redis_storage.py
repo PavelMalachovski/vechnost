@@ -74,6 +74,9 @@ class RedisStorage:
 
             if data:
                 session_dict = json.loads(data)
+                # Convert list back to set for drawn_cards
+                if 'drawn_cards' in session_dict and isinstance(session_dict['drawn_cards'], list):
+                    session_dict['drawn_cards'] = set(session_dict['drawn_cards'])
                 return SessionState(**session_dict)
             return None
 
@@ -97,7 +100,12 @@ class RedisStorage:
                 await self.connect()
 
             key = f"session:{chat_id}"
-            data = json.dumps(session.dict(), default=str)
+            # Convert set to list for JSON serialization
+            session_dict = session.dict()
+            if 'drawn_cards' in session_dict and isinstance(session_dict['drawn_cards'], set):
+                session_dict['drawn_cards'] = list(session_dict['drawn_cards'])
+
+            data = json.dumps(session_dict, default=str)
 
             await self._redis.setex(key, ttl, data)
             logger.debug("session_saved", chat_id=chat_id, ttl=ttl)

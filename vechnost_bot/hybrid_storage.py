@@ -124,11 +124,8 @@ class HybridStorage:
         except Exception as e:
             logger.warning("redis_connection_failed", error=str(e))
             self._redis_available = False
-            # Reset the checked flag so we can retry later
-            self._redis_checked = False
         finally:
-            if self._redis_available:
-                self._redis_checked = True
+            self._redis_checked = True
 
         return self._redis_available
 
