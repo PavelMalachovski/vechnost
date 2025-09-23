@@ -1,7 +1,7 @@
 version: '3.8'
 
 services:
-  # Redis service
+  # Redis service (optional - bot can auto-start Redis)
   redis:
     image: redis:7-alpine
     container_name: vechnost-redis
@@ -9,26 +9,28 @@ services:
       - "6379:6379"
     volumes:
       - redis_data:/data
-    command: redis-server --appendonly yes --maxmemory 256mb --maxmemory-policy allkeys-lru
+    command: redis-server --appendonly yes --maxmemory 256mb --maxmemory-policy allkeys-lru --bind 0.0.0.0
     restart: unless-stopped
     healthcheck:
       test: ["CMD", "redis-cli", "ping"]
       interval: 30s
       timeout: 10s
       retries: 3
+    profiles:
+      - redis-external  # Only start with --profile redis-external
 
-  # Bot service
+  # Bot service with Redis auto-start capability
   vechnost-bot:
     build: .
+    container_name: vechnost-bot
     environment:
       - TELEGRAM_BOT_TOKEN=${TELEGRAM_BOT_TOKEN}
       - LOG_LEVEL=${LOG_LEVEL:-INFO}
-      - REDIS_URL=redis://redis:6379
+      - REDIS_URL=redis://localhost:6379
+      - REDIS_AUTO_START=true
     volumes:
       - ./data:/app/data:ro
-    depends_on:
-      redis:
-        condition: service_healthy
+      - /tmp:/tmp  # For Redis auto-start temporary files
     restart: unless-stopped
     healthcheck:
       test: ["CMD", "python", "-c", "import sys; sys.exit(0)"]
@@ -36,6 +38,7 @@ services:
       timeout: 10s
       retries: 3
       start_period: 40s
+    # No depends_on - bot will auto-start Redis or fallback to memory
 
 volumes:
   redis_data:

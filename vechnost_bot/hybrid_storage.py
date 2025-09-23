@@ -1,4 +1,4 @@
-"""Hybrid storage implementation with Redis fallback to in-memory storage."""
+"""Hybrid storage implementation with Redis auto-start and fallback to in-memory storage."""
 
 import asyncio
 from typing import Optional, Dict, Any
@@ -6,7 +6,8 @@ import structlog
 from datetime import datetime, timedelta
 
 from .models import SessionState, Language, Theme
-from .redis_storage import RedisStorage, get_redis_storage as get_redis_storage_impl
+from .redis_storage import RedisStorage
+from .redis_manager import redis_auto_start_manager, get_redis_connection_url
 from .config import settings
 
 logger = structlog.get_logger(__name__)
@@ -91,26 +92,35 @@ class InMemoryStorage:
 
 
 class HybridStorage:
-    """Hybrid storage that tries Redis first, falls back to in-memory."""
+    """Hybrid storage with Redis auto-start and fallback to in-memory."""
 
     def __init__(self):
         self.redis_storage: Optional[RedisStorage] = None
         self.memory_storage = InMemoryStorage()
         self._redis_available = False
         self._redis_checked = False
+        self._initialized = False
 
     async def _ensure_redis_connection(self) -> bool:
-        """Ensure Redis connection is available."""
+        """Ensure Redis connection is available with auto-start."""
         if self._redis_checked:
             return self._redis_available
 
         try:
+            # Initialize Redis auto-start if not done yet
+            if not self._initialized:
+                await redis_auto_start_manager.initialize()
+                self._initialized = True
+
+            # Get Redis connection URL (will be valid if Redis is running)
+            redis_url = await get_redis_connection_url()
+
             if not self.redis_storage:
-                self.redis_storage = RedisStorage()
+                self.redis_storage = RedisStorage(redis_url=redis_url)
 
             await self.redis_storage.connect()
             self._redis_available = True
-            logger.info("redis_connection_established")
+            logger.info("redis_connection_established", url=redis_url)
         except Exception as e:
             logger.warning("redis_connection_failed", error=str(e))
             self._redis_available = False
