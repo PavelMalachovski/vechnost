@@ -1,22 +1,17 @@
-"""Redis management system with auto-start and fallback capabilities."""
+"""Simplified Redis manager without background tasks."""
 
-import asyncio
 import subprocess
 import time
-import signal
 import os
-import sys
-from typing import Optional, Dict, Any
+from typing import Optional
 import structlog
 from pathlib import Path
-
-from .config import settings
 
 logger = structlog.get_logger(__name__)
 
 
-class RedisManager:
-    """Manages Redis instance lifecycle with auto-start and health monitoring."""
+class SimpleRedisManager:
+    """Simplified Redis manager without async background tasks."""
 
     def __init__(self):
         self.redis_process: Optional[subprocess.Popen] = None
@@ -31,11 +26,9 @@ class RedisManager:
 
         self.max_startup_attempts = 3
         self.startup_timeout = 30
-        self.health_check_interval = 5
-        self._shutdown_requested = False
 
-    async def start_redis(self) -> bool:
-        """Start Redis instance with retry logic."""
+    def start_redis(self) -> bool:
+        """Start Redis instance with retry logic (synchronous)."""
         logger.info("starting_redis_instance")
 
         # Create Redis data directory
@@ -45,13 +38,13 @@ class RedisManager:
             try:
                 logger.info("redis_startup_attempt", attempt=attempt + 1, max_attempts=self.max_startup_attempts)
 
-                if await self._start_redis_process():
-                    if await self._wait_for_redis_ready():
+                if self._start_redis_process():
+                    if self._wait_for_redis_ready():
                         logger.info("redis_started_successfully", port=self.redis_port)
                         return True
                     else:
                         logger.warning("redis_startup_timeout", attempt=attempt + 1)
-                        await self._stop_redis_process()
+                        self._stop_redis_process()
                 else:
                     logger.warning("redis_process_start_failed", attempt=attempt + 1)
 
@@ -61,12 +54,12 @@ class RedisManager:
             if attempt < self.max_startup_attempts - 1:
                 wait_time = (attempt + 1) * 2  # Exponential backoff
                 logger.info("redis_retry_wait", wait_time=wait_time)
-                await asyncio.sleep(wait_time)
+                time.sleep(wait_time)
 
         logger.error("redis_startup_failed_all_attempts")
         return False
 
-    async def _start_redis_process(self) -> bool:
+    def _start_redis_process(self) -> bool:
         """Start Redis process."""
         try:
             # Redis command with optimized configuration
@@ -111,7 +104,7 @@ class RedisManager:
             logger.error("redis_process_start_error", error=str(e))
             return False
 
-    async def _wait_for_redis_ready(self) -> bool:
+    def _wait_for_redis_ready(self) -> bool:
         """Wait for Redis to be ready to accept connections."""
         logger.info("waiting_for_redis_ready", timeout=self.startup_timeout)
 
@@ -133,12 +126,12 @@ class RedisManager:
             except (subprocess.TimeoutExpired, FileNotFoundError):
                 pass
 
-            await asyncio.sleep(1)
+            time.sleep(1)
 
         logger.warning("redis_ready_timeout")
         return False
 
-    async def _stop_redis_process(self):
+    def _stop_redis_process(self):
         """Stop Redis process gracefully."""
         if self.redis_process and self.redis_process.poll() is None:
             try:
@@ -162,7 +155,7 @@ class RedisManager:
             finally:
                 self.redis_process = None
 
-    async def health_check(self) -> bool:
+    def health_check(self) -> bool:
         """Check if Redis is healthy."""
         if not self.redis_process or self.redis_process.poll() is not None:
             return False
@@ -178,32 +171,10 @@ class RedisManager:
         except Exception:
             return False
 
-    async def get_redis_info(self) -> Dict[str, Any]:
-        """Get Redis server information."""
-        try:
-            result = subprocess.run(
-                ["redis-cli", "-p", str(self.redis_port), "info"],
-                capture_output=True,
-                text=True,
-                timeout=5
-            )
-
-            if result.returncode == 0:
-                info = {}
-                for line in result.stdout.split('\n'):
-                    if ':' in line and not line.startswith('#'):
-                        key, value = line.split(':', 1)
-                        info[key.strip()] = value.strip()
-                return info
-        except Exception as e:
-            logger.error("redis_info_error", error=str(e))
-
-        return {}
-
-    async def cleanup(self):
+    def cleanup(self):
         """Cleanup Redis resources."""
         logger.info("redis_manager_cleanup")
-        await self._stop_redis_process()
+        self._stop_redis_process()
 
         # Clean up temporary files
         try:
@@ -215,48 +186,24 @@ class RedisManager:
         except Exception as e:
             logger.error("redis_cleanup_error", error=str(e))
 
-    def setup_signal_handlers(self):
-        """Setup signal handlers for graceful shutdown."""
-        def signal_handler(signum, frame):
-            logger.info("shutdown_signal_received", signal=signum)
-            self._shutdown_requested = True
 
-        try:
-            signal.signal(signal.SIGINT, signal_handler)
-            signal.signal(signal.SIGTERM, signal_handler)
-        except (OSError, ValueError) as e:
-            # Signal handling may not work in all environments (e.g., some Docker setups)
-            logger.warning("signal_handler_setup_failed", error=str(e))
-
-    async def is_shutdown_requested(self) -> bool:
-        """Check if shutdown was requested."""
-        return self._shutdown_requested
-
-
-class RedisAutoStartManager:
-    """High-level Redis auto-start manager with fallback strategy."""
+class SimpleRedisAutoStartManager:
+    """Simplified Redis auto-start manager without background tasks."""
 
     def __init__(self):
-        self.redis_manager = RedisManager()
+        self.redis_manager = SimpleRedisManager()
         self.redis_started = False
         self.fallback_to_memory = False
 
-    async def initialize(self) -> bool:
-        """Initialize Redis with auto-start and fallback."""
+    def initialize(self) -> bool:
+        """Initialize Redis with auto-start and fallback (synchronous)."""
         logger.info("initializing_redis_auto_start")
 
-        # Setup signal handlers
-        self.redis_manager.setup_signal_handlers()
-
         # Try to start Redis
-        if await self.redis_manager.start_redis():
+        if self.redis_manager.start_redis():
             self.redis_started = True
             self.fallback_to_memory = False
             logger.info("redis_auto_start_success")
-
-            # Don't start background health monitoring here to avoid event loop conflicts
-            # Health monitoring will be handled by the hybrid storage when needed
-
             return True
         else:
             # Fallback to in-memory storage
@@ -265,69 +212,44 @@ class RedisAutoStartManager:
             logger.warning("redis_auto_start_failed_fallback_to_memory")
             return False
 
-    async def _health_monitor(self):
-        """Background health monitoring for Redis."""
-        logger.info("redis_health_monitor_started")
-
-        while not await self.redis_manager.is_shutdown_requested():
-            try:
-                if not await self.redis_manager.health_check():
-                    logger.warning("redis_health_check_failed")
-
-                    # Try to restart Redis
-                    if await self.redis_manager.start_redis():
-                        logger.info("redis_restart_successful")
-                    else:
-                        logger.error("redis_restart_failed_fallback_to_memory")
-                        self.fallback_to_memory = True
-                        break
-
-                await asyncio.sleep(self.redis_manager.health_check_interval)
-
-            except Exception as e:
-                logger.error("redis_health_monitor_error", error=str(e))
-                await asyncio.sleep(self.redis_manager.health_check_interval)
-
-        logger.info("redis_health_monitor_stopped")
-
-    async def get_storage_mode(self) -> str:
+    def get_storage_mode(self) -> str:
         """Get current storage mode."""
         if self.redis_started and not self.fallback_to_memory:
             return "redis"
         else:
             return "memory"
 
-    async def get_redis_url(self) -> str:
+    def get_redis_url(self) -> str:
         """Get Redis URL for connection."""
         if self.redis_started and not self.fallback_to_memory:
             return f"redis://{self.redis_manager.redis_host}:{self.redis_manager.redis_port}"
         else:
             return "redis://localhost:6379"  # Will fail and trigger fallback
 
-    async def cleanup(self):
+    def cleanup(self):
         """Cleanup Redis manager."""
-        await self.redis_manager.cleanup()
+        self.redis_manager.cleanup()
 
 
-# Global Redis auto-start manager
-redis_auto_start_manager = RedisAutoStartManager()
+# Global simplified Redis auto-start manager
+simple_redis_auto_start_manager = SimpleRedisAutoStartManager()
 
 
-async def initialize_redis_auto_start() -> bool:
-    """Initialize Redis with auto-start."""
-    return await redis_auto_start_manager.initialize()
+def initialize_simple_redis_auto_start() -> bool:
+    """Initialize Redis with auto-start (synchronous)."""
+    return simple_redis_auto_start_manager.initialize()
 
 
-async def get_redis_storage_mode() -> str:
+def get_simple_redis_storage_mode() -> str:
     """Get current Redis storage mode."""
-    return await redis_auto_start_manager.get_storage_mode()
+    return simple_redis_auto_start_manager.get_storage_mode()
 
 
-async def get_redis_connection_url() -> str:
+def get_simple_redis_connection_url() -> str:
     """Get Redis connection URL."""
-    return await redis_auto_start_manager.get_redis_url()
+    return simple_redis_auto_start_manager.get_redis_url()
 
 
-async def cleanup_redis_auto_start():
+def cleanup_simple_redis_auto_start():
     """Cleanup Redis auto-start manager."""
-    await redis_auto_start_manager.cleanup()
+    simple_redis_auto_start_manager.cleanup()

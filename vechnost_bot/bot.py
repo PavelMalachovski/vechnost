@@ -13,7 +13,7 @@ from .handlers import (
     start_command,
 )
 from .monitoring import initialize_monitoring, log_bot_event, track_performance
-from .redis_manager import initialize_redis_auto_start, cleanup_redis_auto_start
+from .simple_redis_manager import initialize_simple_redis_auto_start, cleanup_simple_redis_auto_start
 
 
 def setup_logging() -> None:
@@ -44,38 +44,24 @@ def create_application() -> Application:
 
 
 def initialize_redis_sync() -> bool:
-    """Initialize Redis with auto-start (synchronous wrapper)."""
+    """Initialize Redis with auto-start (synchronous)."""
     logger = logging.getLogger(__name__)
     try:
-        # Create a new event loop for Redis initialization
-        loop = asyncio.new_event_loop()
-        asyncio.set_event_loop(loop)
-
-        try:
-            redis_started = loop.run_until_complete(initialize_redis_auto_start())
-            if redis_started:
-                logger.info("Redis auto-started successfully")
-            else:
-                logger.warning("Redis auto-start failed, using in-memory storage")
-            return redis_started
-        finally:
-            loop.close()
-
+        redis_started = initialize_simple_redis_auto_start()
+        if redis_started:
+            logger.info("Redis auto-started successfully")
+        else:
+            logger.warning("Redis auto-start failed, using in-memory storage")
+        return redis_started
     except Exception as e:
         logger.error(f"Redis initialization error: {e}")
         return False
 
 
 def cleanup_redis_sync():
-    """Cleanup Redis (synchronous wrapper)."""
+    """Cleanup Redis (synchronous)."""
     try:
-        loop = asyncio.new_event_loop()
-        asyncio.set_event_loop(loop)
-
-        try:
-            loop.run_until_complete(cleanup_redis_auto_start())
-        finally:
-            loop.close()
+        cleanup_simple_redis_auto_start()
     except Exception as e:
         logger = logging.getLogger(__name__)
         logger.error(f"Redis cleanup error: {e}")

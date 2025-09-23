@@ -7,7 +7,7 @@ from datetime import datetime, timedelta
 
 from .models import SessionState, Language, Theme
 from .redis_storage import RedisStorage
-from .redis_manager import redis_auto_start_manager, get_redis_connection_url
+from .simple_redis_manager import simple_redis_auto_start_manager, get_simple_redis_connection_url
 from .config import settings
 
 logger = structlog.get_logger(__name__)
@@ -109,11 +109,11 @@ class HybridStorage:
         try:
             # Initialize Redis auto-start if not done yet
             if not self._initialized:
-                await redis_auto_start_manager.initialize()
+                simple_redis_auto_start_manager.initialize()
                 self._initialized = True
 
             # Get Redis connection URL (will be valid if Redis is running)
-            redis_url = await get_redis_connection_url()
+            redis_url = get_simple_redis_connection_url()
 
             if not self.redis_storage:
                 self.redis_storage = RedisStorage(redis_url=redis_url)
@@ -124,8 +124,11 @@ class HybridStorage:
         except Exception as e:
             logger.warning("redis_connection_failed", error=str(e))
             self._redis_available = False
+            # Reset the checked flag so we can retry later
+            self._redis_checked = False
         finally:
-            self._redis_checked = True
+            if self._redis_available:
+                self._redis_checked = True
 
         return self._redis_available
 
