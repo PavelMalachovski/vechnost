@@ -51,29 +51,56 @@ async def start_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
     logger.info(f"Start command received from chat {update.effective_chat.id}")
     log_bot_event("start_command", user_id=user_id, username=username)
 
-    # Detect language from user's message or default to Russian
-    detected_language = detect_language_from_text(update.message.text or "")
+    # Get session to determine language
+    chat_id = update.effective_chat.id
+    session = await get_session(chat_id)
 
-    # English only text for language selection
-    welcome_text = "Select your language"
+    # Check if user has already selected language
+    if session.language:
+        # Show welcome screen with logo
+        from .payment_keyboards import get_welcome_keyboard
+        from .config import settings
 
-    keyboard = get_language_selection_keyboard(detected_language)
-    logger.info(f"Sending language selection keyboard with {len(keyboard.inline_keyboard)} rows")
+        welcome_text = get_text('welcome.main', session.language)
 
-    # Send the attached VECHNOST logo image
-    try:
-        with open("assets/images/vechnost_logo.png", "rb") as logo_file:
-            await update.message.reply_photo(
-                photo=logo_file,
-                caption=welcome_text,
+        # Send the VECHNOST logo with welcome screen
+        try:
+            with open("assets/images/vechnost_logo.png", "rb") as logo_file:
+                await update.message.reply_photo(
+                    photo=logo_file,
+                    caption=welcome_text,
+                    reply_markup=get_welcome_keyboard(session.language),
+                    parse_mode="Markdown"
+                )
+        except Exception as e:
+            logger.warning(f"Failed to load logo image: {e}, sending text only")
+            await update.message.reply_text(
+                welcome_text,
+                reply_markup=get_welcome_keyboard(session.language),
+                parse_mode="Markdown"
+            )
+    else:
+        # First time user - show language selection
+        detected_language = detect_language_from_text(update.message.text or "")
+        welcome_text = "Select your language"
+
+        keyboard = get_language_selection_keyboard(detected_language)
+        logger.info(f"Sending language selection keyboard with {len(keyboard.inline_keyboard)} rows")
+
+        # Send the attached VECHNOST logo image
+        try:
+            with open("assets/images/vechnost_logo.png", "rb") as logo_file:
+                await update.message.reply_photo(
+                    photo=logo_file,
+                    caption=welcome_text,
+                    reply_markup=keyboard
+                )
+        except Exception as e:
+            logger.warning(f"Failed to load logo image: {e}, sending text only")
+            await update.message.reply_text(
+                welcome_text,
                 reply_markup=keyboard
             )
-    except Exception as e:
-        logger.warning(f"Failed to load logo image: {e}, sending text only")
-        await update.message.reply_text(
-            welcome_text,
-            reply_markup=keyboard
-        )
 
 
 async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:

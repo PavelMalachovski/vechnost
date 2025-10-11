@@ -427,6 +427,16 @@ class QuestionHandler(CallbackHandler):
         session.theme = theme
         session.level = callback_data.level_or_0 if callback_data.level_or_0 > 0 else None
 
+        # Check subscription access for premium themes
+        from .subscription_middleware import check_and_enforce_subscription, increment_question_count
+
+        has_access = await check_and_enforce_subscription(query, session, theme)
+        if not has_access:
+            return
+
+        # Increment question count for free users
+        await increment_question_count(query.from_user.id)
+
         # Get content type from current session or default to questions
         content_type = session.content_type
 
@@ -668,7 +678,15 @@ class BackHandler(CallbackHandler):
         destination = callback_data.destination
         logger.info(f"Back navigation to: {destination}, theme: {session.theme}, level: {session.level}")
 
-        if destination == "themes":
+        if destination == "main" or destination == "welcome":
+            # Back to main welcome screen
+            from .payment_handlers import handle_back_to_welcome
+            await handle_back_to_welcome(query, session)
+        elif destination == "subscription":
+            # Back to subscription screen
+            from .payment_handlers import handle_back_to_subscription
+            await handle_back_to_subscription(query, session)
+        elif destination == "themes":
             await self._show_theme_selection(query, session)
         elif destination == "levels":
             if not session.theme:
@@ -814,6 +832,40 @@ class SimpleActionHandler(CallbackHandler):
         elif callback_data.action == CallbackAction.NOOP:
             # No operation - do nothing
             pass
+        # Payment actions
+        elif callback_data.action == CallbackAction.ENTER_VECHNOST:
+            from .payment_handlers import handle_enter_vechnost
+            await handle_enter_vechnost(query, session)
+        elif callback_data.action == CallbackAction.WHAT_INSIDE:
+            from .payment_handlers import handle_what_inside
+            await handle_what_inside(query, session)
+        elif callback_data.action == CallbackAction.WHY_HELPS:
+            from .payment_handlers import handle_why_helps
+            await handle_why_helps(query, session)
+        elif callback_data.action == CallbackAction.REVIEWS:
+            from .payment_handlers import handle_reviews
+            await handle_reviews(query, session)
+        elif callback_data.action == CallbackAction.GUARANTEE:
+            from .payment_handlers import handle_guarantee
+            await handle_guarantee(query, session)
+        elif callback_data.action == CallbackAction.SUBSCRIPTION_UPGRADE:
+            from .payment_handlers import handle_subscription_upgrade
+            await handle_subscription_upgrade(query, session)
+        elif callback_data.action == CallbackAction.SUBSCRIPTION_STATUS:
+            from .payment_handlers import handle_subscription_status
+            await handle_subscription_status(query, session)
+        elif callback_data.action == CallbackAction.PAYMENT_PLAN_MONTHLY:
+            from .payment_handlers import handle_payment_plan_selection
+            await handle_payment_plan_selection(query, session, "monthly")
+        elif callback_data.action == CallbackAction.PAYMENT_PLAN_YEARLY:
+            from .payment_handlers import handle_payment_plan_selection
+            await handle_payment_plan_selection(query, session, "yearly")
+        elif callback_data.action == CallbackAction.PAYMENT_CHECK:
+            from .payment_handlers import handle_payment_check
+            await handle_payment_check(query, session)
+        elif callback_data.action == CallbackAction.PAYMENT_CANCEL:
+            from .payment_handlers import handle_payment_cancel
+            await handle_payment_cancel(query, session)
         else:
             logger.warning(f"Unknown simple action: {callback_data.action}")
             await query.edit_message_text(get_text('errors.unknown_callback', session.language))
@@ -985,6 +1037,18 @@ class CallbackHandlerRegistry:
             CallbackAction.LANGUAGE: LanguageHandler(),
             CallbackAction.LANGUAGE_CONFIRM: LanguageConfirmHandler(),
             CallbackAction.LANGUAGE_BACK: LanguageBackHandler(),
+            # Payment handlers
+            CallbackAction.ENTER_VECHNOST: SimpleActionHandler(),
+            CallbackAction.WHAT_INSIDE: SimpleActionHandler(),
+            CallbackAction.WHY_HELPS: SimpleActionHandler(),
+            CallbackAction.REVIEWS: SimpleActionHandler(),
+            CallbackAction.GUARANTEE: SimpleActionHandler(),
+            CallbackAction.SUBSCRIPTION_UPGRADE: SimpleActionHandler(),
+            CallbackAction.SUBSCRIPTION_STATUS: SimpleActionHandler(),
+            CallbackAction.PAYMENT_PLAN_MONTHLY: SimpleActionHandler(),
+            CallbackAction.PAYMENT_PLAN_YEARLY: SimpleActionHandler(),
+            CallbackAction.PAYMENT_CHECK: SimpleActionHandler(),
+            CallbackAction.PAYMENT_CANCEL: SimpleActionHandler(),
         }
 
     async def handle_callback(self, query: Any, data: str) -> None:

@@ -25,6 +25,18 @@ class CallbackAction(str, Enum):
     LANGUAGE = "lang"
     LANGUAGE_CONFIRM = "lang_confirm"
     LANGUAGE_BACK = "lang_back"
+    # Payment actions
+    ENTER_VECHNOST = "enter_vechnost"
+    WHAT_INSIDE = "what_inside"
+    WHY_HELPS = "why_helps"
+    REVIEWS = "reviews"
+    GUARANTEE = "guarantee"
+    SUBSCRIPTION_UPGRADE = "subscription_upgrade_premium"
+    SUBSCRIPTION_STATUS = "subscription_status"
+    PAYMENT_PLAN_MONTHLY = "payment_plan_monthly"
+    PAYMENT_PLAN_YEARLY = "payment_plan_yearly"
+    PAYMENT_CHECK = "payment_check"
+    PAYMENT_CANCEL = "payment_cancel"
 
 
 class CallbackData(BaseModel):
@@ -65,7 +77,10 @@ class CallbackData(BaseModel):
             return LanguageCallbackData.parse(data)
         elif data == "lang_back":
             return LanguageBackCallbackData.parse(data)
-        elif data in ["nsfw_confirm", "nsfw_deny", "reset_game", "reset_confirm", "reset_cancel", "noop"]:
+        elif data in ["nsfw_confirm", "nsfw_deny", "reset_game", "reset_confirm", "reset_cancel", "noop",
+                      "enter_vechnost", "what_inside", "why_helps", "reviews", "guarantee",
+                      "subscription_upgrade_premium", "subscription_status", "payment_plan_monthly",
+                      "payment_plan_yearly", "payment_check", "payment_cancel"]:
             return SimpleCallbackData.parse(data)
         else:
             raise ValueError(f"Unknown callback action: {data}")

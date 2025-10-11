@@ -67,6 +67,55 @@ class Settings(BaseSettings):
         description="Session TTL in seconds"
     )
 
+    # Tribute Payment Configuration
+    tribute_api_key: Optional[str] = Field(
+        default=None,
+        description="Tribute API key for payment processing"
+    )
+
+    tribute_api_secret: Optional[str] = Field(
+        default=None,
+        description="Tribute API secret for webhook verification"
+    )
+
+    tribute_webhook_secret: Optional[str] = Field(
+        default=None,
+        description="Tribute webhook secret for signature verification"
+    )
+
+    tribute_base_url: str = Field(
+        default="https://api.tribute.ru",
+        description="Tribute API base URL"
+    )
+
+    # Premium Channel Configuration
+    premium_channel_id: Optional[str] = Field(
+        default=None,
+        description="Premium Telegram channel ID (e.g., @vechnost_premium)"
+    )
+
+    premium_channel_invite_link: Optional[str] = Field(
+        default=None,
+        description="Premium channel invite link"
+    )
+
+    # Support Configuration
+    support_username: Optional[str] = Field(
+        default=None,
+        description="Support contact username (e.g., @support)"
+    )
+
+    author_username: Optional[str] = Field(
+        default=None,
+        description="Author contact username (e.g., @author)"
+    )
+
+    # Payment Configuration
+    payment_enabled: bool = Field(
+        default=False,
+        description="Enable payment functionality"
+    )
+
 
 # Global settings instance
 settings = Settings()
