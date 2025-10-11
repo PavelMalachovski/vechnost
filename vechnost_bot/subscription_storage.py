@@ -12,7 +12,6 @@ from .payment_models import (
     SubscriptionTier,
     UserSubscription,
 )
-from .simple_redis_manager import get_simple_redis
 
 logger = logging.getLogger(__name__)
 
@@ -22,8 +21,21 @@ class SubscriptionStorage:
 
     def __init__(self):
         """Initialize subscription storage."""
-        self.redis = get_simple_redis()
         self._memory_cache: dict[int, UserSubscription] = {}
+        self._redis = None
+
+    async def _get_redis(self):
+        """Get or create Redis storage instance."""
+        if self._redis is None:
+            from .hybrid_storage import get_redis_storage
+            storage = await get_redis_storage()
+            if hasattr(storage, 'redis_storage') and storage.redis_storage:
+                self._redis = storage.redis_storage.redis
+            else:
+                # Fallback to in-memory only
+                logger.warning("Redis not available, using memory cache only")
+                self._redis = None
+        return self._redis
 
     def _get_subscription_key(self, user_id: int) -> str:
         """Get Redis key for user subscription."""
@@ -53,9 +65,10 @@ class SubscriptionStorage:
 
         # Try Redis
         key = self._get_subscription_key(user_id)
+        redis = await self._get_redis()
 
         try:
-            data = self.redis.get(key)
+            data = redis.get(key) if redis else None
             if data:
                 subscription_dict = json.loads(data)
 
@@ -104,8 +117,12 @@ class SubscriptionStorage:
 
         # Save to Redis
         key = self._get_subscription_key(subscription.user_id)
+        redis = await self._get_redis()
 
         try:
+            if not redis:
+                logger.debug(f"Redis not available, using memory cache only for user {subscription.user_id}")
+                return
             # Convert to dict and serialize datetimes
             data = subscription.model_dump()
 
@@ -118,7 +135,7 @@ class SubscriptionStorage:
             if data.get("last_question_date"):
                 data["last_question_date"] = data["last_question_date"].isoformat()
 
-            self.redis.set(
+            redis.set(
                 key,
                 json.dumps(data),
                 ex=settings.session_ttl * 24  # 24x longer TTL for subscriptions
@@ -222,8 +239,12 @@ class SubscriptionStorage:
             payment: PaymentTransaction to save
         """
         key = self._get_payment_key(payment.transaction_id)
+        redis = await self._get_redis()
 
         try:
+            if not redis:
+                logger.debug(f"Redis not available, payment {payment.transaction_id} stored in memory only")
+                return
             # Convert to dict and serialize datetimes
             data = payment.model_dump()
 
@@ -232,7 +253,7 @@ class SubscriptionStorage:
             if data.get("completed_at"):
                 data["completed_at"] = data["completed_at"].isoformat()
 
-            self.redis.set(
+            redis.set(
                 key,
                 json.dumps(data),
                 ex=settings.session_ttl * 48  # 48x longer TTL for payments
@@ -240,7 +261,7 @@ class SubscriptionStorage:
 
             # Add to user's payments list
             user_payments_key = self._get_user_payments_key(payment.user_id)
-            self.redis.sadd(user_payments_key, payment.transaction_id)
+            redis.sadd(user_payments_key, payment.transaction_id)
 
             logger.debug(f"Saved payment {payment.transaction_id}")
         except Exception as e:
@@ -257,9 +278,10 @@ class SubscriptionStorage:
             PaymentTransaction or None if not found
         """
         key = self._get_payment_key(transaction_id)
+        redis = await self._get_redis()
 
         try:
-            data = self.redis.get(key)
+            data = redis.get(key) if redis else None
             if data:
                 payment_dict = json.loads(data)
 
@@ -290,9 +312,13 @@ class SubscriptionStorage:
             List of PaymentTransaction
         """
         user_payments_key = self._get_user_payments_key(user_id)
+        redis = await self._get_redis()
 
         try:
-            transaction_ids = self.redis.smembers(user_payments_key)
+            if not redis:
+                return []
+
+            transaction_ids = redis.smembers(user_payments_key)
 
             payments = []
             for transaction_id in transaction_ids:
