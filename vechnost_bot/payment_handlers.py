@@ -9,7 +9,7 @@ from telegram.ext import ContextTypes
 
 from .config import settings
 from .i18n import Language, get_text
-from .monitoring import log_bot_event, track_errors
+from .monitoring import log_bot_event
 from .payment_keyboards import (
     get_info_keyboard,
     get_payment_confirmation_keyboard,
@@ -30,7 +30,6 @@ from .tribute_client import get_tribute_client
 logger = logging.getLogger(__name__)
 
 
-@track_errors
 async def handle_enter_vechnost(query, session) -> None:
     """Handle 'Enter Vechnost' button - start using the bot."""
     storage = get_subscription_storage()
@@ -38,72 +37,159 @@ async def handle_enter_vechnost(query, session) -> None:
 
     if subscription.is_active() and subscription.tier != SubscriptionTier.FREE:
         # Premium user - show theme selection
-        from .handlers import show_theme_selection
-        await show_theme_selection(query, session)
+        from .keyboards import get_theme_keyboard
+        text = get_text('welcome.prompt', session.language)
+        try:
+            await query.edit_message_text(
+                text,
+                reply_markup=get_theme_keyboard(session.language)
+            )
+        except Exception as e:
+            logger.warning(f"Could not edit message: {e}, deleting and sending new")
+            try:
+                await query.message.delete()
+            except Exception:
+                pass
+            await query.message.reply_text(
+                text,
+                reply_markup=get_theme_keyboard(session.language)
+            )
     else:
         # Free user - show upgrade or limited access
         if not settings.payment_enabled:
             # Payments disabled - give free access
-            from .handlers import show_theme_selection
-            await show_theme_selection(query, session)
+            from .keyboards import get_theme_keyboard
+            text = get_text('welcome.prompt', session.language)
+            try:
+                await query.edit_message_text(
+                    text,
+                    reply_markup=get_theme_keyboard(session.language)
+                )
+            except Exception as e:
+                logger.warning(f"Could not edit message: {e}, deleting and sending new")
+                try:
+                    await query.message.delete()
+                except Exception:
+                    pass
+                await query.message.reply_text(
+                    text,
+                    reply_markup=get_theme_keyboard(session.language)
+                )
         else:
             # Show subscription options
             text = get_text('subscription.free_user_prompt', session.language)
-            await query.edit_message_text(
-                text,
-                reply_markup=get_subscription_keyboard(subscription, session.language)
-            )
+            try:
+                await query.edit_message_text(
+                    text,
+                    reply_markup=get_subscription_keyboard(subscription, session.language),
+                    parse_mode="Markdown"
+                )
+            except Exception as e:
+                logger.warning(f"Could not edit message: {e}, deleting and sending new")
+                try:
+                    await query.message.delete()
+                except Exception:
+                    pass
+                await query.message.reply_text(
+                    text,
+                    reply_markup=get_subscription_keyboard(subscription, session.language),
+                    parse_mode="Markdown"
+                )
 
 
-@track_errors
 async def handle_what_inside(query, session) -> None:
     """Handle 'What's inside?' button."""
     text = get_text('info.what_inside', session.language)
 
-    await query.edit_message_text(
-        text,
-        reply_markup=get_info_keyboard("back:welcome", session.language),
-        parse_mode="Markdown"
-    )
+    try:
+        await query.edit_message_text(
+            text,
+            reply_markup=get_info_keyboard("back:welcome", session.language),
+            parse_mode="Markdown"
+        )
+    except Exception as e:
+        # If can't edit (e.g., it's a photo), delete and send new
+        logger.warning(f"Could not edit message: {e}, deleting and sending new")
+        try:
+            await query.message.delete()
+        except Exception:
+            pass
+        await query.message.reply_text(
+            text,
+            reply_markup=get_info_keyboard("back:welcome", session.language),
+            parse_mode="Markdown"
+        )
 
 
-@track_errors
 async def handle_why_helps(query, session) -> None:
     """Handle 'Why Vechnost helps?' button."""
     text = get_text('info.why_helps', session.language)
 
-    await query.edit_message_text(
-        text,
-        reply_markup=get_info_keyboard("back:welcome", session.language),
-        parse_mode="Markdown"
-    )
+    try:
+        await query.edit_message_text(
+            text,
+            reply_markup=get_info_keyboard("back:welcome", session.language),
+            parse_mode="Markdown"
+        )
+    except Exception as e:
+        logger.warning(f"Could not edit message: {e}, deleting and sending new")
+        try:
+            await query.message.delete()
+        except Exception:
+            pass
+        await query.message.reply_text(
+            text,
+            reply_markup=get_info_keyboard("back:welcome", session.language),
+            parse_mode="Markdown"
+        )
 
 
-@track_errors
 async def handle_reviews(query, session) -> None:
     """Handle 'Reviews' button."""
     text = get_text('info.reviews', session.language)
 
-    await query.edit_message_text(
-        text,
-        reply_markup=get_info_keyboard("back:welcome", session.language),
-        parse_mode="Markdown"
-    )
+    try:
+        await query.edit_message_text(
+            text,
+            reply_markup=get_info_keyboard("back:welcome", session.language),
+            parse_mode="Markdown"
+        )
+    except Exception as e:
+        logger.warning(f"Could not edit message: {e}, deleting and sending new")
+        try:
+            await query.message.delete()
+        except Exception:
+            pass
+        await query.message.reply_text(
+            text,
+            reply_markup=get_info_keyboard("back:welcome", session.language),
+            parse_mode="Markdown"
+        )
 
 
-@track_errors
 async def handle_guarantee(query, session) -> None:
     """Handle 'Guarantee' button."""
     text = get_text('info.guarantee', session.language)
 
-    await query.edit_message_text(
-        text,
-        reply_markup=get_info_keyboard("back:welcome", session.language),
-        parse_mode="Markdown"
-    )
+    try:
+        await query.edit_message_text(
+            text,
+            reply_markup=get_info_keyboard("back:welcome", session.language),
+            parse_mode="Markdown"
+        )
+    except Exception as e:
+        logger.warning(f"Could not edit message: {e}, deleting and sending new")
+        try:
+            await query.message.delete()
+        except Exception:
+            pass
+        await query.message.reply_text(
+            text,
+            reply_markup=get_info_keyboard("back:welcome", session.language),
+            parse_mode="Markdown"
+        )
 
 
-@track_errors
 async def handle_subscription_status(query, session) -> None:
     """Handle subscription status display."""
     storage = get_subscription_storage()
@@ -134,7 +220,6 @@ async def handle_subscription_status(query, session) -> None:
     )
 
 
-@track_errors
 async def handle_subscription_upgrade(query, session) -> None:
     """Handle subscription upgrade request."""
     text = get_text('payment.select_plan', session.language)
@@ -146,7 +231,6 @@ async def handle_subscription_upgrade(query, session) -> None:
     )
 
 
-@track_errors
 async def handle_payment_plan_selection(query, session, plan_type: str) -> None:
     """
     Handle payment plan selection.
@@ -253,7 +337,6 @@ async def handle_payment_plan_selection(query, session, plan_type: str) -> None:
         )
 
 
-@track_errors
 async def handle_payment_check(query, session) -> None:
     """Handle payment status check."""
     user_id = query.from_user.id
@@ -360,7 +443,6 @@ async def handle_payment_check(query, session) -> None:
         )
 
 
-@track_errors
 async def handle_payment_cancel(query, session) -> None:
     """Handle payment cancellation."""
     storage = get_subscription_storage()
@@ -374,7 +456,6 @@ async def handle_payment_cancel(query, session) -> None:
     )
 
 
-@track_errors
 async def handle_back_to_welcome(query, session) -> None:
     """Handle back to welcome screen."""
     text = get_text('welcome.main', session.language)
@@ -395,7 +476,6 @@ async def handle_back_to_welcome(query, session) -> None:
         )
 
 
-@track_errors
 async def handle_back_to_subscription(query, session) -> None:
     """Handle back to subscription screen."""
     storage = get_subscription_storage()
