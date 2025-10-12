@@ -194,12 +194,23 @@ class SimpleRedisAutoStartManager:
         self.redis_manager = SimpleRedisManager()
         self.redis_started = False
         self.fallback_to_memory = False
+        self.external_redis_url: Optional[str] = None
 
     def initialize(self) -> bool:
         """Initialize Redis with auto-start and fallback (synchronous)."""
         logger.info("initializing_redis_auto_start")
 
-        # Try to start Redis
+        # First, check if REDIS_URL is provided in environment
+        redis_url_env = os.getenv("REDIS_URL")
+        if redis_url_env and redis_url_env != "redis://localhost:6379":
+            logger.info("using_external_redis_url", url=redis_url_env)
+            self.external_redis_url = redis_url_env
+            self.redis_started = True
+            self.fallback_to_memory = False
+            logger.info("external_redis_configured")
+            return True
+
+        # Try to start Redis locally only if no external URL is provided
         if self.redis_manager.start_redis():
             self.redis_started = True
             self.fallback_to_memory = False
@@ -221,7 +232,9 @@ class SimpleRedisAutoStartManager:
 
     def get_redis_url(self) -> str:
         """Get Redis URL for connection."""
-        if self.redis_started and not self.fallback_to_memory:
+        if self.external_redis_url:
+            return self.external_redis_url
+        elif self.redis_started and not self.fallback_to_memory:
             return f"redis://{self.redis_manager.redis_host}:{self.redis_manager.redis_port}"
         else:
             return "redis://localhost:6379"  # Will fail and trigger fallback
