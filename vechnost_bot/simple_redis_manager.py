@@ -203,7 +203,7 @@ class SimpleRedisAutoStartManager:
         # First, check if REDIS_URL is provided in environment
         redis_url_env = os.getenv("REDIS_URL")
         logger.info("redis_url_from_env", redis_url=redis_url_env or "NOT_SET")
-        
+
         if redis_url_env and redis_url_env != "redis://localhost:6379":
             logger.info("using_external_redis_url", url=redis_url_env)
             self.external_redis_url = redis_url_env
