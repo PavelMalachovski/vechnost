@@ -1,159 +1,310 @@
-# Vechnost Telegram Bot
+# Tribute Webhook Handler
 
-A production-ready Telegram bot for the Vechnost card game - an intimate conversation game designed to deepen relationships through meaningful questions and tasks.
+A production-ready FastAPI + SQLAlchemy 2.0 + Alembic webhook handler for Tribute payment events.
 
 ## Features
 
-- **Multiple Themes**: Acquaintance, For Couples, Sex, and Provocation
-- **Progressive Levels**: 3 levels for most themes, with increasing intimacy
-- **NSFW Protection**: 18+ confirmation required for Sex theme
-- **Dual Content Types**: Questions and Tasks (Sex theme only)
-- **Session Management**: Track progress and prevent duplicate cards
-- **Modern UI**: Inline keyboard for intuitive navigation
+- ✅ **Async FastAPI** - High-performance async API
+- ✅ **SQLAlchemy 2.0** - Modern ORM with async support
+- ✅ **Alembic** - Database migrations with SQLite batch mode
+- ✅ **HMAC Signature Verification** - Secure webhook validation
+- ✅ **Idempotency** - Duplicate webhook detection via SHA256 hashing
+- ✅ **SQLite First** - Easy local development, clean path to Postgres
 
 ## Quick Start
 
-### Local Development
+### 1. Install Dependencies
 
-1. **Clone and setup**:
    ```bash
-   git clone <repository-url>
-   cd vechnost
-   python -m pip install --upgrade pip
-   pip install .[dev]
+# Create virtual environment
+python -m venv venv
+source venv/bin/activate  # On Windows: venv\Scripts\activate
+
+# Install packages
+pip install -r requirements.txt
+```
+
+### 2. Configure Environment
+
+   ```bash
+cp .env.example .env
+# Edit .env and add your TRIBUTE_API_KEY
    ```
 
-2. **Set environment variables**:
+### 3. Initialize Database
+
    ```bash
-   export TELEGRAM_BOT_TOKEN=your_bot_token_here
-   export LOG_LEVEL=INFO
+# Create initial migration
+alembic revision --autogenerate -m "initial tables"
+
+# Apply migration
+alembic upgrade head
+```
+
+### 4. Run Development Server
+
+   ```bash
+uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
+```
+
+API will be available at:
+- Main API: http://localhost:8000
+- Interactive docs: http://localhost:8000/docs
+- Health check: http://localhost:8000/health
+
+## Database Models
+
+### Users
+Stores Telegram user information:
+- `telegram_user_id` (BIGINT, unique, indexed)
+- `username`, `first_name`, `last_name`
+- `created_at`
+
+### Products
+Available products/plans:
+- `type` (digital, subscription)
+- `name`, `amount`, `currency`
+- `stars_amount` (Telegram Stars)
+- `t_link`, `web_link`
+
+### Payments
+All payment transactions:
+- `provider` (tribute)
+- `event_name` (new_digital_product, new_subscription, cancelled_subscription)
+- `user_id` (FK), `telegram_user_id`
+- `product_id` (FK, optional)
+- `amount`, `currency`, `expires_at`
+- `raw_body` (JSON), `signature`
+- `body_sha256` (unique, for idempotency)
+
+### Subscriptions
+User subscription status:
+- `user_id` (FK), `subscription_id`
+- `period`, `status`, `expires_at`
+- `last_event_at`
+- Unique constraint: `(user_id, subscription_id)`
+
+### Webhook Events
+Audit log of webhook deliveries:
+- `name`, `sent_at`, `created_at`
+- `body_sha256` (unique)
+- `status_code`, `processed_at`, `error`
+
+## Webhook Events
+
+### Supported Events
+
+1. **`new_digital_product`** - One-time digital product purchase
+2. **`new_subscription`** - New recurring subscription created
+3. **`cancelled_subscription`** - Subscription cancelled
+
+### Webhook Endpoint
+
+```
+POST /webhook/tribute
+```
+
+**Headers:**
+- `trbt-signature`: HMAC-SHA256 signature (verified against TRIBUTE_API_KEY)
+
+**Response:**
+- `200 OK` with `{"ok": true}` on success
+- `200 OK` with `{"ok": true, "dup": true}` if duplicate (idempotency)
+- `401 Unauthorized` if signature invalid
+- `400 Bad Request` if malformed payload
+- `500 Internal Server Error` if processing fails
+
+### Security
+
+1. **Signature Verification**:
+   ```python
+   HMAC-SHA256(raw_body, TRIBUTE_API_KEY) == trbt-signature header
    ```
 
-3. **Run the bot**:
-   ```bash
-   python -m vechnost_bot
+2. **Idempotency**:
+   ```python
+   SHA256(raw_body) → stored in payments.body_sha256 (unique)
    ```
+   Duplicate webhooks return immediately with `{"ok": true, "dup": true}`
 
-### Docker
+## Example Webhook Request
 
-1. **Build and run**:
-   ```bash
-   docker build -t vechnost-bot .
-   docker run --rm -e TELEGRAM_BOT_TOKEN=your_token vechnost-bot
-   ```
+```bash
+# Generate signature (example - use your actual API key)
+API_KEY="your_tribute_api_key"
+BODY='{"event_name":"new_digital_product","telegram_user_id":123456789,"username":"testuser","amount":299,"currency":"RUB","product_id":1}'
+SIGNATURE=$(echo -n "$BODY" | openssl dgst -sha256 -hmac "$API_KEY" | awk '{print $2}')
 
-2. **Using docker-compose**:
-   ```bash
-   cp env.example .env
-   # Edit .env with your bot token
-   docker-compose up
-   ```
+# Send webhook
+curl -X POST http://localhost:8000/webhook/tribute \
+  -H "Content-Type: application/json" \
+  -H "trbt-signature: $SIGNATURE" \
+  -d "$BODY"
+```
+
+**Expected Response:**
+```json
+{"ok": true}
+```
+
+## Switching to PostgreSQL
+
+### 1. Install PostgreSQL Driver
+
+```bash
+pip install psycopg2-binary asyncpg
+```
+
+### 2. Update Environment
+
+Edit `.env`:
+```bash
+DATABASE_URL=postgresql+asyncpg://user:password@localhost:5432/tribute_db
+```
+
+### 3. Migrate
+
+The same migrations work for both SQLite and Postgres thanks to `render_as_batch=True`:
+
+```bash
+# Apply existing migrations to Postgres
+alembic upgrade head
+```
+
+### 4. Optional: Database-Specific Optimizations
+
+For Postgres, you can create additional migrations with:
+- Full-text search indexes
+- JSONB operators for `raw_body`
+- Partitioning for large tables
+- Advanced constraints
 
 ## Development
 
-### Running Tests
+### Create New Migration
 
 ```bash
-# Run all tests
-pytest -q
+# Auto-generate from model changes
+alembic revision --autogenerate -m "description"
 
-# Run specific test file
-pytest tests/test_models.py
+# Review generated migration in alembic/versions/
+# Edit if needed (especially for complex operations)
 
-# Run with coverage
-pytest --cov=vechnost_bot
+# Apply migration
+alembic upgrade head
 ```
 
-### Code Quality
+### Rollback Migration
 
 ```bash
-# Lint with ruff
-ruff check .
+# Rollback one version
+alembic downgrade -1
 
-# Type checking with mypy
-mypy vechnost_bot
+# Rollback to specific version
+alembic downgrade <revision_id>
 
-# Format code
-ruff format .
+# Rollback all
+alembic downgrade base
 ```
 
-### Project Structure
+### Check Migration Status
+
+```bash
+alembic current
+alembic history
+```
+
+## Project Structure
 
 ```
-vechnost-bot/
-├── vechnost_bot/           # Main bot package
+.
+├── app/
 │   ├── __init__.py
-│   ├── main.py             # Entry point
-│   ├── bot.py              # Bot application setup
-│   ├── handlers.py         # Message handlers
-│   ├── keyboards.py        # Inline keyboards
-│   ├── logic.py            # Game logic
-│   ├── models.py           # Data models
-│   ├── storage.py          # Session storage
-│   └── config.py           # Configuration
-├── data/
-│   └── questions.yaml      # Game content
-├── tests/                  # Test suite
-├── .github/workflows/      # CI/CD
-├── pyproject.toml          # Dependencies & config
-├── Dockerfile
-├── docker-compose.yml
-└── render.yaml            # Render deployment
+│   ├── main.py           # FastAPI app + webhook handlers
+│   ├── config.py         # Settings from environment
+│   ├── database.py       # Async engine + session
+│   ├── models.py         # SQLAlchemy 2.0 models
+│   ├── schemas.py        # Pydantic schemas
+│   └── crud.py           # Database operations
+├── alembic/
+│   ├── env.py            # Alembic config (render_as_batch=True)
+│   ├── script.py.mako    # Migration template
+│   └── versions/         # Migration files
+├── alembic.ini           # Alembic settings
+├── requirements.txt      # Python dependencies
+├── .env.example          # Environment template
+└── README.md             # This file
 ```
 
-## Deployment
+## Configuration
 
-### Render.com (Recommended)
+### Environment Variables
 
-1. **Connect your repository** to Render
-2. **Create a new Worker service** using `render.yaml`
-3. **Set environment variables** in Render dashboard:
-   - `TELEGRAM_BOT_TOKEN`: Your bot token from @BotFather
-   - `LOG_LEVEL`: Optional, defaults to INFO
-4. **Deploy** - Render will automatically build and deploy
+| Variable | Description | Default |
+|----------|-------------|---------|
+| `DATABASE_URL` | SQLAlchemy database URL | `sqlite+aiosqlite:///./tribute.db` |
+| `TRIBUTE_API_KEY` | Tribute API key for signature verification | (required) |
+| `DEBUG` | Enable debug mode | `false` |
 
-### Other Platforms
+## Alembic SQLite Configuration
 
-The bot can be deployed to any platform that supports Python 3.11+:
+The `env.py` is configured with `render_as_batch=True` for SQLite compatibility:
 
-- **Heroku**: Use the included `Dockerfile`
-- **Railway**: Deploy with `python -m vechnost_bot`
-- **VPS**: Use docker-compose or direct Python installation
+```python
+context.configure(
+    connection=connection,
+    target_metadata=target_metadata,
+    render_as_batch=True,  # Required for SQLite ALTER operations
+)
+```
 
-## Game Content
+This enables batch mode for all migrations, allowing complex operations like:
+- Adding/dropping columns with constraints
+- Renaming columns
+- Adding/modifying foreign keys
+- Adding/modifying unique constraints
 
-The bot uses content from `data/questions.yaml` with the following structure:
+## Testing
 
-- **Acquaintance**: 3 levels of getting-to-know-you questions
-- **For Couples**: 3 levels of relationship-deepening questions
-- **Sex**: 1 level with both questions and tasks (18+)
-- **Provocation**: 1 level of challenging scenarios
+```bash
+# Test health endpoint
+curl http://localhost:8000/health
 
-## Bot Commands
+# Test webhook (see example above)
 
-- `/start` - Start a new game
-- `/help` - Show help information
-- `/reset` - Reset current game
+# Check database
+sqlite3 tribute.db "SELECT * FROM users;"
+sqlite3 tribute.db "SELECT * FROM payments;"
+```
 
-## Environment Variables
+## Production Deployment
 
-| Variable | Description | Required | Default |
-|----------|-------------|----------|---------|
-| `TELEGRAM_BOT_TOKEN` | Bot token from @BotFather | Yes | - |
-| `LOG_LEVEL` | Logging level | No | INFO |
+1. **Set strong `TRIBUTE_API_KEY`**
+2. **Use Postgres** for production
+3. **Enable HTTPS** (signature verification over HTTP is vulnerable)
+4. **Set `DEBUG=false`**
+5. **Use process manager** (systemd, supervisor, or Docker)
+6. **Configure logging**
+7. **Set up monitoring** (check `/health` endpoint)
+8. **Database backups**
 
-## Contributing
+### Example Production Start
 
-1. Fork the repository
-2. Create a feature branch
-3. Make your changes
-4. Run tests and linting
-5. Submit a pull request
+```bash
+# Using Gunicorn + Uvicorn workers
+gunicorn app.main:app \
+  --workers 4 \
+  --worker-class uvicorn.workers.UvicornWorker \
+  --bind 0.0.0.0:8000 \
+  --access-logfile - \
+  --error-logfile -
+```
 
 ## License
 
-MIT License - see LICENSE file for details.
+MIT
 
 ## Support
 
-For issues and questions, please open a GitHub issue or contact the development team.
+For issues with Tribute integration, contact Tribute support.
+For issues with this code, open an issue on your repository.

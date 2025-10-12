@@ -1,44 +1,30 @@
 version: '3.8'
 
 services:
-  # Redis service (optional - bot can auto-start Redis)
-  redis:
-    image: redis:7-alpine
-    container_name: vechnost-redis
-    ports:
-      - "6379:6379"
-    volumes:
-      - redis_data:/data
-    command: redis-server --appendonly yes --maxmemory 256mb --maxmemory-policy allkeys-lru --bind 0.0.0.0
-    restart: unless-stopped
-    healthcheck:
-      test: ["CMD", "redis-cli", "ping"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-    profiles:
-      - redis-external  # Only start with --profile redis-external
-
-  # Bot service with Redis auto-start capability
-  vechnost-bot:
+  web:
     build: .
-    container_name: vechnost-bot
+    ports:
+      - "8000:8000"
     environment:
-      - TELEGRAM_BOT_TOKEN=${TELEGRAM_BOT_TOKEN}
-      - LOG_LEVEL=${LOG_LEVEL:-INFO}
-      - REDIS_URL=redis://localhost:6379
-      - REDIS_AUTO_START=true
+      - DATABASE_URL=sqlite+aiosqlite:///./tribute.db
+      - TRIBUTE_API_KEY=${TRIBUTE_API_KEY}
+      - DEBUG=false
     volumes:
-      - ./data:/app/data:ro
-      - /tmp:/tmp  # For Redis auto-start temporary files
+      - ./tribute.db:/app/tribute.db
+    command: uvicorn app.main:app --host 0.0.0.0 --port 8000
     restart: unless-stopped
-    healthcheck:
-      test: ["CMD", "python", "-c", "import sys; sys.exit(0)"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-      start_period: 40s
-    # No depends_on - bot will auto-start Redis or fallback to memory
 
-volumes:
-  redis_data:
+  # Optional: PostgreSQL database
+  # db:
+  #   image: postgres:16-alpine
+  #   environment:
+  #     POSTGRES_USER: tribute
+  #     POSTGRES_PASSWORD: tribute
+  #     POSTGRES_DB: tribute_db
+  #   ports:
+  #     - "5432:5432"
+  #   volumes:
+  #     - postgres_data:/var/lib/postgresql/data
+
+# volumes:
+#   postgres_data:

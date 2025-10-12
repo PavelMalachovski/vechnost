@@ -1,0 +1,17 @@
+# Core FastAPI
+fastapi==0.115.0
+uvicorn[standard]==0.31.0
+pydantic==2.9.2
+pydantic-settings==2.5.2
+
+# Async SQLAlchemy 2.0
+sqlalchemy[asyncio]==2.0.35
+aiosqlite==0.20.0
+
+# Alembic for migrations
+alembic==1.13.3
+
+# For production Postgres (install separately when switching)
+# psycopg2-binary==2.9.9
+# asyncpg==0.29.0
+
