@@ -1,30 +1,31 @@
 version: '3.8'
 
 services:
-  web:
+  # Vechnost Telegram Bot
+  bot:
     build: .
-    ports:
-      - "8000:8000"
     environment:
-      - DATABASE_URL=sqlite+aiosqlite:///./tribute.db
+      - TELEGRAM_BOT_TOKEN=${TELEGRAM_BOT_TOKEN}
+      - REDIS_URL=${REDIS_URL:-redis://redis:6379}
+      - REDIS_DB=${REDIS_DB:-0}
+      - PAYMENT_ENABLED=${PAYMENT_ENABLED:-false}
       - TRIBUTE_API_KEY=${TRIBUTE_API_KEY}
-      - DEBUG=false
+      - LOG_LEVEL=${LOG_LEVEL:-INFO}
+    depends_on:
+      - redis
+    restart: unless-stopped
     volumes:
-      - ./tribute.db:/app/tribute.db
-    command: uvicorn app.main:app --host 0.0.0.0 --port 8000
+      - ./assets:/app/assets:ro
+      - ./data:/app/data:ro
+
+  # Redis for session storage
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
     restart: unless-stopped
 
-  # Optional: PostgreSQL database
-  # db:
-  #   image: postgres:16-alpine
-  #   environment:
-  #     POSTGRES_USER: tribute
-  #     POSTGRES_PASSWORD: tribute
-  #     POSTGRES_DB: tribute_db
-  #   ports:
-  #     - "5432:5432"
-  #   volumes:
-  #     - postgres_data:/var/lib/postgresql/data
-
-# volumes:
-#   postgres_data:
+volumes:
+  redis_data:

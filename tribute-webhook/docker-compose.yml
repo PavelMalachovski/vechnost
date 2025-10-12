@@ -1,0 +1,30 @@
+version: '3.8'
+
+services:
+  webhook:
+    build: .
+    ports:
+      - "8001:8000"
+    environment:
+      - DATABASE_URL=sqlite+aiosqlite:///./tribute.db
+      - TRIBUTE_API_KEY=${TRIBUTE_API_KEY}
+      - DEBUG=false
+    volumes:
+      - ./tribute.db:/app/tribute.db
+    restart: unless-stopped
+
+  # Optional: PostgreSQL database
+  # db:
+  #   image: postgres:16-alpine
+  #   environment:
+  #     POSTGRES_USER: tribute
+  #     POSTGRES_PASSWORD: tribute
+  #     POSTGRES_DB: tribute_db
+  #   ports:
+  #     - "5432:5432"
+  #   volumes:
+  #     - postgres_data:/var/lib/postgresql/data
+
+# volumes:
+#   postgres_data:
+

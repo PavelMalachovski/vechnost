@@ -2,12 +2,22 @@ FROM python:3.11-slim
 
 WORKDIR /app
 
-# Install dependencies
-COPY requirements.txt .
-RUN pip install --no-cache-dir -r requirements.txt
+# Install system dependencies for Pillow and other packages
+RUN apt-get update && apt-get install -y \
+    gcc \
+    libjpeg-dev \
+    zlib1g-dev \
+    && rm -rf /var/lib/apt/lists/*
 
-# Copy application
+# Copy project files
+COPY pyproject.toml .
+COPY README.md .
+
+# Install the bot package and dependencies
+RUN pip install --no-cache-dir -e .
+
+# Copy application code
 COPY . .
 
-# Run database migrations on startup, then start server
-CMD alembic upgrade head && uvicorn app.main:app --host 0.0.0.0 --port 8000
+# Run the bot
+CMD ["python", "-m", "vechnost_bot"]
