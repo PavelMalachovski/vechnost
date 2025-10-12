@@ -63,3 +63,13 @@ errors:
   unknown_callback: "❌ Unknown command"
   content_unavailable: "❌ Content unavailable"
   question_unavailable: "❌ Question unavailable"
+
+welcome:
+  enter_vechnost: "ENTER VECHNOST ←"
+  what_inside: "WHAT'S INSIDE?"
+  why_helps: "WHY VECHNOST HELPS?"
+  contact_author: "💬 Contact Author"
+  main: |
+    **VECHNOST** — game for couples 💕
+
+    Deepen your relationship through meaningful conversations. Discover new sides of yourself and your partner.

@@ -9,14 +9,13 @@ from .payment_models import SubscriptionTier, UserSubscription, get_subscription
 
 def get_welcome_keyboard(language: Language = Language.RUSSIAN) -> InlineKeyboardMarkup:
     """
-    Get main welcome keyboard (like ХЛБ).
+    Get main welcome keyboard.
 
-    Similar to the ХЛБ bot with buttons:
-    - ВОЙТИ В VECHNOST
-    - ЧТО ТЕБЯ ЖДЁТ ВНУТРИ?
-    - ПОЧЕМУ VECHNOST ПОМОЖЕТ?
-    - ОТЗЫВЫ О VECHNOST
-    - ГАРАНТИЯ
+    Buttons:
+    - ENTER VECHNOST
+    - WHAT'S INSIDE?
+    - WHY VECHNOST HELPS?
+    - Contact Author (if configured)
     """
     keyboard = [
         [InlineKeyboardButton(
@@ -31,27 +30,14 @@ def get_welcome_keyboard(language: Language = Language.RUSSIAN) -> InlineKeyboar
             get_text('welcome.why_helps', language),
             callback_data="why_helps"
         )],
-        [InlineKeyboardButton(
-            get_text('welcome.reviews', language),
-            callback_data="reviews"
-        )],
-        [InlineKeyboardButton(
-            get_text('welcome.guarantee', language),
-            callback_data="guarantee"
-        )],
     ]
 
-    # Add contact buttons at the bottom
-    contact_row = []
-
+    # Add contact button at the bottom if configured
     if settings.author_username:
-        contact_row.append(InlineKeyboardButton(
+        keyboard.append([InlineKeyboardButton(
             get_text('welcome.contact_author', language),
             url=f"https://t.me/{settings.author_username.lstrip('@')}"
-        ))
-
-    if contact_row:
-        keyboard.append(contact_row)
+        )])
 
     return InlineKeyboardMarkup(keyboard)
 

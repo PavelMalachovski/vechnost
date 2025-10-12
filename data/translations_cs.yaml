@@ -63,3 +63,13 @@ errors:
   unknown_callback: "❌ Neznámý příkaz"
   content_unavailable: "❌ Obsah není k dispozici"
   question_unavailable: "❌ Otázka není k dispozici"
+
+welcome:
+  enter_vechnost: "VSTOUPIT DO VECHNOST ←"
+  what_inside: "CO VÁS ČEKÁ UVNITŘ?"
+  why_helps: "PROČ VECHNOST POMŮŽE?"
+  contact_author: "💬 Kontaktovat autora"
+  main: |
+    **VECHNOST** — hra pro páry 💕
+
+    Prohloubte svůj vztah prostřednictvím smysluplných rozhovorů. Objevte nové stránky sebe i svého partnera.

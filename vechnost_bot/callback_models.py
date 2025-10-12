@@ -29,8 +29,6 @@ class CallbackAction(str, Enum):
     ENTER_VECHNOST = "enter_vechnost"
     WHAT_INSIDE = "what_inside"
     WHY_HELPS = "why_helps"
-    REVIEWS = "reviews"
-    GUARANTEE = "guarantee"
     SUBSCRIPTION_UPGRADE = "subscription_upgrade_premium"
     SUBSCRIPTION_STATUS = "subscription_status"
     PAYMENT_PLAN_MONTHLY = "payment_plan_monthly"
@@ -78,7 +76,7 @@ class CallbackData(BaseModel):
         elif data == "lang_back":
             return LanguageBackCallbackData.parse(data)
         elif data in ["nsfw_confirm", "nsfw_deny", "reset_game", "reset_confirm", "reset_cancel", "noop",
-                      "enter_vechnost", "what_inside", "why_helps", "reviews", "guarantee",
+                      "enter_vechnost", "what_inside", "why_helps",
                       "subscription_upgrade_premium", "subscription_status", "payment_plan_monthly",
                       "payment_plan_yearly", "payment_check", "payment_cancel"]:
             return SimpleCallbackData.parse(data)

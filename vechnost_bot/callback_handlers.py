@@ -842,12 +842,6 @@ class SimpleActionHandler(CallbackHandler):
         elif callback_data.action == CallbackAction.WHY_HELPS:
             from .payment_handlers import handle_why_helps
             await handle_why_helps(query, session)
-        elif callback_data.action == CallbackAction.REVIEWS:
-            from .payment_handlers import handle_reviews
-            await handle_reviews(query, session)
-        elif callback_data.action == CallbackAction.GUARANTEE:
-            from .payment_handlers import handle_guarantee
-            await handle_guarantee(query, session)
         elif callback_data.action == CallbackAction.SUBSCRIPTION_UPGRADE:
             from .payment_handlers import handle_subscription_upgrade
             await handle_subscription_upgrade(query, session)
@@ -1041,8 +1035,6 @@ class CallbackHandlerRegistry:
             CallbackAction.ENTER_VECHNOST: SimpleActionHandler(),
             CallbackAction.WHAT_INSIDE: SimpleActionHandler(),
             CallbackAction.WHY_HELPS: SimpleActionHandler(),
-            CallbackAction.REVIEWS: SimpleActionHandler(),
-            CallbackAction.GUARANTEE: SimpleActionHandler(),
             CallbackAction.SUBSCRIPTION_UPGRADE: SimpleActionHandler(),
             CallbackAction.SUBSCRIPTION_STATUS: SimpleActionHandler(),
             CallbackAction.PAYMENT_PLAN_MONTHLY: SimpleActionHandler(),
@@ -1103,26 +1095,31 @@ class LanguageHandler(CallbackHandler):
             await query.edit_message_text(get_text('errors.unknown_callback', session.language))
             return
 
-        # Update session language and show welcome message directly
+        # Update session language
         session.language = language
 
-        # Show welcome message and theme selection
-        welcome_text = get_text('welcome.welcome_message', language)
-        keyboard = get_theme_keyboard(language)
+        # Show welcome screen with payment buttons
+        from .payment_keyboards import get_welcome_keyboard
+        welcome_text = get_text('welcome.main', language)
+        keyboard = get_welcome_keyboard(language)
 
-        await self._edit_or_send_message(query, welcome_text, keyboard)
+        await self._edit_or_send_message(query, welcome_text, keyboard, parse_mode="Markdown")
 
-    async def _edit_or_send_message(self, query: Any, text: str, keyboard: Any) -> None:
+    async def _edit_or_send_message(self, query: Any, text: str, keyboard: Any, parse_mode: str = None) -> None:
         """Edit message or send new one if editing fails."""
         try:
-            await query.edit_message_text(text, reply_markup=keyboard)
+            await query.edit_message_caption(caption=text, reply_markup=keyboard, parse_mode=parse_mode)
         except Exception as edit_error:
-            logger.warning(f"Could not edit message text: {edit_error}, deleting and sending new message")
+            logger.warning(f"Could not edit message caption: {edit_error}, trying edit_message_text")
             try:
-                await query.message.delete()
-            except Exception as delete_error:
-                logger.warning(f"Could not delete message: {delete_error}")
-            await query.message.reply_text(text, reply_markup=keyboard)
+                await query.edit_message_text(text, reply_markup=keyboard, parse_mode=parse_mode)
+            except Exception as edit_text_error:
+                logger.warning(f"Could not edit message text: {edit_text_error}, deleting and sending new message")
+                try:
+                    await query.message.delete()
+                except Exception as delete_error:
+                    logger.warning(f"Could not delete message: {delete_error}")
+                await query.message.reply_text(text, reply_markup=keyboard, parse_mode=parse_mode)
 
 
 class LanguageConfirmHandler(CallbackHandler):
