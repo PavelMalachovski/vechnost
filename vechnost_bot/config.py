@@ -67,6 +67,44 @@ class Settings(BaseSettings):
         description="Session TTL in seconds"
     )
 
+    # Payment Configuration
+    enable_payment: bool = Field(
+        default=False,
+        validation_alias="ENABLE_PAYMENT",
+        description="Enable payment requirement"
+    )
+
+    tribute_api_key: Optional[str] = Field(
+        default=None,
+        validation_alias="TRIBUTE_API_KEY",
+        description="Tribute API key for authentication"
+    )
+
+    tribute_base_url: str = Field(
+        default="https://api.tribute.to",
+        validation_alias="TRIBUTE_BASE_URL",
+        description="Tribute API base URL"
+    )
+
+    tribute_payment_url: str = Field(
+        default="https://tribute.to/vechnost",
+        validation_alias="TRIBUTE_PAYMENT_URL",
+        description="Tribute payment page URL for users"
+    )
+
+    webhook_secret: Optional[str] = Field(
+        default=None,
+        validation_alias="WEBHOOK_SECRET",
+        description="Webhook signature secret"
+    )
+
+    # Database Configuration
+    database_url: str = Field(
+        default="sqlite:///./vechnost.db",
+        validation_alias="DATABASE_URL",
+        description="Database connection URL"
+    )
+
 
 # Global settings instance
 settings = Settings()

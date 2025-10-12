@@ -985,6 +985,10 @@ class CallbackHandlerRegistry:
             CallbackAction.LANGUAGE: LanguageHandler(),
             CallbackAction.LANGUAGE_CONFIRM: LanguageConfirmHandler(),
             CallbackAction.LANGUAGE_BACK: LanguageBackHandler(),
+            CallbackAction.CHECK_PAYMENT: CheckPaymentHandler(),
+            CallbackAction.START_GAME: StartGameHandler(),
+            CallbackAction.SHOW_INSIDE: ShowInsideHandler(),
+            CallbackAction.SHOW_WHY: ShowWhyHandler(),
         }
 
     async def handle_callback(self, query: Any, data: str) -> None:
@@ -1039,26 +1043,55 @@ class LanguageHandler(CallbackHandler):
             await query.edit_message_text(get_text('errors.unknown_callback', session.language))
             return
 
-        # Update session language and show welcome message directly
+        # Update session language
         session.language = language
 
-        # Show welcome message and theme selection
-        welcome_text = get_text('welcome.welcome_message', language)
-        keyboard = get_theme_keyboard(language)
+        # Show greeting page with sections (like in the screenshot)
+        greeting_text = (
+            f"<b>{get_text('welcome.greeting_title', language)}</b>\n"
+            f"<i>{get_text('welcome.greeting_subtitle', language)}</i>\n\n"
+            f"━━━━━━━━━━━━━━━━━━━━\n\n"
+            f"<b>{get_text('welcome.section_connection_title', language)}</b>\n"
+            f"{get_text('welcome.section_connection_text', language)}\n\n"
+            f"<b>{get_text('welcome.section_intimacy_title', language)}</b>\n"
+            f"{get_text('welcome.section_intimacy_text', language)}\n\n"
+            f"<b>{get_text('welcome.section_themes_title', language)}</b>\n"
+            f"{get_text('welcome.section_themes_text', language)}\n\n"
+            f"<b>{get_text('welcome.section_best_title', language)}</b>\n"
+            f"{get_text('welcome.section_best_text', language)}\n\n"
+            f"━━━━━━━━━━━━━━━━━━━━"
+        )
 
-        await self._edit_or_send_message(query, welcome_text, keyboard)
+        # Create keyboard with three buttons (like in the screenshot)
+        from telegram import InlineKeyboardButton, InlineKeyboardMarkup
+        keyboard = InlineKeyboardMarkup([
+            [InlineKeyboardButton(
+                get_text('welcome.button_start', language),
+                callback_data="start_game"
+            )],
+            [InlineKeyboardButton(
+                get_text('welcome.button_inside', language),
+                callback_data="show_inside"
+            )],
+            [InlineKeyboardButton(
+                get_text('welcome.button_why', language),
+                callback_data="show_why"
+            )]
+        ])
 
-    async def _edit_or_send_message(self, query: Any, text: str, keyboard: Any) -> None:
+        await self._edit_or_send_message(query, greeting_text, keyboard, parse_mode="HTML")
+
+    async def _edit_or_send_message(self, query: Any, text: str, keyboard: Any, parse_mode: str = None) -> None:
         """Edit message or send new one if editing fails."""
         try:
-            await query.edit_message_text(text, reply_markup=keyboard)
+            await query.edit_message_text(text, reply_markup=keyboard, parse_mode=parse_mode)
         except Exception as edit_error:
             logger.warning(f"Could not edit message text: {edit_error}, deleting and sending new message")
             try:
                 await query.message.delete()
             except Exception as delete_error:
                 logger.warning(f"Could not delete message: {delete_error}")
-            await query.message.reply_text(text, reply_markup=keyboard)
+            await query.message.reply_text(text, reply_markup=keyboard, parse_mode=parse_mode)
 
 
 class LanguageConfirmHandler(CallbackHandler):
@@ -1116,6 +1149,136 @@ class LanguageBackHandler(CallbackHandler):
             except Exception as delete_error:
                 logger.warning(f"Could not delete message: {delete_error}")
             await query.message.reply_text(text, reply_markup=keyboard)
+
+
+class CheckPaymentHandler(CallbackHandler):
+    """Handler for checking payment status."""
+
+    async def handle(self, query: Any, callback_data: SimpleCallbackData, session: SessionState) -> None:
+        """Handle check payment status callback."""
+        from .payments.handlers import handle_check_payment
+        from telegram import Update
+        from telegram.ext import ContextTypes
+
+        # Create a mock update and context for the payment handler
+        update = Update(update_id=0, callback_query=query)
+        # Note: We don't have direct access to context here, but the payment handler
+        # doesn't actually use it, so we can pass None or create a minimal mock
+        await handle_check_payment(update, None)
+
+
+class ShowInsideHandler(CallbackHandler):
+    """Handler for 'What's inside?' button."""
+
+    async def handle(self, query: Any, callback_data: SimpleCallbackData, session: SessionState) -> None:
+        """Show information about what's inside the bot."""
+        language = session.language
+
+        inside_text = (
+            f"<b>{get_text('welcome.inside_title', language)}</b>\n\n"
+            f"{get_text('welcome.inside_text', language)}"
+        )
+
+        from telegram import InlineKeyboardButton, InlineKeyboardMarkup
+        keyboard = InlineKeyboardMarkup([
+            [InlineKeyboardButton(
+                get_text('welcome.button_back', language),
+                callback_data=f"lang_{language.value}"
+            )]
+        ])
+
+        try:
+            await query.edit_message_text(inside_text, reply_markup=keyboard, parse_mode="HTML")
+        except:
+            await query.message.reply_text(inside_text, reply_markup=keyboard, parse_mode="HTML")
+
+
+class ShowWhyHandler(CallbackHandler):
+    """Handler for 'Why does it work?' button."""
+
+    async def handle(self, query: Any, callback_data: SimpleCallbackData, session: SessionState) -> None:
+        """Show information about why the bot works."""
+        language = session.language
+
+        why_text = (
+            f"<b>{get_text('welcome.why_title', language)}</b>\n\n"
+            f"{get_text('welcome.why_text', language)}"
+        )
+
+        from telegram import InlineKeyboardButton, InlineKeyboardMarkup
+        keyboard = InlineKeyboardMarkup([
+            [InlineKeyboardButton(
+                get_text('welcome.button_back', language),
+                callback_data=f"lang_{language.value}"
+            )]
+        ])
+
+        try:
+            await query.edit_message_text(why_text, reply_markup=keyboard, parse_mode="HTML")
+        except:
+            await query.message.reply_text(why_text, reply_markup=keyboard, parse_mode="HTML")
+
+
+class StartGameHandler(CallbackHandler):
+    """Handler for start game button from greeting page."""
+
+    async def handle(self, query: Any, callback_data: SimpleCallbackData, session: SessionState) -> None:
+        """Handle start game button - check payment and show themes."""
+        language = session.language
+
+        # Check payment requirement
+        from .config import settings
+        if settings.enable_payment:
+            from .payments.services import user_has_access
+            from .payments.middleware import get_payment_keyboard, check_and_register_user
+            from telegram import Update
+            from telegram.ext import ContextTypes
+
+            # Register user
+            update = Update(update_id=0, callback_query=query)
+            await check_and_register_user(update, None)
+
+            # Check if user has access
+            user_id = query.from_user.id if query.from_user else 0
+            has_access = await user_has_access(user_id)
+
+            if not has_access:
+                # User needs to pay - redirect to Tribute
+                payment_text = f"{get_text('payment.required_title', language)}\n\n{get_text('payment.required_message', language)}"
+                payment_keyboard = await get_payment_keyboard(language)
+
+                try:
+                    await query.edit_message_text(
+                        payment_text,
+                        parse_mode="HTML",
+                        reply_markup=payment_keyboard
+                    )
+                except Exception as edit_error:
+                    logger.warning(f"Could not edit message: {edit_error}")
+                    try:
+                        await query.message.delete()
+                    except:
+                        pass
+                    await query.message.reply_text(
+                        payment_text,
+                        parse_mode="HTML",
+                        reply_markup=payment_keyboard
+                    )
+                return
+
+        # User has access or payment disabled - show theme selection
+        welcome_text = get_text('welcome.welcome_message', language)
+        keyboard = get_theme_keyboard(language)
+
+        try:
+            await query.edit_message_text(welcome_text, reply_markup=keyboard)
+        except Exception as edit_error:
+            logger.warning(f"Could not edit message: {edit_error}")
+            try:
+                await query.message.delete()
+            except:
+                pass
+            await query.message.reply_text(welcome_text, reply_markup=keyboard)
 
 
 # Global registry instance
