@@ -1,8 +1,4 @@
 # English UI translations
-welcome:
-  language_prompt: "Select your language to start the game"
-  welcome_message: "Welcome to VECHNOST 💕\n\nThe game for couples created to:\n truly get to know each other\n go beyond ordinary conversations\n discover new sides of yourself and your partner\n\nChoose one of the decks and open a new world:\n✨ For dating and first meetings\n♥️ For couples and building intimacy\n❤️‍🔥 Provocations — unexpected questions that reveal depth\n🔥 Sex & provocation block"
-
 language:
   selection_title: "🌍 Choose Language"
   selection_subtitle: "Choose your language / Выберите язык / Vyberte si jazyk"
@@ -65,10 +61,13 @@ errors:
   question_unavailable: "❌ Question unavailable"
 
 welcome:
+  language_prompt: "Select your language to start the game"
+  welcome_message: "Welcome to VECHNOST 💕\n\nThe game for couples created to:\n truly get to know each other\n go beyond ordinary conversations\n discover new sides of yourself and your partner\n\nChoose one of the decks and open a new world:\n✨ For dating and first meetings\n♥️ For couples and building intimacy\n❤️‍🔥 Provocations — unexpected questions that reveal depth\n🔥 Sex & provocation block"
   enter_vechnost: "ENTER VECHNOST ←"
   what_inside: "WHAT'S INSIDE?"
   why_helps: "WHY VECHNOST HELPS?"
   contact_author: "💬 Contact Author"
+  prompt: "Choose one of the decks and open a new world of questions:"
   main: |
     **VECHNOST** — game for couples 💕
 

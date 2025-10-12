@@ -55,46 +55,25 @@ async def handle_enter_vechnost(query, session) -> None:
                 reply_markup=get_theme_keyboard(session.language)
             )
     else:
-        # Free user - show upgrade or limited access
-        if not settings.payment_enabled:
-            # Payments disabled - give free access
-            from .keyboards import get_theme_keyboard
-            text = get_text('welcome.prompt', session.language)
+        # Free user - always show subscription options
+        text = get_text('subscription.free_user_prompt', session.language)
+        try:
+            await query.edit_message_text(
+                text,
+                reply_markup=get_subscription_keyboard(subscription, session.language),
+                parse_mode="Markdown"
+            )
+        except Exception as e:
+            logger.warning(f"Could not edit message: {e}, deleting and sending new")
             try:
-                await query.edit_message_text(
-                    text,
-                    reply_markup=get_theme_keyboard(session.language)
-                )
-            except Exception as e:
-                logger.warning(f"Could not edit message: {e}, deleting and sending new")
-                try:
-                    await query.message.delete()
-                except Exception:
-                    pass
-                await query.message.reply_text(
-                    text,
-                    reply_markup=get_theme_keyboard(session.language)
-                )
-        else:
-            # Show subscription options
-            text = get_text('subscription.free_user_prompt', session.language)
-            try:
-                await query.edit_message_text(
-                    text,
-                    reply_markup=get_subscription_keyboard(subscription, session.language),
-                    parse_mode="Markdown"
-                )
-            except Exception as e:
-                logger.warning(f"Could not edit message: {e}, deleting and sending new")
-                try:
-                    await query.message.delete()
-                except Exception:
-                    pass
-                await query.message.reply_text(
-                    text,
-                    reply_markup=get_subscription_keyboard(subscription, session.language),
-                    parse_mode="Markdown"
-                )
+                await query.message.delete()
+            except Exception:
+                pass
+            await query.message.reply_text(
+                text,
+                reply_markup=get_subscription_keyboard(subscription, session.language),
+                parse_mode="Markdown"
+            )
 
 
 async def handle_what_inside(query, session) -> None:
