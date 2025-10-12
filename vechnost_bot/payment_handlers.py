@@ -35,6 +35,15 @@ async def handle_enter_vechnost(query, session) -> None:
     storage = get_subscription_storage()
     subscription = await storage.get_subscription(query.from_user.id)
 
+    # Debug logging
+    logger.info(f"=== ENTER VECHNOST DEBUG ===")
+    logger.info(f"User ID: {query.from_user.id}")
+    logger.info(f"Username: {query.from_user.username}")
+    logger.info(f"PAYMENT_ENABLED: {settings.payment_enabled}")
+    logger.info(f"Subscription tier: {subscription.tier}")
+    logger.info(f"Subscription active: {subscription.is_active()}")
+    logger.info(f"Whitelisted users: {settings.whitelisted_usernames}")
+
     # Check if user has access
     has_access = False
 
