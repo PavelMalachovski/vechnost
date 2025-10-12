@@ -88,17 +88,6 @@ class Settings(BaseSettings):
         description="Tribute API base URL"
     )
 
-    # Premium Channel Configuration
-    premium_channel_id: Optional[str] = Field(
-        default=None,
-        description="Premium Telegram channel ID (e.g., @vechnost_premium)"
-    )
-
-    premium_channel_invite_link: Optional[str] = Field(
-        default=None,
-        description="Premium channel invite link"
-    )
-
     # Support Configuration
     support_username: Optional[str] = Field(
         default=None,

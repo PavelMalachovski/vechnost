@@ -30,7 +30,7 @@ class SubscriptionStorage:
             from .hybrid_storage import get_redis_storage
             storage = await get_redis_storage()
             if hasattr(storage, 'redis_storage') and storage.redis_storage:
-                self._redis = storage.redis_storage.redis
+                self._redis = storage.redis_storage._redis
             else:
                 # Fallback to in-memory only
                 logger.warning("Redis not available, using memory cache only")
@@ -68,7 +68,7 @@ class SubscriptionStorage:
         redis = await self._get_redis()
 
         try:
-            data = redis.get(key) if redis else None
+            data = await redis.get(key) if redis else None
             if data:
                 subscription_dict = json.loads(data)
 
@@ -135,7 +135,7 @@ class SubscriptionStorage:
             if data.get("last_question_date"):
                 data["last_question_date"] = data["last_question_date"].isoformat()
 
-            redis.set(
+            await redis.set(
                 key,
                 json.dumps(data),
                 ex=settings.session_ttl * 24  # 24x longer TTL for subscriptions
@@ -253,7 +253,7 @@ class SubscriptionStorage:
             if data.get("completed_at"):
                 data["completed_at"] = data["completed_at"].isoformat()
 
-            redis.set(
+            await redis.set(
                 key,
                 json.dumps(data),
                 ex=settings.session_ttl * 48  # 48x longer TTL for payments
@@ -261,7 +261,7 @@ class SubscriptionStorage:
 
             # Add to user's payments list
             user_payments_key = self._get_user_payments_key(payment.user_id)
-            redis.sadd(user_payments_key, payment.transaction_id)
+            await redis.sadd(user_payments_key, payment.transaction_id)
 
             logger.debug(f"Saved payment {payment.transaction_id}")
         except Exception as e:
@@ -281,7 +281,7 @@ class SubscriptionStorage:
         redis = await self._get_redis()
 
         try:
-            data = redis.get(key) if redis else None
+            data = await redis.get(key) if redis else None
             if data:
                 payment_dict = json.loads(data)
 
@@ -318,7 +318,7 @@ class SubscriptionStorage:
             if not redis:
                 return []
 
-            transaction_ids = redis.smembers(user_payments_key)
+            transaction_ids = await redis.smembers(user_payments_key)
 
             payments = []
             for transaction_id in transaction_ids:

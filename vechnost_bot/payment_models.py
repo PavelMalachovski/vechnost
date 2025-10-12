@@ -35,7 +35,6 @@ class SubscriptionFeatures(BaseModel):
     daily_question_limit: int | None = None  # None = unlimited
 
     # Additional features
-    premium_channel_access: bool = False
     priority_support: bool = False
     custom_backgrounds: bool = False
 
@@ -77,9 +76,6 @@ class UserSubscription(BaseModel):
     # Usage tracking
     questions_today: int = 0
     last_question_date: datetime | None = None
-
-    # Premium channel
-    premium_channel_invite_sent: bool = False
 
     def is_active(self) -> bool:
         """Check if subscription is active."""
@@ -191,27 +187,25 @@ SUBSCRIPTION_PLANS = {
     SubscriptionTier.FREE: SubscriptionPlan(
         tier=SubscriptionTier.FREE,
         name="Базовый",
-        description="🆓 Бесплатный доступ к базовым темам",
+        description="🆓 Бесплатный доступ: 10 вопросов в день",
         price_monthly=0.0,
         features=SubscriptionFeatures(
             basic_themes=True,
             premium_themes=False,
             daily_question_limit=10,
-            premium_channel_access=False,
             priority_support=False,
         )
     ),
     SubscriptionTier.PREMIUM: SubscriptionPlan(
         tier=SubscriptionTier.PREMIUM,
         name="Премиум",
-        description="⭐ Полный доступ ко всем темам + эксклюзивный канал",
+        description="⭐ Безлимитный доступ ко всем темам",
         price_monthly=299.0,
         price_yearly=2990.0,
         features=SubscriptionFeatures(
             basic_themes=True,
             premium_themes=True,
             daily_question_limit=None,  # Unlimited
-            premium_channel_access=True,
             priority_support=True,
             custom_backgrounds=True,
         ),
