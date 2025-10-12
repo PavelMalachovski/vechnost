@@ -109,3 +109,82 @@ info:
 
     ❤️ **Intimacy and trust**
     Build genuine relationships
+
+subscription:
+  premium_required: |
+    🔒 **Premium Subscription Required**
+
+    A premium subscription is required to access the game.
+
+    Get full access to all themes and questions!
+  free_user_prompt: |
+    🔒 **Premium Subscription Required**
+
+    A premium subscription is required to access the game.
+
+    Get full access to all themes and questions!
+  upgrade_required: "🔒 Premium subscription required to access this feature."
+  expired_prompt: "⏰ Your subscription has expired. Renew it to continue using the game."
+  premium_theme_prompt: "🔒 This theme is only available with a premium subscription. Get access now!"
+  upgrade_premium: "⭐ Get Premium"
+  get_premium: "⭐ Get Premium Access"
+  status_active: "✅ Premium active ({days} days)"
+  status_expired: "❌ Subscription expired"
+  join_premium_channel: "📱 Join premium channel"
+  cancel_auto_renew: "❌ Cancel auto-renewal"
+  enable_auto_renew: "✅ Enable auto-renewal"
+  renew_premium: "🔄 Renew subscription"
+  free_status: |
+    **🆓 Free Plan**
+
+    A premium subscription is required to access the game.
+  premium_status_active: |
+    **⭐ {plan_name}**
+
+    ✅ Subscription active
+    📅 Days remaining: **{days}**
+    🔄 Auto-renew: **{auto_renew}**
+  premium_status_expired: |
+    **⏰ Subscription Expired**
+
+    Your subscription expired on {expires_at}.
+    Renew to continue using all features.
+  premium_channel_welcome: |
+    🎉 **Welcome to Premium!**
+
+    Your premium subscription is now active.
+    Join our exclusive premium channel for bonus content and support.
+
+payment:
+  select_plan: |
+    💎 **Select Your Premium Plan**
+
+    Choose the subscription that fits you best:
+  monthly_plan: "Monthly Subscription"
+  yearly_plan: "Annual Subscription"
+  monthly_button: "📅 1 Month — 299 ₽"
+  yearly_button: "📅 12 Months — 2990 ₽ (save 17%)"
+  created: |
+    💳 **Payment Created**
+
+    Amount: **{amount} ₽**
+    Plan: **{description}**
+
+    Click the button below to complete payment.
+  success: |
+    ✅ **Payment Successful!**
+
+    Your premium subscription is now active!
+    Days: **{days}**
+
+    Enjoy all features!
+  failed: "❌ Payment failed. Please try again."
+  error: "❌ Error processing payment. Please contact support."
+  pending: "⏳ Payment is still pending. Please complete payment."
+  cancelled: "❌ Payment cancelled."
+  no_payments: "ℹ️ No payments found."
+  no_pending: "ℹ️ No pending payments."
+  disabled: "❌ Payment system is currently disabled."
+  check_status: "🔄 Check payment status"
+  pay_now: "💳 Pay Now"
+  cancel: "❌ Cancel"

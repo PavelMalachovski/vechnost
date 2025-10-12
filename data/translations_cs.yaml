@@ -109,3 +109,82 @@ info:
 
     ❤️ **Intimita a důvěra**
     Budujte opravdové vztahy
+
+subscription:
+  premium_required: |
+    🔒 **Vyžadováno Premium předplatné**
+
+    Pro přístup ke hře je nutné Premium předplatné.
+
+    Získejte plný přístup ke všem tématům a otázkám!
+  free_user_prompt: |
+    🔒 **Vyžadováno Premium předplatné**
+
+    Pro přístup ke hře je nutné Premium předplatné.
+
+    Získejte plný přístup ke všem tématům a otázkám!
+  upgrade_required: "🔒 Pro přístup k této funkci je vyžadováno Premium předplatné."
+  expired_prompt: "⏰ Vaše předplatné vypršelo. Obnovte ho pro pokračování ve hře."
+  premium_theme_prompt: "🔒 Toto téma je dostupné pouze s Premium předplatným. Získejte přístup nyní!"
+  upgrade_premium: "⭐ Získat Premium"
+  get_premium: "⭐ Získat Premium přístup"
+  status_active: "✅ Premium aktivní ({days} dní)"
+  status_expired: "❌ Předplatné vypršelo"
+  join_premium_channel: "📱 Vstoupit do premium kanálu"
+  cancel_auto_renew: "❌ Zrušit automatické obnovení"
+  enable_auto_renew: "✅ Zapnout automatické obnovení"
+  renew_premium: "🔄 Obnovit předplatné"
+  free_status: |
+    **🆓 Bezplatný tarif**
+
+    Pro přístup ke hře je nutné Premium předplatné.
+  premium_status_active: |
+    **⭐ {plan_name}**
+
+    ✅ Předplatné aktivní
+    📅 Zbývajících dní: **{days}**
+    🔄 Auto-obnova: **{auto_renew}**
+  premium_status_expired: |
+    **⏰ Předplatné vypršelo**
+
+    Vaše předplatné vypršelo {expires_at}.
+    Obnovte pro pokračování ve všech funkcích.
+  premium_channel_welcome: |
+    🎉 **Vítejte v Premium!**
+
+    Vaše Premium předplatné je nyní aktivní.
+    Vstupte do našeho exkluzivního premium kanálu pro bonusový obsah a podporu.
+
+payment:
+  select_plan: |
+    💎 **Vyberte váš Premium plán**
+
+    Zvolte předplatné, které vám vyhovuje:
+  monthly_plan: "Měsíční předplatné"
+  yearly_plan: "Roční předplatné"
+  monthly_button: "📅 1 Měsíc — 299 ₽"
+  yearly_button: "📅 12 Měsíců — 2990 ₽ (ušetříte 17%)"
+  created: |
+    💳 **Platba vytvořena**
+
+    Částka: **{amount} ₽**
+    Plán: **{description}**
+
+    Klikněte na tlačítko níže pro dokončení platby.
+  success: |
+    ✅ **Platba úspěšná!**
+
+    Vaše Premium předplatné je nyní aktivní!
+    Dní: **{days}**
+
+    Užijte si všechny funkce!
+  failed: "❌ Platba selhala. Zkuste to prosím znovu."
+  error: "❌ Chyba při zpracování platby. Kontaktujte podporu."
+  pending: "⏳ Platba stále čeká. Dokončete prosím platbu."
+  cancelled: "❌ Platba zrušena."
+  no_payments: "ℹ️ Žádné platby nenalezeny."
+  no_pending: "ℹ️ Žádné čekající platby."
+  disabled: "❌ Platební systém je momentálně vypnutý."
+  check_status: "🔄 Zkontrolovat stav platby"
+  pay_now: "💳 Zaplatit nyní"
+  cancel: "❌ Zrušit"

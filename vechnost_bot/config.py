@@ -105,6 +105,18 @@ class Settings(BaseSettings):
         description="Enable payment functionality"
     )
 
+    # Premium Channel Configuration
+    premium_channel_invite_link: Optional[str] = Field(
+        default=None,
+        description="Premium channel invite link"
+    )
+
+    # Whitelisted usernames (can access without payment when payment_enabled=True)
+    whitelisted_usernames: list[str] = Field(
+        default=["LanaLeonovich", "pvlmlc"],
+        description="Usernames allowed to access without payment for testing"
+    )
+
 
 # Global settings instance
 settings = Settings()

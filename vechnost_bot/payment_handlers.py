@@ -31,12 +31,35 @@ logger = logging.getLogger(__name__)
 
 
 async def handle_enter_vechnost(query, session) -> None:
-    """Handle 'Enter Vechnost' button - start using the bot."""
+    """Handle 'Enter Vechnost' button - check access and start using the bot."""
     storage = get_subscription_storage()
     subscription = await storage.get_subscription(query.from_user.id)
 
-    if subscription.is_active() and subscription.tier != SubscriptionTier.FREE:
-        # Premium user - show theme selection
+    # Check if user has access
+    has_access = False
+
+    if settings.payment_enabled:
+        # Payment mode enabled - only premium users and whitelisted users have access
+        username = query.from_user.username or ""
+
+        # Check if user is whitelisted (for testing)
+        if username in settings.whitelisted_usernames:
+            logger.info(f"Whitelisted user @{username} granted access")
+            has_access = True
+        # Check if user has active premium subscription
+        elif subscription.is_active() and subscription.tier != SubscriptionTier.FREE:
+            logger.info(f"Premium user {query.from_user.id} granted access")
+            has_access = True
+        else:
+            logger.info(f"User {query.from_user.id} (@{username}) requires subscription")
+            has_access = False
+    else:
+        # Payment disabled - everyone has access
+        logger.info(f"Payment disabled - granting access to user {query.from_user.id}")
+        has_access = True
+
+    if has_access:
+        # User has access - show theme selection
         from .keyboards import get_theme_keyboard
         text = get_text('welcome.prompt', session.language)
         try:
@@ -55,8 +78,8 @@ async def handle_enter_vechnost(query, session) -> None:
                 reply_markup=get_theme_keyboard(session.language)
             )
     else:
-        # Free user - always show subscription options
-        text = get_text('subscription.free_user_prompt', session.language)
+        # User needs to subscribe
+        text = get_text('subscription.premium_required', session.language)
         try:
             await query.edit_message_text(
                 text,
