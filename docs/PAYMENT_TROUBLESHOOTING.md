@@ -42,7 +42,7 @@
 ```
 ENABLE_PAYMENT=TRUE                  # ✅ Должно быть TRUE
 TRIBUTE_API_KEY=trib_xxxxx          # ✅ Ваш API ключ
-WEBHOOK_SECRET=whsec_xxxxx          # ✅ Секрет для вебхуков  
+WEBHOOK_SECRET=whsec_xxxxx          # ✅ Секрет для вебхуков
 DATABASE_URL=sqlite:///./vechnost.db # ✅ Путь к БД
 ```
 
@@ -111,7 +111,7 @@ Application created with handlers:
 
 ### Ошибка 3: "Webhook не работает"
 - ❌ **Проблема**: Webhook server не запущен
-- ✅ **Решение**: 
+- ✅ **Решение**:
   ```bash
   python run_webhook_server.py
   ```

@@ -133,18 +133,46 @@ async def apply_webhook_event(
                 }
 
             # Extract event data
-            event_name = payload.get("event_name") or payload.get("event") or payload.get("type")
+            event_name = (
+                payload.get("event_name")
+                or payload.get("event")
+                or payload.get("type")
+                or payload.get("name")  # Tribute uses "name" field
+            )
+
+            # Handle test webhooks from Tribute (no event_name)
             if not event_name:
+                # Check if it's a test request
+                is_test = (
+                    payload.get("test")
+                    or payload.get("ping")
+                    or payload.get("test_event")  # Tribute test webhook
+                    or len(payload) == 0
+                )
+                if is_test or not payload:
+                    logger.info(f"Test webhook received from Tribute: {payload}")
+                    return {
+                        "status": "success",
+                        "message": "Test webhook received successfully",
+                        "code": 200,
+                    }
+
+                # If not a test, log the payload for debugging
+                logger.warning(f"Missing event_name in payload: {payload}")
                 error_msg = "Missing event_name in payload"
-                logger.error(error_msg)
                 return {"status": "error", "message": error_msg, "code": 400}
 
             # Extract user information
             # Adjust based on actual Tribute webhook structure
+            data = payload.get("data", {})
+            webhook_payload = payload.get("payload", {})  # Tribute uses "payload" field
+
             telegram_user_id = (
                 payload.get("telegram_user_id")
                 or payload.get("customer", {}).get("telegram_user_id")
                 or payload.get("metadata", {}).get("telegram_user_id")
+                or data.get("customer", {}).get("telegram_user_id")
+                or webhook_payload.get("telegram_user_id")  # Tribute format
             )
 
             if not telegram_user_id:
@@ -164,22 +192,38 @@ async def apply_webhook_event(
                 return {"status": "error", "message": error_msg, "code": 400}
 
             # Ensure user exists
+            customer = data.get("customer", {}) or payload.get("customer", {})
             user = await UserRepository.create_or_update(
                 session,
                 telegram_user_id=int(telegram_user_id),
-                username=payload.get("username"),
-                first_name=payload.get("first_name"),
-                last_name=payload.get("last_name"),
+                username=customer.get("username") or payload.get("username"),
+                first_name=customer.get("first_name") or payload.get("first_name"),
+                last_name=customer.get("last_name") or payload.get("last_name"),
             )
 
             # Extract payment information
-            amount = payload.get("amount", 0)
-            currency = payload.get("currency", "USD")
-            product_id = payload.get("product_id")
+            product = data.get("product", {}) or payload.get("product", {})
+            amount = (
+                data.get("amount")
+                or product.get("price")
+                or payload.get("amount")
+                or webhook_payload.get("amount", 0)  # Tribute format
+            )
+            currency = (
+                data.get("currency")
+                or payload.get("currency")
+                or webhook_payload.get("currency", "USD")  # Tribute format
+            )
+            product_id = (
+                data.get("product_id")
+                or product.get("id")
+                or payload.get("product_id")
+                or webhook_payload.get("product_id")  # Tribute format
+            )
             expires_at = None
 
             # Parse expires_at if provided
-            expires_at_str = payload.get("expires_at")
+            expires_at_str = data.get("expires_at") or payload.get("expires_at")
             if expires_at_str:
                 try:
                     expires_at = datetime.fromisoformat(
@@ -189,13 +233,15 @@ async def apply_webhook_event(
                     logger.warning(f"Invalid expires_at format: {expires_at_str}")
 
             # Create payment record
+            # Note: product_id is set to None since we don't sync products from Tribute
+            # The product info is still available in raw_body for reference
             payment = await PaymentRepository.create(
                 session,
                 provider="tribute",
                 event_name=event_name,
                 user_id=user.id,
                 telegram_user_id=user.telegram_user_id,
-                product_id=product_id,
+                product_id=None,  # Don't link to products table
                 amount=amount,
                 currency=currency,
                 expires_at=expires_at,
@@ -204,25 +250,40 @@ async def apply_webhook_event(
                 body_sha256=body_sha256,
             )
 
-            # Handle subscription events
-            if "subscription" in event_name.lower():
-                subscription_id = payload.get("subscription_id") or payload.get("id")
+            # Handle subscription events and digital product purchases
+            if "subscription" in event_name.lower() or "product" in event_name.lower():
+                subscription_id = (
+                    data.get("id")
+                    or data.get("subscription_id")
+                    or payload.get("subscription_id")
+                    or payload.get("id")
+                    or webhook_payload.get("user_id")  # Use user_id as subscription_id for products
+                    or int(datetime.utcnow().timestamp())  # Generate ID from timestamp
+                )
                 if subscription_id:
-                    status = "active"
+                    # Extract status from data or infer from event name
+                    status = data.get("status") or payload.get("status") or "active"
                     if "cancel" in event_name.lower():
                         status = "canceled"
                     elif "expire" in event_name.lower():
                         status = "expired"
-                    elif "renew" in event_name.lower():
+                    elif "renew" in event_name.lower() or "new" in event_name.lower():
                         status = "active"
 
-                    period = payload.get("period", "month")
+                    # For digital products, create lifetime subscription
+                    period = data.get("period") or payload.get("period")
+                    if not period and "product" in event_name.lower():
+                        period = "lifetime"  # Digital products = lifetime access
+                    elif not period:
+                        period = "month"
 
-                    # Default expires_at to 30 days from now if not provided
-                    if not expires_at:
+                    # Support lifetime subscriptions (expires_at = None)
+                    # Only set default expiration if not a lifetime subscription
+                    if not expires_at and period != "lifetime":
                         from datetime import timedelta
-
                         expires_at = datetime.utcnow() + timedelta(days=30)
+                    elif period == "lifetime":
+                        expires_at = None  # Lifetime = no expiration
 
                     await SubscriptionRepository.upsert(
                         session,
@@ -232,6 +293,11 @@ async def apply_webhook_event(
                         status=status,
                         expires_at=expires_at,
                         last_event_at=datetime.utcnow(),
+                    )
+
+                    logger.info(
+                        f"Created/updated subscription for user {telegram_user_id}: "
+                        f"period={period}, status={status}, expires_at={expires_at}"
                     )
 
             # Log successful webhook processing

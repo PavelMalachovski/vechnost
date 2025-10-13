@@ -13,6 +13,19 @@ A production-ready Telegram bot for the Vechnost card game - an intimate convers
 - **Payment Integration**: Optional Tribute payment system with subscription support
 - **Multi-language Support**: English, Russian, and Czech translations
 
+## 📁 Структура проекта
+
+```
+vechnost/
+├── vechnost_bot/          # Основной код бота
+├── scripts/               # Вспомогательные Python скрипты
+├── sql/                   # SQL скрипты для БД
+├── docs/                  # Документация
+├── assets/                # Изображения и ресурсы
+├── data/                  # Переводы и вопросы
+└── tests/                 # Тесты
+```
+
 ## Quick Start
 
 ### Local Development

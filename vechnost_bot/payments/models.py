@@ -152,7 +152,7 @@ class Subscription(Base):
     )  # ID from Tribute
     period: Mapped[str] = mapped_column(String, nullable=False)
     status: Mapped[str] = mapped_column(String, nullable=False)
-    expires_at: Mapped[datetime] = mapped_column(nullable=False)
+    expires_at: Mapped[Optional[datetime]] = mapped_column(nullable=True)  # NULL = lifetime subscription
     last_event_at: Mapped[datetime] = mapped_column(
         default=datetime.utcnow, nullable=False
     )
@@ -163,6 +163,11 @@ class Subscription(Base):
     __table_args__ = (
         UniqueConstraint("user_id", "subscription_id", name="uq_user_subscription"),
     )
+
+    @property
+    def is_lifetime(self) -> bool:
+        """Check if subscription is lifetime (never expires)."""
+        return self.expires_at is None
 
     def __repr__(self) -> str:
         return f"<Subscription(id={self.id}, subscription_id={self.subscription_id}, status='{self.status}', user_id={self.user_id})>"
