@@ -5,7 +5,6 @@
 ### 1. ✅ Исправлена ошибка с `aiosqlite`
 - Добавлен `aiosqlite>=0.19.0` в `pyproject.toml`
 - Это устранит ошибку `ModuleNotFoundError: No module named 'aiosqlite'`
-- **Таблицы БД создаются автоматически** при первом запуске (не нужно вручную запускать миграции)
 
 ### 2. ✅ Добавлена приветственная страница
 - Показывается после выбора языка
@@ -78,12 +77,10 @@ Callback query received: lang_ru from chat 1115719673
 # Больше НЕ должно быть: "Error registering user: No module named 'aiosqlite'"
 ```
 
-✅ **После нажатия "Начать игру" (первый запуск):**
+✅ **После нажатия "Начать игру":**
 ```
 Callback query received: start_game from chat 1115719673
 Initializing database with URL: sqlite+aiosqlite:///./vechnost.db
-Database initialized successfully
-Database tables created successfully  # ← Таблицы создались автоматически!
 # Проверка подписки...
 ```
 
@@ -91,13 +88,6 @@ Database tables created successfully  # ← Таблицы создались а
 
 ### ❌ Всё ещё "No module named 'aiosqlite'"
 **Решение:** Railway → Settings → Redeploy
-
-### ❌ "no such table: users"
-**Причина:** Старая версия кода без автосоздания таблиц
-**Решение:**
-1. Убедитесь, что задеплоили новую версию с обновлённым `database.py`
-2. Перезапустите бот в Railway (Redeploy)
-3. Таблицы создадутся автоматически при первом запуске
 
 ### ❌ Не показывает приветственную страницу
 **Решение:**

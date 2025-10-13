@@ -64,6 +64,22 @@ async def tribute_webhook(request: Request) -> JSONResponse:
         # Read raw body
         raw_body = await request.body()
 
+        # Log incoming request
+        logger.info(f"Received webhook request from {request.client.host if request.client else 'unknown'}")
+        logger.debug(f"Headers: {dict(request.headers)}")
+        logger.debug(f"Body length: {len(raw_body)}")
+
+        # Handle empty body (test requests from Tribute)
+        if not raw_body or len(raw_body) == 0:
+            logger.info("Empty webhook body received (test request?), returning success")
+            return JSONResponse(
+                status_code=200,
+                content={
+                    "status": "success",
+                    "message": "Webhook endpoint is ready",
+                },
+            )
+
         # Parse JSON payload
         try:
             payload = await request.json()

@@ -143,3 +143,11 @@ cache/
 
 # Alembic
 alembic.ini.bak
+
+# Scripts temporary files
+scripts/*.log
+scripts/__pycache__/
+
+# SQL temporary files
+sql/*.tmp
+sql/*.backup

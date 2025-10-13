@@ -104,7 +104,12 @@ TRIBUTE_API_KEY=your_tribute_api_key_here
 TRIBUTE_BASE_URL=https://api.tribute.to
 TRIBUTE_PAYMENT_URL=https://tribute.to/your_page_here
 WEBHOOK_SECRET=your_webhook_secret_here
-DATABASE_URL=sqlite:///./vechnost.db
+
+# Local development (SQLite)
+DATABASE_URL=sqlite+aiosqlite:///./vechnost.db
+
+# Production (PostgreSQL)
+# DATABASE_URL=postgresql+asyncpg://postgres:password@postgres.railway.internal:5432/railway
 ```
 
 ## Environment-Specific Configuration
@@ -152,7 +157,7 @@ TRIBUTE_API_KEY=trib_live_xxxxxxxxxxxxx
 TRIBUTE_BASE_URL=https://api.tribute.to
 TRIBUTE_PAYMENT_URL=https://tribute.to/your_page
 WEBHOOK_SECRET=whsec_xxxxxxxxxxxxx
-DATABASE_URL=postgresql+asyncpg://user:password@host:5432/vechnost
+DATABASE_URL=postgresql+asyncpg://postgres:password@postgres.railway.internal:5432/railway
 ```
 
 ## Variable Validation

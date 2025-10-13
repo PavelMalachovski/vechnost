@@ -247,13 +247,16 @@ class SubscriptionRepository:
     async def get_active_subscriptions_for_user(
         session: AsyncSession, user_id: int
     ) -> List[Subscription]:
-        """Get active subscriptions for user."""
+        """Get active subscriptions for user (including lifetime subscriptions)."""
         now = datetime.utcnow()
         result = await session.execute(
             select(Subscription)
             .where(Subscription.user_id == user_id)
             .where(Subscription.status.in_(["active", "trialing"]))
-            .where(Subscription.expires_at > now)
+            .where(
+                (Subscription.expires_at.is_(None)) |  # Lifetime subscription
+                (Subscription.expires_at > now)  # Or not expired yet
+            )
         )
         return list(result.scalars().all())
 
