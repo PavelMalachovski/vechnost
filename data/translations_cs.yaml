@@ -1,6 +1,41 @@
 # Czech UI translations
 welcome:
   language_prompt: "Vyberte jazyk pro začátek hry"
+
+  # Nová strukturovaná uvítací stránka
+  greeting_title: "VECHNOST"
+  greeting_subtitle: "Hra, která mění vztahy"
+
+  # Sekce (jako na screenshotu)
+  section_connection_title: "💕 SPOJENÍ"
+  section_connection_text: "Jedno herní sezení nahradí měsíce povrchní komunikace. Otázky a úkoly od zkušených psychologů vám pomohou překročit hranice běžných rozhovorů a porozumět si na hluboké úrovni."
+
+  section_intimacy_title: "🔥 INTIMITA"
+  section_intimacy_text: "Nedaří se vám diskutovat o intimních tématech? Uvnitř VECHNOST je bezpečný prostor pro otevřené rozhovory. Budete moci diskutovat o svých touhách a fantaziích bez studu, pomocí připravených otázek."
+
+  section_themes_title: "🎭 4 BALÍČKY"
+  section_themes_text: "Uvnitř na vás čekají čtyři směry: Seznámení pro nové páry, Pro páry pro prohloubení vztahu, Sex pro intimní rozhovory a Provokace pro ty, kdo jsou připraveni na nečekaná objevení."
+
+  section_new_title: "✨ NOVÉ MYŠLENÍ"
+  section_new_text: "Již za 1 měsíc to zcela změní vaše myšlení. Bez náhlých změn. Vozy pro ženy a příležitosti."
+
+  section_best_title: "🌟 NEJLEPŠÍ PROSTŘEDÍ"
+  section_best_text: "Váš vztah odráží vaše prostředí. VECHNOST vytváří prostor, kde se můžete otevřít jeden druhému, sdílet sny a obavy, stát se blíže. Zde se rodí skutečná blízkost."
+
+  # Tlačítka
+  button_start: "VSTOUPIT DO VECHNOST ←"
+  button_inside: "CO VÁS ČEKÁ UVNITŘ?"
+  button_why: "PROČ TO FUNGUJE?"
+
+  # Další obrazovky
+  inside_title: "🎮 CO JE UVNITŘ VECHNOST?"
+  inside_text: "📋 <b>Stovky otázek</b> od psychologů\n• Různé úrovně hloubky\n• Od lehkých po provokativní\n\n🎭 <b>4 témata na výběr:</b>\n• Seznámení\n• Pro páry\n• Sex\n• Provokace\n\n🔒 <b>Plné soukromí</b>\n• Nikdo neuvidí vaše odpovědi\n• Vše zůstává mezi vámi\n\n💬 <b>Bezpečný prostor</b>\n• Diskutujte o tom, o čem jste mlčeli\n• Poznejte se hlouběji"
+
+  why_title: "💡 PROČ TO FUNGUJE?"
+  why_text: "✅ <b>Vědecký přístup</b>\nOtázky vyvinuté s ohledem na psychologii vztahů\n\n✅ <b>Postupné prohlubování</b>\nOd jednoduchých témat ke složitým - vy si vyberete tempo\n\n✅ <b>Bez tlaku</b>\nNikdo vás nenutí odpovídat - pouze to, co je pohodlné\n\n✅ <b>Funguje pro všechny</b>\n• Nové páry se poznají\n• Dlouhodobé páry znovu rozzáří jiskru\n• Páry v krizi najdou východisko\n\n💬 Rozhovory, které mění vztahy"
+  button_back: "← Zpět"
+
+  # Stará verze (pro případ, že se používá jinde)
   welcome_message: "Vítejte ve VECHNOST 💕\n\nHra pro páry vytvořená k:\n opravdovému poznání sebe navzájem\n překročení hranic běžných rozhovorů\n objevení nových stránek sebe a partnera\n\nVyberte jeden z balíčků a otevřete nový svět:\n✨ Pro seznamování a první schůzky\n♥️ Pro páry a budování intimity\n❤️‍🔥 Provokace — neočekávané otázky odhalující hloubku\n🔥 Sex a provokační blok"
 
 language:
@@ -55,7 +90,7 @@ help:
   title: "📖 Nápověda"
   themes: "🎴 Témata:\n• Seznámení - otázky pro seznámení\n• Pro páry - otázky pro páry\n• Sex - intimní otázky a úkoly\n• Provokace - provokativní otázky\n\n"
   how_to_play: "🎮 Jak hrát:\n1. Vyberte téma\n2. Zvolte úroveň obtížnosti\n3. Odpovídejte na otázky postupně\n4. Diskutujte o odpovědích mezi sebou\n\n"
-  commands: "⌨️ Příkazy:\n/start - začít hru\n/help - zobrazit nápovědu\n/reset - resetovat hru"
+  commands: "⌨️ Příkazy:\n/start - začít hru\n/about - o botovi\n/help - zobrazit nápovědu\n/reset - resetovat hru"
 
 errors:
   invalid_theme: "❌ Neplatné téma"
@@ -63,3 +98,51 @@ errors:
   unknown_callback: "❌ Neznámý příkaz"
   content_unavailable: "❌ Obsah není k dispozici"
   question_unavailable: "❌ Otázka není k dispozici"
+
+payment:
+  required_title: "🔒 Vyžadován přístup"
+  required_message: "Pro použití tohoto bota potřebujete aktivní předplatné nebo platbu.\n\nProsím, vyberte jednu z dostupných možností níže:"
+  purchase_button: "💳 Zakoupit přístup"
+  check_status: "🔄 Zkontrolovat stav platby"
+  support: "💬 Kontaktovat podporu"
+  checking: "🔄 Kontrolujeme váš stav platby..."
+  access_granted: "✅ Přístup povolen! Nyní můžete používat bota."
+  no_active_payment: "❌ Nebylo nalezeno žádné aktivní předplatné.\n\nProsím, zakupte si přístup pro pokračování v používání bota."
+
+about:
+  title: "💎 O VECHNOST"
+  intro: "Hra pro páry vytvořená k:\n• Opravdovému poznání sebe navzájem\n• Překročení hranic běžných rozhovorů\n• Objevení nových stránek sebe a partnera"
+
+  features_title: "✨ Funkce:"
+
+  feature_themes: "🎴 4 jedinečná témata"
+  feature_themes_desc: "Seznámení, Pro páry, Sex, Provokace"
+
+  feature_levels: "📊 Postupné úrovně"
+  feature_levels_desc: "3 úrovně obtížnosti pro postupné prohlubování"
+
+  feature_questions: "💬 Stovky otázek"
+  feature_questions_desc: "Pečlivě vybrané otázky pro hluboké rozhovory"
+
+  feature_tasks: "🎯 Zajímavé úkoly"
+  feature_tasks_desc: "Praktické úkoly pro sblížení"
+
+  feature_privacy: "🔒 Soukromí"
+  feature_privacy_desc: "Všechna data uložena pouze ve vaší relaci"
+
+  feature_languages: "🌍 3 jazyky"
+  feature_languages_desc: "Ruština, Angličtina, Čeština"
+
+  how_it_works: "🎮 Jak to funguje:"
+  step1: "1️⃣ Vyberte téma rozhovoru"
+  step2: "2️⃣ Zvolte úroveň obtížnosti"
+  step3: "3️⃣ Postupně odpovídejte na otázky"
+  step4: "4️⃣ Diskutujte o odpovědích mezi sebou"
+
+  perfect_for: "💕 Ideální pro:"
+  perfect_first_date: "• První rande"
+  perfect_long_relationship: "• Dlouhodobé vztahy"
+  perfect_spice: "• Přidání koření"
+  perfect_deep_talks: "• Hluboké rozhovory"
+
+  cta: "Připraveni začít? Stiskněte /start"

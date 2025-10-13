@@ -109,6 +109,49 @@ async def reset_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
     )
 
 
+async def about_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """Handle the /about command - show information about the bot."""
+    if not update.message:
+        return
+
+    # Get session to determine language
+    chat_id = update.effective_chat.id
+    session = await get_session(chat_id)
+    language = session.language
+
+    # Build about message
+    about_text = (
+        f"{get_text('about.title', language)}\n\n"
+        f"{get_text('about.intro', language)}\n\n"
+        f"{get_text('about.features_title', language)}\n\n"
+        f"{get_text('about.feature_themes', language)}\n"
+        f"{get_text('about.feature_themes_desc', language)}\n\n"
+        f"{get_text('about.feature_levels', language)}\n"
+        f"{get_text('about.feature_levels_desc', language)}\n\n"
+        f"{get_text('about.feature_questions', language)}\n"
+        f"{get_text('about.feature_questions_desc', language)}\n\n"
+        f"{get_text('about.feature_tasks', language)}\n"
+        f"{get_text('about.feature_tasks_desc', language)}\n\n"
+        f"{get_text('about.feature_privacy', language)}\n"
+        f"{get_text('about.feature_privacy_desc', language)}\n\n"
+        f"{get_text('about.feature_languages', language)}\n"
+        f"{get_text('about.feature_languages_desc', language)}\n\n"
+        f"{get_text('about.how_it_works', language)}\n"
+        f"{get_text('about.step1', language)}\n"
+        f"{get_text('about.step2', language)}\n"
+        f"{get_text('about.step3', language)}\n"
+        f"{get_text('about.step4', language)}\n\n"
+        f"{get_text('about.perfect_for', language)}\n"
+        f"{get_text('about.perfect_first_date', language)}\n"
+        f"{get_text('about.perfect_long_relationship', language)}\n"
+        f"{get_text('about.perfect_spice', language)}\n"
+        f"{get_text('about.perfect_deep_talks', language)}\n\n"
+        f"{get_text('about.cta', language)}"
+    )
+
+    await update.message.reply_text(about_text)
+
+
 @track_performance("callback_query")
 async def handle_callback_query(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """Handle callback queries from inline keyboards."""

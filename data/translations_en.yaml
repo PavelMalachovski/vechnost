@@ -1,6 +1,41 @@
 # English UI translations
 welcome:
   language_prompt: "Select your language to start the game"
+
+  # New structured welcome page
+  greeting_title: "VECHNOST"
+  greeting_subtitle: "The game that transforms relationships"
+
+  # Sections (like in screenshot)
+  section_connection_title: "💕 CONNECTION"
+  section_connection_text: "One game session replaces months of superficial communication. Questions and tasks from experienced psychologists will help you go beyond ordinary conversations and understand each other on a deep level."
+
+  section_intimacy_title: "🔥 INTIMACY"
+  section_intimacy_text: "Can't discuss intimate topics? Inside VECHNOST is a safe space for honest conversations. You'll be able to discuss your desires and fantasies without embarrassment, using ready-made questions."
+
+  section_themes_title: "🎭 4 DECKS"
+  section_themes_text: "Four directions await you inside: Acquaintance for new couples, For Couples to deepen relationships, Sex for intimate conversations, and Provocations for those ready for unexpected discoveries."
+
+  section_new_title: "✨ NEW THINKING"
+  section_new_text: "Already in 1 month, it will completely change your thinking. Without abrupt changes. Cars for women and opportunities."
+
+  section_best_title: "🌟 BEST ENVIRONMENT"
+  section_best_text: "Your relationship reflects your environment. VECHNOST creates a space where you can open up to each other, share dreams and fears, become closer. True intimacy is born here."
+
+  # Buttons
+  button_start: "ENTER VECHNOST ←"
+  button_inside: "WHAT AWAITS YOU INSIDE?"
+  button_why: "WHY DOES IT WORK?"
+
+  # Additional screens
+  inside_title: "🎮 WHAT'S INSIDE VECHNOST?"
+  inside_text: "📋 <b>Hundreds of questions</b> from psychologists\n• Different levels of depth\n• From light to provocative\n\n🎭 <b>4 themes to choose from:</b>\n• Acquaintance\n• For Couples\n• Sex\n• Provocations\n\n🔒 <b>Full privacy</b>\n• No one will see your answers\n• Everything stays between you\n\n💬 <b>Safe space</b>\n• Discuss what you've been silent about\n• Get to know each other deeper"
+
+  why_title: "💡 WHY DOES IT WORK?"
+  why_text: "✅ <b>Scientific approach</b>\nQuestions developed with relationship psychology in mind\n\n✅ <b>Gradual deepening</b>\nFrom simple topics to complex - you choose the pace\n\n✅ <b>No pressure</b>\nNo one forces you to answer - only what's comfortable\n\n✅ <b>Works for everyone</b>\n• New couples get to know each other\n• Long-term couples rekindle the spark\n• Couples in crisis find a way out\n\n💬 Conversations that transform relationships"
+  button_back: "← Back"
+
+  # Old version (in case it's used elsewhere)
   welcome_message: "Welcome to VECHNOST 💕\n\nThe game for couples created to:\n truly get to know each other\n go beyond ordinary conversations\n discover new sides of yourself and your partner\n\nChoose one of the decks and open a new world:\n✨ For dating and first meetings\n♥️ For couples and building intimacy\n❤️‍🔥 Provocations — unexpected questions that reveal depth\n🔥 Sex & provocation block"
 
 language:
@@ -55,7 +90,7 @@ help:
   title: "📖 Help"
   themes: "🎴 Themes:\n• Acquaintance - questions for getting to know each other\n• For Couples - questions for couples\n• Sex - intimate questions and tasks\n• Provocation - provocative questions\n\n"
   how_to_play: "🎮 How to play:\n1. Choose a theme\n2. Select difficulty level\n3. Answer questions one by one\n4. Discuss answers with each other\n\n"
-  commands: "⌨️ Commands:\n/start - start the game\n/help - show help\n/reset - reset the game"
+  commands: "⌨️ Commands:\n/start - start the game\n/about - about the bot\n/help - show help\n/reset - reset the game"
 
 errors:
   invalid_theme: "❌ Invalid theme"
@@ -63,3 +98,51 @@ errors:
   unknown_callback: "❌ Unknown command"
   content_unavailable: "❌ Content unavailable"
   question_unavailable: "❌ Question unavailable"
+
+payment:
+  required_title: "🔒 Access Required"
+  required_message: "To use this bot, you need an active subscription or payment.\n\nPlease choose one of the available options below:"
+  purchase_button: "💳 Purchase Access"
+  check_status: "🔄 Check Payment Status"
+  support: "💬 Contact Support"
+  checking: "🔄 Checking your payment status..."
+  access_granted: "✅ Access granted! You can now use the bot."
+  no_active_payment: "❌ No active subscription found.\n\nPlease purchase access to continue using the bot."
+
+about:
+  title: "💎 About VECHNOST"
+  intro: "A game for couples created to:\n• Truly get to know each other\n• Go beyond ordinary conversations\n• Discover new sides of yourself and your partner"
+
+  features_title: "✨ Features:"
+
+  feature_themes: "🎴 4 Unique Themes"
+  feature_themes_desc: "Acquaintance, For Couples, Sex, Provocation"
+
+  feature_levels: "📊 Progressive Levels"
+  feature_levels_desc: "3 difficulty levels for gradual deepening"
+
+  feature_questions: "💬 Hundreds of Questions"
+  feature_questions_desc: "Carefully selected questions for deep conversations"
+
+  feature_tasks: "🎯 Interesting Tasks"
+  feature_tasks_desc: "Practical tasks for getting closer"
+
+  feature_privacy: "🔒 Privacy"
+  feature_privacy_desc: "All data stored only in your session"
+
+  feature_languages: "🌍 3 Languages"
+  feature_languages_desc: "Russian, English, Czech"
+
+  how_it_works: "🎮 How it works:"
+  step1: "1️⃣ Choose a conversation theme"
+  step2: "2️⃣ Select difficulty level"
+  step3: "3️⃣ Take turns answering questions"
+  step4: "4️⃣ Discuss answers with each other"
+
+  perfect_for: "💕 Perfect for:"
+  perfect_first_date: "• First dates"
+  perfect_long_relationship: "• Long-term relationships"
+  perfect_spice: "• Adding spice"
+  perfect_deep_talks: "• Deep conversations"
+
+  cta: "Ready to start? Press /start"
