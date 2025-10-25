@@ -1,322 +1,323 @@
+# questions_cs.yaml
 themes:
   Acquaintance:
     levels:
       1:
         questions:
-        - Jaká je tvoje nejvýznamnější vzpomínka v životě? Proč?
-        - Jaký byl tvůj první dojem ze mě? Na co jsi si všiml/a nejdříve - na vzhled nebo chování?
-        - Jaká tvoje akce byla nejdůležitější v životě? Osudová nebo přelomová.
+        - Jaká je tvá nejvýznamnější vzpomínka v životě? Proč?
+        - Jaký byl tvůj první dojem ze mě? Všiml(a) sis spíš mého vzhledu, nebo chování?
+        - Jaký tvůj čin byl v životě nejdůležitější? Osudový nebo přelomový.
         - Věříš v osud?
-        - Co pro tebe znamená svoboda a čeho jsi ochoten/ochotna se vzdát za ni?
-        - Která postava z filmu, seriálu nebo kresleného filmu se stala tvým prototypem?
-        - Kdybys byl/a antagonistou se super schopnostmi, které by sis vybral/a a jak bys je používal/a pro své účely?
-        - Myslíš si, že je přijatelné obracet se na rodiče o peníze v dospělosti? Proč?
-        - Jak se stavíš k alkoholu a cigaretám?
-        - Mluvíš o svých pocitech s jinými lidmi?
-        - Jaký je tvůj oblíbený a nejúčinnější způsob relaxace po náročném dni?
-        - Jaký "červený prapor" si všimneš u lidí jako první?
+        - Co pro tebe znamená svoboda a co jsi ochoten(na) za ni obětovat?
+        - Která postava z filmu, seriálu nebo animáku je tvým prototypem?
+        - Kdybys byl(a) záporákem s nadpřirozenými schopnostmi, jaké bys sis vybral(a) a jak bys je využil(a) ke svým cílům?
+        - Považuješ za přijatelné žádat rodiče o peníze v dospělosti? Proč?
+        - Jaký je tvůj vztah k alkoholu a cigaretám?
+        - Mluvíš s ostatními o svých pocitech?
+        - Jaký je tvůj oblíbený a nejefektivnější způsob, jak se uvolnit po těžkém dni?
+        - Jaký „červený praporek“ u lidí si všimneš jako první?
         - Máš oblíbenou karetní nebo deskovou hru? (Kromě Vechnost)
-        - Jaké své vlastnosti považuješ za nejcennější? Proč?
-        - Kdy budeš připraven/a na manželství? Kolik času, podle tebe, je potřeba k pochopení, že toto je tvůj budoucí manžel/manželka?
-        - Máš domácího mazlíčka? Co bys udělal/a, kdyby tvůj partner ublížil tvému mazlíčkovi?
+        - Které své vlastnosti považuješ za nejcennější? Proč?
+        - Kdy budeš připraven(á) na manželství? Jak dlouho podle tebe trvá, než pochopíš, že je to tvůj budoucí manžel(ka)?
+        - Máš domácí zvíře? Co bys dělal(a), kdyby tvůj partner urazil tvého mazlíčka?
         - Máš koníček, o kterém málokdo ví?
-        - Kdybys měl/a možnost stát se na jeden den jiným člověkem, kdo by to byl?
-        - Jak se stavíš k věkovému rozdílu mezi partnery? Řekni mi o svých myšlenkách o vztazích, když je partner mladší, starší nebo když je rozdíl více než 15 let.
+        - Kdyby ses na jeden den mohl(a) stát někým jiným, kdo by to byl?
+        - Jaký je tvůj názor na věkový rozdíl mezi partnery? Pověz mi o svých myšlenkách na vztahy, když je partner mladší, starší nebo když je rozdíl větší než 15 let.
         - Jak si představuješ ideální rovnováhu mezi prací a osobním životem?
-        - Kdybys mohl/a vybrat jednu super schopnost, co by to bylo? Proč?
-        - Máš oblíbené filmy a seriály, které můžeš sledovat mnohokrát?
-        - S jakou vůní mě spojuješ? Proč?
-        - Vyprávěj o nejlepším dni svého života.
+        - Kdyby sis mohl(a) vybrat jednu nadpřirozenou schopnost, co by to bylo? Proč?
+        - Máš oblíbené filmy nebo seriály, které můžeš sledovat znovu a znovu?
+        - S jakou vůní se ti spojuji? Proč?
+        - Pověz mi o nejlepším dni svého života.
         - Máš oblíbený svátek? Pokud ano, jaký a proč?
-        - Vyprávěj o svém denním režimu a proč se ho držíš. Jak důležité je pro tebe, aby se náš denní rozvrh shodoval?
-        - Máš možnost se okamžitě naučit cokoliv. Co by to bylo?
-        - Jak se stavíš k "lehkým" drogám?
-        - Jsi spíše minimalistou nebo preferuješ hojnost ve všem?
-        - Máš pravidla nebo principy v životě, kterých se držíš?
+        - Pověz mi o svém denním rozvrhu a proč ho dodržuješ. Jak důležité je pro tebe, aby se náš denní rozvrh shodoval?
+        - Kdyby ses mohl(a) okamžitě něco naučit, co by to bylo?
+        - Jaký je tvůj názor na „lehké“ drogy?
+        - Jsi spíš minimalista, nebo preferuješ hojnost ve všem?
+        - Máš v životě pravidla nebo zásady, kterých se držíš?
       2:
         questions:
-        - V jakém okamžiku si uvědomíš, že chceš být ve vztahu s konkrétním člověkem?
-        - Vyprávěj o sobě, co obvykle nevyprávíš, ale nejlépe tě to popisuje.
-        - Jakou vlastnost u lidí si ceníš nejvíce? Proč? Jakou potřebu ti to naplňuje?
-        - Jak důležité je pro tebe být podporován ve vztazích? Jaká slova, akce ti pomáhají zvládat obtíže?
-        - Lež "pro dobro" nebo pravda vedoucí k obtížnému rozhovoru?
-        - Jaké lidé a události ovlivnily tvůj život nejvíce? Vyprávěj o několika.
-        - Jak zvládáš silný stres a úzkost? Potřebuješ v takových chvílích podporu?
-        - Je něco, co už dlouho chceš zkusit, ale chybí ti odvaha?
-        - V jakých situacích se cítíš nejjistěji? Co ti pomáhá cítit tuto jistotu?
-        - Máš vzpomínku, kterou si přehráváš v hlavě znovu a znovu?
-        - Jaká lekce z minulých vztahů nebo přátelství tě donutila přehodnotit své principy?
-        - Jaké červené prapory jsou v tobě?
-        - Kdyby se partner pokusil tě přesvědčit udělat něco, co skutečně chceš, poslechl/a bys ho? Proč? Co si myslíš, že za tím stojí?
+        - V jakém okamžiku si uvědomíš, že chceš být ve vztahu s konkrétní osobou?
+        - Pověz mi o sobě něco, co obvykle neříkáš, ale nejlépe tě vystihuje.
+        - Jakou vlastnost u lidí si vážíš nejvíc? Proč? Jakou tvou potřebu to naplňuje?
+        - Jak je pro tebe důležité, aby tě ve vztahu podporovali? Jaká slova nebo činy ti pomáhají zvládat obtíže?
+        - Lež „pro dobro“ věci, nebo pravda, která vede k těžkému rozhovoru?
+        - Kteří lidé a události nejvíce ovlivnili tvůj život? Pověz mi o několika z nich.
+        - Jak se vyrovnáváš s velkým stresem a úzkostí? Potřebuješ v takových chvílích podporu?
+        - Je něco, co už dlouho chceš vyzkoušet, ale chybí ti odvaha?
+        - V jakých situacích se cítíš nejvíce sebejistě? Co ti pomáhá tuto sebejistotu cítit?
+        - Máš vzpomínku, kterou si v hlavě přehráváš znovu a znovu?
+        - Jaká lekce z minulých vztahů nebo přátelství tě donutila přehodnotit své zásady?
+        - Jaké červené praporky máš sám(a) v sobě?
+        - Pokud by tě partner přesvědčoval, abys neudělal(a) něco, po čem opravdu toužíš, poslechl(a) bys ho? Proč? Co za tím podle tebe stojí?
         - 'Psychoterapie ve vztazích: pro nebo proti? Proč?'
-        - Kdybys měl/a možnost změnit jednu událost v životě, co by sis vybral/a? Proč?
-        - Jaké máš vztahy s rodinou? Jak tě ovlivňují teď?
-        - Je koníček, který v tobě vyvolává pocit trapnosti nebo hanby?
+        - Kdyby ses mohl(a) vrátit a změnit jednu událost ve svém životě, co by to bylo? Proč?
+        - Jaké jsou tvé vztahy s rodinou? Jak tě teď ovlivňují?
+        - Máš koníček, který ti připadá trapný nebo tě zahanbuje?
         - Jak zvládáš konflikty a nedorozumění? Jak vyjadřuješ svůj hněv nebo agresi v takových chvílích?
-        - Co bys navrhl/a pro zvláštní rande?
-        - Jaká akce jiného člověka na tebe udělala nejsilnější dojem? Proč?
-        - Jaké sny chceš splnit v příštích 2-3 letech?
-        - Kolik času potřebuješ k přijetí důležitého rozhodnutí? Jsi člověk okamžiku - nebo je pro tebe důležité vše promyslet, pocítit, zvážit?
-        - Co je pro tebe důležitější ve vztazích - pohodlí nebo vzájemný rozvoj?
-        - Jsi taktilní člověk? Jsou pro tebe důležité tělesné projevy něhy a lásky? Kdy se natahuješ po dotyku - chceš blízkost nebo pokračování? Jde ti o lásku nebo o záchranu před samotou skrze tělo?
-        - Jaké jsou tvoje tabu ve vztazích?
-        - Kdyby byl jeden den, kdy se vše točí kolem tebe - co bys chtěl/a, aby lidé dělali?
-        - Jak často si myslíš, že je důležité dávat dívce květiny ve vztahu?
-        - Je možný oddělený odpočinek a cesty ve vztazích? Proč?
-        - Co pro tebe znamená "pracovat na vztazích"? Jsi připraven/a to dělat? Jak důležité je to pro tebe?
-        - V jaké situaci bys byl/a připraven/a porušit nejdůležitější pravidlo ve svém životě?
+        - Co bys navrhl(a) na výjimečné rande?
+        - Jaký čin druhého člověka na tebe udělal největší dojem? Proč?
+        - Jaké sny chceš uskutečnit v příštích 2–3 letech?
+        - Kolik času potřebuješ, abys přijal(a) důležité rozhodnutí? Jsi člověk okamžiku, nebo potřebuješ vše promyslet, procítit, zvážit?
+        - Co je pro tebe ve vztazích důležitější – pohodlí, nebo společný rozvoj?
+        - Jsi kontaktní člověk? Jsou pro tebe důležité fyzické projevy něhy a lásky? Když toužíš po dotecích, hledáš blízkost, nebo pokračování? Jde ti o lásku, nebo o útěk před osamělostí přes tělo?
+        - Jaká jsou tvá tabu ve vztazích?
+        - Kdyby byl jeden den, kdy se vše točí kolem tebe, co bys chtěl(a), aby lidé dělali?
+        - Jak často považuješ za důležité dávat dívce květiny ve vztahu?
+        - Je možné mít oddělenou dovolenou nebo výlety ve vztahu? Proč?
+        - Co pro tebe znamená „pracovat na vztazích“? Jsi ochoten(na) to dělat? Jak je to pro tebe důležité?
+        - V jaké situaci bys byl(a) ochoten(na) porušit nejdůležitější pravidlo svého života?
       3:
         questions:
-        - Jak se stavíš k přátelství s opačným pohlavím? Myslíš si, že je možné přátelství mezi dívkou a chlapcem?
-        - Co by se ti muselo stát, abys přestal/a věřit v to, v co jsi kdysi věřil/a celým srdcem? Co v tobě zemřelo spolu s tou událostí?
-        - Jak se s tebou zacházelo, když jsi byl/a rozrušen/a? Jak chceš, abych to dělal/a já?
-        - Co můžeš prožít výhradně o samotě?
-        - Máš strach, který nazýváš "fobií", abys nepřijal/a, že je to tvoje rána? Co bys cítil/a, kdybys přestal/a se bát?
-        - Co pro tebe znamená láska? Kdy jsi naposledy cítil/a, že tě milují ne za něco, ale prostě proto, že existuješ? Co potřebuješ, abys sám/a pocítil/a to k sobě - a daroval/a to druhému?
-        - Myslíš si, co je důležitější - rodina, kterou si vytváříš sám/a, nebo rodina, ve které jsi vyrostl/a?
-        - Vyprávěj o události, která tě donutila pochybovat o lidstvu a lidskosti.
-        - Přemýšlel/a jsi někdy, že touha po cigaretě nebo skleničce není jen zvyk, ale odezva na něco uvnitř? Co ti v těchto chvílích chybí? Co chceš utlumit?
-        - 'Co je pro tebe děsivější - zůstat nepochopen/a nebo dovolit někomu, aby tě skutečně viděl? Kdy jsi naposledy někomu řekl/a: "Bolí mě to" - a nelitoval/a jsi toho?'
-        - Nejnemorálnější akce, která ti přináší potěšení.
-        - Kdybys mohl/a se vrátit do minulosti - dal/a bys si radu nebo bys prostě objal/a toho, kým jsi byl/a tehdy? Co ti skutečně chybí - ztracená volba, uplynulý čas nebo ty sám/a?
-        - 'A jaké stránky skrýváš, protože se bojíš: kdyby ses je ukázal/a, přestali by tě milovat?'
-        - Co je pro tebe důležitější - být v právu v tom, co je pro tebe skutečně důležité, nebo zachovat vztahy?
-        - Jak rozlišuješ lásku od zamilovanosti? Jak rozumíš, že jsi se zamiloval/a do člověka?
-        - Jaká situace tě změnila/zlomila tak, že ses stal/a jiným člověkem - ale nikdo si toho nevšiml?
-        - Jak zvládáš pocit samoty?
-        - Máš sen nebo cíl, který jsi splnil/a, ale stále v tobě vyvolává silné emoce?
-        - Jak se stavíš k volným vztahům? Kde končí flirtování a začíná nevěra?
-        - V jakých chvílích se cítíš nejzranitelnější?
-        - Rozpoznáváš, když s tebou manipulují? Jak to chápeš? Co děláš, když se s tím setkáš?
-        - Co dělá člověka skutečně silným? Co tě udělalo silným/silnou?
-        - Jak by ses stavěl/a k dětem partnera z předchozích vztahů?
-        - 'Co tě může zklamat? Co se musí stát, abys si řekl/a: "Věřil/a jsem zbytečně"? A proč se část tebe stále bojí podvodu, jako by to nebylo poprvé?'
-        - Je v tvém životě čin, za který se skutečně stydíš - ne proto, že jsi byl/a špatný/á, ale proto, že ses cítil/a slabý/slabá? V tomto příběhu jsi skutečně byl/a obětí... nebo je to jen způsob, jak nevidět, jak jsi zranil/a druhého?
-        - Jak rozumíš, že je čas jít dál v životě nebo něco dokončit? Co se stává signálem pro tebe?
-        - Co bylo světlé a teplé v tvém dětství, a co naopak vyvolávalo úzkost nebo strach?
-        - Jak reaguješ na odmítnutí? Spáchal/a jsi někdy nemorální činy, jako je pronásledování nebo obsedantní chování po rozchodu? Jak se k tomu teď stavíš?
-        - Co ti v životě dává pocit autentičnosti, skutečnosti - jako bys skutečně žil/a?
-        - Jako znak důvěry se se mnou poděl o tajemství, které odhaluje tvá zranitelná (bolavá) místa.
-  "For Couples":
+        - Jaký je tvůj názor na přátelství s opačným pohlavím? Považuješ za možné přátelství mezi dívkou a chlapcem?
+        - Co by se ti muselo stát, abys přestal(a) věřit v něco, v co jsi dříve věřil(a) celým srdcem? Co v tobě zemřelo spolu s tou událostí?
+        - Jak s tebou zacházeli, když jsi byl(a) rozrušený(á)? Jak bys chtěl(a), abych to dělal(a) já?
+        - Co můžeš přežít jen v osamění?
+        - Máš strach, který nazýváš „fobií“, abys nepřiznal(a), že je to tvá rána? Co bys cítil(a), kdyby ses přestal(a) bát?
+        - Co pro tebe znamená láska? Kdy jsi naposledy cítil(a), že tě někdo miluje ne pro něco, ale prostě proto, že jsi? Co potřebuješ, abys to cítil(a) sám(a) k sobě – a mohl(a) to darovat druhému?
+        - Co je podle tebe důležitější – rodina, kterou si sám(a) vytvoříš, nebo rodina, ve které jsi vyrostl(a)?
+        - Pověz mi o události, která tě přiměla pochybovat o lidstvu a lidskosti.
+        - Přemýšlel(a) jsi někdy, že touha po cigaretě nebo sklence není jen zvyk, ale reakce na něco uvnitř tebe? Co ti v těch chvílích chybí? Co chceš potlačit?
+        - Co je pro tebe děsivější – zůstat nepochopený(á), nebo dovolit někomu, aby tě skutečně viděl? Kdy jsi naposledy někomu řekl(a): „Bolí mě to“ – a nelitoval(a) jsi toho?
+        - Nejméně morální čin, který ti přináší potěšení.
+        - Kdyby ses mohl(a) vrátit do minulosti, dal(a) bys si radu, nebo bys jen objal(a) toho, kým jsi tehdy byl(a)? Co ti opravdu chybí – ztracená volba, uplynulý čas, nebo ty sám(a)?
+        - Jaké své stránky skrýváš, protože se bojíš, že když je ukážeš, přestanou tě milovat?
+        - Co je pro tebe důležitější – mít pravdu v tom, co je pro tebe opravdu důležité, nebo zachovat vztah?
+        - Jak rozlišuješ lásku od zamilovanosti? Jak poznáš, že jsi někoho miloval(a)?
+        - Jaká situace tě změnila/zlomila tak, že ses stal(a) jiným člověkem – ale nikdo si toho nevšiml?
+        - Jak se vyrovnáváš s pocitem osamělosti?
+        - Máš sen nebo cíl, který ses uskutečnil(a), ale stále v tobě vyvolává silné emoce?
+        - Jaký je tvůj názor na volné vztahy? Kde končí flirt a začíná nevěra?
+        - V jakých chvílích se cítíš nejvíce zranitelný(á)?
+        - Rozpoznáš, když s tebou někdo manipuluje? Jak to poznáš? Co děláš, když se s tím setkáš?
+        - Co dělá člověka skutečně silným? Co tě udělalo silným(ou)?
+        - Jak bys se choval(a) k dětem partnera z předchozích vztahů?
+        - Co tě dokáže zklamat? Co by se muselo stát, abys si řekl(a): „Marně jsem věřil(a)“? A proč část tebe stále má strach z podvodu, jako by to nebylo poprvé?
+        - Máš v životě čin, za který se opravdu stydíš – ne proto, že jsi byl(a) špatný(á), ale proto, že ses cítil(a) slabý(á)? V tom příběhu jsi byl(a) skutečně obětí… nebo je to jen způsob, jak nevidět, že jsi ublížil(a) někomu jinému?
+        - Jak poznáš, že je čas jít dál nebo něco ukončit? Co je pro tebe signálem?
+        - Co bylo v tvém dětství světlé a teplé a co naopak vyvolávalo úzkost nebo strach?
+        - Jak reaguješ na odmítnutí? Dopustil(a) ses někdy nemorálních činů, například pronásledování nebo dotěrného chování po rozchodu? Jak k tomu teď přistupuješ?
+        - Co v životě ti dává pocit autentičnosti, skutečnosti – jako bys opravdu žil(a)?
+        - Jako důkaz důvěry se se mnou poděl o tajemství, které odhaluje tvá zranitelná (bolestivá) místa.
+  For Couples:
     levels:
       1:
         questions:
-        - Jaký byl tvůj první dojem z partnera? Co tě nejvíce přitahovalo?
-        - Co je nejromantičtější věc, kterou pro tebe partner udělal?
-        - Jaký je nejroztomilejší zvyk tvého partnera?
-        - Co je nejzábavnější věc, která se vám stala jako páru?
-        - Jaká je největší síla tvého partnera?
-        - Jaký je tvůj oblíbený způsob trávení času spolu?
-        - Jaký je nejotravnější zvyk tvého partnera?
-        - Co je nejdůležitější věc, kterou ses naučil/a od svého partnera?
-        - Jaký je největší strach tvého partnera?
-        - Jaká je tvoje oblíbená vzpomínka spolu?
-        - Jaký je největší sen tvého partnera?
-        - Co je nejdůležitější věc ve vašem vztahu?
-        - Jaká je největší slabost tvého partnera?
-        - Co je tvoje oblíbené na partnerovi?
-        - Co je nejdůležitější věc, kterou chceš dosáhnout spolu?
-        - Jaký je největší úspěch tvého partnera?
-        - Jaký je tvůj oblíbený způsob projevu lásky?
-        - Co je nejdůležitější věc, kterou jsi naučil/a svého partnera?
-        - Jaká je největší výzva tvého partnera?
-        - Jaký je tvůj oblíbený způsob přijímání lásky?
-        - Co je nejdůležitější věc, kterou ses o sobě naučil/a prostřednictvím vztahu?
-        - Jaké je největší překvapení tvého partnera pro tebe?
-        - Jaký je tvůj oblíbený způsob řešení konfliktů?
-        - Co je nejdůležitější věc, kterou chceš změnit na vašem vztahu?
-        - Jaká je největší podpora tvého partnera pro tebe?
-        - Jaký je tvůj oblíbený způsob oslavování spolu?
-        - Co je nejdůležitější věc, kterou chceš zachovat ve vašem vztahu?
-        - Co je největší inspirací tvého partnera pro tebe?
-        - Jaký je tvůj oblíbený způsob komunikace?
-        - Co je nejdůležitější věc, kterou chceš budovat spolu?
+        - Jakou událost se mnou si neustále přehráváš v hlavě a chceš si ji pamatovat navždy? Proč?
+        - Které naše společné rituály jsou pro tebe nejcennější?
+        - Jak poznáš, že tě miluji? Jaká slova nebo činy to ukazují?
+        - Chceš se mnou děti?
+        - Jaký je tvůj názor na pomocníky v domácnosti? Existují podle tebe čistě ženské a čistě mužské povinnosti?
+        - Jak se ve vztahu rozdělují role a povinnosti? Jaké jsou funkce muže a ženy? Existují vůbec?
+        - Je něco, co bys chtěl(a) dělat spolu častěji? Pro inspiraci přejdi na sekci „Sex“ 😈.
+        - Co v našem vztahu tě dělá opravdu šťastným(ou)?
+        - Co v našem vztahu považuješ za silnou stránku?
+        - Jsou v našem vztahu vtipné momenty, o kterých vyprávíš přátelům?
+        - Co jsi o mně jako první řekl(a) přátelům?
+        - Co bys chtěl(a) dělat spolu, co jsme ještě nedělali?
+        - Jakým jedním slovem bys popsal(a) náš vztah?
+        - Který vnitřní vtip naší dvojice ti zvedá náladu?
+        - Které drobné projevy lásky z mé strany jsou pro tebe nejpříjemnější?
+        - Jsou nějaká slova, která se ti spojují jen s námi? Proč?
+        - Jsou nějaká slova, která se ti spojují jen se mnou? Proč?
+        - Který moment našeho vztahu tě donutil být hrdý(á) na nás jako pár?
+        - Čeho ti v našem vztahu a životě chybí, abys se cítil(a) šťastnější?
+        - Jaké společné návyky bys chtěl(a) do našeho vztahu přinést? Proč?
+        - Které naše rande ti připadalo jako nejromantičtější? Proč?
+        - Líbí(lo) se ti, když ti posílám intimní fotky?
+        - Který můj kompliment je pro tebe nejdůležitější? Proč? Chceš, abych ho častěji opakoval(a)?
+        - Který moment v našem vztahu ukázal, že mi můžeš plně důvěřovat?
+        - Které momenty našeho vztahu tě udělaly sebejistější?
+        - Jak se cítíš, když se neshodneme na názorech?
+        - Jak se tvůj život změnil v našem vztahu?
+        - Jak si představuješ náš společný život ve stáří?
+        - Jaký je tvůj názor na přestěhování do zahraničí? Která země by pro tebe mohla být vhodná? Jaká kritéria jsou pro tebe při výběru místa důležitá?
+        - Co chceš, aby si o tobě lidé mysleli? A co se stane, pokud si budou myslet něco jiného? Kým se bojíš ve skutečnosti být?
       2:
         questions:
-        - Jakou roli hrají přátelé ve vašem vztahu? Jsou pro tebe stejně důležití jako tvůj partner?
-        - Co by tě mohlo přimět pochybovat o mých citech k tobě?
-        - Co je ve vašem vztahu pro tebe obtížné, o čem mlčíš, protože se bojíš, že když to řekneš, všechno se rozpadne? Co skrýváš za "všechno je v pořádku", abys mě neztratil/a?
-        - Jaké mé projevy a slova by tě mohly zranit nebo urazit?
-        - Jaké jsou tvé principy výchovy dětí? Co je pro tebe přijatelné a co ne?
+        - Jakou roli hrají přátelé v našem vztahu? Jsou pro tebe stejně důležitými společníky v životě jako tvůj partner(ka)?
+        - Co by tě mohlo přimět pochybovat o mých citech?
+        - Co v našem vztahu ti připadá těžké, o čem mlčíš, protože se bojíš, že když to řekneš, vše se zhroutí? Co skrýváš za „vše je v pořádku“, abys mě neztratil(a)?
+        - Které mé projevy a slova tě mohou zranit nebo urazit?
+        - Jaké jsou tvé zásady při výchově dětí? Co je pro tebe přijatelné a co ne?
         - Jak se ve vztahu rozdělují finance? Jaký formát je pro tebe nejpohodlnější a proč?
-        - Jaký je tvůj největší strach související s dětmi?
-        - Jak se stavíš k adopci/pěstounské péči?
-        - Jak se budou rozdělovat naše povinnosti jako rodičů?
-        - Myslíš si, že je důležité, aby oba rodiče měli ve rodině stejná pravidla, nebo může každý mít svá?
-        - Co jsi připraven/a změnit pro náš vztah?
-        - Které z našich společných cílů považuješ za nejdůležitější? Proč?
-        - Která hádka nebo neshoda mezi námi byla pro tebe nejtěžší?
+        - Jaký je tvůj největší strach spojený s dětmi?
+        - Jaký je tvůj názor na adopci nebo ekologické rodičovství?
+        - Jak si rozdělíme povinnosti jako rodiče?
+        - Považuješ za důležité, aby v rodině měli oba rodiče stejná pravidla, nebo může mít každý svá?
+        - Co jsi ochoten(na) změnit kvůli našemu vztahu?
+        - Které naše společné cíle považuješ za nejdůležitější? Proč?
+        - Která hádka nebo neshoda mezi námi ti připadala nejtěžší?
         - Jakou bolest nebo strachy z minulých vztahů stále přinášíš do našeho vztahu?
-        - Jak bys reagoval/a, kdyby rodiče nebo příbuzní začali zasahovat do našeho vztahu? Jak bys volil/a strany?
-        - Je něco, o čem jsme nikdy nemluvili, ale chtěl/a bys to probrat?
-        - Zklamal/a ses někdy ve mně? Jak to ovlivnilo náš vztah?
-        - Jak se cítíš, když tě nemůžu podpořit?
-        - Jsou chvíle, kdy pochybuješ o našem vztahu? Co děláš?
-        - Je něco, co předemnou skrýváš, i když je to maličkost? Jsou věci, které si necháváš pro sebe, bojíš se mě zranit nebo rozesmutnit?
-        - Jak by ses cítil/a, kdybys byl/a úplně finančně zajištěn/a svým partnerem?
-        - Co považuješ za největší výzvu pro náš pár? Jak se s tím vypořádáváme?
-        - Dokázal/a bys mi úplně důvěřovat v těžké chvíli? Věřit i když všechno mluví proti?
-        - Jaké tvé osobní strachy ovlivňují náš vztah? Jaký strach skrýváš za slovy "jsem prostě takový/á"?
-        - Co je ve vztazích pro tebe nejtěžší a jak to na tebe působí? Jak bys to chtěl/a změnit?
-        - Jaké oběti jsi udělal/a pro náš vztah? Proč ses na ně rozhodl/a?
-        - Zůstal/a bys ve vztahu, kdyby se partner ocitl na vozíčku? Dokázal/a bys se mnou prožít život, vědět, že se to nezmění?
-        - Podporuješ myšlenku osobní terapie pro každého z partnerů ve vztahu? Myslíš si, že je to důležité pro náš rozvoj jako páru?
-        - Jak se stavíš k párové terapii? V případě krizového období v našem vztahu byl/a bys připraven/a obrátit se na odborníka? Proč?
-        - Jako znak důvěry se se mnou poděl o tajemství, které odhaluje tvá zranitelná (bolavá) místa.
+        - Jak bys zareagoval(a), kdyby se do našeho vztahu začali vměšovat rodiče nebo příbuzní? Čí stranu bys si vybral(a)?
+        - Je něco, o čem jsme nikdy nemluvili, ale chtěl(a) bys to probrat?
+        - Zklamal(a) ses ve mně někdy? Jak to ovlivnilo náš vztah?
+        - Jak se cítíš, když tě nejsem schopen(na) podpořit?
+        - Máš chvíle, kdy pochybuješ o našem vztahu? Co děláš?
+        - Je něco, co přede mnou skrýváš, i kdyby to byla drobnost? Jsou věci, které v sobě držíš, protože se bojíš, že mě zraníš nebo rozrušíš?
+        - Jak bys se cítil(a), kdyby tě partner plně finančně zajišťoval(a)?
+        - Co považuješ za největší výzvu pro naši dvojici? Jak s tím zvládáme?
+        - Dokázal(a) bys mi plně důvěřovat v těžké chvíli? Věřit, i když vše mluví proti?
+        - Které tvé osobní strachy ovlivňují náš vztah? Jaký strach skrýváš za slovy „prostě jsem takový(á)“?
+        - Co je v našem vztahu pro tebe nejtěžší a jak tě to ovlivňuje? Jak bys to chtěl(a) změnit?
+        - Jaké oběti jsi kvůli našemu vztahu podstoupil(a)? Proč ses pro ně rozhodl(a)?
+        - Zůstal(a) bys ve vztahu, kdyby byl partner na invalidním vozíku? Dokázal(a) bys se mnou žít život, věda, že se to nezmění?
+        - Podporuješ myšlenku individuální terapie pro každého z partnerů ve vztahu? Považuješ to za důležité pro náš rozvoj jako páru?
+        - Jaký je tvůj názor na rodinnou terapii? V případě krizového období v našem vztahu bys byl(a) ochoten(na) vyhledat odborníka? Proč?
+        - Jako důkaz důvěry se se mnou poděl o tajemství, které odhaluje tvá zranitelná (bolestivá) místa.
       3:
         questions:
-        - Jaké rodinné tradice bys chtěl/a mít v naší rodině? Co budeme dělat spolu, včetně našich dětí?
-        - Jaké akce vůči jiným lidem bys považoval/a za nevěru? Kde, podle tvého názoru, končí flirtování a začíná nevěra? Myslíš si, že je vhodné flirtovat s jinými lidmi?
-        - Čeho se bojíš ohledně nevěry? Co je pro tebe nevěra skutečně - zrada těla nebo zrada duše? Bojíš se, že tě oklamou, nebo se bojíš přiznat, že bys sám/sama mohl/a překročit tuto hranici?
-        - Udělal/a jsi někdy něco, co bylo na hranici nevěry podle tvého chápání? Co tě zastavilo?
-        - Měl/a jsi někdy pocity k někomu jinému v našem vztahu?
-        - Jak bychom mohli vyřešit situaci, kdyby se v našem vztahu jednomu z nás líbil někdo jiný? Stojí za to to řešit?
-        - Co považuješ za provokaci a manipulaci ve vztazích a nesneseš to? Jak to chápeš?
-        - Jak bychom se měli chovat u dítěte, když vzniknou konflikty? Je důležité ukázat, jak řešíme konflikt, nebo dělat všechno "za zavřenými dveřmi"?
-        - Myslíš si, že je důležité, aby byli oba rodiče přítomni při porodu dítěte?
-        - Co bys udělal/a, kdyby screening během těhotenství ukázal patologii plodu?
-        - Co bys mi nikdy neodpustil/a? A co bys mi odpustil/a, ale neodpustil/a nikomu jinému?
-        - Odpustil/a bys nevěru?
-        - Stalo se ti někdy, že ses cítil/a osamělý/á vedle mě? V jakých chvílích? Jak ti můžu pomoci se s tím vypořádat? Co na mně se ti tehdy zdálo nedostupné? Chceš, abych se přiblížil/a, nebo chceš, abys mi otevřel/a dveře?
-        - Jaké rysy mého charakteru jsou pro tebe nejtěžší a které se ti nelíbí, ale jsi připraven/a na ně zavírat oči kvůli našemu vztahu?
-        - Máte nějaká očekávání od našeho vztahu? Jaká kritéria byste chtěl/a, abych dodržoval/a?
-        - Chcete, abych splnil/a vaše očekávání, nebo abych zůstal/a sám/sama sebou, i když to není vždy pohodlné?
-        - Vidíte nás spolu za 1, 5 nebo 10 let? Pokud ano, jak přesně?
-        - Jak plánujete podporovat rodiče, když zestárnou a nebudou se moci sami živit?
-        - Co si myslíte o tom, že se k nám rodiče přestěhují, když zestárnou a budou chtít být blíže rodině? Chcete to ze srdce, nebo se bojíte odmítnout a cítit se vinní? Zvete je z lásky, nebo ze strachu, že budete vypadat jako špatný syn/dcera?
-        - Jste schopen/schopna se o mě postarat v případě vážné nemoci nebo invalidity? Co by pro vás bylo nejdůležitější v takové situaci?
-        - Pokud by během porodu museli volit - zachránit život dítěte nebo matky, koho byste vybral/a?
-        - Myslíte si, že je důležité se se mnou dělit o zdravotní problémy, možné potíže, nemoci atd.? Chtěl/a byste vědět, pokud se s mým zdravím děje něco vážného?
-        - Jak se můžeme navzájem podpořit v případě smrti blízké osoby? Jak prožíváte takové chvíle?
-        - Bojíte se smrti? Bojíte se smrti, nebo se bojíte žít život, jako byste nikdy neexistoval/a? Je to strach z konce, nebo strach z promarněného času?
-        - Co můžeme udělat jeden pro druhého, abychom se připravili na smrt jednoho z nás? Co je pro vás důležité v takové situaci? Co byste chtěl/a ode mě slyšet nebo mi říct?
-        - Myslíte si, že je důležité diskutovat o takových momentech, jako je závěť nebo zdravotní pojištění? Pokud byste byli na přístrojích, chtěl/a byste je vypnout, nebo zachovat podporu života?
-        - Co přesně jste dal/a do tohoto vztahu, doufaje, že vás to učiní potřebným/nou?
-        - Co skrýváte uvnitř, protože jste si jistý/á, že pokud to zjistím - ztratíte mou lásku? Chráníte mě před pravdou, nebo sebe před následky?
-        - Dokázal/a byste mě finančně podpořit v případě krizové situace nebo začátku nového projektu? Myslíte si, že je to důležité nebo obtížné ve vztazích?
-        - Co je pro vás skutečná intimita - kontakt těl, myslí nebo duší? A dokážete to zvládnout, když se to skutečně stane?
+        - Jaké rodinné tradice bys chtěl(a), aby byly v naší rodině? Co budeme dělat společně, včetně našich dětí?
+        - Jaké chování vůči jiným lidem bys považoval(a) za nevěru? Kde podle tebe končí flirt a začíná nevěra? Považuješ flirtování s jinými lidmi za přípustné?
+        - Čeho se u nevěry bojíš? Co je pro tebe skutečná nevěra – zrada těla, nebo zrada duše? Bojíš se, že tě někdo podvede, nebo že sám(a) bys mohl(a) tuto hranici překročit?
+        - Udělal(a) jsi někdy něco, co bylo na hranici nevěry podle tvého chápání? Co tě zastavilo?
+        - Cítil(a) jsi někdy během našeho vztahu city k někomu jinému?
+        - Jak bychom vyřešili situaci, kdyby se jednomu z nás líbil někdo jiný? Stojí to za řešení?
+        - Co považuješ za provokaci a manipulaci ve vztazích a co bys netoleroval(a)? Jak to rozpoznáš?
+        - Jak se chovat před dítětem, když vznikne konflikt? Je důležité ukázat, jak konflikt řešíme, nebo vše dělat „za zavřenými dveřmi“?
+        - Považuješ za důležité, aby byli během porodu přítomni oba rodiče?
+        - Co bys dělal(a), kdyby screening během těhotenství ukázal patologii plodu?
+        - Co bys mi nikdy neodpustil(a)? A co bys odpustil(a) mně, ale nikomu jinému?
+        - Odpustil(a) bys nevěru?
+        - Cítil(a) ses někdy osamělý(á) vedle mě? V jakých chvílích? Jak ti mohu pomoci to zvládnout? Co na mně tehdy působilo nedostupně? Chceš, abych byl(a) blíž, nebo abys mi otevřel(a) dveře?
+        - Které mé povahové rysy jsou pro tebe nejtěžší a které ti vadí, ale jsi ochoten(na) je kvůli našemu vztahu přehlížet?
+        - Máš nějaká očekávání od našeho vztahu? Jaká kritéria bys chtěl(a), abych dodržoval(a)?
+        - Chceš, abych splňoval(a) tvá očekávání, nebo abych zůstal(a) sám(sama) sebou, i když to není vždy pohodlné?
+        - Vidíš nás spolu za 1, 5 nebo 10 let? Pokud ano, jak přesně?
+        - Jak plánuješ podporovat rodiče, až zestárnou a nebudou se moci sami o sebe postarat?
+        - Co si myslíš o tom, že by se rodiče k nám přestěhovali, až zestárnou a budou chtít být blíž rodině? Chceš to ze srdce, nebo se bojíš odmítnout a cítit se provinile? Zveš je z lásky, nebo ze strachu, že budeš vypadat jako špatný syn/dcera?
+        - Dokázal(a) bys se o mě postarat v případě vážné nemoci nebo neschopnosti? Co by pro tebe bylo v takové situaci nejdůležitější?
+        - Pokud by během porodu muselo být rozhodnuto – zachránit život dítěti, nebo matce, koho bys vybral(a)?
+        - Považuješ za důležité sdílet se mnou otázky zdraví, možné problémy, nemoci atd.? Chtěl(a) bys vědět, pokud by se s mým zdravím dělo něco vážného?
+        - Jak bychom se mohli navzájem podpořit v případě smrti blízké osoby? Jak tyto chvíle prožíváš?
+        - Bojíš se smrti? Bojíš se smrti, nebo toho, že prožiješ život, jako bys nikdy neexistoval(a)? Je to strach z konce, nebo strach z promarněného času?
+        - Co můžeme udělat jeden pro druhého, abychom se připravili na smrt jednoho z nás? Co je pro tebe v takové situaci důležité? Co bys chtěl(a) ode mě slyšet nebo mi říct?
+        - Považuješ za důležité diskutovat o věcech, jako je závěť nebo zdravotní pojištění? Pokud bys byl(a) na přístroji na udržení života, chtěl(a) bys ho vypnout, nebo pokračovat v udržování života?
+        - Co přesně jsi v tomto vztahu obětoval(a), doufaje, že tě to učiní potřebným(ou)?
+        - Co skrýváš uvnitř, protože jsi přesvědčen(á), že kdybych to věděl(a), ztratil(a) bys mou lásku? Chráníš mě před pravdou, nebo sebe před důsledky?
+        - Dokázal(a) bys mě finančně podpořit v případě krizové situace nebo začátku nového projektu? Považuješ to za důležité nebo těžké ve vztazích?
+        - Co je pro tebe skutečná intimita – kontakt těl, myslí nebo duší? A dokážeš ji unést, když k ní skutečně dojde?
   Sex:
     questions:
-        - Jaká je tvoje největší sexuální fantazie?
-        - Jaká je tvoje oblíbená pozice?
-        - Co tě nejvíce vzrušuje?
-        - Co tě nejvíce odrazuje?
-        - Jaký je tvůj oblíbený způsob dotýkání?
-        - Jaký je tvůj největší sexuální strach?
-        - Jaký je tvůj oblíbený způsob dotýkání partnera?
-        - Jaká je tvoje největší sexuální touha?
-        - Jaký je tvůj oblíbený způsob líbání?
-        - Jaká je tvoje největší sexuální výzva?
-        - Jaký je tvůj oblíbený způsob líbání partnera?
-        - Jaký je tvůj největší sexuální úspěch?
-        - Jaký je tvůj oblíbený způsob svádění?
-        - Jaké je tvoje největší sexuální tajemství?
-        - Jaký je tvůj oblíbený způsob svádění partnera?
-        - Jaká je tvoje největší sexuální lítost?
-        - Jaký je tvůj oblíbený způsob potěšení?
-        - Jaký je tvůj největší sexuální sen?
-        - Jaký je tvůj oblíbený způsob potěšení partnera?
-        - Jaká je tvoje největší sexuální otázka?
-        - Jaký je tvůj oblíbený způsob dominance?
-        - Jaký je tvůj největší sexuální experiment?
-        - Jaký je tvůj oblíbený způsob dominance partnera?
-        - Jaká je tvoje největší sexuální vzpomínka?
-        - Jaký je tvůj oblíbený způsob podřízenosti?
-        - Jaká je tvoje největší sexuální fantazie o partnerovi?
-        - Jaký je tvůj oblíbený způsob dominance?
-        - Jaké je tvoje největší sexuální přání?
-        - Jaký je tvůj oblíbený způsob hravosti?
-        - Co tě nejvíce vzrušuje na partnerovi?
-        - Měl/a jsi někdy sexuální fantazie o příbuzném někoho z tvých spolužáků?
-        - Když jsi chodil/a do školy, měl/a jsi sexuální fantazie o někom ze třídy?
-        - Měl/a jsi někdy sexuální fantazie o někom z tvých příbuzných?
-        - Měl/a jsi fantazie o sexu s někým mnohem starším nebo mladším než ty?
-        - Která pozice ti přináší největší potěšení? Která pozice tě nejvíce vzrušuje?
-        - Sexuální asociace. Který nápoj se ti zdá nejvíce sexuální? Které jídlo?
-        - Jaký je tvůj postoj k análnímu sexu? Měl/a jsi zkušenost s análním sexem?
-        - Chtěl/a bys pozvat třetí osobu do páru? Jak bychom vybírali třetí osobu?
-        - Chtěl/a bys se zúčastnit orgie? Jak se stavíš k takovým večírkům?
-        - Která je tvoje nejcitlivější erotogenní zóna?
-        - Jak rozumíš, že jsi sexuálně nekompatibilní s partnerem?
-        - Věnuješ pozornost partnerovu tělu během sexu? Všímáš si mateřských znamének, jizev, tetování?
-        - Které dotyky tě nejvíce vzrušují?
-        - Které akce tvého partnera tě nejvíce vzrušují, i když nejsou sexuální?
-        - Význam polibků v různých fázích intimity. Které polibky se ti zdají nejintimnější?
-        - Jaký je tvůj oblíbený typ polibku - jednoduchý, dotykový, se sáním rtů, francouzský polibek?
-        - Jaký je tvůj postoj k kousání, škrábání, štípání během sexu? Považuješ je za přijatelné?
-        - Jak se stavíš k cucflekům? Měly by se nechávat a proč?
-        - Kdo "vede" během aktu? Kdo reguluje proces? Kdo je aktivnější?
-        - Které akce partnera během sexu považuješ za neschopnost nebo nezkušenost?
-        - Časové rozpětí. Jaký je pro tebe ideální čas na pohlavní styk? A jaký je maximum?
-        - Co se děje po sexu? Chceš zůstat blízko, líbat se, objímat, nebo raději být sám/sama?
-        - Zvyšování vášně pomocí fantazií a her. Jak se stavíš k rolovým hrám?
-        - Měl/a jsi sex s osobou svého pohlaví? Chtěl/a bys to zkusit?
-        - Jak raději ukončuješ akt - na obličej, břicho, záda atd.?
-        - Chtěl/a bys sledovat, jak tvůj partner má sex s někým jiným?
-        - Jaký je tvůj postoj k prostituci? Využíval/a jsi jejich služeb? Jak se k tomu stavíš?
-        - Jaký je tvůj postoj ke striptýzu? Preferuješ doma nebo v klubu?
-        - Dokázal/a bys mít vztah s pornoherečkou/hercem, striptérkou/striptérem?
-        - Měl/a jsi zkušenost s erotickou masáží? Jak se k tomu stavíš?
-        - Jak se stavíš k afrodiziakům - nápojům, kořením, použití olejů a krémů?
-        - Jak často by podle tebe měl být sex?
-        - Stydíš se za své tělo nebo své reakce během sexu?
-        - Jsou na těle místa, kterých je lepší se nedotýkat?
-        - Jaká je tvoje sexuální fantazie, kterou jsi ještě nerealizoval/a?
-        - 'Můžeš partnerovi přímo říct: "Tohle se mi nelíbí" nebo "Chci tohle"?'
-        - Měl/a jsi traumatickou zkušenost související se sexem? Ovlivňuje to tvé současné vztahy?
-        - 'Máš strachy: "nejsem dostatečný/á", "nevzrušuji\", "můžu ztratit partnera\"?'
-        - Dosahuješ orgasmus pokaždé? Je to pro tebe důležité?
-        - Kdo je tvůj "hall pass"? Ta celebrita, se kterou je to možné - a já nemám nic proti?
-        - Předstíral/a jsi orgasmus? Jak často? Proč?
-        - Je na tvém těle zóna, kterou chceš, aby partner více "zkoumal"?
-        - Co je nejvíce "špinavá" nebo "zakázaná" věc, která tě vzrušuje?
-        - Cítíš, že můžeš obětovat své touhy během sexu pro partnerovo potěšení?
-        - Měl/a jsi sex s osobou jiné rasy? S kým bys chtěl/a zkusit?
-        - Která kategorie porna se ti zdá odporná a podle tvého názoru by neměla existovat?
+    - V jakém věku jsi měl(a) první sex? Jak k tomu došlo a s kým?
+    - V jakém věku jsi poprvé zažil(a) sexuální vzrušení? S čím to bylo spojeno?
+    - Pamatuješ si svůj první orgasmus? Jak k němu došlo?
+    - V jakém věku jsi začal(a) masturbovat? Chytili tě někdy rodiče při masturbaci?
+    - Baví tě dělat orální sex (felaci nebo kunilingus)? Proč?
+    - Jak často masturbuješ? Na co nebo na koho myslíš, když masturbuješ?
+    - Považuješ za nepříjemné líbat partnera po orálních láskách?
+    - Jak rád(a) masturbuješ – rukama, pomocí sexuálních hraček nebo improvizovanými prostředky?
+    - Kde rád(a) masturbuješ – v posteli, ve vaně, na podlaze apod.?
+    - Masturboval(a) jsi někdy na veřejném místě – v kabince toalety, v převlékárně, na plážové převlékárně, ve výtahu, na chodbě apod.?
+    - Měl(a) jsi sex na veřejných místech – v kabince veřejné toalety, v převlékárně, na plážové převlékárně, ve výtahu, na chodbě apod.?
+    - Láskal(a) jsi někdy se svým partnerem tajně na veřejných místech – v kině, v autobuse, v bazénu, na pláži apod.?
+    - Měl(a) jsi sex na pláži, v lese nebo v parku? Jak to probíhalo?
+    - Měl(a) jsi sex ve třech? Jak to probíhalo?
+    - Zabýval(a) ses někdy tzv. „virtem“? Jak to bylo?
+    - Díváš se na porno?
+    - V jakém věku jsi poprvé viděl(a) porno? Máš oblíbený žánr porna?
+    - Máš oblíbenou pornoherečku nebo pornoherce?
+    - Chtěl(a) bys hrát v pornu? V jakém?
+    - Natáčel(a) jsi někdy svou masturbaci na video? Natáčel(a) jsi někdy sex se svým partnerem?
+    - Fotil(a) jsi někdy sám(sama) sebe nahý(á) – selfie, fotku v zrcadle apod.?
+    - Koupal(a) ses někdy v bazénu, moři, řece nebo jiném vodním toku úplně nahý(á)?
+    - Máš nějaké sexuální fetiše? (Fetiš na prádlo, nohy, voyeurismus, urolagnie apod.)
+    - Jak bys reagoval(a), kdyby měl tvůj partner nějaký sexuální fetiš?
+    - Jaký je tvůj názor na „zlatý déšť“? Zkoušel(a) jsi někdy „zlatý déšť“?
+    - Zkoušel(a) jsi někdy BDSM? V BDSM máš raději podřízenost, nebo dominanci?
+    - Kde pro tebe leží hranice přijatelnosti v BDSM? Jinými slovy, jak tvrdý může být takový sex pro tebe osobně?
+    - Měl(a) jsi fantazie o sexu s nějakou celebritou? Kdo to byl? Měl(a) jsi fantazie o sexu s postavou z knihy, filmu, počítačové hry nebo animáku? Kdo to byli a proč právě oni?
+    - Měl(a) jsi sexuální fantazie o příteli/manželovi své nejlepší kamarádky nebo o přítelkyni/manželce svého nejlepšího kamaráda?
+    - Měl(a) jsi sexuální fantazie o své nejlepší (nebo ne tak nejlepší) kamarádce nebo kamarádovi? Jak daleko to tehdy zašlo?
+    - Měl(a) jsi sexuální fantazie o příbuzném někoho ze svých spolužáků, spolužáků, přátel nebo kolegů?
+    - Když jsi chodil(a) do školy, měl(a) jsi sexuální fantazie o někom z učitelů?
+    - Měl(a) jsi někdy sexuální fantazie o někom ze svých příbuzných?
+    - Měl(a) jsi fantazie o sexu s někým mnohem starším nebo mladším než ty?
+    - Která poloha ti přináší největší potěšení? Která poloha se nejvíc líbí tvému partnerovi?
+    - Sexuální asociace: který nápoj ti připadá nejvíc sexy? Který tanec? Jaké oblečení? Jaký čin?
+    - Jaký je tvůj názor na anální sex? Měl(a) jsi zkušenost s análním sexem? Uveď argumenty pro a proti.
+    - Chtěl(a) bys pozvat třetího do páru? Jak bychom vybírali třetího? Kdo by to byl?
+    - Chtěl(a) bys se zúčastnit orgie? Jaký je tvůj názor na takové večírky?
+    - Která je tvá nejcitlivější erógenní zóna?
+    - Jak poznáš, že jsi v sexu s partnerem nekompatibilní?
+    - Všímáš si během sexu těla partnera? Všimneš si mateřských znamének, chlupů, strií? Jaký k tomu máš vztah?
+    - Jaké dotyky tě nejvíce vzrušují?
+    - Které činy tvého partnera tě nejvíce vzrušují, i když nejsou přímo spojené se sexem – například čtení knihy, řízení auta apod.?
+    - Význam polibků na různých stádiích intimity. Které polibky ti připadají nejintimnější? Polibky na čelo, oči, tváře, rty, hrudník a jiné části těla.
+    - Jaký je tvůj oblíbený druh polibku – jednoduchý, dotýkavý, s nasáváním rtů, „silný“ (s tlakem), „hravý“ (v reakci na odmítnutí)?
+    - Jaký je tvůj názor na kousání, špatné zacházení nebo štípání během sexu? Považuješ to za projev vášně, nebo za něco zakázaného?
+    - Jaký je tvůj názor na cucfleky? Stojí za to je zanechávat a proč?
+    - Kdo „vede“ během aktu? Kdo řídí proces? Kdo je aktivnější?
+    - Které činy partnera během sexu považuješ za nešikovnost nebo nezkušenost?
+    - Časový rozsah: jaký je pro tebe ideální čas pro pohlavní akt? A jaký pro předehru?
+    - Co se děje po sexu? Chceš zůstat poblíž, políbit se, obejmout se, nebo raději jen odejít?
+    - Zvyšování vášně pomocí fantazií a her. Jaký je tvůj názor na roleplay? Koho bys chtěl(a) hrát? Koho bys chtěl(a) vidět v partnerovi?
+    - Měl(a) jsi sex s člověkem stejného pohlaví? Chtěl(a) bys to zkusit? Co by tě mohlo přitahovat na člověku tvého pohlaví?
+    - Jak preferuješ dokončit akt – na obličej, břicho, záda apod.?
+    - Chtěl(a) bys sledovat, jak tvůj partner má sex s někým jiným?
+    - Jaký je tvůj názor na prostituci? Využil(a) jsi někdy jejich služeb? Jak často?
+    - Jaký je tvůj názor na striptýz? Preferuješ doma, nebo v klubu?
+    - Dokázal(a) bys mít vztah s pornoherečkou/pornohercem, striptérkou/striptérem?
+    - Měl(a) jsi zkušenost s erotickou masáží? Jak k tomu přistupuješ?
+    - Jaký je tvůj názor na afrodiziaka – nápoje, koření, použití olejů a vůní?
+    - Jak často by podle tebe měl být sex?
+    - Stydíš se za své tělo nebo své reakce během sexu?
+    - Jsou na tvém těle místa, která je lepší se nedotýkat?
+    - Jaká je tvá sexuální fantazie, kterou jsi ještě neuskutečnil(a)?
+    - Dokážeš partnerovi přímo říct: „Tohle se mi nelíbí“ nebo „Chci to jinak“?
+    - Měl(a) jsi traumatickou zkušenost spojenou se sexem? Ovlivňuje to teď tvůj sexuální život?
+    - Máš strach, že „nejsi dost dobrý(á)“, „nejsi vzrušující“ nebo „můžu ztratit partnera“ během sexu?
+    - Dosahuješ orgasmu pokaždé? Je to pro tebe důležité?
+    - Kdo je tvůj „hall pass“? Ta celebrita, se kterou by to šlo – a já bych nebyl(a) proti? *„hall pass“ je podmíněný „povolený lístek“ na sex s někým (obvykle celebritou) bez žárlivosti a následků. Často si páry žertují: „Mám hall pass na Johnnyho Deppa / Margot Robbie“ – tedy pokud by se naskytla příležitost, partner by neprotestoval.*
+    - Předstíral(a) jsi někdy orgasmus? Jak často? Proč?
+    - Je na tvém těle místo, které bys chtěl(a), aby partner „prozkoumal“, ale ještě jsi mu o tom neřekl(a)?
+    - Co nejvíc „špinavého“ nebo „zakázaného“ tě vzrušuje?
+    - Cítíš, že během sexu obětuješ své touhy ve prospěch partnera? Jak často se to děje? Proč?
+    - Měl(a) jsi sex s člověkem jiné rasy? S kým bys chtěl(a) zkusit – mulatkou/mulatem, Asiatkou/Asiatem, Latinoameričankou/Latinoameričanem? Cítíš rozdíl v sexu s člověkem tvé rasy?
+    - Která kategorie porna ti připadá odporná a podle tebe by neměla existovat?
     tasks:
-        - Vytvořte mapu těla. Označte místa na těle rty nebo rukama jako "území potěšení".
-        - 10 dotyků. Dotýkejte se partnera různými způsoby. Používejte různé části těla.
-        - Dýchání na kůži. Jeden partner zavře oči, druhý dýchá na krk, hruď, břicho.
-        - Zrcadlo. Opakujte partnerovy akce (polibky, pohyby, dotyky).
-        - 30 sekund na svádění. Každý po sobě musí maximálně vzrušit svého partnera za 30 sekund.
-        - Sexuální šepot. Řekni partnerovi svou fantazii do ucha šepotem.
-        - Psaní na těle. Napiš slovo nebo frázi na partnerovo tělo pouze jazykem.
-        - Hra Ano/Ne. Dotýkejte se partnera na různých místech a druhý partner odpovídá "ano" nebo "ne".
-        - Hlasové vzrušení. Přečti erotický příběh nebo svou fantazii nahlas.
-        - Hra se zrcadlem. Tvůj partner sedí před zrcadlem a dívá se. Ty v tuto chvíli děláš vše za jeho zády.
-        - Škála tlaku. Najděte ideální sílu tlaku (hlaďte, poplácávejte, tlačte, mačkejte na různých místech).
-        - Zákaz rukou. Pohybujte se po partnerovi rameny, nosem, tvářemi atd., ruce jsou za zády.
-        - Zákaz hranic. Vedejte prsty po partnerových intimních místech - bradavky, genitálie, ale nedotýkejte se jich přímo.
-        - Procvičování sexuálních pohybů. Zapněte hudbu a tancujte salsu, maximálně pohybujte boky a pánví.
+    - Vytvořte mapu těla. Rty nebo rukama označte místa na těle jako „území rozkoše“.
+    - 10 doteků. Dotýkejte se partnera různými způsoby. Použijte ruce, vlasy, rty, bradu apod.
+    - Dech na kůži. Jeden z partnerů zavře oči, druhý dýchá na krk, ucho, klíční kosti apod. Bez doteků.
+    - 'Zrcadlo. Opakujte po partnerovi jeho činy: polibky, pohyby, dotyky.'
+    - 30 sekund na svádění. Každý má po řadě 30 sekund na to, aby maximálně vzrušil partnera. Mohou to být gesta, polibky, slova, pohyby.
+    - Sexuální šepot. Pověz partnerovi svou fantazii šeptem do ucha.
+    - Psaní na těle. Napiš slovo nebo větu na tělo partnera pouze rukama. Ať partner zkusí větu cítit.
+    - Hra „Ano/Ne“. Dotýkejte se partnera na různých místech a druhý partner odpovídá pouze „ano“ nebo „ne“.
+    - Hlasové vzrušení. Čtěte nahlas erotický příběh nebo svou fantazii.
+    - 'Hra se zrcadlem. Partner sedí před zrcadlem a dívá se. Ty ho v tu chvíli líbáš, dotýkáš se ho apod. Může odpovídat pouze: „Pomalu“ / „Líbí se mi“.'
+    - 'Škála tlaku. Najděte ideální sílu tlaku: hladte, poplácávejte apod. různé části těla. Partner odpovídá pouze: „jemněji“ / „silněji“ / „je to dobré“.'
+    - Zákaz rukou. Pohybujte po partnerovi rameny, nosem, tvářemi apod., ruce jsou za zády.
+    - Zákaz na hranici. Jezděte prsty po intimních místech partnera – bradavky, stehna, penis apod., přes oblečení.
+    - Procvičování sexuálních pohybů. Pusťte hudbu a tančete salsu, maximálně napodobující sexuální akt.
   Provocation:
     questions:
-        - Jaký je tvůj nejkontroverznější názor?
-        - Co je nejprovokativnější věc, kterou jsi kdy řekl/a?
-        - Co je nejšokující věc, kterou jsi kdy udělal/a?
-        - Jaké je nejkontroverznější téma, o kterém rád/a diskutuješ?
-        - Jaká je nejprovokativnější otázka, kterou jsi kdy položil/a?
-        - Jaké je nejšokující tajemství, které jsi kdy odhalil/a?
-        - Jaké je tvé nejkontroverznější přesvědčení?
-        - Jaký je nejprovokativnější způsob, jak jsi se kdy vyjádřil/a?
-        - Co je nejšokující věc, kterou jsi kdy přiznal/a?
-        - Jaká je nejkontroverznější volba, kterou jsi kdy udělal/a?
-        - Co je nejprovokativnější věc, kterou jsi kdy myslel/a?
-        - Co je nejšokující věc, kterou jsi kdy viděl/a?
-        - Kdo je nejkontroverznější osoba, kterou obdivuješ?
-        - Co je nejprovokativnější věc, kterou jsi kdy napsal/a?
-        - Co je nejšokující věc, kterou jsi kdy slyšel/a?
-        - Jaké je nejkontroverznější téma, o kterém jsi vášnivý/á?
-        - Co je nejprovokativnější věc, kterou jsi kdy navrhl/a?
-        - Co je nejšokující věc, kterou jsi kdy zažil/a?
-        - Jaký je nejkontroverznější názor, který jsi kdy vyjádřil/a?
-        - Co je nejprovokativnější věc, kterou jsi kdy udělal/a na veřejnosti?
-        - Co je nejšokující věc, kterou jsi kdy objevil/a?
-        - Jaké je nejkontroverznější téma, o kterém se vyhýbáš diskusi?
-        - Co je nejprovokativnější věc, kterou jsi kdy udělal/a v soukromí?
-        - Co je nejšokující věc, kterou ti kdy řekli?
-        - Jaké je nejkontroverznější rozhodnutí, které jsi kdy udělal/a?
-        - Co je nejprovokativnější věc, kterou jsi kdy udělal/a s ostatními?
-        - Co je nejšokující věc, kterou jsi kdy viděl/a?
-        - Jaké je nejkontroverznější téma, o kterém jsi zvědavý/á?
-        - Co je nejprovokativnější věc, kterou jsi kdy udělal/a sám/a?
-        - Co je nejšokující věc, kterou jsi kdy zjistil/a?
+    - 'Ocikl(a) ses v situaci: požár, musíš někoho zachránit. Matku, partnera nebo vaše dítě? Koho bys vybral(a)? Proč?'
+    - Tvůj partner tě tak miluje, že dokonce pláče. Je připraven(á) pro tebe udělat vše, ale chybí mu „rozmanitost“ ve vztahu. On/ona chce pozvat třetího/třetí, kterého/ou znáš. Jaké budou tvé kroky? Co si myslíš o volných vztazích?
+    - Máte rodinu. Žijete spolu už 10 let. Máte několik dětí, psa a velký dům. Jste ve vztahu šťastní – harmonický pár, který snadno zvládá domácnost. Ale najednou cítíš vášeň ke kolegovi/kolegyni v práci a nedokážeš to ovládnout. Můžeš s ním/ní spát a ukojit svůj „hlad“, přičemž tvůj partner se to nedozví. Uděláš to? Proč?
+    - 'Tvůj partner tě plně finančně zajišťuje, nemáte žádné finanční problémy. Máte skvělý vztah: cestujete, trávíte spolu veškerý volný čas, plánujete děti nebo je už máte. Ale náhle zjistíš, že tvůj partner instaloval skrytou kameru do vaší ložnice a zapínal ji během sexu. Poté prodával(a) tyto nahrávky se zakrytým obličejem. Takto si celou dobu vydělával(a) peníze. Co uděláš?'
+    - 'Jste spolu dlouho. Vše je v pořádku, jste šťastní. Ale najednou se tvůj partner hodně mění: přibral hodně na váze, hodně zhubnul, nechal si udělat tetování na obličeji apod. Jak k tomu přistoupíš? Jsi připraven(á) přijmout partnera jakéhokoli?'
+    - 'Jste spolu mnoho let: máte společné děti, zavedenou domácnost, upřímně se milujete a pečujete o sebe, rozumíte si beze slov a žijete v idyle. Ale jednoho dne váš 16letý syn onemocní a potřebuje krevní transfuzi. Zjistí se, že žádný z rodičů není vhodný. Po dalších testech se ukáže, že nejsi otec. Tvůj partner přizná: „Jednou, před mnoha lety, na večírku, když jsem byl(a) opilý(á), jsem udělal(a) chybu. Byl to jediný případ. Celou tu dobu jsem miloval(a) jen tebe.“ Co uděláš? Dokážeš odpustit a pokusit se zachovat rodinu, nebo to bude konec vztahu? Pokud je otázka kladena dívce – jak bys to přiznala? Co bys řekla? Pokusila by ses zachovat rodinu, nebo bys přijala nevyhnutelný konec?'
+    - Zjistíš, že tvůj partner ti byl(a) nevěrný(á) s člověkem stejného pohlaví. Jaká je tvá reakce?
+    - Tvůj partner vede osobní deník, kde zapisuje všechny své nejvášnivější sexuální fantazie o jiné konkrétní osobě – z minulosti, kolegovi, příteli apod. Náhodou tento deník najdeš. Jaká je tvá reakce?
+    - Zamiluješ se do člověka, který je občanem jiné země a žije na jiném kontinentu. Má dítě, rodinu, je sám/sama kvůli rozvodu nebo rozpadu předchozího vztahu. Ty nemůžeš odjet k němu/ní, a on/ona nemůže přijet k tobě, protože jeho/její život je v jeho/její zemi, a naopak. Co uděláš? Budeš se snažit budovat tento vztah, i když víš, že nemůžeš být nablízku? Nebo to bude jen sex? Nebo to vůbec nebudeš zkoušet?
+    - Začneš chodit s partnerem a zjistíš, že má šíleného bývalého/bývalou, který/á ho/ji pronásleduje. Jsi si jistý(á), že tvůj partner svého/svou bývalého/bývalou nemiluje, ale přesto se kvůli této situaci cítíš divně. Nakonec podáte žalobu na policii, ale bývalý/bývalá pokračuje v pronásledování. Co uděláš?
+    - Jste ve šťastném manželství, máte děti, ale všimneš si, že z rodinného rozpočtu začínají mizet peníze. Poté zjistíš, že tvůj partner pravidelně hraje v kasinu a prohrává velké částky. Nehodlá přestat. Co uděláš? Jsi připraven(á) se s tím smířit, nebo vztah ukončíš, navzdory lásce, idyle a dětem?
+    - 'Setkáš se s člověkem, se kterým máš nepopsatelnou vášeň: tvé tělo na něj/ni reaguje, a vedle něj/ní se cítíš klidně a dobře po duševní stránce. Ale chápeš, že tento člověk je skutečný „červený praporek“: hraje v kasinu, hodně pije, vede podezřelý životní styl, má děti apod. Přesto ti s ním/ní je skvěle. Jsi připraven(á) vstoupit do tohoto vztahu, nebo se dokážeš zastavit rozumem, věda, že je to „červený praporek“?'
+    - Váš společný syn vás s partnerem přistihne během sexu. Co uděláš? Jak tuto situaci vysvětlíš dítěti?
+    - Velmi miluješ svého partnera, máte dobrý vztah, rodinu, domácnost, dům apod. Rozumem chápeš, že tvůj partner k tobě zchladl(a) a už necítí sexuální přitažlivost, ale ty ho/ji stále miluješ. Partner(ka) s tebou zůstává kvůli rodině, povinnosti nebo proto, že slíbil(a) být s tebou, ale ty cítíš, že tě nemiluje, jen zůstává z povinnosti. Co uděláš? Půjdeš první na rozvod nebo rozchod, chápa situaci a způsobuje si bolest, nebo budeš předstírat, že si toho nevšímáš?
+    - Přestěhoval(a) ses k partnerovi do jiné země, na jiný kontinent. Jsi finančně zcela závislý(á) na partnerovi, nepracuješ a neznáš místní jazyk. Náhodou zjistíš, že ti partner podvádí. Co uděláš dál? Na jednu stranu nemáš kam jít, nemáš finance ani úspory, jsi zcela závislý(á) na partnerovi. Na druhou stranu ti podváděním způsobuje bolest. Dokážeš odejít a jak v této situaci postupuješ?
+    - Vzal(a) sis notebook partnera, abys se podíval(a) na fotky, ale náhodou jsi našel(la) celou složku s videi, kde se natáčí při masturbaci. Jaká bude tvá reakce a co uděláš dál?
+    - Náhodou zaslechneš, jak tvůj partner probírá všechny vaše intimní detaily s přáteli – od velikosti, zvuků, které vydáváš v posteli, způsobu, jak se svlékáš, každého mateřského znaménka na tvém těle, až po to, jak dosahuješ orgasmu. Jaká bude tvá reakce?
+    - Zjistíš, že tvůj partner vede virtuální románek – přepisuje si s dívkou/chlapcem z jiného kontinentu a nikdy se s ním/ní osobně nesetkal(a). Mají sex po telefonu a nic víc. Co uděláš? Považuješ to za nevěru?
+    - Pokud zjistíš, že tvůj partner(ka) spáchal(a) zločin. Nahlásíš to? Vysvětli svůj postoj.
+    - Máte skvělý vztah a zjistíš, že tvůj partner(ka) v minulosti spáchal(a) hrozný čin, který je v rozporu s tvými morálními zásadami. Dokážeš to přijmout? Proč?
+    - Milujete se s partnerem(kou). On/ona ti říká, že jede na služební cestu, ale později zjistíš, že to byla dovolená s přáteli a využili služeb prostitutek. Jaká je tvá reakce?
+    - Pokud jste už dlouho v manželství a jednoho dne partner(ka) přijde a řekne, že zjistil(a), že ho/ji více přitahují lidé stejného pohlaví. Říká, že nechce ztratit váš vztah a miluje tě jako velmi blízkou osobu. Ale chce také uspokojovat své touhy v lásce a blízkosti s lidmi, kteří ho/ji přitahují. Jak zareaguješ? Budeš chtít rozvod, nebo se dokážeš smířit s volným vztahem?
+    - Pokud k tvému partnerovi(ce) někdo obtěžuje na opuštěném místě. Chápeš, že síly nejsou vyrovnané, ale stále máš šanci se ochránit. Co uděláš?
+    - Pokud tvůj partner(ka) náhle přizná, že je závislý(á) na drogách v kritickém stádiu. Co uděláš?
+    - Máte skvělý vztah. Jeden z partnerů jede na dovolenou s přáteli. A zjistíš, že všichni ostatní z této skupiny podváděli své partnery na této cestě, on/ona přísahá, že to neudělal(a). Věříš mu/jí, nebo slovům a svědectvím ostatních?
+    - Pokud je tvůj partner(ka) obviněn(a) ze zločinu. On/ona tvrdí, že to neudělal(a), ale všechny důkazy tomu nasvědčují. Budeš věřit víc jemu/jí, nebo pravděpodobně správným důkazům?
+    - Pokud zjistíš, že tvůj partner(ka) má koníček fotografovat se nahý(á), fotograf je opačného pohlaví. On/ona tvrdí, že mezi nimi nic není. Věříš tomu? Dokážeš to přijmout?
+    - Pokud zjistíš, že tvůj partner(ka) byl(a) během vašeho vztahu vystaven(a) sexuálnímu násilí. Ale nemohl(a) ti to hned říct. Jaká je tvá reakce?
+    - Pokud partner(ka) po několika letech vztahu přizná, že opustil(a) své dítě. Dětský domov nebo ho/ji opustil(a) před/po narození. Jaká je tvá reakce?
+    - Partner(ka) po několika letech šťastného vztahu náhle přizná, že stále miluje předchozího partnera. Ale miluje i tebe. Jaká je tvá reakce?
