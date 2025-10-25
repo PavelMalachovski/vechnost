@@ -55,7 +55,7 @@ async def start_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
     detected_language = detect_language_from_text(update.message.text or "")
 
     # English only text for language selection
-    welcome_text = "Select your language"
+    welcome_text = ""
 
     keyboard = get_language_selection_keyboard(detected_language)
     logger.info(f"Sending language selection keyboard with {len(keyboard.inline_keyboard)} rows")
