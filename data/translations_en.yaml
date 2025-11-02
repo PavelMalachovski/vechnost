@@ -3,24 +3,21 @@ welcome:
   language_prompt: "Select your language to start the game"
 
   # New structured welcome page
-  greeting_title: "VECHNOST"
-  greeting_subtitle: "The game that transforms relationships"
+  greeting_title: "💎 VECHNOST"
+  greeting_subtitle: "When words end - VECHNOST begins. Not therapy, not training - just a game after which you're closer than ever."
 
   # Sections (like in screenshot)
   section_connection_title: "💕 CONNECTION"
-  section_connection_text: "One game session replaces months of superficial communication. Questions and tasks from experienced psychologists will help you go beyond ordinary conversations and understand each other on a deep level."
+  section_connection_text: "One game - and what's been missing, perhaps for years, comes into your life. Real intimacy, spark, and passion. VECHNOST questions reveal souls, break down the barriers of ordinary conversations, and create what it all started for - a connection you feel with your soul."
 
   section_intimacy_title: "🔥 INTIMACY"
-  section_intimacy_text: "Can't discuss intimate topics? Inside VECHNOST is a safe space for honest conversations. You'll be able to discuss your desires and fantasies without embarrassment, using ready-made questions."
+  section_intimacy_text: "Is it hard to talk about desires, feelings, fears? VECHNOST is a safe space where you can be yourself. Without awkwardness, taboos, or imposed roles. Here you can open up, hear, and be heard. Fantasies, secret thoughts, laughter, and tenderness - all will be in VECHNOST."
 
   section_themes_title: "🎭 4 DECKS"
-  section_themes_text: "Four directions await you inside: Acquaintance for new couples, For Couples to deepen relationships, Sex for intimate conversations, and Provocations for those ready for unexpected discoveries."
+  section_themes_text: "Each of them is a key to a new level of your relationship:\n• Acquaintance - perfect for first meetings and games with attraction and flirting.\n• For Couples - to restore depth, interest, and warmth, create real intimacy.\n• Sex - for revelations, desires, and actions that bring you closer and ignite real passion.\n• Provocations - for those who want to shake up ordinary conversations and experience new emotions."
 
-  section_new_title: "✨ NEW THINKING"
-  section_new_text: "Already in 1 month, it will completely change your thinking. Without abrupt changes. Cars for women and opportunities."
-
-  section_best_title: "🌟 BEST ENVIRONMENT"
-  section_best_text: "Your relationship reflects your environment. VECHNOST creates a space where you can open up to each other, share dreams and fears, become closer. True intimacy is born here."
+  section_best_title: "🌟 THE ART OF INTIMACY"
+  section_best_text: "VECHNOST is not just a game. It's a ritual of connection. Here you look into each other's hearts, discover what's hidden behind ordinary words, and let your relationship unfold in new ways. Each question is like a little adventure where passion, honesty, and trust intertwine into something greater. Allow yourself to feel real intimacy."
 
   # Buttons
   button_start: "ENTER VECHNOST ←"
@@ -28,15 +25,19 @@ welcome:
   button_why: "WHY DOES IT WORK?"
 
   # Additional screens
-  inside_title: "🎮 WHAT'S INSIDE VECHNOST?"
-  inside_text: "📋 <b>Hundreds of questions</b> from psychologists\n• Different levels of depth\n• From light to provocative\n\n🎭 <b>4 themes to choose from:</b>\n• Acquaintance\n• For Couples\n• Sex\n• Provocations\n\n🔒 <b>Full privacy</b>\n• No one will see your answers\n• Everything stays between you\n\n💬 <b>Safe space</b>\n• Discuss what you've been silent about\n• Get to know each other deeper"
+  inside_title: "💌 WHAT AWAITS YOU IN VECHNOST?"
+  inside_text: "📋 <b>Hundreds of questions and tasks</b>\n• From light and fun to bold and deep.\n• Each card is an opportunity to get to know each other anew.\n• Tasks don't just make you talk, they make you act - creating real emotions.\n• New questions are added regularly - VECHNOST is truly eternal.\n\n🎭 <b>Four directions for any relationship</b>\n• Acquaintance - light flirting and first sparks\n• For Couples - strengthening connection and understanding\n• Sex - a space for honesty and passion\n• Provocations - bold topics, unexpected discoveries\n\n🔒 <b>Complete privacy</b>\nYour answers stay only between you.\nComplete freedom to be honest. Without filters and without expectations.\n\n💬 <b>Safe space for revelations</b>\nTalk about what usually stays in the shadows.\nUnderstand, feel, get closer.\n\n✨ <b>A game that grows with you</b>\nCome back to it again and again.\nEach time - new emotions, new topics, a new \"us\".\nPerfect for those just building a connection, as well as those who want to reignite the fire in long-term relationships."
 
   why_title: "💡 WHY DOES IT WORK?"
-  why_text: "✅ <b>Scientific approach</b>\nQuestions developed with relationship psychology in mind\n\n✅ <b>Gradual deepening</b>\nFrom simple topics to complex - you choose the pace\n\n✅ <b>No pressure</b>\nNo one forces you to answer - only what's comfortable\n\n✅ <b>Works for everyone</b>\n• New couples get to know each other\n• Long-term couples rekindle the spark\n• Couples in crisis find a way out\n\n💬 Conversations that transform relationships"
+  why_text: "✅ <b>Thoughtful structure</b>\nQuestions are arranged to gently guide from lightness to depth.\nWithout pressure. Without discomfort. Only natural closeness.\n\n✅ <b>You choose the pace</b>\nStart with light flirting - and move to topics where real feelings open up.\n\n✅ <b>Without obligations - only the desire to be closer</b>\nJust choose what resonates with you.\n\n✅ <b>Works for any couple</b>\n• New couples - can get to know each other deeper, faster, and more honestly\n• Long-term relationships - restore emotions, lightness, and passion\n• Couples in crisis - create new bridges where there were walls before\n\n💬 <b>Conversations that change relationships</b>\nEach question is not just a topic. It's a door to a world of trust and intimacy.\nVECHNOST helps not only to speak but to listen.\nNot just to be near each other, but to feel each other"
   button_back: "← Back"
 
+  # Message after payment
+  enter_title: "💫 ENTER VECHNOST"
+  enter_text: "Allow yourself the luxury of being closer.\nTake a step toward sincerity, passion, and real understanding.\nVECHNOST is not just a game, it's an investment in your relationship that returns love.\nBecause real love doesn't appear by chance.\nIt's created step by step. In a game where hearts open on their own."
+
   # Old version (in case it's used elsewhere)
-  welcome_message: "Welcome to VECHNOST 💕\n\nThe game for couples created to:\n truly get to know each other\n go beyond ordinary conversations\n discover new sides of yourself and your partner\n\nChoose one of the decks and open a new world:\n✨ For dating and first meetings\n♥️ For couples and building intimacy\n❤️‍🔥 Provocations — unexpected questions that reveal depth\n🔥 Sex & provocation block"
+  welcome_message: "💕 Welcome to VECHNOST\n\nThe game for couples created to:\n• Truly get to know each other\n• Go beyond the ordinary\n• Discover new sides of yourself and your partner\n\nChoose a deck - and open your world of intimacy:\n\n✨ Acquaintance - lightness and flirting\n♥️ For Couples - depth and warmth\n❤️‍🔥 Provocations - unexpected and sensual\n🔥 Sex - courage, trust, passion"
 
 language:
   selection_title: "🌍 Choose Language"
