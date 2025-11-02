@@ -101,8 +101,8 @@ errors:
   question_unavailable: "❌ Question unavailable"
 
 payment:
-  required_title: "🔒 Access Required"
-  required_message: "To use this bot, you need an active subscription or payment.\n\nPlease choose one of the available options below:"
+  required_title: "💫 ENTER VECHNOST"
+  required_message: "Allow yourself the luxury of being closer.\n\nTake a step toward sincerity, passion, and real understanding.\nVECHNOST is not just a game, it's an investment in your relationship that returns love.\n\nBecause real love doesn't appear by chance.\n\nIt's created step by step. In a game where hearts open on their own."
   purchase_button: "💳 Purchase Access"
   check_status: "🔄 Check Payment Status"
   support: "💬 Contact Support"

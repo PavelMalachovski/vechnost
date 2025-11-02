@@ -101,8 +101,8 @@ errors:
   question_unavailable: "❌ Otázka není k dispozici"
 
 payment:
-  required_title: "🔒 Vyžadován přístup"
-  required_message: "Pro použití tohoto bota potřebujete aktivní předplatné nebo platbu.\n\nProsím, vyberte jednu z dostupných možností níže:"
+  required_title: "💫 VSTOUPIT DO VECHNOST"
+  required_message: "Dovolte si luxus být blíž.\n\nUdělejte krok k upřímnosti, vášni a skutečnému porozumění.\nVECHNOST není jen hra, je to investice do vašeho vztahu, která navrací lásku.\n\nProtože skutečná láska se neobjevuje náhodou.\n\nVytváří se krok za krokem. Ve hře, kde se srdce sama otevírají."
   purchase_button: "💳 Zakoupit přístup"
   check_status: "🔄 Zkontrolovat stav platby"
   support: "💬 Kontaktovat podporu"
