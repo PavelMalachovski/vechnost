@@ -1,0 +1,542 @@
+# === МЕТАДАННЫЕ ПРОЕКТА ===
+название: Vechnost Telegram Bot
+описание: Production-ready Telegram бот для карточной игры Vechnost - игра для углубления отношений через значимые вопросы и задания
+язык: Python
+версия: 1.0.0
+минимальная_версия_python: 3.11
+
+# === ТЕХНОЛОГИЧЕСКИЙ СТЕК ===
+фреймворк: python-telegram-bot 21.6
+архитектура: Clean Architecture с разделением на слои
+база_данных: SQLAlchemy 2.0+ с миграциями Alembic
+хранилище: Redis для управления сессиями, SQLite/PostgreSQL для персистентности
+api: FastAPI для webhook сервера
+валидация: Pydantic 2.9+ для моделей данных и настроек
+i18n: Babel для интернационализации (русский, английский, чешский)
+мониторинг: Sentry для отслеживания ошибок, structlog для логирования
+тестирование: pytest с pytest-asyncio
+линтинг: ruff для качества кода, mypy для проверки типов
+развертывание: Docker, Render.com, Railway
+
+# === ОСНОВНЫЕ ПРИНЦИПЫ ===
+правила:
+  - Ты senior Python разработчик и понимаешь все аспекты разработки Telegram ботов
+  - Использовать async/await для всех I/O операций
+  - Все функции должны иметь type hints
+  - Использовать Pydantic для валидации данных и настроек
+  - Следовать принципам Clean Architecture (разделение на слои)
+  - Обязательное логирование всех критических операций
+  - Обработка ошибок с graceful degradation
+  - Тесты обязательны для бизнес-логики и критических компонентов
+  - Документация в формате docstrings (Google style)
+  - Поддержка нескольких языков через i18n систему
+
+# === АРХИТЕКТУРНЫЕ ПАТТЕРНЫ ===
+
+## Структура проекта
+```
+vechnost_bot/
+├── __init__.py           # Инициализация пакета
+├── main.py               # Точка входа
+├── bot.py                # Настройка приложения бота
+├── config.py             # Конфигурация Pydantic Settings
+├── models.py             # Основные Pydantic модели (Theme, SessionState, GameData)
+├── handlers.py           # Обработчики сообщений и команд
+├── callback_handlers.py  # Обработчики callback запросов с паттерном registry
+├── callback_models.py    # Модели данных для callback
+├── keyboards.py          # Конструкторы inline клавиатур
+├── logic.py              # Игровая логика и загрузка данных
+├── storage.py            # Интерфейс хранилища сессий
+├── redis_storage.py      # Реализация Redis
+├── i18n.py               # Менеджер интернационализации
+├── renderer.py           # Рендеринг изображений карточек
+├── monitoring.py         # Утилиты логирования и мониторинга
+├── security.py           # Безопасность и ограничение частоты запросов
+└── payments/             # Подсистема платежей
+    ├── models.py         # SQLAlchemy модели базы данных
+    ├── database.py       # Подключение к БД и управление сессиями
+    ├── repositories.py   # Слой доступа к данным
+    ├── services.py       # Слой бизнес-логики
+    ├── tribute_client.py # Клиент внешнего API
+    ├── signature.py      # Верификация подписи webhook
+    ├── middleware.py     # Middleware для платежей
+    ├── handlers.py       # Обработчики платежей
+    └── web.py            # FastAPI webhook сервер
+```
+
+## Разделение на слои
+1. **Слой представления**: handlers.py, callback_handlers.py, keyboards.py
+2. **Слой бизнес-логики**: logic.py, services.py, i18n.py
+3. **Слой доступа к данным**: repositories.py, storage.py, redis_storage.py
+4. **Инфраструктурный слой**: database.py, tribute_client.py, monitoring.py
+
+## Паттерны проектирования
+- **Repository Pattern**: Для абстракции доступа к данным (repositories.py)
+- **Service Layer Pattern**: Для инкапсуляции бизнес-логики (services.py)
+- **Registry Pattern**: Для регистрации обработчиков callback (callback_handlers.py)
+- **Singleton Pattern**: Для глобальных экземпляров (i18n_manager, settings)
+- **Factory Pattern**: Для создания экземпляров бота (create_bot в config.py)
+- **Middleware Pattern**: Для верификации платежей (middleware.py)
+
+# === СТИЛЬ КОДА И ФОРМАТИРОВАНИЕ ===
+
+## Конфигурация Ruff
+- Длина строки: 100 символов
+- Целевая версия: Python 3.11
+- Включенные правила: E (ошибки pycodestyle), W (предупреждения), F (pyflakes), I (isort), B (bugbear), C4 (comprehensions), UP (pyupgrade)
+- Игнорируемые: E501 (слишком длинная строка), B008 (вызовы функций в defaults), C901 (сложность)
+- Автоматическая сортировка импортов с isort
+
+## Аннотации типов
+- Все сигнатуры функций должны иметь type hints
+- Использовать современный синтаксис типов: `list[str]` вместо `List[str]`
+- Использовать `Optional[T]` или `T | None` для nullable типов
+- Использовать `Mapped[T]` для колонок SQLAlchemy
+- Включен строгий режим Mypy со всеми проверками
+
+## Соглашения об именовании
+- Классы: PascalCase (например, `SessionState`, `GameData`)
+- Функции/методы: snake_case (например, `handle_callback_query`, `get_session`)
+- Константы: UPPER_SNAKE_CASE (например, `GAME_DATA`, `CALENDAR_HEADER`)
+- Приватные методы: _с_подчеркиванием (например, `_load_translations`)
+- Async функции: async def с описательными именами (например, `async def start_command`)
+
+## Docstrings
+- Использовать Google-style docstrings для всех публичных функций и классов
+- Включать секции Args, Returns, Raises где применимо
+- Docstrings на уровне модуля для всех файлов
+
+Пример:
+```python
+async def handle_callback_query(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """Обработка callback запросов от inline клавиатур.
+
+    Args:
+        update: Объект обновления Telegram, содержащий callback запрос
+        context: Контекст бота для доступа к данным пользователя
+
+    Returns:
+        None
+    """
+```
+
+# === МОДЕЛИ ДАННЫХ ===
+
+## Pydantic модели (models.py)
+- Использовать Pydantic BaseModel для всех структур данных
+- Использовать Enum для фиксированных вариантов (Theme, ContentType, Language)
+- Использовать Field с default_factory для изменяемых значений по умолчанию
+- Реализовывать пользовательские методы для бизнес-логики (например, `reset()`, `value_short()`)
+
+Пример:
+```python
+class SessionState(BaseModel):
+    theme: Theme | None = None
+    level: int | None = None
+    content_type: ContentType = ContentType.QUESTIONS
+    drawn_cards: set[str] = Field(default_factory=set)
+    is_nsfw_confirmed: bool = False
+    language: Language = Language.RUSSIAN
+
+    def reset(self) -> None:
+        """Сброс сессии в начальное состояние."""
+```
+
+## SQLAlchemy модели (payments/models.py)
+- Использовать DeclarativeBase как базовый класс
+- Использовать Mapped[T] type hints для всех колонок
+- Определять relationships с back_populates
+- Добавлять индексы для часто запрашиваемых колонок
+- Использовать UniqueConstraint для составных ключей
+- Реализовывать __repr__ для отладки
+
+Пример:
+```python
+class User(Base):
+    __tablename__ = "users"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    telegram_user_id: Mapped[int] = mapped_column(BigInteger, unique=True, nullable=False)
+    username: Mapped[Optional[str]] = mapped_column(String, nullable=True)
+
+    payments: Mapped[List["Payment"]] = relationship("Payment", back_populates="user")
+
+    __table_args__ = (Index("idx_telegram_user_id", "telegram_user_id"),)
+```
+
+# === ОБРАБОТЧИКИ И CALLBACKS ===
+
+## Обработчики команд
+- Использовать декораторы для отслеживания производительности: `@track_performance("command_name")`
+- Всегда проверять на None значения (update.message, update.effective_user)
+- Устанавливать контекст пользователя для мониторинга: `set_user_context(user_id, username)`
+- Логировать все команды: `log_bot_event("command_name", user_id=user_id)`
+- Получать сессию для языковых предпочтений: `session = await get_session(chat_id)`
+- Использовать i18n для всего текста пользователю: `get_text('key.path', language)`
+
+## Обработчики Callback запросов
+- Использовать паттерн callback registry для маршрутизации
+- Парсить callback данные с консистентным форматом: `action:param1:param2:param3`
+- Всегда отвечать на callback запросы: `await query.answer()`
+- Обрабатывать редактирование текстовых и фото сообщений с try/except
+- Валидировать состояние сессии перед операциями
+- Логировать callback события: `log_callback_event(query.data, user_id)`
+
+## Формат Callback данных
+- Использовать короткие коды для соблюдения лимита Telegram в 64 байта
+- Формат: `{действие}:{контекст}:{параметры}`
+- Примеры:
+  - `lang:ru` - Выбор языка
+  - `theme_Sex` - Выбор темы
+  - `level_2` - Выбор уровня
+  - `q:sex:0:5` - Выбор вопроса (тема:уровень:индекс)
+  - `cal:acq:1:q:0` - Страница календаря (тема:уровень:категория:страница)
+  - `nav:couples:2:3` - Навигация (тема:уровень:индекс)
+  - `toggle:sex:t:0` - Переключение типа контента (тема:категория:страница)
+
+# === ИНТЕРНАЦИОНАЛИЗАЦИЯ (I18N) ===
+
+## Поддержка языков
+- Поддерживаемые языки: Русский (по умолчанию), Английский, Чешский
+- Enum языков: `Language.RUSSIAN`, `Language.ENGLISH`, `Language.CZECH`
+- Переводы хранятся в YAML файлах: `data/translations_{lang}.yaml`
+- Вопросы хранятся отдельно: `data/questions_{lang}.yaml`
+
+## Паттерн I18n Manager
+- Singleton экземпляр: `i18n_manager`
+- Вспомогательные функции: `get_text()`, `get_questions()`, `format_number()`
+- Автоматический fallback на русский при отсутствии перевода
+- Доступ к вложенным ключам: `get_text('welcome.title', language)`
+- Поддержка форматирования строк: `get_text('message', language, name="User")`
+
+## Определение языка
+- Простое эвристическое определение: `detect_language_from_text(text)`
+- Чешский: Проверка специальных символов (č, ř, ž, š, и т.д.)
+- Английский: Проверка распространенных слов (the, and, or, и т.д.)
+- По умолчанию: Русский
+
+# === БАЗА ДАННЫХ И ПЕРСИСТЕНТНОСТЬ ===
+
+## Конфигурация базы данных
+- Использовать Pydantic Settings для DATABASE_URL
+- Поддержка SQLite (разработка) и PostgreSQL (продакшн)
+- Connection pooling для продакшна
+- Async поддержка с asyncpg/aiosqlite
+
+## Миграции Alembic
+- Автогенерация миграций: `alembic revision --autogenerate -m "Описание"`
+- Применение миграций: `alembic upgrade head`
+- Откат: `alembic downgrade -1`
+- Всегда проверять автогенерированные миграции перед применением
+
+## Паттерн Repository
+- Один репозиторий на модель (UserRepository, PaymentRepository, и т.д.)
+- Методы: get_by_id, create, update, delete, find_by_*
+- Использовать async context managers для сессий
+- Обрабатывать исключения и логировать ошибки
+- Возвращать None для не найденных, raise для ошибок
+
+Пример:
+```python
+class UserRepository:
+    async def get_by_telegram_id(self, telegram_user_id: int) -> Optional[User]:
+        """Получить пользователя по Telegram user ID."""
+        async with get_session() as session:
+            result = await session.execute(
+                select(User).where(User.telegram_user_id == telegram_user_id)
+            )
+            return result.scalar_one_or_none()
+```
+
+## Управление сессиями (Redis)
+- Использовать Redis для временного состояния сессий
+- TTL: 3600 секунд (настраивается через SESSION_TTL)
+- Сериализация с помощью Pydantic model_dump_json/model_validate_json
+- Connection pooling с max_connections=20
+- Graceful fallback при недоступности Redis
+
+# === ИНТЕГРАЦИЯ ПЛАТЕЖЕЙ ===
+
+## Интеграция Tribute API
+- Класс клиента: `TributeClient` с async HTTP методами
+- Аутентификация по API ключу через заголовки
+- Методы: get_products, get_subscription_status
+- Обработка ошибок с пользовательскими исключениями
+- Логирование всех API вызовов
+
+## Обработка Webhook
+- FastAPI сервер на порту 8000
+- Endpoint: POST /webhooks/tribute
+- Верификация подписи HMAC-SHA256
+- Идемпотентность через body_sha256 хеш
+- Async обработка с транзакциями БД
+- Коды статуса: 200 (успех), 400 (невалидный), 409 (дубликат)
+
+## Payment Middleware
+- Проверка статуса платежа перед доступом к боту
+- Исключенные команды: /start, /help
+- Перенаправление на страницу оплаты при отсутствии активной подписки
+- Кеширование статуса платежа в сессии
+
+## Схема базы данных
+- Таблицы: users, products, payments, subscriptions, webhook_events
+- Индексы на telegram_user_id, body_sha256
+- Уникальные ограничения на user_id + subscription_id
+- Relationships с cascade delete
+
+# === ТЕСТИРОВАНИЕ ===
+
+## Организация тестов
+- Файлы тестов: `tests/test_*.py`
+- Классы тестов: `Test*` (например, `TestSessionState`)
+- Функции тестов: `test_*` (например, `test_default_values`)
+- Маркеры: @pytest.mark.unit, @pytest.mark.integration, @pytest.mark.slow
+
+## Конфигурация Pytest
+- Async режим: auto
+- Целевое покрытие: 80%
+- Отчеты покрытия: терминал, HTML, XML
+- Подробный вывод с короткими трейсбеками
+- Показывать 10 самых медленных тестов
+
+## Паттерны тестирования
+- Использовать fixtures для общей настройки
+- Мокировать внешние зависимости (Redis, Telegram API, Tribute API)
+- Тестировать как успешные, так и ошибочные случаи
+- Тестировать граничные случаи и краевые условия
+- Использовать pytest-asyncio для async тестов
+
+Пример:
+```python
+class TestGameData:
+    def test_get_available_themes(self):
+        """Тест получения доступных тем."""
+        game_data = GameData(themes={
+            Theme.ACQUAINTANCE: {"levels": {1: {"questions": ["q1"]}}},
+        })
+        themes = game_data.get_available_themes()
+        assert Theme.ACQUAINTANCE in themes
+```
+
+## Запуск тестов
+```bash
+# Все тесты
+pytest -q
+
+# Конкретный файл
+pytest tests/test_models.py
+
+# С покрытием
+pytest --cov=vechnost_bot
+
+# Конкретный маркер
+pytest -m unit
+```
+
+# === МОНИТОРИНГ И ЛОГИРОВАНИЕ ===
+
+## Структурированное логирование
+- Использовать structlog для структурированного логирования
+- Уровни логов: DEBUG, INFO, WARNING, ERROR, CRITICAL
+- Настройка через переменную окружения LOG_LEVEL
+- Включать контекст: user_id, username, chat_id, action
+
+## Утилиты мониторинга (monitoring.py)
+- `log_bot_event(event_name, **context)` - Логирование событий бота
+- `log_callback_event(callback_data, user_id)` - Логирование callbacks
+- `log_session_event(event_type, chat_id)` - Логирование событий сессии
+- `set_user_context(user_id, username)` - Установка контекста пользователя
+- `track_performance(operation_name)` - Декоратор для измерения времени
+- `track_errors(operation_name)` - Декоратор для отслеживания ошибок
+
+## Интеграция Sentry
+- Опциональное отслеживание ошибок через SENTRY_DSN
+- Автоматический захват исключений
+- Прикрепление контекста пользователя
+- Тегирование окружения
+
+# === БЕЗОПАСНОСТЬ ===
+
+## Ограничение частоты запросов
+- Ограничение на пользователя с помощью Redis
+- Настраиваемые лимиты и временные окна
+- Возврат 429 Too Many Requests при превышении
+- Логирование нарушений лимитов
+
+## Верификация подписи Webhook
+- Верификация подписи HMAC-SHA256
+- Секретный ключ из переменной окружения WEBHOOK_SECRET
+- Отклонение запросов с невалидными подписями
+- Логирование неудачных верификаций
+
+## Валидация входных данных
+- Использовать Pydantic для всей валидации входных данных
+- Санитизация пользовательского ввода перед рендерингом
+- Валидация формата callback данных
+- Проверка прав перед операциями
+
+## Переменные окружения
+- Никогда не коммитить секреты в git
+- Использовать .env файлы для локальной разработки
+- Использовать секреты платформы для продакшна
+- Валидировать обязательные переменные окружения при запуске
+
+# === РАЗВЕРТЫВАНИЕ ===
+
+## Docker
+- Многоэтапная сборка для меньших образов
+- Базовый образ Python 3.11 slim
+- Non-root пользователь для безопасности
+- Endpoint проверки здоровья
+- Конфигурация через переменные окружения
+
+## Render.com
+- Использовать render.yaml для конфигурации
+- Worker сервис для бота
+- Web сервис для webhook сервера
+- PostgreSQL database addon
+- Redis addon для сессий
+
+## Railway
+- Развертывание с railway.toml
+- Автоматические сборки из git
+- Переменные окружения через dashboard
+- PostgreSQL и Redis плагины
+
+## Переменные окружения
+Обязательные:
+- TELEGRAM_BOT_TOKEN - Токен бота от @BotFather
+- DATABASE_URL - Строка подключения к БД
+- REDIS_URL - Строка подключения к Redis
+
+Опциональные:
+- LOG_LEVEL - Уровень логирования (по умолчанию: INFO)
+- ENABLE_PAYMENT - Включить требование оплаты (по умолчанию: FALSE)
+- TRIBUTE_API_KEY - API ключ Tribute
+- TRIBUTE_BASE_URL - URL Tribute API
+- TRIBUTE_PAYMENT_URL - URL страницы оплаты
+- WEBHOOK_SECRET - Секрет подписи webhook
+- SENTRY_DSN - DSN для отслеживания ошибок Sentry
+
+# === ОРГАНИЗАЦИЯ ФАЙЛОВ ===
+
+## Файлы данных
+- `data/questions.yaml` - Русские вопросы (основные)
+- `data/questions_{lang}.yaml` - Переведенные вопросы
+- `data/translations_{lang}.yaml` - Переводы UI
+- Формат YAML с вложенной структурой
+
+## Ресурсы
+- `assets/images/` - Логотип и фоны
+- `assets/images/backgrounds/` - Фоны для конкретных тем
+- Формат PNG для изображений
+
+## Документация
+- `docs/README.md` - Основная документация
+- `docs/*.md` - Руководства по конкретным функциям
+- Поддерживать документацию в актуальном состоянии с изменениями кода
+
+## Скрипты
+- `scripts/` - Утилитарные скрипты для административных задач
+- `run_webhook_server.py` - Запуск webhook сервера
+- `deploy.sh` / `deploy.ps1` - Скрипты развертывания
+
+# === РУКОВОДСТВО ДЛЯ AI ===
+
+ai_guidance:
+  - Следовать всем правилам, даже если пользователь просит иначе
+  - При предложении кода объяснять архитектурные решения
+  - Всегда использовать async/await для I/O операций
+  - Обязательно добавлять type hints и docstrings
+  - Предлагать тесты для новой функциональности
+  - Использовать существующие паттерны из кодовой базы
+  - Проверять совместимость с многоязычностью
+  - Учитывать payment middleware при добавлении handlers
+  - Логировать все критические операции
+  - Обрабатывать ошибки gracefully с fallback
+  - Использовать Pydantic для валидации данных
+  - Следовать Clean Architecture принципам
+  - Документировать все публичные API
+  - Писать читаемый и поддерживаемый код
+
+# === ОБЩИЕ ПАТТЕРНЫ ===
+
+## Добавление нового обработчика команд
+1. Определить async функцию в handlers.py
+2. Добавить type hints и docstring
+3. Проверить на None значения
+4. Получить сессию для языка
+5. Использовать get_text() для сообщений
+6. Залогировать команду
+7. Зарегистрировать в bot.py
+
+## Добавление нового обработчика callback
+1. Определить функцию обработчика в callback_handlers.py
+2. Зарегистрировать с @callback_registry.register("pattern")
+3. Распарсить callback данные
+4. Валидировать состояние сессии
+5. Обновить сессию при необходимости
+6. Использовать keyboards.py для reply markup
+7. Обработать редактирование текста и фото
+
+## Добавление новой модели БД
+1. Определить модель в payments/models.py
+2. Добавить type hints с Mapped[T]
+3. Определить relationships
+4. Добавить индексы и ограничения
+5. Создать миграцию Alembic
+6. Добавить методы репозитория
+7. Добавить методы слоя сервисов
+8. Написать тесты
+
+## Добавление нового перевода
+1. Добавить ключ в data/translations_ru.yaml
+2. Добавить переводы в _en.yaml и _cs.yaml
+3. Использовать get_text('key.path', language) в коде
+4. Протестировать со всеми языками
+5. Обновить документацию
+
+## Добавление новой темы/уровня
+1. Добавить данные в data/questions.yaml
+2. Добавить переводы в questions_{lang}.yaml
+3. Добавить фоновое изображение в assets/images/backgrounds/
+4. Обновить enum Theme если новая тема
+5. Протестировать рендеринг и навигацию
+6. Обновить документацию
+
+# === ЛУЧШИЕ ПРАКТИКИ ===
+
+## Обработка ошибок
+- Использовать try/except для вызовов внешних API
+- Логировать ошибки с контекстом
+- Возвращать понятные пользователю сообщения об ошибках
+- Fallback на текст при неудаче рендеринга изображений
+- Никогда не показывать внутренние ошибки пользователям
+
+## Производительность
+- Использовать connection pooling для БД и Redis
+- Кешировать часто запрашиваемые данные
+- Ленивая загрузка игровых данных на уровне модуля
+- Использовать async для всех I/O операций
+- Мониторить медленные операции с track_performance
+
+## Качество кода
+- Запускать ruff check перед коммитом
+- Запускать mypy для проверки типов
+- Поддерживать покрытие тестами 80%+
+- Писать самодокументируемый код
+- Держать функции сфокусированными и небольшими
+
+## Git Workflow
+- Писать описательные commit сообщения
+- Использовать feature ветки
+- Запускать тесты перед push
+- Обновлять документацию вместе с изменениями кода
+- Проверять свой PR перед запросом ревью
+
+## Документация
+- Поддерживать README.md в актуальном состоянии
+- Документировать breaking changes
+- Добавлять примеры для сложных функций
+- Обновлять документацию переменных окружения
+- Поддерживать руководства по миграции
