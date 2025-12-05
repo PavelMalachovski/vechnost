@@ -11,6 +11,7 @@ from pathlib import Path
 import qrcode
 from PIL import Image, ImageDraw, ImageFont
 
+from vechnost_bot.config import create_bot
 from vechnost_bot.payments.database import get_db
 from vechnost_bot.payments.repositories import CertificateRepository
 
@@ -32,14 +33,18 @@ def generate_certificate_code(length: int = 12) -> str:
     return f"VECH-{code[:4]}-{code[4:]}"
 
 
-def generate_qr_code(code: str, output_path: Path) -> None:
+def generate_qr_code(code: str, bot_username: str, output_path: Path) -> None:
     """
-    Generate QR code image for certificate.
+    Generate QR code image for certificate with Telegram deep link.
 
     Args:
         code: Certificate code
+        bot_username: Telegram bot username (without @)
         output_path: Path to save QR code image
     """
+    # Create Telegram deep link
+    telegram_link = f"https://t.me/{bot_username}?start=activate_{code}"
+
     # Create QR code
     qr = qrcode.QRCode(
         version=1,
@@ -47,7 +52,7 @@ def generate_qr_code(code: str, output_path: Path) -> None:
         box_size=10,
         border=4,
     )
-    qr.add_data(code)
+    qr.add_data(telegram_link)
     qr.make(fit=True)
 
     # Create QR code image
@@ -88,14 +93,29 @@ def generate_qr_code(code: str, output_path: Path) -> None:
     print(f"✅ QR code saved: {output_path}")
 
 
-async def create_certificates(count: int = 5, output_dir: str = "certificates") -> None:
+async def create_certificates(count: int = 5, output_dir: str = "certificates", bot_username: str | None = None) -> None:
     """
     Create certificates and generate QR codes.
 
     Args:
         count: Number of certificates to create (default: 5)
         output_dir: Directory to save QR code images
+        bot_username: Telegram bot username (without @). If not provided, will be fetched from bot API
     """
+    # Get bot username
+    if not bot_username:
+        # Try to get from environment variable
+        bot_username = os.getenv("TELEGRAM_BOT_USERNAME")
+
+        # Default to vechnost bot if not set
+        if not bot_username:
+            bot_username = "tvoya_vechnost_bot"
+
+    # Remove @ if present
+    bot_username = bot_username.lstrip("@")
+
+    print(f"🤖 Bot username: @{bot_username}")
+
     # Create output directory
     output_path = Path(output_dir)
     output_path.mkdir(exist_ok=True)
@@ -119,10 +139,10 @@ async def create_certificates(count: int = 5, output_dir: str = "certificates") 
             certificate = await CertificateRepository.create(session, code)
             await session.commit()
 
-            # Generate QR code
+            # Generate QR code with Telegram deep link
             qr_filename = f"certificate_{i+1:02d}_{code}.png"
             qr_path = output_path / qr_filename
-            generate_qr_code(code, qr_path)
+            generate_qr_code(code, bot_username, qr_path)
 
             codes.append(code)
             print(f"📋 Certificate {i+1}: {code}")
@@ -137,9 +157,11 @@ async def create_certificates(count: int = 5, output_dir: str = "certificates") 
     for i, code in enumerate(codes, 1):
         print(f"   {i}. {code}")
 
-    print(f"\n💡 Users can activate certificates using:")
-    print(f"   /activate <CODE>")
+    print(f"\n💡 Users can activate certificates by:")
+    print(f"   1. Scanning QR code (opens Telegram bot automatically)")
+    print(f"   2. Using command: /activate <CODE>")
     print(f"\n   Example: /activate {codes[0]}")
+    print(f"   Or scan QR code to open: https://t.me/{bot_username}?start=activate_{codes[0]}")
 
 
 async def main():
@@ -159,7 +181,11 @@ async def main():
     if len(sys.argv) > 2:
         output_dir = sys.argv[2]
 
-    await create_certificates(count, output_dir)
+    bot_username = None
+    if len(sys.argv) > 3:
+        bot_username = sys.argv[3]
+
+    await create_certificates(count, output_dir, bot_username)
 
 
 if __name__ == "__main__":

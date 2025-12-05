@@ -357,6 +357,9 @@ async def user_has_access(telegram_user_id: int) -> bool:
             user = await UserRepository.get_by_telegram_id(session, telegram_user_id)
             if not user:
                 # User not in system yet - no access
+                logger.debug(
+                    f"User {telegram_user_id} not found in database - no access"
+                )
                 return False
 
             # Check for active subscriptions
@@ -385,11 +388,15 @@ async def user_has_access(telegram_user_id: int) -> bool:
             )
             if certificates:
                 logger.info(
-                    f"User {telegram_user_id} has {len(certificates)} activated certificate(s)"
+                    f"User {telegram_user_id} has {len(certificates)} activated certificate(s): "
+                    f"{[c.code for c in certificates]}"
                 )
                 return True
 
-            logger.info(f"User {telegram_user_id} has no active access")
+            logger.info(
+                f"User {telegram_user_id} has no active access "
+                f"(no subscriptions, no payments, no certificates)"
+            )
             return False
 
     except Exception as e:
@@ -414,13 +421,22 @@ async def get_products_for_purchase() -> list[Product]:
         return []
 
 
-async def activate_certificate(code: str, telegram_user_id: int) -> Dict[str, Any]:
+async def activate_certificate(
+    code: str,
+    telegram_user_id: int,
+    username: Optional[str] = None,
+    first_name: Optional[str] = None,
+    last_name: Optional[str] = None,
+) -> Dict[str, Any]:
     """
     Activate a certificate code for a user.
 
     Args:
         code: Certificate code from QR
         telegram_user_id: Telegram user ID activating the certificate
+        username: Telegram username (optional)
+        first_name: User first name (optional)
+        last_name: User last name (optional)
 
     Returns:
         Dict with activation result
@@ -437,10 +453,11 @@ async def activate_certificate(code: str, telegram_user_id: int) -> Dict[str, An
                     "code": 404,
                 }
 
-            # Check if already used
+            # Check if already used (one-time use enforcement)
             if certificate.is_used:
+                used_by = certificate.used_by_telegram_user_id
                 logger.warning(
-                    f"Certificate {code} already used by user {certificate.used_by_telegram_user_id}"
+                    f"Certificate {code} already used by user {used_by} at {certificate.used_at}"
                 )
                 return {
                     "status": "error",
@@ -448,21 +465,28 @@ async def activate_certificate(code: str, telegram_user_id: int) -> Dict[str, An
                     "code": 409,
                 }
 
-            # Ensure user exists
+            # Ensure user exists with full information
             user = await UserRepository.create_or_update(
                 session,
                 telegram_user_id=telegram_user_id,
+                username=username,
+                first_name=first_name,
+                last_name=last_name,
             )
 
-            # Mark certificate as used
+            # Mark certificate as used (one-time use)
             await CertificateRepository.mark_as_used(
                 session, certificate, telegram_user_id
             )
 
             await session.commit()
 
+            # Verify certificate was marked as used
+            await session.refresh(certificate)
             logger.info(
-                f"Successfully activated certificate {code} for user {telegram_user_id}"
+                f"Successfully activated certificate {code} for user {telegram_user_id} "
+                f"(username: {username}, is_used: {certificate.is_used}, "
+                f"used_by: {certificate.used_by_telegram_user_id})"
             )
 
             return {

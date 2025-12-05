@@ -1234,13 +1234,15 @@ class StartGameHandler(CallbackHandler):
             from telegram import Update
             from telegram.ext import ContextTypes
 
-            # Register user
+            # Register user (ensures user exists in database)
             update = Update(update_id=0, callback_query=query)
             await check_and_register_user(update, None)
 
             # Check if user has access
             user_id = query.from_user.id if query.from_user else 0
+            logger.info(f"Checking access for user {user_id} after registration")
             has_access = await user_has_access(user_id)
+            logger.info(f"User {user_id} access result: {has_access}")
 
             if not has_access:
                 # User needs to pay - redirect to Tribute

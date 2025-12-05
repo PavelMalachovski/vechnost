@@ -51,6 +51,47 @@ async def start_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
     logger.info(f"Start command received from chat {update.effective_chat.id}")
     log_bot_event("start_command", user_id=user_id, username=username)
 
+    # Check for certificate activation parameter
+    if context.args and len(context.args) > 0:
+        param = context.args[0]
+        if param.startswith("activate_"):
+            # Extract certificate code
+            code = param.replace("activate_", "").strip().upper()
+            logger.info(f"Certificate activation via deep link: {code}")
+
+            # Activate certificate with full user information
+            from .payments.services import activate_certificate
+
+            result = await activate_certificate(
+                code=code,
+                telegram_user_id=user_id,
+                username=update.effective_user.username,
+                first_name=update.effective_user.first_name,
+                last_name=update.effective_user.last_name,
+            )
+
+            # Get session to determine language
+            chat_id = update.effective_chat.id
+            session = await get_session(chat_id)
+            language = session.language
+
+            if result["status"] == "success":
+                success_text = get_text("certificate.activated", language)
+                await update.message.reply_text(success_text, parse_mode="HTML")
+                # Continue with normal start flow
+            elif result.get("code") == 404:
+                error_text = get_text("certificate.not_found", language)
+                await update.message.reply_text(error_text)
+                return
+            elif result.get("code") == 409:
+                error_text = get_text("certificate.already_used", language)
+                await update.message.reply_text(error_text)
+                return
+            else:
+                error_text = get_text("certificate.error", language)
+                await update.message.reply_text(error_text)
+                return
+
     # Detect language from user's message or default to Russian
     detected_language = detect_language_from_text(update.message.text or "")
 
@@ -183,10 +224,16 @@ async def activate_certificate_command(
 
     code = context.args[0].strip().upper()
 
-    # Activate certificate
+    # Activate certificate with full user information
     from .payments.services import activate_certificate
 
-    result = await activate_certificate(code, user_id)
+    result = await activate_certificate(
+        code=code,
+        telegram_user_id=user_id,
+        username=update.effective_user.username,
+        first_name=update.effective_user.first_name,
+        last_name=update.effective_user.last_name,
+    )
 
     if result["status"] == "success":
         success_text = get_text("certificate.activated", language)
