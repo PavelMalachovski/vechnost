@@ -140,6 +140,7 @@ Thumbs.db
 vechnost.db
 cache/
 .redis/
+certificates/
 
 # Alembic
 alembic.ini.bak

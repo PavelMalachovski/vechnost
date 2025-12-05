@@ -1,7 +1,7 @@
 """Initial payment tables
 
 Revision ID: 5b5f4176ae1f
-Revises: 
+Revises:
 Create Date: 2025-10-12 21:27:21.614980
 
 """
@@ -70,7 +70,7 @@ def upgrade() -> None:
     sa.Column('amount', sa.Integer(), nullable=False),
     sa.Column('currency', sa.String(), nullable=False),
     sa.Column('expires_at', sa.DateTime(), nullable=True),
-    sa.Column('raw_body', vechnost_bot.payments.models.JSONEncodedDict(), nullable=False),
+    sa.Column('raw_body', sa.Text(), nullable=False),  # JSON-encoded dict for SQLite
     sa.Column('signature', sa.String(), nullable=False),
     sa.Column('body_sha256', sa.String(), nullable=False),
     sa.Column('created_at', sa.DateTime(), nullable=False),

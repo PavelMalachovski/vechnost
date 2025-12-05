@@ -52,6 +52,9 @@ def generate_qr_code(code: str, output_path: Path) -> None:
 
     # Create QR code image
     qr_img = qr.make_image(fill_color="black", back_color="white")
+    # Convert to RGB if needed
+    if qr_img.mode != "RGB":
+        qr_img = qr_img.convert("RGB")
 
     # Create a larger image with text
     img_width, img_height = qr_img.size
