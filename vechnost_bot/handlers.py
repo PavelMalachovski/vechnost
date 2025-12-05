@@ -48,12 +48,16 @@ async def start_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
     # Set user context for monitoring
     set_user_context(user_id, username)
 
-    logger.info(f"Start command received from chat {update.effective_chat.id}")
+    logger.info(
+        f"Start command received from chat {update.effective_chat.id}, "
+        f"args: {context.args if context.args else 'None'}"
+    )
     log_bot_event("start_command", user_id=user_id, username=username)
 
     # Check for certificate activation parameter
     if context.args and len(context.args) > 0:
         param = context.args[0]
+        logger.info(f"Start command parameter: {param}")
         if param.startswith("activate_"):
             # Extract certificate code
             code = param.replace("activate_", "").strip().upper()
