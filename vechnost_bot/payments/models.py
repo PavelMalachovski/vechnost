@@ -194,3 +194,36 @@ class WebhookEvent(Base):
     def __repr__(self) -> str:
         return f"<WebhookEvent(id={self.id}, name='{self.name}', status_code={self.status_code})>"
 
+
+class Certificate(Base):
+    """Certificate model for storing QR code certificates for free one-time access."""
+
+    __tablename__ = "certificates"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    code: Mapped[str] = mapped_column(String, unique=True, nullable=False)  # Unique certificate code
+    is_used: Mapped[bool] = mapped_column(default=False, nullable=False)  # Whether certificate was used
+    used_by_telegram_user_id: Mapped[Optional[int]] = mapped_column(
+        BigInteger, nullable=True
+    )  # Who used the certificate
+    used_at: Mapped[Optional[datetime]] = mapped_column(nullable=True)  # When it was used
+    created_at: Mapped[datetime] = mapped_column(
+        default=datetime.utcnow, nullable=False
+    )  # When certificate was created
+
+    # Note: Relationship to User would require a proper foreign key
+    # For now, we use telegram_user_id directly without relationship
+
+    __table_args__ = (
+        Index("idx_certificate_code", "code"),
+        Index("idx_certificate_used_by", "used_by_telegram_user_id"),
+    )
+
+    @property
+    def is_valid(self) -> bool:
+        """Check if certificate is valid (not used)."""
+        return not self.is_used
+
+    def __repr__(self) -> str:
+        status = "used" if self.is_used else "available"
+        return f"<Certificate(id={self.id}, code='{self.code}', status='{status}')>"

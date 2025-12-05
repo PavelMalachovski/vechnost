@@ -152,6 +152,56 @@ async def about_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
     await update.message.reply_text(about_text)
 
 
+@track_performance("activate_certificate")
+async def activate_certificate_command(
+    update: Update, context: ContextTypes.DEFAULT_TYPE
+) -> None:
+    """Handle the /activate command for certificate activation."""
+    if not update.message:
+        return
+
+    user_id = update.effective_user.id
+    username = update.effective_user.username
+
+    # Set user context for monitoring
+    set_user_context(user_id, username)
+
+    logger.info(f"Activate certificate command received from user {user_id}")
+    log_bot_event("activate_certificate_command", user_id=user_id, username=username)
+
+    # Get session to determine language
+    chat_id = update.effective_chat.id
+    session = await get_session(chat_id)
+    language = session.language
+
+    # Get certificate code from command arguments
+    if not context.args or len(context.args) == 0:
+        # No code provided
+        help_text = get_text("certificate.usage", language)
+        await update.message.reply_text(help_text)
+        return
+
+    code = context.args[0].strip().upper()
+
+    # Activate certificate
+    from .payments.services import activate_certificate
+
+    result = await activate_certificate(code, user_id)
+
+    if result["status"] == "success":
+        success_text = get_text("certificate.activated", language)
+        await update.message.reply_text(success_text, parse_mode="HTML")
+    elif result.get("code") == 404:
+        error_text = get_text("certificate.not_found", language)
+        await update.message.reply_text(error_text)
+    elif result.get("code") == 409:
+        error_text = get_text("certificate.already_used", language)
+        await update.message.reply_text(error_text)
+    else:
+        error_text = get_text("certificate.error", language)
+        await update.message.reply_text(error_text)
+
+
 @track_performance("callback_query")
 async def handle_callback_query(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """Handle callback queries from inline keyboards."""

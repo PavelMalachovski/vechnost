@@ -8,13 +8,14 @@ from sqlalchemy.exc import IntegrityError
 
 from ..config import settings
 from .database import get_db
-from .models import User, Product, Payment, Subscription, WebhookEvent
+from .models import User, Product, Payment, Subscription, WebhookEvent, Certificate
 from .repositories import (
     UserRepository,
     ProductRepository,
     PaymentRepository,
     SubscriptionRepository,
     WebhookEventRepository,
+    CertificateRepository,
 )
 from .tribute_client import TributeClient, TributeAPIError
 from .signature import compute_body_sha256, verify_tribute_signature
@@ -338,7 +339,7 @@ async def apply_webhook_event(
 
 async def user_has_access(telegram_user_id: int) -> bool:
     """
-    Check if user has access based on payment/subscription status.
+    Check if user has access based on payment/subscription/certificate status.
 
     Args:
         telegram_user_id: Telegram user ID
@@ -378,6 +379,16 @@ async def user_has_access(telegram_user_id: int) -> bool:
                 )
                 return True
 
+            # Check for activated certificates (one-time free access)
+            certificates = await CertificateRepository.get_by_user(
+                session, telegram_user_id
+            )
+            if certificates:
+                logger.info(
+                    f"User {telegram_user_id} has {len(certificates)} activated certificate(s)"
+                )
+                return True
+
             logger.info(f"User {telegram_user_id} has no active access")
             return False
 
@@ -401,4 +412,70 @@ async def get_products_for_purchase() -> list[Product]:
     except Exception as e:
         logger.error(f"Error fetching products: {e}")
         return []
+
+
+async def activate_certificate(code: str, telegram_user_id: int) -> Dict[str, Any]:
+    """
+    Activate a certificate code for a user.
+
+    Args:
+        code: Certificate code from QR
+        telegram_user_id: Telegram user ID activating the certificate
+
+    Returns:
+        Dict with activation result
+    """
+    try:
+        async with get_db() as session:
+            # Find certificate
+            certificate = await CertificateRepository.get_by_code(session, code)
+            if not certificate:
+                logger.warning(f"Certificate not found: {code}")
+                return {
+                    "status": "error",
+                    "message": "Certificate not found",
+                    "code": 404,
+                }
+
+            # Check if already used
+            if certificate.is_used:
+                logger.warning(
+                    f"Certificate {code} already used by user {certificate.used_by_telegram_user_id}"
+                )
+                return {
+                    "status": "error",
+                    "message": "Certificate already used",
+                    "code": 409,
+                }
+
+            # Ensure user exists
+            user = await UserRepository.create_or_update(
+                session,
+                telegram_user_id=telegram_user_id,
+            )
+
+            # Mark certificate as used
+            await CertificateRepository.mark_as_used(
+                session, certificate, telegram_user_id
+            )
+
+            await session.commit()
+
+            logger.info(
+                f"Successfully activated certificate {code} for user {telegram_user_id}"
+            )
+
+            return {
+                "status": "success",
+                "message": "Certificate activated successfully",
+                "certificate_id": certificate.id,
+            }
+
+    except Exception as e:
+        logger.error(f"Error activating certificate: {e}", exc_info=True)
+        return {
+            "status": "error",
+            "message": f"Internal error: {str(e)}",
+            "code": 500,
+        }
 

@@ -110,6 +110,13 @@ payment:
   access_granted: "✅ Přístup povolen! Nyní můžete používat bota."
   no_active_payment: "❌ Nebylo nalezeno žádné aktivní předplatné.\n\nProsím, zakupte si přístup pro pokračování v používání bota."
 
+certificate:
+  usage: "📋 <b>Aktivace certifikátu</b>\n\nPoužití: /activate <KÓD>\n\nZadejte kód certifikátu, který jste obdrželi z QR kódu."
+  activated: "✅ <b>Certifikát úspěšně aktivován!</b>\n\nNyní máte bezplatný přístup k botovi. Spusťte hru pomocí příkazu /start"
+  not_found: "❌ Certifikát nenalezen.\n\nProsím, zkontrolujte zadaný kód."
+  already_used: "❌ Tento certifikát již byl použit.\n\nKaždý certifikát lze aktivovat pouze jednou."
+  error: "❌ Při aktivaci certifikátu došlo k chybě.\n\nProsím, zkuste to znovu později nebo kontaktujte podporu."
+
 about:
   title: "💎 O VECHNOST"
   intro: "Hra pro páry vytvořená k:\n• Opravdovému poznání sebe navzájem\n• Překročení hranic běžných rozhovorů\n• Objevení nových stránek sebe a partnera"

@@ -110,6 +110,13 @@ payment:
   access_granted: "✅ Access granted! You can now use the bot."
   no_active_payment: "❌ No active subscription found.\n\nPlease purchase access to continue using the bot."
 
+certificate:
+  usage: "📋 <b>Certificate Activation</b>\n\nUsage: /activate <CODE>\n\nEnter the certificate code you received from the QR code."
+  activated: "✅ <b>Certificate successfully activated!</b>\n\nYou now have free access to the bot. Start the game using /start"
+  not_found: "❌ Certificate not found.\n\nPlease check the code you entered."
+  already_used: "❌ This certificate has already been used.\n\nEach certificate can only be activated once."
+  error: "❌ An error occurred while activating the certificate.\n\nPlease try again later or contact support."
+
 about:
   title: "💎 About VECHNOST"
   intro: "A game for couples created to:\n• Truly get to know each other\n• Go beyond ordinary conversations\n• Discover new sides of yourself and your partner"

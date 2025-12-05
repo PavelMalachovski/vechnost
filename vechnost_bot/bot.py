@@ -12,6 +12,7 @@ from .handlers import (
     reset_command,
     start_command,
     about_command,
+    activate_certificate_command,
 )
 from .monitoring import initialize_monitoring, log_bot_event, track_performance
 from .simple_redis_manager import initialize_simple_redis_auto_start, cleanup_simple_redis_auto_start
@@ -33,13 +34,14 @@ def create_application() -> Application:
     application.add_handler(CommandHandler("help", help_command))
     application.add_handler(CommandHandler("reset", reset_command))
     application.add_handler(CommandHandler("about", about_command))
+    application.add_handler(CommandHandler("activate", activate_certificate_command))
 
     # Add callback query handler
     application.add_handler(CallbackQueryHandler(handle_callback_query))
 
     logger = logging.getLogger(__name__)
     logger.info("Application created with handlers:")
-    logger.info("- Command handlers: start, help, reset, about")
+    logger.info("- Command handlers: start, help, reset, about, activate")
     logger.info("- Callback query handler: handle_callback_query")
 
     return application

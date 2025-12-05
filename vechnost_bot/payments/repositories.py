@@ -7,7 +7,7 @@ from typing import Optional, List
 from sqlalchemy import select, or_
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from .models import User, Product, Payment, Subscription, WebhookEvent
+from .models import User, Product, Payment, Subscription, WebhookEvent, Certificate
 
 logger = logging.getLogger(__name__)
 
@@ -312,4 +312,74 @@ class WebhookEventRepository:
         webhook_event.error = error
         await session.flush()
         return webhook_event
+
+
+class CertificateRepository:
+    """Repository for Certificate operations."""
+
+    @staticmethod
+    async def get_by_code(session: AsyncSession, code: str) -> Optional[Certificate]:
+        """Get certificate by code."""
+        result = await session.execute(
+            select(Certificate).where(Certificate.code == code)
+        )
+        return result.scalar_one_or_none()
+
+    @staticmethod
+    async def create(
+        session: AsyncSession,
+        code: str,
+    ) -> Certificate:
+        """Create a new certificate."""
+        certificate = Certificate(code=code)
+        session.add(certificate)
+        await session.flush()
+        logger.info(f"Created certificate with code: {code}")
+        return certificate
+
+    @staticmethod
+    async def mark_as_used(
+        session: AsyncSession,
+        certificate: Certificate,
+        telegram_user_id: int,
+    ) -> Certificate:
+        """Mark certificate as used by a user."""
+        certificate.is_used = True
+        certificate.used_by_telegram_user_id = telegram_user_id
+        certificate.used_at = datetime.utcnow()
+        await session.flush()
+        logger.info(
+            f"Marked certificate {certificate.code} as used by user {telegram_user_id}"
+        )
+        return certificate
+
+    @staticmethod
+    async def get_all_unused(session: AsyncSession) -> List[Certificate]:
+        """Get all unused certificates."""
+        result = await session.execute(
+            select(Certificate)
+            .where(Certificate.is_used == False)  # noqa: E712
+            .order_by(Certificate.created_at)
+        )
+        return list(result.scalars().all())
+
+    @staticmethod
+    async def get_all(session: AsyncSession) -> List[Certificate]:
+        """Get all certificates."""
+        result = await session.execute(
+            select(Certificate).order_by(Certificate.created_at.desc())
+        )
+        return list(result.scalars().all())
+
+    @staticmethod
+    async def get_by_user(
+        session: AsyncSession, telegram_user_id: int
+    ) -> List[Certificate]:
+        """Get all certificates used by a specific user."""
+        result = await session.execute(
+            select(Certificate).where(
+                Certificate.used_by_telegram_user_id == telegram_user_id
+            )
+        )
+        return list(result.scalars().all())
 
