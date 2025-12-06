@@ -460,3 +460,5 @@ async def activate_certificate(code: str, ...):
 **Дата:** 2025-12-05
 **Подпись:** ✅ Approved with minor recommendations
 
+
+
