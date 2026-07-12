@@ -1,17 +1,23 @@
-"""FastAPI web server for handling Tribute webhooks."""
+"""FastAPI web server for handling Tribute webhooks and the Mini App."""
 
 import logging
 from contextlib import asynccontextmanager
-from typing import Dict, Any
+from pathlib import Path
+from typing import Any
 
-from fastapi import FastAPI, Request, HTTPException, Depends, Header
+from fastapi import Depends, FastAPI, Header, HTTPException, Request
 from fastapi.responses import JSONResponse
+from fastapi.staticfiles import StaticFiles
 
 from ..config import settings
-from .database import init_db, close_db
+from ..i18n import Language
+from ..logic import localized_game_data
+from .database import close_db, init_db
 from .services import apply_webhook_event, sync_products_from_tribute
 
 logger = logging.getLogger(__name__)
+
+WEBAPP_DIR = Path(__file__).parent.parent.parent / "webapp"
 
 
 @asynccontextmanager
@@ -40,13 +46,52 @@ app = FastAPI(
 
 
 @app.get("/health")
-async def health_check() -> Dict[str, str]:
+async def health_check() -> dict[str, str]:
     """Health check endpoint."""
     return {
         "status": "ok",
         "service": "vechnost-payment-webhooks",
         "payment_enabled": str(settings.enable_payment),
     }
+
+
+@app.get("/api/questions")
+async def get_questions(lang: str = "ru") -> JSONResponse:
+    """
+    Game content for the Mini App, localized.
+
+    Returns themes with their levels/questions/tasks and an nsfw flag,
+    loaded from the same YAML files the bot uses.
+    """
+    try:
+        language = Language(lang)
+    except ValueError:
+        language = Language.RUSSIAN
+
+    game_data = localized_game_data.get_game_data(language)
+
+    themes: dict[str, Any] = {}
+    for theme, theme_data in game_data.themes.items():
+        entry: dict[str, Any] = {"nsfw": game_data.has_nsfw_content(theme)}
+        if "levels" in theme_data:
+            entry["levels"] = {
+                str(level): {
+                    key: value
+                    for key, value in level_data.items()
+                    if key in ("questions", "tasks")
+                }
+                for level, level_data in theme_data["levels"].items()
+            }
+        else:
+            for key in ("questions", "tasks"):
+                if key in theme_data:
+                    entry[key] = theme_data[key]
+        themes[theme.value] = entry
+
+    return JSONResponse(
+        content={"lang": language.value, "themes": themes},
+        headers={"Cache-Control": "public, max-age=3600"},
+    )
 
 
 @app.post("/webhooks/tribute")
@@ -143,7 +188,7 @@ def verify_admin_token(authorization: str = Header(None)) -> bool:
 @app.post("/admin/sync-products")
 async def admin_sync_products(
     authorized: bool = Depends(verify_admin_token),
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """
     Admin endpoint to manually sync products from Tribute.
 
@@ -162,7 +207,7 @@ async def admin_sync_products(
 
 
 @app.get("/")
-async def root() -> Dict[str, str]:
+async def root() -> dict[str, str]:
     """Root endpoint."""
     return {
         "service": "Vechnost Payment Webhooks",
@@ -171,8 +216,17 @@ async def root() -> Dict[str, str]:
             "health": "/health",
             "webhook": "/webhooks/tribute",
             "admin_sync": "/admin/sync-products",
+            "mini_app": "/app",
+            "questions_api": "/api/questions",
         },
     }
+
+
+# Telegram Mini App (static single-page game)
+if WEBAPP_DIR.exists():
+    app.mount("/app", StaticFiles(directory=str(WEBAPP_DIR), html=True), name="webapp")
+else:
+    logger.warning(f"Mini App directory not found: {WEBAPP_DIR}")
 
 
 if __name__ == "__main__":

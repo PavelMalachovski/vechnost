@@ -1,6 +1,6 @@
 """Configuration management for the bot using Pydantic Settings."""
 
-from typing import Optional
+
 from pydantic import Field, RedisDsn
 from pydantic_settings import BaseSettings, SettingsConfigDict
 from telegram import Bot
@@ -45,13 +45,13 @@ class Settings(BaseSettings):
     )
 
     # Optional Configuration
-    chat_id: Optional[str] = Field(
+    chat_id: str | None = Field(
         default=None,
         description="Optional chat ID for notifications"
     )
 
     # Sentry Configuration
-    sentry_dsn: Optional[str] = Field(
+    sentry_dsn: str | None = Field(
         default=None,
         description="Sentry DSN for error tracking"
     )
@@ -74,7 +74,7 @@ class Settings(BaseSettings):
         description="Enable payment requirement"
     )
 
-    tribute_api_key: Optional[str] = Field(
+    tribute_api_key: str | None = Field(
         default=None,
         validation_alias="TRIBUTE_API_KEY",
         description="Tribute API key for authentication"
@@ -92,7 +92,7 @@ class Settings(BaseSettings):
         description="Tribute payment page URL for users"
     )
 
-    webhook_secret: Optional[str] = Field(
+    webhook_secret: str | None = Field(
         default=None,
         validation_alias="WEBHOOK_SECRET",
         description="Webhook signature secret"
@@ -103,6 +103,14 @@ class Settings(BaseSettings):
         default="sqlite:///./vechnost.db",
         validation_alias="DATABASE_URL",
         description="Database connection URL"
+    )
+
+    # Mini App Configuration
+    webapp_url: str | None = Field(
+        default=None,
+        validation_alias="WEBAPP_URL",
+        description="HTTPS URL of the Telegram Mini App (e.g. https://<railway-app>/app). "
+                    "When set, the bot shows a 'Play in app' button."
     )
 
 
@@ -120,6 +128,6 @@ def get_log_level() -> str:
     return settings.log_level.upper()
 
 
-def get_chat_id() -> Optional[str]:
+def get_chat_id() -> str | None:
     """Get the chat ID from settings."""
     return settings.chat_id

@@ -21,6 +21,7 @@ welcome:
 
   # Buttons
   button_start: "ENTER VECHNOST ←"
+  button_webapp: "🎮 PLAY IN THE APP"
   button_inside: "WHAT AWAITS YOU INSIDE?"
   button_why: "WHY DOES IT WORK?"
 

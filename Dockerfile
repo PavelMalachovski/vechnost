@@ -43,6 +43,7 @@ COPY --from=builder /usr/local/bin /usr/local/bin
 COPY vechnost_bot/ ./vechnost_bot/
 COPY data/ ./data/
 COPY assets/ ./assets/
+COPY webapp/ ./webapp/
 
 # Create non-root user with proper permissions
 RUN useradd --create-home --shell /bin/bash --uid 1000 app && \

@@ -21,6 +21,7 @@ welcome:
 
   # Tlačítka
   button_start: "VSTOUPIT DO VECHNOST ←"
+  button_webapp: "🎮 HRÁT V APLIKACI"
   button_inside: "CO VÁS ČEKÁ UVNITŘ?"
   button_why: "PROČ TO FUNGUJE?"
 
