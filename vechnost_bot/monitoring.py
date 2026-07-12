@@ -23,6 +23,11 @@ def configure_logging() -> None:
         level=logging.INFO,
     )
 
+    # httpx logs every Telegram API request at INFO with the full URL,
+    # which includes the bot token — keep those out of production logs.
+    logging.getLogger("httpx").setLevel(logging.WARNING)
+    logging.getLogger("httpcore").setLevel(logging.WARNING)
+
     # Configure structlog
     shared_processors = [
         structlog.stdlib.add_log_level,
