@@ -2,10 +2,9 @@
 
 import logging
 from abc import ABC, abstractmethod
-from typing import Any, Dict, Type
+from typing import Any
 
-from telegram import InputMediaPhoto, InlineKeyboardButton, InlineKeyboardMarkup, Update
-from telegram.ext import ContextTypes
+from telegram import InlineKeyboardButton, InlineKeyboardMarkup, InputMediaPhoto, Update
 
 from .callback_models import (
     BackCallbackData,
@@ -22,7 +21,8 @@ from .callback_models import (
     ThemeCallbackData,
     ToggleCallbackData,
 )
-from .i18n import Language, get_text, get_language_name, get_supported_languages, format_number
+from .hybrid_storage import get_redis_storage
+from .i18n import Language, format_number, get_text
 from .keyboards import (
     get_calendar_keyboard,
     get_level_keyboard,
@@ -35,13 +35,19 @@ from .language_keyboards import get_language_selection_keyboard
 from .logic import load_game_data, localized_game_data
 from .models import ContentType, SessionState, Theme
 from .renderer import get_background_path, render_card
-from .storage import get_session
-from .hybrid_storage import get_redis_storage
+from .storage import get_session, reset_session
 
 logger = logging.getLogger(__name__)
 
 # Load game data once at module level
 GAME_DATA = load_game_data()
+
+
+def _card_footer(theme: Theme, index: int, total: int, language: Language) -> str:
+    """Footer drawn on the card image: plain theme name + progress (no emoji)."""
+    theme_label = get_text(f'themes.{theme.value}', language)
+    plain = ''.join(ch for ch in theme_label if ch.isalpha() or ch.isspace()).strip()
+    return f"{plain} · {index + 1}/{total}"
 
 
 class CallbackHandler(ABC):
@@ -456,8 +462,9 @@ class QuestionHandler(CallbackHandler):
             )
             logger.info(f"Rendering card with background: {bg_path}")
 
-            # Render card image
-            image_data = render_card(question, bg_path)
+            # Render card image with theme + progress footer
+            footer = _card_footer(theme, callback_data.index, len(items), session.language)
+            image_data = render_card(question, bg_path, footer=footer)
             logger.info(f"Card rendered successfully, size: {len(image_data.getvalue())} bytes")
 
             # Try to edit message to photo, fallback to new message if that fails
@@ -533,8 +540,9 @@ class NavigationHandler(CallbackHandler):
             )
             logger.info(f"Rendering card with background: {bg_path}")
 
-            # Render card image
-            image_data = render_card(question, bg_path)
+            # Render card image with theme + progress footer
+            footer = _card_footer(theme, callback_data.index, len(items), session.language)
+            image_data = render_card(question, bg_path, footer=footer)
             logger.info(f"Card rendered successfully, size: {len(image_data.getvalue())} bytes")
 
             # Try to edit message to photo, fallback to new message if that fails
@@ -968,7 +976,7 @@ class CallbackHandlerRegistry:
     """Registry for callback handlers."""
 
     def __init__(self):
-        self._handlers: Dict[CallbackAction, CallbackHandler] = {
+        self._handlers: dict[CallbackAction, CallbackHandler] = {
             CallbackAction.THEME: ThemeHandler(),
             CallbackAction.LEVEL: LevelHandler(),
             CallbackAction.CALENDAR: CalendarHandler(),
@@ -1063,12 +1071,22 @@ class LanguageHandler(CallbackHandler):
         )
 
         # Create keyboard with three buttons (like in the screenshot)
-        from telegram import InlineKeyboardButton, InlineKeyboardMarkup
-        keyboard = InlineKeyboardMarkup([
+        from telegram import WebAppInfo
+
+        from .config import settings
+
+        rows = [
             [InlineKeyboardButton(
                 get_text('welcome.button_start', language),
                 callback_data="start_game"
             )],
+        ]
+        if settings.webapp_url:
+            rows.append([InlineKeyboardButton(
+                get_text('welcome.button_webapp', language),
+                web_app=WebAppInfo(url=settings.webapp_url)
+            )])
+        rows.extend([
             [InlineKeyboardButton(
                 get_text('welcome.button_inside', language),
                 callback_data="show_inside"
@@ -1078,6 +1096,7 @@ class LanguageHandler(CallbackHandler):
                 callback_data="show_why"
             )]
         ])
+        keyboard = InlineKeyboardMarkup(rows)
 
         await self._edit_or_send_message(query, greeting_text, keyboard, parse_mode="HTML")
 
@@ -1157,8 +1176,6 @@ class CheckPaymentHandler(CallbackHandler):
     async def handle(self, query: Any, callback_data: SimpleCallbackData, session: SessionState) -> None:
         """Handle check payment status callback."""
         from .payments.handlers import handle_check_payment
-        from telegram import Update
-        from telegram.ext import ContextTypes
 
         # Create a mock update and context for the payment handler
         update = Update(update_id=0, callback_query=query)
@@ -1179,7 +1196,6 @@ class ShowInsideHandler(CallbackHandler):
             f"{get_text('welcome.inside_text', language)}"
         )
 
-        from telegram import InlineKeyboardButton, InlineKeyboardMarkup
         keyboard = InlineKeyboardMarkup([
             [InlineKeyboardButton(
                 get_text('welcome.button_back', language),
@@ -1205,7 +1221,6 @@ class ShowWhyHandler(CallbackHandler):
             f"{get_text('welcome.why_text', language)}"
         )
 
-        from telegram import InlineKeyboardButton, InlineKeyboardMarkup
         keyboard = InlineKeyboardMarkup([
             [InlineKeyboardButton(
                 get_text('welcome.button_back', language),
@@ -1229,10 +1244,10 @@ class StartGameHandler(CallbackHandler):
         # Check payment requirement
         from .config import settings
         if settings.enable_payment:
-            from .payments.services import user_has_access
-            from .payments.middleware import get_payment_keyboard, check_and_register_user
             from telegram import Update
-            from telegram.ext import ContextTypes
+
+            from .payments.middleware import check_and_register_user, get_payment_keyboard
+            from .payments.services import user_has_access
 
             # Register user (ensures user exists in database)
             update = Update(update_id=0, callback_query=query)

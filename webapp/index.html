@@ -1,0 +1,874 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<title>Vechnost — игра для близости</title>
+<script src="https://telegram.org/js/telegram-web-app.js"></script>
+<style>
+  :root {
+    --ink: #350027;
+    --card-bg: #FDEBF7;
+    --card-edge: #F5D3EA;
+    --shell-1: #1C0414;
+    --text-on-dark: #FBE9F4;
+    --muted-on-dark: rgba(251, 233, 244, .62);
+    --radius-card: 26px;
+    --safe-top: env(safe-area-inset-top, 0px);
+    --safe-bottom: env(safe-area-inset-bottom, 0px);
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+
+  html, body {
+    height: 100%;
+    overflow: hidden;
+    overscroll-behavior: none;
+    font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", Roboto, "Segoe UI", sans-serif;
+    background: #1C0414;
+    color: var(--text-on-dark);
+    user-select: none;
+    -webkit-user-select: none;
+  }
+
+  #shell {
+    position: fixed; inset: 0;
+    display: flex; flex-direction: column;
+    background: radial-gradient(120% 90% at 50% 0%, #47102F 0%, #1C0414 62%);
+    transition: background .6s ease;
+  }
+
+  /* ---------- screens ---------- */
+  .screen {
+    position: absolute; inset: 0;
+    display: flex; flex-direction: column;
+    padding: calc(var(--safe-top) + 14px) 18px calc(var(--safe-bottom) + 18px);
+    opacity: 0; pointer-events: none;
+    transform: translateY(12px);
+    transition: opacity .28s ease, transform .28s ease;
+  }
+  .screen.active { opacity: 1; pointer-events: auto; transform: none; }
+
+  /* ---------- home ---------- */
+  #home { align-items: center; justify-content: center; text-align: center; gap: 10px; }
+  .logo {
+    font-family: Georgia, "Times New Roman", serif;
+    font-size: 52px; letter-spacing: .14em; font-weight: 400;
+    background: linear-gradient(180deg, #FFD9EF 20%, #E86BB5 90%);
+    -webkit-background-clip: text; background-clip: text; color: transparent;
+    text-transform: uppercase;
+  }
+  .logo .heart { color: #E86BB5; -webkit-text-fill-color: #E86BB5; }
+  .tagline { font-size: 15px; color: var(--muted-on-dark); max-width: 260px; line-height: 1.45; }
+
+  .suits { display: flex; gap: 18px; font-size: 22px; margin: 18px 0 6px; opacity: .9; }
+  .suits span { animation: float 3.2s ease-in-out infinite; }
+  .suits span:nth-child(2) { animation-delay: .4s; }
+  .suits span:nth-child(3) { animation-delay: .8s; }
+  .suits span:nth-child(4) { animation-delay: 1.2s; }
+  @keyframes float { 0%,100% { transform: translateY(0); } 50% { transform: translateY(-7px); } }
+
+  .btn {
+    border: 0; cursor: pointer; font: inherit;
+    border-radius: 16px; font-weight: 600;
+    transition: transform .12s ease, filter .12s ease, opacity .2s;
+  }
+  .btn:active { transform: scale(.96); }
+
+  .btn-play {
+    margin-top: 26px; padding: 16px 64px; font-size: 18px; color: #fff;
+    background: linear-gradient(135deg, #C4256E, #7A1147);
+    box-shadow: 0 10px 30px rgba(196, 37, 110, .45), inset 0 1px 0 rgba(255,255,255,.25);
+  }
+
+  .lang-row { display: flex; gap: 8px; margin-top: 22px; }
+  .chip {
+    padding: 8px 16px; border-radius: 999px; font-size: 13px; font-weight: 600;
+    color: var(--muted-on-dark); background: rgba(255,255,255,.07);
+    border: 1px solid rgba(255,255,255,.12); cursor: pointer;
+    transition: all .15s ease;
+  }
+  .chip.on { color: #fff; background: rgba(232,107,181,.28); border-color: rgba(232,107,181,.8); }
+
+  /* ---------- headers ---------- */
+  .top {
+    display: flex; align-items: center; gap: 10px; min-height: 40px; margin-bottom: 6px;
+  }
+  .top .title { font-size: 17px; font-weight: 700; letter-spacing: .02em; flex: 1; text-align: center; }
+  .icon-btn {
+    width: 40px; height: 40px; border-radius: 13px; border: 0; cursor: pointer;
+    display: grid; place-items: center; font-size: 17px; color: #fff;
+    background: rgba(255,255,255,.09);
+    transition: transform .12s ease, background .15s;
+  }
+  .icon-btn:active { transform: scale(.92); }
+  .icon-btn[disabled] { opacity: .35; pointer-events: none; }
+
+  /* ---------- themes ---------- */
+  #themeList { display: flex; flex-direction: column; gap: 14px; flex: 1; justify-content: center; }
+  .theme-card {
+    position: relative; overflow: hidden;
+    border-radius: 22px; padding: 20px 22px; min-height: 96px;
+    display: flex; flex-direction: column; justify-content: center; gap: 4px;
+    cursor: pointer; border: 0; text-align: left; font: inherit; color: #fff;
+    box-shadow: 0 8px 26px rgba(0,0,0,.35), inset 0 1px 0 rgba(255,255,255,.22);
+    transition: transform .14s ease;
+  }
+  .theme-card:active { transform: scale(.97); }
+  .theme-card .t-name { font-size: 20px; font-weight: 800; letter-spacing: .01em; }
+  .theme-card .t-desc { font-size: 13px; opacity: .85; line-height: 1.35; }
+  .theme-card .t-emoji {
+    position: absolute; right: 16px; top: 50%; transform: translateY(-50%);
+    font-size: 40px; filter: drop-shadow(0 4px 10px rgba(0,0,0,.3));
+  }
+  .theme-card .t-count {
+    position: absolute; right: 18px; bottom: 10px; font-size: 11px; opacity: .75; font-weight: 600;
+  }
+  .g-acq     { background: linear-gradient(135deg, #8E7CF3 0%, #C86DD7 55%, #F3A0D6 100%); }
+  .g-couples { background: linear-gradient(135deg, #F35D8A 0%, #F98D68 100%); }
+  .g-sex     { background: linear-gradient(135deg, #6E1040 0%, #C4256E 100%); }
+  .g-prov    { background: linear-gradient(135deg, #7F2BFF 0%, #E100C7 100%); }
+
+  /* ---------- levels ---------- */
+  #levelList { display: flex; flex-direction: column; gap: 14px; flex: 1; justify-content: center; }
+  .level-card {
+    border-radius: 22px; padding: 22px; border: 0; cursor: pointer; font: inherit; color: #fff;
+    display: flex; align-items: center; gap: 16px; text-align: left;
+    background: rgba(255,255,255,.07);
+    border: 1px solid rgba(255,255,255,.12);
+    transition: transform .14s ease;
+  }
+  .level-card:active { transform: scale(.97); }
+  .level-num {
+    width: 52px; height: 52px; border-radius: 16px; flex: none;
+    display: grid; place-items: center; font-size: 22px; font-weight: 800;
+    background: linear-gradient(135deg, #C4256E, #7A1147);
+    box-shadow: 0 6px 18px rgba(196,37,110,.4);
+  }
+  .level-info b { display: block; font-size: 17px; margin-bottom: 3px; }
+  .level-info span { font-size: 13px; color: var(--muted-on-dark); line-height: 1.35; }
+
+  /* ---------- deck ---------- */
+  #deck { padding-left: 14px; padding-right: 14px; }
+  .progress-wrap { display: flex; align-items: center; gap: 12px; margin: 2px 4px 10px; }
+  .progress-track {
+    flex: 1; height: 5px; border-radius: 99px; background: rgba(255,255,255,.12); overflow: hidden;
+  }
+  .progress-fill {
+    height: 100%; width: 0%; border-radius: 99px;
+    background: linear-gradient(90deg, #E86BB5, #C4256E);
+    transition: width .3s ease;
+  }
+  .progress-num { font-size: 13px; font-weight: 700; color: var(--muted-on-dark); min-width: 58px; text-align: right; }
+
+  .mode-row { display: flex; gap: 8px; justify-content: center; margin-bottom: 8px; }
+
+  #stage { flex: 1; position: relative; perspective: 1300px; margin: 4px 0 10px; touch-action: none; }
+
+  .card {
+    position: absolute; inset: 0; margin: auto;
+    max-width: 340px; max-height: 470px;
+    border-radius: var(--radius-card);
+    transform-style: preserve-3d;
+    will-change: transform;
+  }
+  .card .face {
+    position: absolute; inset: 0; border-radius: var(--radius-card);
+    backface-visibility: hidden; -webkit-backface-visibility: hidden;
+    display: flex; flex-direction: column; overflow: hidden;
+  }
+  .card .front {
+    background: var(--card-bg);
+    border: 1px solid var(--card-edge);
+    box-shadow: 0 18px 44px rgba(0,0,0,.5);
+    padding: 26px 24px;
+  }
+  .card .back {
+    transform: rotateY(180deg);
+    background:
+      radial-gradient(90% 70% at 50% 40%, #5C1140 0%, #350027 70%),
+      #350027;
+    border: 1px solid #5C1140;
+    box-shadow: 0 18px 44px rgba(0,0,0,.5);
+    display: grid; place-items: center;
+  }
+  .card .back .emblem {
+    font-family: Georgia, serif; font-size: 64px; color: #E86BB5; letter-spacing: .1em;
+    text-shadow: 0 0 34px rgba(232,107,181,.55);
+  }
+  .card .back .emblem small { display: block; font-size: 15px; letter-spacing: .42em; text-align: center; margin-top: 6px; color: rgba(232,107,181,.75); }
+
+  .corner { position: absolute; font-size: 19px; line-height: 1.05; color: var(--ink); font-family: Georgia, serif; text-align: center; }
+  .corner .s { font-size: 15px; display: block; }
+  .corner.tl { top: 14px; left: 16px; }
+  .corner.br { bottom: 14px; right: 16px; transform: rotate(180deg); }
+
+  .q-zone { flex: 1; display: grid; place-items: center; padding: 12px 2px; }
+  .q-text {
+    color: var(--ink); text-align: center; font-weight: 600;
+    font-size: 22px; line-height: 1.42; letter-spacing: .002em;
+    overflow-wrap: anywhere;
+  }
+  .q-text.small  { font-size: 18px; }
+  .q-text.tiny   { font-size: 15.5px; }
+  .card-footer { text-align: center; font-size: 12px; font-weight: 600; color: #7A3F64; letter-spacing: .06em; }
+
+  .card.under { transition: transform .3s ease, opacity .3s ease; }
+
+  .flipper { position: absolute; inset: 0; transform-style: preserve-3d; transition: transform .45s cubic-bezier(.2,.7,.25,1); }
+  .flipper.faced { transform: rotateY(180deg); }
+
+  .hint { text-align: center; font-size: 12.5px; color: var(--muted-on-dark); margin-bottom: 8px; }
+
+  .deck-controls { display: flex; justify-content: center; gap: 14px; }
+  .ctrl {
+    width: 58px; height: 58px; border-radius: 50%; border: 0; cursor: pointer;
+    display: grid; place-items: center; font-size: 21px; color: #fff;
+    background: rgba(255,255,255,.09); border: 1px solid rgba(255,255,255,.13);
+    transition: transform .12s ease;
+  }
+  .ctrl:active { transform: scale(.9); }
+  .ctrl.main {
+    width: 72px; height: 72px; font-size: 26px;
+    background: linear-gradient(135deg, #C4256E, #7A1147);
+    box-shadow: 0 10px 26px rgba(196,37,110,.45);
+    border: 0;
+  }
+  .ctrl[disabled] { opacity: .35; pointer-events: none; }
+
+  /* ---------- overlays ---------- */
+  .overlay {
+    position: absolute; inset: 0; z-index: 30;
+    display: none; align-items: center; justify-content: center; flex-direction: column;
+    padding: 30px 26px calc(var(--safe-bottom) + 30px);
+    background: rgba(20, 2, 13, .88); backdrop-filter: blur(14px); -webkit-backdrop-filter: blur(14px);
+    text-align: center;
+  }
+  .overlay.show { display: flex; }
+  .overlay h2 { font-size: 24px; margin-bottom: 10px; }
+  .overlay p { font-size: 15px; color: var(--muted-on-dark); line-height: 1.5; max-width: 300px; margin-bottom: 24px; }
+  .overlay .btn-play { margin-top: 0; padding: 15px 44px; font-size: 16px; }
+  .overlay .btn-ghost {
+    margin-top: 12px; padding: 13px 34px; font-size: 15px; color: var(--text-on-dark);
+    background: rgba(255,255,255,.08); border: 1px solid rgba(255,255,255,.15);
+  }
+  .big-emoji { font-size: 58px; margin-bottom: 14px; }
+
+  /* confetti */
+  .confetti { position: absolute; top: -12px; width: 9px; height: 15px; opacity: .95; z-index: 31; pointer-events: none;
+    animation: fall linear forwards; }
+  @keyframes fall {
+    to { transform: translateY(110vh) rotate(720deg); opacity: .7; }
+  }
+
+  #toast {
+    position: absolute; left: 50%; bottom: calc(var(--safe-bottom) + 110px); transform: translateX(-50%) translateY(16px);
+    background: rgba(255,255,255,.12); backdrop-filter: blur(10px);
+    color: #fff; font-size: 13.5px; font-weight: 600;
+    padding: 10px 18px; border-radius: 999px; opacity: 0; pointer-events: none;
+    transition: opacity .25s, transform .25s; z-index: 40; white-space: nowrap;
+  }
+  #toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+
+  #loader { position: absolute; inset: 0; display: none; place-items: center; z-index: 50; background: rgba(20,2,13,.6); }
+  #loader.show { display: grid; }
+  .spinner { width: 42px; height: 42px; border-radius: 50%; border: 3px solid rgba(255,255,255,.15); border-top-color: #E86BB5; animation: spin .8s linear infinite; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+</style>
+</head>
+<body>
+<div id="shell">
+
+  <!-- HOME -->
+  <section class="screen active" id="home">
+    <div class="logo">Vechnost</div>
+    <div class="tagline" data-i18n="tagline"></div>
+    <div class="suits"><span>♥</span><span>♠</span><span>♦</span><span>♣</span></div>
+    <button class="btn btn-play" id="btnPlay" data-i18n="play"></button>
+    <div class="lang-row" id="langRow">
+      <button class="chip" data-lang="ru">RU</button>
+      <button class="chip" data-lang="en">EN</button>
+      <button class="chip" data-lang="cs">CS</button>
+    </div>
+  </section>
+
+  <!-- THEMES -->
+  <section class="screen" id="themes">
+    <div class="top">
+      <button class="icon-btn" id="backHome">←</button>
+      <div class="title" data-i18n="chooseTheme"></div>
+      <div style="width:40px"></div>
+    </div>
+    <div id="themeList"></div>
+  </section>
+
+  <!-- LEVELS -->
+  <section class="screen" id="levels">
+    <div class="top">
+      <button class="icon-btn" id="backThemes">←</button>
+      <div class="title" id="levelsTitle"></div>
+      <div style="width:40px"></div>
+    </div>
+    <div id="levelList"></div>
+  </section>
+
+  <!-- DECK -->
+  <section class="screen" id="deck">
+    <div class="top">
+      <button class="icon-btn" id="deckBack">←</button>
+      <div class="title" id="deckTitle"></div>
+      <button class="icon-btn" id="btnShuffle" title="shuffle">🔀</button>
+    </div>
+    <div class="progress-wrap">
+      <div class="progress-track"><div class="progress-fill" id="progressFill"></div></div>
+      <div class="progress-num" id="progressNum"></div>
+    </div>
+    <div class="mode-row" id="modeRow" style="display:none">
+      <button class="chip" id="modeQ"></button>
+      <button class="chip" id="modeT"></button>
+    </div>
+    <div id="stage"></div>
+    <div class="hint" data-i18n="hint"></div>
+    <div class="deck-controls">
+      <button class="ctrl" id="btnPrev">↩</button>
+      <button class="ctrl main" id="btnNext">→</button>
+    </div>
+  </section>
+
+  <!-- NSFW overlay -->
+  <div class="overlay" id="nsfw">
+    <div class="big-emoji">🔞</div>
+    <h2 data-i18n="nsfwTitle"></h2>
+    <p data-i18n="nsfwText"></p>
+    <button class="btn btn-play" id="nsfwYes" data-i18n="nsfwYes"></button>
+    <button class="btn btn-ghost" id="nsfwNo" data-i18n="nsfwNo"></button>
+  </div>
+
+  <!-- DONE overlay -->
+  <div class="overlay" id="done">
+    <div class="big-emoji">🎉</div>
+    <h2 data-i18n="doneTitle"></h2>
+    <p data-i18n="doneText"></p>
+    <button class="btn btn-play" id="btnAgain" data-i18n="again"></button>
+    <button class="btn btn-ghost" id="btnToThemes" data-i18n="toThemes"></button>
+  </div>
+
+  <div id="toast"></div>
+  <div id="loader"><div class="spinner"></div></div>
+</div>
+
+<script>
+(function () {
+  'use strict';
+
+  /* ---------------- Telegram ---------------- */
+  const tg = window.Telegram && window.Telegram.WebApp;
+  if (tg) {
+    try { tg.ready(); tg.expand(); } catch (e) {}
+    try { tg.disableVerticalSwipes(); } catch (e) {}
+    try { tg.setHeaderColor('#1C0414'); tg.setBackgroundColor('#1C0414'); } catch (e) {}
+  }
+  const haptic = (type) => {
+    try {
+      if (!tg || !tg.HapticFeedback) return;
+      if (type === 'ok') tg.HapticFeedback.notificationOccurred('success');
+      else tg.HapticFeedback.impactOccurred(type || 'light');
+    } catch (e) {}
+  };
+
+  /* ---------------- i18n ---------------- */
+  const I18N = {
+    ru: {
+      tagline: 'Карточная игра для пар и разговоров, которые сближают',
+      play: 'Играть', chooseTheme: 'Выбери тему', level: 'Уровень',
+      questions: 'Вопросы', tasks: 'Задания',
+      hint: 'Свайпни карту или нажми →',
+      nsfwTitle: 'Контент 18+',
+      nsfwText: 'В этой теме откровенные вопросы и задания для взрослых. Продолжая, ты подтверждаешь, что тебе есть 18 лет.',
+      nsfwYes: 'Мне есть 18', nsfwNo: 'Назад',
+      doneTitle: 'Колода пройдена!', doneText: 'Вы разобрали все карты этой колоды. Это только начало разговора.',
+      again: 'Начать заново', toThemes: 'К темам',
+      shuffled: 'Колода перемешана', ordered: 'По порядку',
+      cardWord: 'Карта', resumed: 'Продолжаем с места остановки',
+      loadError: 'Не удалось загрузить вопросы. Проверь соединение.',
+      themes: {
+        'Acquaintance': { name: 'Знакомство', desc: 'Узнать друг друга по-настоящему', emoji: '✨', grad: 'g-acq' },
+        'For Couples':  { name: 'Для пар', desc: 'Стать ближе, чем когда-либо', emoji: '💞', grad: 'g-couples' },
+        'Sex':          { name: 'Секс', desc: 'Откровенно о желаниях', emoji: '🔥', grad: 'g-sex' },
+        'Provocation':  { name: 'Провокация', desc: 'Вопросы на грани', emoji: '⚡', grad: 'g-prov' }
+      },
+      levelDesc: { '1': 'Лёгкий старт', '2': 'Глубже и личнее', '3': 'Максимальная откровенность' }
+    },
+    en: {
+      tagline: 'A card game for couples and conversations that bring you closer',
+      play: 'Play', chooseTheme: 'Pick a theme', level: 'Level',
+      questions: 'Questions', tasks: 'Tasks',
+      hint: 'Swipe the card or tap →',
+      nsfwTitle: '18+ content',
+      nsfwText: 'This theme contains explicit adult questions and tasks. By continuing you confirm you are 18 or older.',
+      nsfwYes: "I'm 18+", nsfwNo: 'Back',
+      doneTitle: 'Deck complete!', doneText: "You've been through every card. The conversation is just beginning.",
+      again: 'Start over', toThemes: 'Themes',
+      shuffled: 'Deck shuffled', ordered: 'In order',
+      cardWord: 'Card', resumed: 'Resumed where you left off',
+      loadError: 'Could not load questions. Check your connection.',
+      themes: {
+        'Acquaintance': { name: 'Acquaintance', desc: 'Get to know each other for real', emoji: '✨', grad: 'g-acq' },
+        'For Couples':  { name: 'For Couples', desc: 'Grow closer than ever', emoji: '💞', grad: 'g-couples' },
+        'Sex':          { name: 'Sex', desc: 'Honest talk about desire', emoji: '🔥', grad: 'g-sex' },
+        'Provocation':  { name: 'Provocation', desc: 'Questions on the edge', emoji: '⚡', grad: 'g-prov' }
+      },
+      levelDesc: { '1': 'Easy start', '2': 'Deeper and more personal', '3': 'Full honesty' }
+    },
+    cs: {
+      tagline: 'Karetní hra pro páry a rozhovory, které sbližují',
+      play: 'Hrát', chooseTheme: 'Vyber téma', level: 'Úroveň',
+      questions: 'Otázky', tasks: 'Úkoly',
+      hint: 'Přejeď kartu nebo klepni →',
+      nsfwTitle: 'Obsah 18+',
+      nsfwText: 'Toto téma obsahuje otevřené otázky a úkoly pro dospělé. Pokračováním potvrzuješ, že ti je 18 let.',
+      nsfwYes: 'Je mi 18+', nsfwNo: 'Zpět',
+      doneTitle: 'Balíček dokončen!', doneText: 'Prošli jste všechny karty. Rozhovor právě začíná.',
+      again: 'Začít znovu', toThemes: 'Témata',
+      shuffled: 'Balíček zamíchán', ordered: 'Po pořadí',
+      cardWord: 'Karta', resumed: 'Pokračujeme, kde jsi skončil',
+      loadError: 'Otázky se nepodařilo načíst. Zkontroluj připojení.',
+      themes: {
+        'Acquaintance': { name: 'Seznámení', desc: 'Poznejte se doopravdy', emoji: '✨', grad: 'g-acq' },
+        'For Couples':  { name: 'Pro páry', desc: 'Buďte si blíž než kdy dřív', emoji: '💞', grad: 'g-couples' },
+        'Sex':          { name: 'Sex', desc: 'Otevřeně o touhách', emoji: '🔥', grad: 'g-sex' },
+        'Provocation':  { name: 'Provokace', desc: 'Otázky na hraně', emoji: '⚡', grad: 'g-prov' }
+      },
+      levelDesc: { '1': 'Lehký začátek', '2': 'Hlubší a osobnější', '3': 'Naprostá otevřenost' }
+    }
+  };
+
+  const THEME_ORDER = ['Acquaintance', 'For Couples', 'Sex', 'Provocation'];
+  const SUITS = { 'Acquaintance': '♠', 'For Couples': '♥', 'Sex': '♣', 'Provocation': '♦' };
+
+  /* ---------------- state ---------------- */
+  const store = {
+    get(k, d) { try { const v = localStorage.getItem('vech.' + k); return v === null ? d : JSON.parse(v); } catch (e) { return d; } },
+    set(k, v) { try { localStorage.setItem('vech.' + k, JSON.stringify(v)); } catch (e) {} }
+  };
+
+  const tgLang = tg && tg.initDataUnsafe && tg.initDataUnsafe.user && tg.initDataUnsafe.user.language_code;
+  let lang = store.get('lang', ['ru', 'en', 'cs'].includes(tgLang) ? tgLang : 'ru');
+  let DATA = null;          // themes payload from API
+  let S = {                 // current game selection
+    theme: null, level: null, type: 'questions',
+    order: [], idx: 0, shuffled: false
+  };
+  let deckDirty = false;    // guards double-swipes during animation
+
+  const $ = (id) => document.getElementById(id);
+  const T = () => I18N[lang];
+
+  /* ---------------- i18n render ---------------- */
+  function applyI18n() {
+    document.querySelectorAll('[data-i18n]').forEach(el => {
+      const key = el.getAttribute('data-i18n');
+      if (T()[key]) el.textContent = T()[key];
+    });
+    document.querySelectorAll('#langRow .chip').forEach(ch =>
+      ch.classList.toggle('on', ch.dataset.lang === lang));
+    $('modeQ').textContent = '❓ ' + T().questions;
+    $('modeT').textContent = '📝 ' + T().tasks;
+  }
+
+  /* ---------------- navigation ---------------- */
+  function show(id) {
+    document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+    $(id).classList.add('active');
+    try {
+      if (tg && tg.BackButton) {
+        if (id === 'home') tg.BackButton.hide(); else tg.BackButton.show();
+      }
+    } catch (e) {}
+  }
+  if (tg && tg.BackButton) {
+    try {
+      tg.BackButton.onClick(() => {
+        if ($('deck').classList.contains('active')) leaveDeck();
+        else if ($('levels').classList.contains('active')) show('themes');
+        else if ($('themes').classList.contains('active')) show('home');
+      });
+    } catch (e) {}
+  }
+
+  function toast(msg) {
+    const t = $('toast');
+    t.textContent = msg;
+    t.classList.add('show');
+    clearTimeout(t._h);
+    t._h = setTimeout(() => t.classList.remove('show'), 1700);
+  }
+
+  /* ---------------- data ---------------- */
+  async function loadData() {
+    $('loader').classList.add('show');
+    try {
+      const res = await fetch('/api/questions?lang=' + lang, { cache: 'no-cache' });
+      if (!res.ok) throw new Error('http ' + res.status);
+      const json = await res.json();
+      DATA = json.themes;
+    } catch (e) {
+      DATA = null;
+      toast(T().loadError);
+    } finally {
+      $('loader').classList.remove('show');
+    }
+  }
+
+  function themeCounts(themeKey) {
+    const th = DATA[themeKey];
+    if (!th) return 0;
+    let n = 0;
+    if (th.levels) Object.values(th.levels).forEach(l => n += (l.questions || []).length + (l.tasks || []).length);
+    else n = (th.questions || []).length + (th.tasks || []).length;
+    return n;
+  }
+
+  /* ---------------- themes screen ---------------- */
+  function renderThemes() {
+    const box = $('themeList');
+    box.innerHTML = '';
+    THEME_ORDER.forEach(key => {
+      if (!DATA || !DATA[key]) return;
+      const meta = T().themes[key];
+      const btn = document.createElement('button');
+      btn.className = 'theme-card ' + meta.grad;
+      btn.innerHTML =
+        '<span class="t-name">' + meta.name + '</span>' +
+        '<span class="t-desc">' + meta.desc + '</span>' +
+        '<span class="t-emoji">' + meta.emoji + '</span>' +
+        '<span class="t-count">' + themeCounts(key) + '</span>';
+      btn.onclick = () => { haptic('light'); pickTheme(key); };
+      box.appendChild(btn);
+    });
+  }
+
+  function pickTheme(key) {
+    S.theme = key;
+    const th = DATA[key];
+    if (th.nsfw && !store.get('nsfwOk', false)) {
+      $('nsfw').classList.add('show');
+      return;
+    }
+    afterNsfw();
+  }
+
+  function afterNsfw() {
+    const th = DATA[S.theme];
+    if (th.levels) {
+      renderLevels();
+      show('levels');
+    } else {
+      S.level = null;
+      S.type = th.questions ? 'questions' : 'tasks';
+      enterDeck();
+    }
+  }
+
+  $('nsfwYes').onclick = () => {
+    store.set('nsfwOk', true);
+    $('nsfw').classList.remove('show');
+    haptic('ok');
+    afterNsfw();
+  };
+  $('nsfwNo').onclick = () => { $('nsfw').classList.remove('show'); };
+
+  /* ---------------- levels screen ---------------- */
+  function renderLevels() {
+    const meta = T().themes[S.theme];
+    $('levelsTitle').textContent = meta.emoji + ' ' + meta.name;
+    const box = $('levelList');
+    box.innerHTML = '';
+    Object.keys(DATA[S.theme].levels).sort().forEach(lv => {
+      const count = (DATA[S.theme].levels[lv].questions || []).length;
+      const btn = document.createElement('button');
+      btn.className = 'level-card';
+      btn.innerHTML =
+        '<span class="level-num">' + lv + '</span>' +
+        '<span class="level-info"><b>' + T().level + ' ' + lv + '</b>' +
+        '<span>' + (T().levelDesc[lv] || '') + ' · ' + count + '</span></span>';
+      btn.onclick = () => { haptic('light'); S.level = lv; enterDeck(); };
+      box.appendChild(btn);
+    });
+  }
+
+  /* ---------------- deck ---------------- */
+  function deckItems() {
+    const th = DATA[S.theme];
+    const src = S.level ? th.levels[S.level] : th;
+    return src[S.type] || [];
+  }
+
+  function deckKey() {
+    return [lang, S.theme, S.level || 0, S.type].join('|');
+  }
+
+  function initOrder(forceReset) {
+    const items = deckItems();
+    const saved = store.get('deck.' + deckKey(), null);
+    if (!forceReset && saved && Array.isArray(saved.order) && saved.order.length === items.length) {
+      S.order = saved.order; S.idx = Math.min(saved.idx, items.length - 1); S.shuffled = !!saved.shuffled;
+      if (S.idx > 0) toast(T().resumed);
+    } else {
+      S.order = items.map((_, i) => i);
+      S.idx = 0; S.shuffled = false;
+    }
+  }
+
+  function persistDeck() {
+    store.set('deck.' + deckKey(), { order: S.order, idx: S.idx, shuffled: S.shuffled });
+  }
+
+  function enterDeck(forceReset) {
+    initOrder(forceReset);
+    const meta = T().themes[S.theme];
+    $('deckTitle').textContent = meta.emoji + ' ' + meta.name + (S.level ? ' · ' + T().level + ' ' + S.level : '');
+    const th = DATA[S.theme];
+    const hasBoth = !!(S.level ? (th.levels[S.level].questions && th.levels[S.level].tasks) : (th.questions && th.tasks));
+    $('modeRow').style.display = hasBoth ? 'flex' : 'none';
+    $('modeQ').classList.toggle('on', S.type === 'questions');
+    $('modeT').classList.toggle('on', S.type === 'tasks');
+    show('deck');
+    renderStage(true);
+  }
+
+  function leaveDeck() {
+    persistDeck();
+    if (DATA[S.theme].levels) show('levels'); else show('themes');
+  }
+
+  $('modeQ').onclick = () => switchType('questions');
+  $('modeT').onclick = () => switchType('tasks');
+  function switchType(t) {
+    if (S.type === t) return;
+    persistDeck();
+    S.type = t;
+    haptic('light');
+    enterDeck();
+  }
+
+  function updateProgress() {
+    const total = S.order.length;
+    const cur = Math.min(S.idx + 1, total);
+    $('progressFill').style.width = (total ? (cur / total) * 100 : 0) + '%';
+    $('progressNum').textContent = cur + ' / ' + total;
+    $('btnPrev').disabled = S.idx <= 0;
+  }
+
+  function cardHTML(text, number, total) {
+    const suit = SUITS[S.theme] || '♥';
+    const len = text.length;
+    const sizeClass = len > 220 ? ' tiny' : (len > 120 ? ' small' : '');
+    return (
+      '<div class="flipper">' +
+        '<div class="face front">' +
+          '<div class="corner tl">V<span class="s">' + suit + '</span></div>' +
+          '<div class="q-zone"><div class="q-text' + sizeClass + '">' + escapeHTML(text) + '</div></div>' +
+          '<div class="card-footer">' + T().cardWord + ' ' + number + ' / ' + total + '</div>' +
+          '<div class="corner br">V<span class="s">' + suit + '</span></div>' +
+        '</div>' +
+        '<div class="face back"><div class="emblem">V<small>VECHNOST</small></div></div>' +
+      '</div>'
+    );
+  }
+
+  function escapeHTML(s) {
+    return s.replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+  }
+
+  function renderStage(withFlip) {
+    const stage = $('stage');
+    stage.innerHTML = '';
+    const items = deckItems();
+    const total = S.order.length;
+    if (!total) return;
+
+    // under-card (next in deck), peeking from beneath
+    if (S.idx + 1 < total) {
+      const under = document.createElement('div');
+      under.className = 'card under';
+      under.style.transform = 'translateY(14px) scale(.94)';
+      under.style.opacity = '.7';
+      under.innerHTML = cardHTML(items[S.order[S.idx + 1]], S.idx + 2, total);
+      stage.appendChild(under);
+    }
+
+    // top card
+    const top = document.createElement('div');
+    top.className = 'card top';
+    top.innerHTML = cardHTML(items[S.order[S.idx]], S.idx + 1, total);
+    stage.appendChild(top);
+
+    const flipper = top.querySelector('.flipper');
+    if (withFlip) {
+      flipper.classList.add('faced');            // back side up
+      requestAnimationFrame(() => setTimeout(() => {
+        flipper.classList.remove('faced');       // flip to reveal
+        haptic('light');
+      }, 260));
+    }
+
+    attachSwipe(top);
+    updateProgress();
+    deckDirty = false;
+  }
+
+  /* ---------------- swipe physics ---------------- */
+  // Single global drag state: window listeners are registered once,
+  // renderStage only points `drag.card` at the current top card.
+  const drag = { card: null, x0: 0, y0: 0, dx: 0, dy: 0, active: false };
+
+  function attachSwipe(card) {
+    drag.card = card;
+    card.addEventListener('touchstart', dragStart, { passive: true });
+    card.addEventListener('touchmove', dragMove, { passive: true });
+    card.addEventListener('touchend', dragEnd);
+    card.addEventListener('mousedown', dragStart);
+  }
+
+  function dragStart(e) {
+    if (deckDirty || !drag.card) return;
+    drag.active = true;
+    const p = e.touches ? e.touches[0] : e;
+    drag.x0 = p.clientX; drag.y0 = p.clientY; drag.dx = 0; drag.dy = 0;
+    drag.card.style.transition = 'none';
+  }
+  function dragMove(e) {
+    if (!drag.active || !drag.card) return;
+    const p = e.touches ? e.touches[0] : e;
+    drag.dx = p.clientX - drag.x0; drag.dy = p.clientY - drag.y0;
+    drag.card.style.transform =
+      'translate(' + drag.dx + 'px,' + (drag.dy * .35) + 'px) rotate(' + (drag.dx * .055) + 'deg)';
+  }
+  function dragEnd() {
+    if (!drag.active || !drag.card) return;
+    drag.active = false;
+    if (Math.abs(drag.dx) > 84) {
+      flyOut(drag.card, drag.dx > 0 ? 1 : -1);
+    } else {
+      drag.card.style.transition = 'transform .3s cubic-bezier(.2,.9,.3,1.2)';
+      drag.card.style.transform = '';
+    }
+    drag.dx = 0; drag.dy = 0;
+  }
+  window.addEventListener('mousemove', dragMove);
+  window.addEventListener('mouseup', dragEnd);
+
+  function flyOut(card, dir) {
+    if (deckDirty) return;
+    deckDirty = true;
+    haptic('medium');
+    card.style.transition = 'transform .38s cubic-bezier(.5,.05,.9,.4), opacity .38s';
+    card.style.transform = 'translate(' + (dir * (window.innerWidth * 1.1)) + 'px,' + (-40 + Math.random() * 120) + 'px) rotate(' + dir * 24 + 'deg)';
+    card.style.opacity = '0';
+    setTimeout(() => {
+      if (S.idx + 1 >= S.order.length) {
+        finishDeck();
+      } else {
+        S.idx += 1;
+        persistDeck();
+        renderStage(true);
+      }
+    }, 300);
+  }
+
+  $('btnNext').onclick = () => {
+    const top = document.querySelector('#stage .card.top');
+    if (top) flyOut(top, 1);
+  };
+  $('btnPrev').onclick = () => {
+    if (S.idx <= 0 || deckDirty) return;
+    S.idx -= 1;
+    persistDeck();
+    haptic('light');
+    renderStage(true);
+  };
+  $('btnShuffle').onclick = () => {
+    if (deckDirty) return;
+    haptic('medium');
+    if (!S.shuffled) {
+      // Fisher–Yates over the remaining cards, keep the current one on top
+      const rest = S.order.slice(S.idx);
+      for (let i = rest.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [rest[i], rest[j]] = [rest[j], rest[i]];
+      }
+      S.order = S.order.slice(0, S.idx).concat(rest);
+      S.shuffled = true;
+      toast('🔀 ' + T().shuffled);
+    } else {
+      const cur = S.order[S.idx];
+      S.order = deckItems().map((_, i) => i);
+      S.idx = S.order.indexOf(cur);
+      S.shuffled = false;
+      toast(T().ordered);
+    }
+    persistDeck();
+    renderStage(false);
+  };
+  $('deckBack').onclick = leaveDeck;
+
+  /* ---------------- finish ---------------- */
+  function finishDeck() {
+    haptic('ok');
+    $('done').classList.add('show');
+    confetti();
+    S.idx = S.order.length - 1;
+    persistDeck();
+  }
+  function confetti() {
+    const colors = ['#E86BB5', '#C4256E', '#8E7CF3', '#F98D68', '#FFD9EF'];
+    for (let i = 0; i < 60; i++) {
+      const c = document.createElement('div');
+      c.className = 'confetti';
+      c.style.left = Math.random() * 100 + 'vw';
+      c.style.background = colors[Math.floor(Math.random() * colors.length)];
+      c.style.animationDuration = (1.6 + Math.random() * 1.8) + 's';
+      c.style.animationDelay = (Math.random() * .6) + 's';
+      c.style.transform = 'rotate(' + Math.random() * 360 + 'deg)';
+      document.getElementById('shell').appendChild(c);
+      setTimeout(() => c.remove(), 4200);
+    }
+  }
+  $('btnAgain').onclick = () => {
+    $('done').classList.remove('show');
+    enterDeck(true);
+  };
+  $('btnToThemes').onclick = () => {
+    $('done').classList.remove('show');
+    show('themes');
+  };
+
+  /* ---------------- boot ---------------- */
+  $('btnPlay').onclick = async () => {
+    haptic('light');
+    if (!DATA) await loadData();
+    if (!DATA) return;
+    renderThemes();
+    show('themes');
+  };
+  $('backHome').onclick = () => show('home');
+  $('backThemes').onclick = () => show('themes');
+
+  document.querySelectorAll('#langRow .chip').forEach(ch => {
+    ch.onclick = async () => {
+      lang = ch.dataset.lang;
+      store.set('lang', lang);
+      haptic('light');
+      applyI18n();
+      DATA = null; // reload content in the new language on next Play
+    };
+  });
+
+  applyI18n();
+  // Preload content in background for instant start
+  loadData();
+})();
+</script>
+</body>
+</html>

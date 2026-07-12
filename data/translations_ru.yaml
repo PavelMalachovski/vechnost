@@ -21,6 +21,7 @@ welcome:
 
   # Кнопки
   button_start: "ВОЙТИ В VECHNOST ←"
+  button_webapp: "🎮 ИГРАТЬ В ПРИЛОЖЕНИИ"
   button_inside: "ЧТО ТЕБЯ ЖДЁТ ВНУТРИ?"
   button_why: "ПОЧЕМУ ЭТО РАБОТАЕТ?"
 
