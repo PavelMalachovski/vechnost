@@ -120,6 +120,22 @@ class Settings(BaseSettings):
                     "shared card images and share links."
     )
 
+    # Gift certificates
+    gift_product_id: str | None = Field(
+        default=None,
+        validation_alias="GIFT_PRODUCT_ID",
+        description="Tribute product id for the gift certificate. Payments for "
+                    "this product produce a certificate instead of buyer access."
+    )
+
+    gift_payment_url: str | None = Field(
+        default=None,
+        validation_alias="GIFT_PAYMENT_URL",
+        description="Tribute payment page for the gift certificate product. "
+                    "The gift button is hidden when neither this nor a synced "
+                    "gift product link is available."
+    )
+
     # Daily card push
     daily_card_enabled: bool = Field(
         default=True,
