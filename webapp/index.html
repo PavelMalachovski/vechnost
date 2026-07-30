@@ -411,10 +411,10 @@
       shuffled: 'Колода перемешана', ordered: 'По порядку',
       cardWord: 'Карта', resumed: 'Продолжаем с места остановки',
       loadError: 'Не удалось загрузить вопросы. Проверь соединение.',
-      paywallTitle: 'Нужен доступ',
-      paywallText: 'Полная версия VECHNOST открывается после покупки. Один платёж — и все колоды ваши.',
-      paywallAuthText: 'Открой игру через кнопку в чате бота, чтобы мы могли тебя узнать.',
-      paywallBuy: '💳 Купить доступ', paywallClose: 'Закрыть',
+      paywallTitle: 'Бесплатные карты закончились',
+      paywallText: 'Вы прошли {free} бесплатных карт из {total}. Полный доступ откроет все колоды целиком — сотни вопросов, все уровни, навсегда.',
+      paywallBuy: '💳 Открыть всё', paywallClose: 'Закрыть',
+      freeCount: 'бесплатно {free} из {total}',
       themes: {
         'Acquaintance': { name: 'Знакомство', desc: 'Узнать друг друга по-настоящему', emoji: '✨', grad: 'g-acq' },
         'For Couples':  { name: 'Для пар', desc: 'Стать ближе, чем когда-либо', emoji: '💞', grad: 'g-couples' },
@@ -436,10 +436,10 @@
       shuffled: 'Deck shuffled', ordered: 'In order',
       cardWord: 'Card', resumed: 'Resumed where you left off',
       loadError: 'Could not load questions. Check your connection.',
-      paywallTitle: 'Access required',
-      paywallText: 'The full VECHNOST unlocks after purchase. One payment — every deck is yours.',
-      paywallAuthText: 'Open the game from the button in the bot chat so we can recognize you.',
-      paywallBuy: '💳 Get access', paywallClose: 'Close',
+      paywallTitle: 'End of the free cards',
+      paywallText: "You've been through {free} free cards of {total}. Full access unlocks every deck completely — hundreds of questions, all levels, forever.",
+      paywallBuy: '💳 Unlock everything', paywallClose: 'Close',
+      freeCount: '{free} of {total} free',
       themes: {
         'Acquaintance': { name: 'Acquaintance', desc: 'Get to know each other for real', emoji: '✨', grad: 'g-acq' },
         'For Couples':  { name: 'For Couples', desc: 'Grow closer than ever', emoji: '💞', grad: 'g-couples' },
@@ -461,10 +461,10 @@
       shuffled: 'Balíček zamíchán', ordered: 'Po pořadí',
       cardWord: 'Karta', resumed: 'Pokračujeme, kde jsi skončil',
       loadError: 'Otázky se nepodařilo načíst. Zkontroluj připojení.',
-      paywallTitle: 'Vyžadován přístup',
-      paywallText: 'Plná verze VECHNOST se odemkne po zakoupení. Jedna platba — a všechny balíčky jsou vaše.',
-      paywallAuthText: 'Otevři hru tlačítkem v chatu bota, abychom tě poznali.',
-      paywallBuy: '💳 Koupit přístup', paywallClose: 'Zavřít',
+      paywallTitle: 'Karty zdarma končí',
+      paywallText: 'Prošli jste {free} karet zdarma z {total}. Plný přístup odemkne všechny balíčky — stovky otázek, všechny úrovně, navždy.',
+      paywallBuy: '💳 Odemknout vše', paywallClose: 'Zavřít',
+      freeCount: '{free} z {total} zdarma',
       themes: {
         'Acquaintance': { name: 'Seznámení', desc: 'Poznejte se doopravdy', emoji: '✨', grad: 'g-acq' },
         'For Couples':  { name: 'Pro páry', desc: 'Buďte si blíž než kdy dřív', emoji: '💞', grad: 'g-couples' },
@@ -537,23 +537,26 @@
   }
 
   /* ---------------- data ---------------- */
-  let paymentUrl = null;
+  let ACCESS = { paid: true };
 
-  function showPaywall(status, url) {
-    paymentUrl = url || null;
-    $('paywallText').textContent = status === 401 ? T().paywallAuthText : T().paywallText;
-    $('paywallBuy').style.display = paymentUrl ? '' : 'none';
+  const fmt = (tpl, vars) => tpl.replace(/\{(\w+)\}/g, (_, k) => vars[k] != null ? vars[k] : '');
+
+  function showPaywall(freeCount, totalCount) {
+    $('paywallText').textContent = fmt(T().paywallText, { free: freeCount, total: totalCount });
+    $('paywallBuy').textContent = T().paywallBuy + (ACCESS.price ? ' — ' + ACCESS.price : '');
+    $('paywallBuy').style.display = ACCESS.payment_url ? '' : 'none';
     $('paywall').classList.add('show');
   }
 
   $('paywallBuy').onclick = () => {
-    if (!paymentUrl) return;
+    const url = ACCESS.payment_url;
+    if (!url) return;
     haptic('light');
     try {
-      if (tg && paymentUrl.startsWith('https://t.me')) tg.openTelegramLink(paymentUrl);
-      else if (tg) tg.openLink(paymentUrl);
-      else window.open(paymentUrl, '_blank');
-    } catch (e) { window.open(paymentUrl, '_blank'); }
+      if (tg && url.startsWith('https://t.me')) tg.openTelegramLink(url);
+      else if (tg) tg.openLink(url);
+      else window.open(url, '_blank');
+    } catch (e) { window.open(url, '_blank'); }
   };
   $('paywallClose').onclick = () => { $('paywall').classList.remove('show'); };
 
@@ -563,16 +566,10 @@
       const headers = {};
       if (tg && tg.initData) headers['Authorization'] = 'tma ' + tg.initData;
       const res = await fetch('/api/questions?lang=' + lang, { cache: 'no-cache', headers });
-      if (res.status === 401 || res.status === 403) {
-        let body = null;
-        try { body = await res.json(); } catch (e) {}
-        DATA = null;
-        showPaywall(res.status, body && body.payment_url);
-        return;
-      }
       if (!res.ok) throw new Error('http ' + res.status);
       const json = await res.json();
       DATA = json.themes;
+      ACCESS = json.access || { paid: true };
     } catch (e) {
       DATA = null;
       toast(T().loadError);
@@ -581,12 +578,17 @@
     }
   }
 
+  function deckSize(src, type) {
+    const total = src[type + '_total'];
+    return total != null ? total : (src[type] || []).length;
+  }
+
   function themeCounts(themeKey) {
     const th = DATA[themeKey];
     if (!th) return 0;
     let n = 0;
-    if (th.levels) Object.values(th.levels).forEach(l => n += (l.questions || []).length + (l.tasks || []).length);
-    else n = (th.questions || []).length + (th.tasks || []).length;
+    if (th.levels) Object.values(th.levels).forEach(l => n += deckSize(l, 'questions') + deckSize(l, 'tasks'));
+    else n = deckSize(th, 'questions') + deckSize(th, 'tasks');
     return n;
   }
 
@@ -646,13 +648,18 @@
     const box = $('levelList');
     box.innerHTML = '';
     Object.keys(DATA[S.theme].levels).sort().forEach(lv => {
-      const count = (DATA[S.theme].levels[lv].questions || []).length;
+      const src = DATA[S.theme].levels[lv];
+      const count = deckSize(src, 'questions');
+      const freeN = (src.questions || []).length;
+      const countLabel = (!ACCESS.paid && freeN < count)
+        ? fmt(T().freeCount, { free: freeN, total: count })
+        : count;
       const btn = document.createElement('button');
       btn.className = 'level-card';
       btn.innerHTML =
         '<span class="level-num">' + lv + '</span>' +
         '<span class="level-info"><b>' + T().level + ' ' + lv + '</b>' +
-        '<span>' + (T().levelDesc[lv] || '') + ' · ' + count + '</span></span>';
+        '<span>' + (T().levelDesc[lv] || '') + ' · ' + countLabel + '</span></span>';
       btn.onclick = () => { haptic('light'); S.level = lv; enterDeck(); };
       box.appendChild(btn);
     });
@@ -875,12 +882,24 @@
   $('deckBack').onclick = leaveDeck;
 
   /* ---------------- finish ---------------- */
+  function deckTotalFull() {
+    const th = DATA[S.theme];
+    const src = S.level ? th.levels[S.level] : th;
+    return deckSize(src, S.type);
+  }
+
   function finishDeck() {
     haptic('ok');
-    $('done').classList.add('show');
-    confetti();
     S.idx = S.order.length - 1;
     persistDeck();
+    const freeN = S.order.length;
+    const full = deckTotalFull();
+    if (!ACCESS.paid && full > freeN) {
+      showPaywall(freeN, full);
+      return;
+    }
+    $('done').classList.add('show');
+    confetti();
   }
   function confetti() {
     const colors = ['#E86BB5', '#C4256E', '#8E7CF3', '#F98D68', '#FFD9EF'];

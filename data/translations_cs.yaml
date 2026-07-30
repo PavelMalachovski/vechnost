@@ -104,6 +104,9 @@ errors:
 payment:
   required_title: "💫 VSTOUPIT DO VECHNOST"
   required_message: "Dovolte si luxus být blíž.\n\nUdělejte krok k upřímnosti, vášni a skutečnému porozumění.\nVECHNOST není jen hra, je to investice do vašeho vztahu, která navrací lásku.\n\nProtože skutečná láska se neobjevuje náhodou.\n\nVytváří se krok za krokem. Ve hře, kde se srdce sama otevírají."
+  unlock_title: "🔒 <b>Karty zdarma končí</b>"
+  unlock_message: "Prvních {free} karet každého balíčku je zdarma. Plný přístup odemkne všechny balíčky: stovky otázek a úkolů, všechny úrovně, navždy."
+  unlock_price: "💎 Plný přístup: {price}"
   purchase_button: "💳 Zakoupit přístup"
   check_status: "🔄 Zkontrolovat stav platby"
   support: "💬 Kontaktovat podporu"
