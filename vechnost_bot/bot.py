@@ -66,6 +66,26 @@ def create_application() -> Application:
     logger.info("- Command handlers: start, help, reset, about, activate")
     logger.info("- Callback query handler: handle_callback_query")
 
+    # Daily card push
+    from .config import settings
+    if settings.daily_card_enabled:
+        if application.job_queue is None:
+            logger.warning(
+                "Daily card enabled but JobQueue is unavailable — "
+                "install python-telegram-bot[job-queue]"
+            )
+        else:
+            from datetime import time, timezone
+
+            from .daily_card import daily_card_job
+
+            application.job_queue.run_daily(
+                daily_card_job,
+                time=time(hour=settings.daily_card_hour_utc, tzinfo=timezone.utc),
+                name="daily_card",
+            )
+            logger.info(f"- Daily card scheduled at {settings.daily_card_hour_utc}:00 UTC")
+
     return application
 
 

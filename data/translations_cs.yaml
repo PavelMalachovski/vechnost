@@ -121,6 +121,16 @@ certificate:
   already_used: "❌ Tento certifikát již byl použit.\n\nKaždý certifikát lze aktivovat pouze jednou."
   error: "❌ Při aktivaci certifikátu došlo k chybě.\n\nProsím, zkuste to znovu později nebo kontaktujte podporu."
 
+daily:
+  title: "🃏 Karta dne"
+  subtitle: "Jedna otázka — jeden večer blíž k sobě."
+  card_footer: "Karta dne"
+  play_button: "🎮 Hrát"
+  unsubscribe_button: "🔕 Už neposílat"
+  resubscribe_button: "🔔 Zapnout kartu dne"
+  unsubscribed: "🔕 Karta dne je vypnutá. Vraťte se, kdy budete chtít."
+  resubscribed: "🔔 Karta dne je zpět — každý večer nová otázka."
+
 about:
   title: "💎 O VECHNOST"
   intro: "Hra pro páry vytvořená k:\n• Opravdovému poznání sebe navzájem\n• Překročení hranic běžných rozhovorů\n• Objevení nových stránek sebe a partnera"

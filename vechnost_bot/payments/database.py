@@ -59,7 +59,35 @@ async def create_tables() -> None:
 
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
+        await conn.run_sync(_ensure_user_columns)
     logger.info("Database tables created successfully")
+
+
+def _ensure_user_columns(sync_conn) -> None:
+    """
+    Add columns introduced after the initial schema to pre-existing tables.
+
+    Deploys run create_all (no alembic), which never alters existing tables,
+    so new columns are added here idempotently.
+    """
+    from sqlalchemy import inspect, text
+
+    inspector = inspect(sync_conn)
+    if "users" not in inspector.get_table_names():
+        return
+
+    existing = {col["name"] for col in inspector.get_columns("users")}
+    additions = {
+        "language": "ALTER TABLE users ADD COLUMN language VARCHAR",
+        "daily_card_opt_out": (
+            "ALTER TABLE users ADD COLUMN daily_card_opt_out BOOLEAN "
+            "NOT NULL DEFAULT '0'"
+        ),
+    }
+    for column, ddl in additions.items():
+        if column not in existing:
+            sync_conn.execute(text(ddl))
+            logger.info(f"Added users.{column} column")
 
 
 async def drop_tables() -> None:

@@ -29,6 +29,8 @@ class CallbackAction(str, Enum):
     START_GAME = "start_game"
     SHOW_INSIDE = "show_inside"
     SHOW_WHY = "show_why"
+    DAILY_OFF = "daily_off"
+    DAILY_ON = "daily_on"
 
 
 class CallbackData(BaseModel):
@@ -69,7 +71,7 @@ class CallbackData(BaseModel):
             return LanguageCallbackData.parse(data)
         elif data == "lang_back":
             return LanguageBackCallbackData.parse(data)
-        elif data in ["nsfw_confirm", "nsfw_deny", "reset_game", "reset_confirm", "reset_cancel", "noop", "check_payment", "start_game", "show_inside", "show_why"]:
+        elif data in ["nsfw_confirm", "nsfw_deny", "reset_game", "reset_confirm", "reset_cancel", "noop", "check_payment", "start_game", "show_inside", "show_why", "daily_off", "daily_on"]:
             return SimpleCallbackData.parse(data)
         else:
             raise ValueError(f"Unknown callback action: {data}")
