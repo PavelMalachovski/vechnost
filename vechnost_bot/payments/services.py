@@ -17,6 +17,12 @@ from .repositories import (
     WebhookEventRepository,
     CertificateRepository,
 )
+from .gifts import (
+    create_gift_certificate,
+    deliver_gift_certificate,
+    gift_language,
+    is_gift_purchase,
+)
 from .tribute_client import TributeClient, TributeAPIError
 from .signature import compute_body_sha256, verify_tribute_signature
 
@@ -251,8 +257,29 @@ async def apply_webhook_event(
                 body_sha256=body_sha256,
             )
 
+            # Gift product: create a certificate for the buyer instead of
+            # granting them personal access.
+            gift_code = None
+            if is_gift_purchase(product_id):
+                gift_code = await create_gift_certificate(session)
+                logger.info(
+                    f"Gift purchase by {telegram_user_id}: certificate {gift_code}"
+                )
+                try:
+                    await deliver_gift_certificate(
+                        int(telegram_user_id),
+                        gift_code,
+                        gift_language(user.language),
+                    )
+                except Exception as e:
+                    # The certificate exists either way; /activate support can
+                    # recover the code from the certificates table.
+                    logger.error(f"Failed to deliver gift certificate: {e}")
+
             # Handle subscription events and digital product purchases
-            if "subscription" in event_name.lower() or "product" in event_name.lower():
+            if gift_code is None and (
+                "subscription" in event_name.lower() or "product" in event_name.lower()
+            ):
                 subscription_id = (
                     data.get("id")
                     or data.get("subscription_id")

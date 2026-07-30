@@ -206,15 +206,22 @@ def _line_height(font: ImageFont.FreeTypeFont) -> int:
 
 
 def _fit_text(text: str, max_width: int, max_height: int,
-              font_path: str | None) -> tuple[ImageFont.FreeTypeFont, list[str]]:
+              font_path: str | None,
+              single_line: bool = False) -> tuple[ImageFont.FreeTypeFont, list[str]]:
     """
     Pick the largest font size (MIN..MAX) whose wrapped text fits the area.
 
     Long questions shrink to fit; short ones render large and confident.
+    With single_line, shrink until the text fits unbroken on one line —
+    used for codes, where a wrap-inserted hyphen would read as content.
     """
     for size in range(MAX_FONT_SIZE, MIN_FONT_SIZE - 1, -4):
         font = _load_font(size, font_path)
         if not font:
+            continue
+        if single_line:
+            if _text_width(text, font) <= max_width:
+                return font, [text]
             continue
         lines = _wrap_text(text, font, max_width)
         if len(lines) * _line_height(font) <= max_height:
@@ -233,6 +240,7 @@ def render_card(
     bg_path: str,
     footer: str | None = None,
     watermark: str | None = None,
+    single_line: bool = False,
 ) -> BytesIO:
     """
     Render a card with text overlaid on background.
@@ -242,6 +250,7 @@ def render_card(
         bg_path: Path to background image
         footer: Optional footer line (e.g. "Знакомство · 12/30") drawn near the bottom
         watermark: Optional brand line (e.g. "VECHNOST · @bot") at the bottom edge
+        single_line: Never wrap or hyphen-break the text (for codes)
 
     Returns:
         BytesIO object containing JPEG image data
@@ -261,7 +270,8 @@ def render_card(
 
         # Fit text into the central column, with a font that covers its alphabet
         font_path = _pick_font_path(text + (footer or "") + (watermark or ""))
-        font, lines = _fit_text(text, TEXT_AREA_WIDTH, TEXT_AREA_HEIGHT, font_path)
+        font, lines = _fit_text(text, TEXT_AREA_WIDTH, TEXT_AREA_HEIGHT, font_path,
+                                single_line=single_line)
         line_height = _line_height(font)
         total_text_height = len(lines) * line_height
 

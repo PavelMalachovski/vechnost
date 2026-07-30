@@ -121,6 +121,14 @@ certificate:
   already_used: "❌ Tento certifikát již byl použit.\n\nKaždý certifikát lze aktivovat pouze jednou."
   error: "❌ Při aktivaci certifikátu došlo k chybě.\n\nProsím, zkuste to znovu později nebo kontaktujte podporu."
 
+gift:
+  button: "🎁 Darovat VECHNOST"
+  title: "🎁 DAROVAT VECHNOST"
+  text: "Darujte páru, na kterém vám záleží, večer skutečné blízkosti.\n\nPo zaplacení vám bot pošle krásný certifikát s kódem. Předejte ho obdarovaným — aktivují ho příkazem /activate a získají plný přístup navždy."
+  buy_button: "🎁 Koupit certifikát"
+  card_footer: "Dárkový certifikát"
+  delivered: "🎁 <b>Váš dárkový certifikát je připraven!</b>\n\nKód: <code>{code}</code>\n\nPošlete tuto kartu obdarovaným. Aktivace: /activate {code} v botovi @{bot}."
+
 daily:
   title: "🃏 Karta dne"
   subtitle: "Jedna otázka — jeden večer blíž k sobě."

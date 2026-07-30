@@ -1053,6 +1053,7 @@ class CallbackHandlerRegistry:
             CallbackAction.SHOW_WHY: ShowWhyHandler(),
             CallbackAction.DAILY_OFF: DailyCardOptHandler(),
             CallbackAction.DAILY_ON: DailyCardOptHandler(),
+            CallbackAction.SHOW_GIFT: ShowGiftHandler(),
         }
 
     async def handle_callback(self, query: Any, data: str) -> None:
@@ -1152,6 +1153,11 @@ class LanguageHandler(CallbackHandler):
                 callback_data="show_why"
             )]
         ])
+        if settings.gift_product_id or settings.gift_payment_url:
+            rows.append([InlineKeyboardButton(
+                get_text('gift.button', language),
+                callback_data="show_gift"
+            )])
         keyboard = InlineKeyboardMarkup(rows)
 
         await self._edit_or_send_message(query, greeting_text, keyboard, parse_mode="HTML")
@@ -1288,6 +1294,39 @@ class ShowWhyHandler(CallbackHandler):
             await query.edit_message_text(why_text, reply_markup=keyboard, parse_mode="HTML")
         except:
             await query.message.reply_text(why_text, reply_markup=keyboard, parse_mode="HTML")
+
+
+class ShowGiftHandler(CallbackHandler):
+    """Handler for the gift certificate screen."""
+
+    async def handle(self, query: Any, callback_data: SimpleCallbackData, session: SessionState) -> None:
+        """Show the gift pitch with a purchase link."""
+        language = session.language
+
+        gift_text = (
+            f"<b>{get_text('gift.title', language)}</b>\n\n"
+            f"{get_text('gift.text', language)}"
+        )
+
+        from .payments.gifts import get_gift_purchase_url
+
+        rows = []
+        purchase_url = await get_gift_purchase_url()
+        if purchase_url:
+            rows.append([InlineKeyboardButton(
+                get_text('gift.buy_button', language),
+                url=purchase_url
+            )])
+        rows.append([InlineKeyboardButton(
+            get_text('welcome.button_back', language),
+            callback_data=f"lang_{language.value}"
+        )])
+        keyboard = InlineKeyboardMarkup(rows)
+
+        try:
+            await query.edit_message_text(gift_text, reply_markup=keyboard, parse_mode="HTML")
+        except Exception:
+            await query.message.reply_text(gift_text, reply_markup=keyboard, parse_mode="HTML")
 
 
 class DailyCardOptHandler(CallbackHandler):
