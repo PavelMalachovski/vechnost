@@ -129,6 +129,7 @@ def require_payment(handler: Callable) -> Callable:
                     username=update.effective_user.username,
                     first_name=update.effective_user.first_name,
                     last_name=update.effective_user.last_name,
+                    language=update.effective_user.language_code,
                 )
         except Exception as e:
             logger.error(f"Error registering user: {e}")
@@ -187,6 +188,7 @@ async def check_and_register_user(update: Update, context: ContextTypes.DEFAULT_
                 username=update.effective_user.username,
                 first_name=update.effective_user.first_name,
                 last_name=update.effective_user.last_name,
+                language=update.effective_user.language_code,
             )
     except Exception as e:
         logger.error(f"Error registering user: {e}")

@@ -6,6 +6,7 @@ from typing import Optional, List
 
 from sqlalchemy import (
     BigInteger,
+    Boolean,
     String,
     Integer,
     Text,
@@ -52,6 +53,10 @@ class User(Base):
     username: Mapped[Optional[str]] = mapped_column(String, nullable=True)
     first_name: Mapped[Optional[str]] = mapped_column(String, nullable=True)
     last_name: Mapped[Optional[str]] = mapped_column(String, nullable=True)
+    language: Mapped[Optional[str]] = mapped_column(String, nullable=True)
+    daily_card_opt_out: Mapped[bool] = mapped_column(
+        Boolean, default=False, nullable=False, server_default="0"
+    )
     created_at: Mapped[datetime] = mapped_column(
         default=datetime.utcnow, nullable=False
     )

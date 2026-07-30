@@ -121,6 +121,16 @@ certificate:
   already_used: "❌ This certificate has already been used.\n\nEach certificate can only be activated once."
   error: "❌ An error occurred while activating the certificate.\n\nPlease try again later or contact support."
 
+daily:
+  title: "🃏 Card of the day"
+  subtitle: "One question — one evening closer to each other."
+  card_footer: "Card of the day"
+  play_button: "🎮 Play"
+  unsubscribe_button: "🔕 Stop sending"
+  resubscribe_button: "🔔 Turn the daily card back on"
+  unsubscribed: "🔕 Daily card is off. Come back anytime."
+  resubscribed: "🔔 The daily card is back — a new question every evening."
+
 about:
   title: "💎 About VECHNOST"
   intro: "A game for couples created to:\n• Truly get to know each other\n• Go beyond ordinary conversations\n• Discover new sides of yourself and your partner"

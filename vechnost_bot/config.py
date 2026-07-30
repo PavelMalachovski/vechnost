@@ -120,6 +120,21 @@ class Settings(BaseSettings):
                     "shared card images and share links."
     )
 
+    # Daily card push
+    daily_card_enabled: bool = Field(
+        default=True,
+        validation_alias="DAILY_CARD_ENABLED",
+        description="Send the daily card push to registered users."
+    )
+
+    daily_card_hour_utc: int = Field(
+        default=17,
+        ge=0,
+        le=23,
+        validation_alias="DAILY_CARD_HOUR_UTC",
+        description="UTC hour when the daily card is sent (17 = ~19:00 Prague)."
+    )
+
 
 # Global settings instance
 settings = Settings()

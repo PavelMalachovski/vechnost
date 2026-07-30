@@ -32,6 +32,7 @@ class UserRepository:
         username: Optional[str] = None,
         first_name: Optional[str] = None,
         last_name: Optional[str] = None,
+        language: Optional[str] = None,
     ) -> User:
         """Create or update user."""
         user = await UserRepository.get_by_telegram_id(session, telegram_user_id)
@@ -44,6 +45,8 @@ class UserRepository:
                 user.first_name = first_name
             if last_name is not None:
                 user.last_name = last_name
+            if language is not None:
+                user.language = language
             logger.info(f"Updated user: {telegram_user_id}")
         else:
             # Create new user
@@ -52,12 +55,31 @@ class UserRepository:
                 username=username,
                 first_name=first_name,
                 last_name=last_name,
+                language=language,
             )
             session.add(user)
             logger.info(f"Created new user: {telegram_user_id}")
 
         await session.flush()
         return user
+
+    @staticmethod
+    async def set_daily_card_opt_out(
+        session: AsyncSession, telegram_user_id: int, opt_out: bool
+    ) -> None:
+        """Set whether the user receives the daily card push."""
+        user = await UserRepository.get_by_telegram_id(session, telegram_user_id)
+        if user:
+            user.daily_card_opt_out = opt_out
+            await session.flush()
+
+    @staticmethod
+    async def get_daily_card_recipients(session: AsyncSession) -> List[User]:
+        """All users who haven't opted out of the daily card."""
+        result = await session.execute(
+            select(User).where(User.daily_card_opt_out.is_(False))
+        )
+        return list(result.scalars().all())
 
 
 class ProductRepository:

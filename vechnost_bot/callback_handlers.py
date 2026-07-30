@@ -1051,6 +1051,8 @@ class CallbackHandlerRegistry:
             CallbackAction.START_GAME: StartGameHandler(),
             CallbackAction.SHOW_INSIDE: ShowInsideHandler(),
             CallbackAction.SHOW_WHY: ShowWhyHandler(),
+            CallbackAction.DAILY_OFF: DailyCardOptHandler(),
+            CallbackAction.DAILY_ON: DailyCardOptHandler(),
         }
 
     async def handle_callback(self, query: Any, data: str) -> None:
@@ -1286,6 +1288,36 @@ class ShowWhyHandler(CallbackHandler):
             await query.edit_message_text(why_text, reply_markup=keyboard, parse_mode="HTML")
         except:
             await query.message.reply_text(why_text, reply_markup=keyboard, parse_mode="HTML")
+
+
+class DailyCardOptHandler(CallbackHandler):
+    """Handler for daily card subscribe/unsubscribe buttons."""
+
+    async def handle(self, query: Any, callback_data: SimpleCallbackData, session: SessionState) -> None:
+        """Toggle the daily card push for this user."""
+        opt_out = callback_data.action == CallbackAction.DAILY_OFF
+        user_id = query.from_user.id if query.from_user else 0
+
+        try:
+            from .payments.database import get_db
+            from .payments.repositories import UserRepository
+
+            async with get_db() as db:
+                await UserRepository.set_daily_card_opt_out(db, user_id, opt_out)
+        except Exception as e:
+            logger.error(f"Error toggling daily card for {user_id}: {e}")
+
+        if opt_out:
+            text = get_text('daily.unsubscribed', session.language)
+            keyboard = InlineKeyboardMarkup([[InlineKeyboardButton(
+                get_text('daily.resubscribe_button', session.language),
+                callback_data="daily_on"
+            )]])
+        else:
+            text = get_text('daily.resubscribed', session.language)
+            keyboard = None
+
+        await query.message.reply_text(text, reply_markup=keyboard)
 
 
 class StartGameHandler(CallbackHandler):
