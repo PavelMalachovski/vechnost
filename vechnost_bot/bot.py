@@ -3,7 +3,8 @@
 import logging
 import asyncio
 
-from telegram.ext import Application, CallbackQueryHandler, CommandHandler
+from telegram.error import Conflict, NetworkError, TimedOut
+from telegram.ext import Application, CallbackQueryHandler, CommandHandler, ContextTypes
 
 from .config import create_bot, get_log_level
 from .handlers import (
@@ -24,6 +25,24 @@ def setup_logging() -> None:
     initialize_monitoring()
 
 
+async def on_error(update: object, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """Global PTB error handler: keep transient noise compact, log the rest fully."""
+    logger = logging.getLogger(__name__)
+    error = context.error
+
+    if isinstance(error, Conflict):
+        # Another instance polled getUpdates — normal for a short window during
+        # redeploys; a sustained stream of these means two services run the bot.
+        logger.warning("getUpdates conflict: another bot instance is polling (deploy overlap?)")
+        return
+    if isinstance(error, (NetworkError, TimedOut)):
+        logger.warning(f"Transient Telegram network error: {error}")
+        return
+
+    logger.error("Unhandled error while processing update", exc_info=error)
+    log_bot_event("unhandled_error", error=str(error))
+
+
 def create_application() -> Application:
     """Create and configure the Telegram application."""
     bot = create_bot()
@@ -38,6 +57,9 @@ def create_application() -> Application:
 
     # Add callback query handler
     application.add_handler(CallbackQueryHandler(handle_callback_query))
+
+    # Global error handler (silences "No error handlers are registered")
+    application.add_error_handler(on_error)
 
     logger = logging.getLogger(__name__)
     logger.info("Application created with handlers:")

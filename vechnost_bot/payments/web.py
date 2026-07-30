@@ -13,7 +13,13 @@ from ..config import settings
 from ..i18n import Language
 from ..logic import localized_game_data
 from .database import close_db, init_db
-from .services import apply_webhook_event, sync_products_from_tribute
+from .services import (
+    apply_webhook_event,
+    get_products_for_purchase,
+    sync_products_from_tribute,
+    user_has_access,
+)
+from .webapp_auth import InitDataError, validate_init_data
 
 logger = logging.getLogger(__name__)
 
@@ -55,14 +61,55 @@ async def health_check() -> dict[str, str]:
     }
 
 
+async def _get_purchase_url() -> str:
+    """Payment link for the Mini App paywall: first product, else the configured page."""
+    for product in await get_products_for_purchase():
+        link = product.t_link or product.web_link
+        if link:
+            return link
+    return settings.tribute_payment_url
+
+
 @app.get("/api/questions")
-async def get_questions(lang: str = "ru") -> JSONResponse:
+async def get_questions(
+    lang: str = "ru",
+    authorization: str | None = Header(default=None),
+) -> JSONResponse:
     """
     Game content for the Mini App, localized.
 
     Returns themes with their levels/questions/tasks and an nsfw flag,
     loaded from the same YAML files the bot uses.
+
+    When payments are enabled, the request must carry the Mini App's
+    signed initData as ``Authorization: tma <initData>`` and the user
+    must have an active payment, subscription or certificate.
     """
+    if settings.enable_payment:
+        scheme, _, init_data = (authorization or "").partition(" ")
+        if scheme.lower() != "tma" or not init_data:
+            return JSONResponse(
+                status_code=401,
+                content={"error": "unauthorized"},
+            )
+        try:
+            parsed = validate_init_data(init_data, settings.telegram_bot_token)
+        except InitDataError as e:
+            logger.warning(f"Mini App initData rejected: {e}")
+            return JSONResponse(
+                status_code=401,
+                content={"error": "unauthorized"},
+            )
+
+        if not await user_has_access(parsed["user"]["id"]):
+            return JSONResponse(
+                status_code=403,
+                content={
+                    "error": "payment_required",
+                    "payment_url": await _get_purchase_url(),
+                },
+            )
+
     try:
         language = Language(lang)
     except ValueError:
@@ -90,7 +137,7 @@ async def get_questions(lang: str = "ru") -> JSONResponse:
 
     return JSONResponse(
         content={"lang": language.value, "themes": themes},
-        headers={"Cache-Control": "public, max-age=3600"},
+        headers={"Cache-Control": "private, max-age=3600"},
     )
 
 
