@@ -6,6 +6,17 @@
 <title>Vechnost — игра для близости</title>
 <script src="https://telegram.org/js/telegram-web-app.js"></script>
 <style>
+  @font-face {
+    font-family: 'Montserrat';
+    src: url('fonts/Montserrat-Regular.woff2') format('woff2');
+    font-weight: 400; font-style: normal; font-display: swap;
+  }
+  @font-face {
+    font-family: 'Montserrat';
+    src: url('fonts/Montserrat-Bold.woff2') format('woff2');
+    font-weight: 700; font-style: normal; font-display: swap;
+  }
+
   :root {
     --ink: #350027;
     --card-bg: #FDEBF7;
@@ -24,7 +35,7 @@
     height: 100%;
     overflow: hidden;
     overscroll-behavior: none;
-    font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", Roboto, "Segoe UI", sans-serif;
+    font-family: 'Montserrat', -apple-system, BlinkMacSystemFont, "SF Pro Text", Roboto, "Segoe UI", sans-serif;
     background: #1C0414;
     color: var(--text-on-dark);
     user-select: none;
@@ -344,6 +355,15 @@
     <button class="btn btn-ghost" id="nsfwNo" data-i18n="nsfwNo"></button>
   </div>
 
+  <!-- PAYWALL overlay -->
+  <div class="overlay" id="paywall">
+    <div class="big-emoji">🔒</div>
+    <h2 data-i18n="paywallTitle"></h2>
+    <p id="paywallText"></p>
+    <button class="btn btn-play" id="paywallBuy" data-i18n="paywallBuy"></button>
+    <button class="btn btn-ghost" id="paywallClose" data-i18n="paywallClose"></button>
+  </div>
+
   <!-- DONE overlay -->
   <div class="overlay" id="done">
     <div class="big-emoji">🎉</div>
@@ -391,6 +411,10 @@
       shuffled: 'Колода перемешана', ordered: 'По порядку',
       cardWord: 'Карта', resumed: 'Продолжаем с места остановки',
       loadError: 'Не удалось загрузить вопросы. Проверь соединение.',
+      paywallTitle: 'Нужен доступ',
+      paywallText: 'Полная версия VECHNOST открывается после покупки. Один платёж — и все колоды ваши.',
+      paywallAuthText: 'Открой игру через кнопку в чате бота, чтобы мы могли тебя узнать.',
+      paywallBuy: '💳 Купить доступ', paywallClose: 'Закрыть',
       themes: {
         'Acquaintance': { name: 'Знакомство', desc: 'Узнать друг друга по-настоящему', emoji: '✨', grad: 'g-acq' },
         'For Couples':  { name: 'Для пар', desc: 'Стать ближе, чем когда-либо', emoji: '💞', grad: 'g-couples' },
@@ -412,6 +436,10 @@
       shuffled: 'Deck shuffled', ordered: 'In order',
       cardWord: 'Card', resumed: 'Resumed where you left off',
       loadError: 'Could not load questions. Check your connection.',
+      paywallTitle: 'Access required',
+      paywallText: 'The full VECHNOST unlocks after purchase. One payment — every deck is yours.',
+      paywallAuthText: 'Open the game from the button in the bot chat so we can recognize you.',
+      paywallBuy: '💳 Get access', paywallClose: 'Close',
       themes: {
         'Acquaintance': { name: 'Acquaintance', desc: 'Get to know each other for real', emoji: '✨', grad: 'g-acq' },
         'For Couples':  { name: 'For Couples', desc: 'Grow closer than ever', emoji: '💞', grad: 'g-couples' },
@@ -433,6 +461,10 @@
       shuffled: 'Balíček zamíchán', ordered: 'Po pořadí',
       cardWord: 'Karta', resumed: 'Pokračujeme, kde jsi skončil',
       loadError: 'Otázky se nepodařilo načíst. Zkontroluj připojení.',
+      paywallTitle: 'Vyžadován přístup',
+      paywallText: 'Plná verze VECHNOST se odemkne po zakoupení. Jedna platba — a všechny balíčky jsou vaše.',
+      paywallAuthText: 'Otevři hru tlačítkem v chatu bota, abychom tě poznali.',
+      paywallBuy: '💳 Koupit přístup', paywallClose: 'Zavřít',
       themes: {
         'Acquaintance': { name: 'Seznámení', desc: 'Poznejte se doopravdy', emoji: '✨', grad: 'g-acq' },
         'For Couples':  { name: 'Pro páry', desc: 'Buďte si blíž než kdy dřív', emoji: '💞', grad: 'g-couples' },
@@ -505,10 +537,39 @@
   }
 
   /* ---------------- data ---------------- */
+  let paymentUrl = null;
+
+  function showPaywall(status, url) {
+    paymentUrl = url || null;
+    $('paywallText').textContent = status === 401 ? T().paywallAuthText : T().paywallText;
+    $('paywallBuy').style.display = paymentUrl ? '' : 'none';
+    $('paywall').classList.add('show');
+  }
+
+  $('paywallBuy').onclick = () => {
+    if (!paymentUrl) return;
+    haptic('light');
+    try {
+      if (tg && paymentUrl.startsWith('https://t.me')) tg.openTelegramLink(paymentUrl);
+      else if (tg) tg.openLink(paymentUrl);
+      else window.open(paymentUrl, '_blank');
+    } catch (e) { window.open(paymentUrl, '_blank'); }
+  };
+  $('paywallClose').onclick = () => { $('paywall').classList.remove('show'); };
+
   async function loadData() {
     $('loader').classList.add('show');
     try {
-      const res = await fetch('/api/questions?lang=' + lang, { cache: 'no-cache' });
+      const headers = {};
+      if (tg && tg.initData) headers['Authorization'] = 'tma ' + tg.initData;
+      const res = await fetch('/api/questions?lang=' + lang, { cache: 'no-cache', headers });
+      if (res.status === 401 || res.status === 403) {
+        let body = null;
+        try { body = await res.json(); } catch (e) {}
+        DATA = null;
+        showPaywall(res.status, body && body.payment_url);
+        return;
+      }
       if (!res.ok) throw new Error('http ' + res.status);
       const json = await res.json();
       DATA = json.themes;
