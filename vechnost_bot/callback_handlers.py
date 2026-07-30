@@ -50,6 +50,41 @@ def _card_footer(theme: Theme, index: int, total: int, language: Language) -> st
     return f"{plain} · {index + 1}/{total}"
 
 
+async def _card_is_locked_for(query: Any, index: int) -> bool:
+    """Freemium gate: True if this card index is paid and the user hasn't paid."""
+    from .config import settings
+    from .freemium import is_index_free
+
+    if not settings.enable_payment or is_index_free(index):
+        return False
+
+    from .payments.services import user_has_access
+
+    user_id = query.from_user.id if query.from_user else 0
+    return not await user_has_access(user_id)
+
+
+async def _send_card_paywall(query: Any, language: Language) -> None:
+    """Reply with the 'free cards are over' paywall message and purchase keyboard."""
+    from .freemium import FREE_CARDS_PER_DECK
+    from .payments.middleware import get_payment_keyboard
+    from .payments.services import get_price_label
+
+    text = (
+        f"{get_text('payment.unlock_title', language)}\n\n"
+        f"{get_text('payment.unlock_message', language).format(free=FREE_CARDS_PER_DECK)}"
+    )
+    price = await get_price_label()
+    if price:
+        text += f"\n\n{get_text('payment.unlock_price', language).format(price=price)}"
+
+    await query.message.reply_text(
+        text,
+        parse_mode="HTML",
+        reply_markup=await get_payment_keyboard(language.value),
+    )
+
+
 class CallbackHandler(ABC):
     """Abstract base class for callback handlers."""
 
@@ -442,6 +477,11 @@ class QuestionHandler(CallbackHandler):
             await query.edit_message_text("❌ Вопрос недоступен.")
             return
 
+        # Freemium gate: cards past the free preview require payment
+        if await _card_is_locked_for(query, callback_data.index):
+            await _send_card_paywall(query, session.language)
+            return
+
         # Get the question
         question = items[callback_data.index]
 
@@ -518,6 +558,11 @@ class NavigationHandler(CallbackHandler):
         items = localized_game_data.get_content(theme, session.level, content_type, session.language)
         if not items or callback_data.index >= len(items):
             await query.edit_message_text("❌ Вопрос недоступен.")
+            return
+
+        # Freemium gate: cards past the free preview require payment
+        if await _card_is_locked_for(query, callback_data.index):
+            await _send_card_paywall(query, session.language)
             return
 
         # Get the question
@@ -1238,52 +1283,24 @@ class StartGameHandler(CallbackHandler):
     """Handler for start game button from greeting page."""
 
     async def handle(self, query: Any, callback_data: SimpleCallbackData, session: SessionState) -> None:
-        """Handle start game button - check payment and show themes."""
+        """Handle start game button - register the user and show themes.
+
+        Freemium: everyone gets into the game; the paywall lives at the
+        card level (first FREE_CARDS_PER_DECK cards of each deck are free).
+        """
         language = session.language
 
-        # Check payment requirement
         from .config import settings
         if settings.enable_payment:
             from telegram import Update
 
-            from .payments.middleware import check_and_register_user, get_payment_keyboard
-            from .payments.services import user_has_access
+            from .payments.middleware import check_and_register_user
 
             # Register user (ensures user exists in database)
             update = Update(update_id=0, callback_query=query)
             await check_and_register_user(update, None)
 
-            # Check if user has access
-            user_id = query.from_user.id if query.from_user else 0
-            logger.info(f"Checking access for user {user_id} after registration")
-            has_access = await user_has_access(user_id)
-            logger.info(f"User {user_id} access result: {has_access}")
-
-            if not has_access:
-                # User needs to pay - redirect to Tribute
-                payment_text = f"{get_text('payment.required_title', language)}\n\n{get_text('payment.required_message', language)}"
-                payment_keyboard = await get_payment_keyboard(language)
-
-                try:
-                    await query.edit_message_text(
-                        payment_text,
-                        parse_mode="HTML",
-                        reply_markup=payment_keyboard
-                    )
-                except Exception as edit_error:
-                    logger.warning(f"Could not edit message: {edit_error}")
-                    try:
-                        await query.message.delete()
-                    except:
-                        pass
-                    await query.message.reply_text(
-                        payment_text,
-                        parse_mode="HTML",
-                        reply_markup=payment_keyboard
-                    )
-                return
-
-        # User has access or payment disabled - show theme selection
+        # Show theme selection
         welcome_text = get_text('welcome.welcome_message', language)
         keyboard = get_theme_keyboard(language)
 

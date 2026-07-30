@@ -104,6 +104,9 @@ errors:
 payment:
   required_title: "💫 ENTER VECHNOST"
   required_message: "Allow yourself the luxury of being closer.\n\nTake a step toward sincerity, passion, and real understanding.\nVECHNOST is not just a game, it's an investment in your relationship that returns love.\n\nBecause real love doesn't appear by chance.\n\nIt's created step by step. In a game where hearts open on their own."
+  unlock_title: "🔒 <b>That's the end of the free cards</b>"
+  unlock_message: "The first {free} cards of every deck are free. Full access unlocks every deck completely: hundreds of questions and tasks, all levels, forever."
+  unlock_price: "💎 Full access: {price}"
   purchase_button: "💳 Purchase Access"
   check_status: "🔄 Check Payment Status"
   support: "💬 Contact Support"

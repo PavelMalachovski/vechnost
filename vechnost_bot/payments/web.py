@@ -10,11 +10,13 @@ from fastapi.responses import JSONResponse
 from fastapi.staticfiles import StaticFiles
 
 from ..config import settings
+from ..freemium import FREE_CARDS_PER_DECK, free_slice
 from ..i18n import Language
 from ..logic import localized_game_data
 from .database import close_db, init_db
 from .services import (
     apply_webhook_event,
+    get_price_label,
     get_products_for_purchase,
     sync_products_from_tribute,
     user_has_access,
@@ -70,6 +72,40 @@ async def _get_purchase_url() -> str:
     return settings.tribute_payment_url
 
 
+async def _request_is_paid(authorization: str | None) -> bool:
+    """
+    Whether this Mini App request belongs to a paying user.
+
+    With payments disabled everyone is "paid". Otherwise the request must
+    carry valid signed initData (``Authorization: tma <initData>``) and the
+    user must have an active payment, subscription or certificate; anything
+    else — including a missing or forged header — is just an unpaid visitor.
+    """
+    if not settings.enable_payment:
+        return True
+
+    scheme, _, init_data = (authorization or "").partition(" ")
+    if scheme.lower() != "tma" or not init_data:
+        return False
+    try:
+        parsed = validate_init_data(init_data, settings.telegram_bot_token)
+    except InitDataError as e:
+        logger.warning(f"Mini App initData rejected: {e}")
+        return False
+    return await user_has_access(parsed["user"]["id"])
+
+
+def _deck_payload(deck: dict[str, Any], paid: bool) -> dict[str, Any]:
+    """Questions/tasks of one deck; unpaid users get the free prefix + totals."""
+    payload: dict[str, Any] = {}
+    for key in ("questions", "tasks"):
+        if key in deck:
+            items = deck[key]
+            payload[key] = items if paid else free_slice(items)
+            payload[f"{key}_total"] = len(items)
+    return payload
+
+
 @app.get("/api/questions")
 async def get_questions(
     lang: str = "ru",
@@ -81,34 +117,11 @@ async def get_questions(
     Returns themes with their levels/questions/tasks and an nsfw flag,
     loaded from the same YAML files the bot uses.
 
-    When payments are enabled, the request must carry the Mini App's
-    signed initData as ``Authorization: tma <initData>`` and the user
-    must have an active payment, subscription or certificate.
+    Freemium: unpaid users get only the first FREE_CARDS_PER_DECK cards
+    of every deck, plus an ``access`` block with the purchase link and
+    price for the paywall.
     """
-    if settings.enable_payment:
-        scheme, _, init_data = (authorization or "").partition(" ")
-        if scheme.lower() != "tma" or not init_data:
-            return JSONResponse(
-                status_code=401,
-                content={"error": "unauthorized"},
-            )
-        try:
-            parsed = validate_init_data(init_data, settings.telegram_bot_token)
-        except InitDataError as e:
-            logger.warning(f"Mini App initData rejected: {e}")
-            return JSONResponse(
-                status_code=401,
-                content={"error": "unauthorized"},
-            )
-
-        if not await user_has_access(parsed["user"]["id"]):
-            return JSONResponse(
-                status_code=403,
-                content={
-                    "error": "payment_required",
-                    "payment_url": await _get_purchase_url(),
-                },
-            )
+    paid = await _request_is_paid(authorization)
 
     try:
         language = Language(lang)
@@ -122,21 +135,21 @@ async def get_questions(
         entry: dict[str, Any] = {"nsfw": game_data.has_nsfw_content(theme)}
         if "levels" in theme_data:
             entry["levels"] = {
-                str(level): {
-                    key: value
-                    for key, value in level_data.items()
-                    if key in ("questions", "tasks")
-                }
+                str(level): _deck_payload(level_data, paid)
                 for level, level_data in theme_data["levels"].items()
             }
         else:
-            for key in ("questions", "tasks"):
-                if key in theme_data:
-                    entry[key] = theme_data[key]
+            entry.update(_deck_payload(theme_data, paid))
         themes[theme.value] = entry
 
+    access: dict[str, Any] = {"paid": paid}
+    if not paid:
+        access["free_per_deck"] = FREE_CARDS_PER_DECK
+        access["payment_url"] = await _get_purchase_url()
+        access["price"] = await get_price_label()
+
     return JSONResponse(
-        content={"lang": language.value, "themes": themes},
+        content={"lang": language.value, "themes": themes, "access": access},
         headers={"Cache-Control": "private, max-age=3600"},
     )
 

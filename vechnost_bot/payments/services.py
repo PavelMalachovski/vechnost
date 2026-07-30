@@ -421,6 +421,29 @@ async def get_products_for_purchase() -> list[Product]:
         return []
 
 
+CURRENCY_SYMBOLS = {"eur": "€", "usd": "$", "rub": "₽", "czk": "Kč", "gbp": "£"}
+
+
+def format_price(amount_cents: int, currency: str) -> str:
+    """Human-readable price, e.g. 499 + 'eur' -> '4,99 €'."""
+    value = amount_cents / 100
+    text = f"{value:.2f}"
+    if text.endswith(".00"):
+        text = text[:-3]
+    text = text.replace(".", ",")
+    symbol = CURRENCY_SYMBOLS.get(currency.lower(), currency.upper())
+    return f"{text} {symbol}"
+
+
+async def get_price_label() -> Optional[str]:
+    """Formatted price of the cheapest product, or None if none are synced."""
+    products = await get_products_for_purchase()
+    for product in products:
+        if product.amount:
+            return format_price(product.amount, product.currency or "eur")
+    return None
+
+
 async def activate_certificate(
     code: str,
     telegram_user_id: int,
