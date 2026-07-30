@@ -113,6 +113,13 @@ class Settings(BaseSettings):
                     "When set, the bot shows a 'Play in app' button."
     )
 
+    bot_username: str | None = Field(
+        default="tvoya_vechnost_bot",
+        validation_alias="BOT_USERNAME",
+        description="Bot username without @, used for the brand watermark on "
+                    "shared card images and share links."
+    )
+
 
 # Global settings instance
 settings = Settings()

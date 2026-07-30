@@ -117,6 +117,60 @@ def test_unpaid_user_gets_free_slice():
         assert len(deck[key]) <= FREE_CARDS_PER_DECK
 
 
+def test_card_image_free_index_is_public():
+    with patch.object(settings, "enable_payment", True):
+        response = client.get(
+            "/api/card?theme=Acquaintance&level=1&idx=0&type=questions&lang=ru"
+        )
+    assert response.status_code == 200
+    assert response.headers["content-type"] == "image/jpeg"
+    assert len(response.content) > 10_000
+
+
+def test_card_image_paid_index_locked_for_unpaid():
+    with patch.object(settings, "enable_payment", True):
+        response = client.get(
+            "/api/card?theme=Acquaintance&level=1&idx=7&type=questions&lang=ru"
+        )
+    assert response.status_code == 403
+
+
+def test_card_image_paid_index_open_with_access():
+    init_data = make_init_data()
+    with (
+        patch.object(settings, "enable_payment", True),
+        patch.object(settings, "telegram_bot_token", BOT_TOKEN),
+        patch(
+            "vechnost_bot.payments.web.user_has_access",
+            AsyncMock(return_value=True),
+        ),
+    ):
+        response = client.get(
+            "/api/card?theme=Acquaintance&level=1&idx=7&type=questions&lang=ru",
+            headers={"Authorization": f"tma {init_data}"},
+        )
+    assert response.status_code == 200
+    assert response.headers["content-type"] == "image/jpeg"
+
+
+def test_card_image_unknown_deck_404():
+    response = client.get("/api/card?theme=Nope&idx=0")
+    assert response.status_code == 404
+
+
+def test_card_image_out_of_range_404():
+    response = client.get(
+        "/api/card?theme=Acquaintance&level=1&idx=999&type=questions"
+    )
+    assert response.status_code == 404
+
+
+def test_questions_payload_has_bot_url():
+    with patch.object(settings, "enable_payment", False):
+        response = client.get("/api/questions?lang=ru")
+    assert response.json()["bot_url"] == f"https://t.me/{settings.bot_username}"
+
+
 def test_paid_user_gets_full_content():
     init_data = make_init_data()
     with (

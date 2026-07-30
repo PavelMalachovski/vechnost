@@ -6,13 +6,15 @@ from pathlib import Path
 from typing import Any
 
 from fastapi import Depends, FastAPI, Header, HTTPException, Request
-from fastapi.responses import JSONResponse
+from fastapi.responses import JSONResponse, Response
 from fastapi.staticfiles import StaticFiles
 
 from ..config import settings
-from ..freemium import FREE_CARDS_PER_DECK, free_slice
-from ..i18n import Language
+from ..freemium import FREE_CARDS_PER_DECK, free_slice, is_index_free
+from ..i18n import Language, get_text
 from ..logic import localized_game_data
+from ..models import ContentType, Theme
+from ..renderer import get_background_path, render_card
 from .database import close_db, init_db
 from .services import (
     apply_webhook_event,
@@ -148,8 +150,72 @@ async def get_questions(
         access["payment_url"] = await _get_purchase_url()
         access["price"] = await get_price_label()
 
+    bot_url = f"https://t.me/{settings.bot_username}" if settings.bot_username else None
+
     return JSONResponse(
-        content={"lang": language.value, "themes": themes, "access": access},
+        content={
+            "lang": language.value,
+            "themes": themes,
+            "access": access,
+            "bot_url": bot_url,
+        },
+        headers={"Cache-Control": "private, max-age=3600"},
+    )
+
+
+@app.get("/api/card")
+async def get_card_image(
+    theme: str,
+    idx: int,
+    level: int = 0,
+    type: str = "questions",
+    lang: str = "ru",
+    authorization: str | None = Header(default=None),
+) -> Response:
+    """
+    One card rendered as a branded share image (JPEG).
+
+    Free-preview cards are public; cards past the free prefix require the
+    same paid initData as the full question list.
+    """
+    try:
+        theme_enum = Theme(theme)
+        content_type = ContentType(type)
+    except ValueError:
+        raise HTTPException(status_code=404, detail="unknown deck")
+
+    try:
+        language = Language(lang)
+    except ValueError:
+        language = Language.RUSSIAN
+
+    items = localized_game_data.get_content(
+        theme_enum, level or None, content_type, language
+    )
+    if not items or idx < 0 or idx >= len(items):
+        raise HTTPException(status_code=404, detail="card not found")
+
+    if not is_index_free(idx) and not await _request_is_paid(authorization):
+        raise HTTPException(status_code=403, detail="payment_required")
+
+    bg_path = get_background_path(
+        theme_enum.value_short(),
+        level,
+        "q" if content_type == ContentType.QUESTIONS else "t",
+    )
+    theme_label = get_text(f"themes.{theme_enum.value}", language)
+    plain_label = "".join(
+        ch for ch in theme_label if ch.isalpha() or ch.isspace()
+    ).strip()
+    footer = f"{plain_label} · {idx + 1}/{len(items)}"
+    watermark = (
+        f"VECHNOST · @{settings.bot_username}" if settings.bot_username else "VECHNOST"
+    )
+
+    image = render_card(items[idx], bg_path, footer=footer, watermark=watermark)
+    return Response(
+        content=image.getvalue(),
+        media_type="image/jpeg",
         headers={"Cache-Control": "private, max-age=3600"},
     )
 
