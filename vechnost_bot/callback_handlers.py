@@ -50,6 +50,15 @@ def _card_footer(theme: Theme, index: int, total: int, language: Language) -> st
     return f"{plain} · {index + 1}/{total}"
 
 
+def _card_watermark() -> str:
+    """Brand line on rendered cards; forwarded images advertise the bot."""
+    from .config import settings
+
+    if settings.bot_username:
+        return f"VECHNOST · @{settings.bot_username}"
+    return "VECHNOST"
+
+
 async def _card_is_locked_for(query: Any, index: int) -> bool:
     """Freemium gate: True if this card index is paid and the user hasn't paid."""
     from .config import settings
@@ -504,7 +513,7 @@ class QuestionHandler(CallbackHandler):
 
             # Render card image with theme + progress footer
             footer = _card_footer(theme, callback_data.index, len(items), session.language)
-            image_data = render_card(question, bg_path, footer=footer)
+            image_data = render_card(question, bg_path, footer=footer, watermark=_card_watermark())
             logger.info(f"Card rendered successfully, size: {len(image_data.getvalue())} bytes")
 
             # Try to edit message to photo, fallback to new message if that fails
@@ -587,7 +596,7 @@ class NavigationHandler(CallbackHandler):
 
             # Render card image with theme + progress footer
             footer = _card_footer(theme, callback_data.index, len(items), session.language)
-            image_data = render_card(question, bg_path, footer=footer)
+            image_data = render_card(question, bg_path, footer=footer, watermark=_card_watermark())
             logger.info(f"Card rendered successfully, size: {len(image_data.getvalue())} bytes")
 
             # Try to edit message to photo, fallback to new message if that fails

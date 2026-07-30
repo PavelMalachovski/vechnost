@@ -32,6 +32,11 @@ FOOTER_COLOR = (122, 63, 100)  # muted plum, readable but secondary
 FOOTER_FONT_SIZE = 30
 FOOTER_BOTTOM_MARGIN = 92    # keeps clear of the bottom-right suit mark
 
+# Brand watermark: quieter than the footer, at the very bottom edge.
+WATERMARK_COLOR = (168, 118, 148)
+WATERMARK_FONT_SIZE = 24
+WATERMARK_BOTTOM_MARGIN = 48
+
 # Fonts: Montserrat is the brand font (ships in assets), DejaVu is the fallback.
 # The bundled Montserrat is a latin-only subset, so each render picks the first
 # font that actually covers the text's characters (Cyrillic falls back to DejaVu).
@@ -223,7 +228,12 @@ def _fit_text(text: str, max_width: int, max_height: int,
 
 
 @track_performance("render_card")
-def render_card(text: str, bg_path: str, footer: str | None = None) -> BytesIO:
+def render_card(
+    text: str,
+    bg_path: str,
+    footer: str | None = None,
+    watermark: str | None = None,
+) -> BytesIO:
     """
     Render a card with text overlaid on background.
 
@@ -231,6 +241,7 @@ def render_card(text: str, bg_path: str, footer: str | None = None) -> BytesIO:
         text: The question/task text to render
         bg_path: Path to background image
         footer: Optional footer line (e.g. "Знакомство · 12/30") drawn near the bottom
+        watermark: Optional brand line (e.g. "VECHNOST · @bot") at the bottom edge
 
     Returns:
         BytesIO object containing JPEG image data
@@ -249,7 +260,7 @@ def render_card(text: str, bg_path: str, footer: str | None = None) -> BytesIO:
         draw = ImageDraw.Draw(card)
 
         # Fit text into the central column, with a font that covers its alphabet
-        font_path = _pick_font_path(text + (footer or ""))
+        font_path = _pick_font_path(text + (footer or "") + (watermark or ""))
         font, lines = _fit_text(text, TEXT_AREA_WIDTH, TEXT_AREA_HEIGHT, font_path)
         line_height = _line_height(font)
         total_text_height = len(lines) * line_height
@@ -271,6 +282,15 @@ def render_card(text: str, bg_path: str, footer: str | None = None) -> BytesIO:
                 fx = (CARD_WIDTH - footer_width) / 2
                 fy = CARD_HEIGHT - FOOTER_BOTTOM_MARGIN
                 draw.text((fx, fy), footer, font=footer_font, fill=FOOTER_COLOR)
+
+        # Brand watermark: quieter still, at the bottom edge
+        if watermark:
+            wm_font = _load_font(WATERMARK_FONT_SIZE, font_path)
+            if wm_font:
+                wm_width = _text_width(watermark, wm_font)
+                wx = (CARD_WIDTH - wm_width) / 2
+                wy = CARD_HEIGHT - WATERMARK_BOTTOM_MARGIN
+                draw.text((wx, wy), watermark, font=wm_font, fill=WATERMARK_COLOR)
 
         # Convert to JPEG and return as BytesIO
         output = BytesIO()

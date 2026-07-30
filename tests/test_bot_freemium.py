@@ -7,7 +7,11 @@ import pytest
 
 os.environ.setdefault("TELEGRAM_BOT_TOKEN", "1234567890:TEST_TOKEN_FOR_UNIT_TESTS")
 
-from vechnost_bot.callback_handlers import _card_is_locked_for, _send_card_paywall
+from vechnost_bot.callback_handlers import (
+    _card_is_locked_for,
+    _card_watermark,
+    _send_card_paywall,
+)
 from vechnost_bot.config import settings
 from vechnost_bot.freemium import FREE_CARDS_PER_DECK
 from vechnost_bot.i18n import Language
@@ -20,6 +24,16 @@ def make_query():
     query.from_user.id = 42
     query.message.reply_text = AsyncMock()
     return query
+
+
+def test_watermark_with_username():
+    with patch.object(settings, "bot_username", "tvoya_vechnost_bot"):
+        assert _card_watermark() == "VECHNOST · @tvoya_vechnost_bot"
+
+
+def test_watermark_without_username():
+    with patch.object(settings, "bot_username", None):
+        assert _card_watermark() == "VECHNOST"
 
 
 async def test_everything_unlocked_when_payments_disabled():

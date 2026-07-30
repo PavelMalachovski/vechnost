@@ -343,6 +343,7 @@
     <div class="deck-controls">
       <button class="ctrl" id="btnPrev">↩</button>
       <button class="ctrl main" id="btnNext">→</button>
+      <button class="ctrl" id="btnShare">📤</button>
     </div>
   </section>
 
@@ -415,6 +416,8 @@
       paywallText: 'Вы прошли {free} бесплатных карт из {total}. Полный доступ откроет все колоды целиком — сотни вопросов, все уровни, навсегда.',
       paywallBuy: '💳 Открыть всё', paywallClose: 'Закрыть',
       freeCount: 'бесплатно {free} из {total}',
+      shareText: 'Вопрос из VECHNOST — игры для пар',
+      shareError: 'Не получилось поделиться',
       themes: {
         'Acquaintance': { name: 'Знакомство', desc: 'Узнать друг друга по-настоящему', emoji: '✨', grad: 'g-acq' },
         'For Couples':  { name: 'Для пар', desc: 'Стать ближе, чем когда-либо', emoji: '💞', grad: 'g-couples' },
@@ -440,6 +443,8 @@
       paywallText: "You've been through {free} free cards of {total}. Full access unlocks every deck completely — hundreds of questions, all levels, forever.",
       paywallBuy: '💳 Unlock everything', paywallClose: 'Close',
       freeCount: '{free} of {total} free',
+      shareText: 'A question from VECHNOST — the couples game',
+      shareError: 'Could not share',
       themes: {
         'Acquaintance': { name: 'Acquaintance', desc: 'Get to know each other for real', emoji: '✨', grad: 'g-acq' },
         'For Couples':  { name: 'For Couples', desc: 'Grow closer than ever', emoji: '💞', grad: 'g-couples' },
@@ -465,6 +470,8 @@
       paywallText: 'Prošli jste {free} karet zdarma z {total}. Plný přístup odemkne všechny balíčky — stovky otázek, všechny úrovně, navždy.',
       paywallBuy: '💳 Odemknout vše', paywallClose: 'Zavřít',
       freeCount: '{free} z {total} zdarma',
+      shareText: 'Otázka z VECHNOST — hry pro páry',
+      shareError: 'Sdílení se nepovedlo',
       themes: {
         'Acquaintance': { name: 'Seznámení', desc: 'Poznejte se doopravdy', emoji: '✨', grad: 'g-acq' },
         'For Couples':  { name: 'Pro páry', desc: 'Buďte si blíž než kdy dřív', emoji: '💞', grad: 'g-couples' },
@@ -538,6 +545,7 @@
 
   /* ---------------- data ---------------- */
   let ACCESS = { paid: true };
+  let BOT_URL = null;
 
   const fmt = (tpl, vars) => tpl.replace(/\{(\w+)\}/g, (_, k) => vars[k] != null ? vars[k] : '');
 
@@ -570,6 +578,7 @@
       const json = await res.json();
       DATA = json.themes;
       ACCESS = json.access || { paid: true };
+      BOT_URL = json.bot_url || null;
     } catch (e) {
       DATA = null;
       toast(T().loadError);
@@ -880,6 +889,47 @@
     renderStage(false);
   };
   $('deckBack').onclick = leaveDeck;
+
+  /* ---------------- share ---------------- */
+  async function shareCard() {
+    if (deckDirty) return;
+    const items = deckItems();
+    if (!items.length) return;
+    haptic('light');
+    const idx = S.order[S.idx];
+    const params = new URLSearchParams({
+      theme: S.theme, idx: idx, level: S.level || 0, type: S.type, lang: lang
+    });
+    $('loader').classList.add('show');
+    try {
+      const headers = {};
+      if (tg && tg.initData) headers['Authorization'] = 'tma ' + tg.initData;
+      const res = await fetch('/api/card?' + params, { headers });
+      if (!res.ok) throw new Error('http ' + res.status);
+      const blob = await res.blob();
+      const file = new File([blob], 'vechnost-card.jpg', { type: 'image/jpeg' });
+      const shareText = T().shareText + (BOT_URL ? '\n' + BOT_URL : '');
+      if (navigator.canShare && navigator.canShare({ files: [file] })) {
+        await navigator.share({ files: [file], text: shareText });
+        haptic('ok');
+      } else if (tg && BOT_URL) {
+        const text = items[idx] + '\n\n' + shareText;
+        tg.openTelegramLink('https://t.me/share/url?url=' + encodeURIComponent(BOT_URL) + '&text=' + encodeURIComponent(text));
+      } else {
+        const a = document.createElement('a');
+        a.href = URL.createObjectURL(blob);
+        a.download = 'vechnost-card.jpg';
+        a.click();
+        URL.revokeObjectURL(a.href);
+      }
+    } catch (e) {
+      if (e && e.name === 'AbortError') return; // user closed the share sheet
+      toast(T().shareError);
+    } finally {
+      $('loader').classList.remove('show');
+    }
+  }
+  $('btnShare').onclick = shareCard;
 
   /* ---------------- finish ---------------- */
   function deckTotalFull() {
