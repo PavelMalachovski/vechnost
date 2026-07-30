@@ -92,6 +92,35 @@
     box-shadow: 0 10px 30px rgba(196, 37, 110, .45), inset 0 1px 0 rgba(255,255,255,.25);
   }
 
+  .btn-second {
+    margin-top: 12px; padding: 13px 40px; font-size: 15px; font-weight: 600;
+    color: var(--text-on-dark);
+    background: rgba(255,255,255,.08); border: 1px solid rgba(255,255,255,.15);
+  }
+
+  /* ---------- coop ---------- */
+  .coop-box { display: flex; flex-direction: column; gap: 12px; margin: auto 0; }
+  .coop-box p { font-size: 14px; color: var(--muted-on-dark); text-align: center; line-height: 1.5; }
+  .coop-input {
+    width: 100%; padding: 14px 16px; border-radius: 14px;
+    border: 1px solid rgba(255,255,255,.18);
+    background: rgba(255,255,255,.07); color: #fff; font: inherit; font-size: 20px;
+    text-transform: uppercase; text-align: center; letter-spacing: .25em; outline: none;
+  }
+  .coop-input:focus { border-color: rgba(232,107,181,.8); }
+  .code-display {
+    font-family: Georgia, serif; font-size: 46px; letter-spacing: .2em;
+    color: #FFD9EF; text-align: center; margin: 10px 0 4px;
+    text-shadow: 0 0 30px rgba(232,107,181,.4);
+  }
+  .waiting-dots { text-align: center; font-size: 13.5px; color: var(--muted-on-dark); }
+
+  #turnChip { display: flex; justify-content: center; margin-bottom: 8px; }
+  #turnChip .chip { cursor: default; }
+  #turnChip .chip.turn-you {
+    color: #fff; background: rgba(232,107,181,.28); border-color: rgba(232,107,181,.8);
+  }
+
   .lang-row { display: flex; gap: 8px; margin-top: 22px; }
   .chip {
     padding: 8px 16px; border-radius: 999px; font-size: 13px; font-weight: 600;
@@ -296,10 +325,41 @@
     <div class="tagline" data-i18n="tagline"></div>
     <div class="suits"><span>♥</span><span>♠</span><span>♦</span><span>♣</span></div>
     <button class="btn btn-play" id="btnPlay" data-i18n="play"></button>
+    <button class="btn btn-second" id="btnCoop" data-i18n="coopBtn"></button>
     <div class="lang-row" id="langRow">
       <button class="chip" data-lang="ru">RU</button>
       <button class="chip" data-lang="en">EN</button>
       <button class="chip" data-lang="cs">CS</button>
+    </div>
+  </section>
+
+  <!-- COOP entry -->
+  <section class="screen" id="coop">
+    <div class="top">
+      <button class="icon-btn" id="coopBack">←</button>
+      <div class="title" data-i18n="coopTitle"></div>
+      <div style="width:40px"></div>
+    </div>
+    <div class="coop-box">
+      <button class="btn btn-play" id="btnCoopCreate" data-i18n="coopCreate" style="margin-top:0"></button>
+      <p data-i18n="coopOr"></p>
+      <input class="coop-input" id="coopCodeInput" maxlength="6" autocomplete="off" spellcheck="false">
+      <button class="btn btn-second" id="btnCoopJoin" data-i18n="coopJoinBtn" style="margin-top:0"></button>
+    </div>
+  </section>
+
+  <!-- COOP invite / waiting -->
+  <section class="screen" id="invite">
+    <div class="top">
+      <button class="icon-btn" id="inviteBack">←</button>
+      <div class="title" data-i18n="inviteTitle"></div>
+      <div style="width:40px"></div>
+    </div>
+    <div class="coop-box">
+      <p data-i18n="inviteHint"></p>
+      <div class="code-display" id="inviteCode"></div>
+      <button class="btn btn-play" id="btnInviteShare" data-i18n="inviteShare" style="margin-top:0"></button>
+      <p class="waiting-dots" id="inviteWaiting"></p>
     </div>
   </section>
 
@@ -338,6 +398,7 @@
       <button class="chip" id="modeQ"></button>
       <button class="chip" id="modeT"></button>
     </div>
+    <div id="turnChip" style="display:none"><span class="chip" id="turnChipText"></span></div>
     <div id="stage"></div>
     <div class="hint" data-i18n="hint"></div>
     <div class="deck-controls">
@@ -418,6 +479,20 @@
       freeCount: 'бесплатно {free} из {total}',
       shareText: 'Вопрос из VECHNOST — игры для пар',
       shareError: 'Не получилось поделиться',
+      coopBtn: '👥 Играть вдвоём', coopTitle: 'Игра вдвоём',
+      coopCreate: 'Создать игру', coopOr: 'или введи код, который прислал партнёр',
+      coopJoinBtn: 'Присоединиться',
+      inviteTitle: 'Код для партнёра',
+      inviteHint: 'Отправь этот код партнёру. Игра начнётся, как только он войдёт.',
+      inviteShare: '💌 Отправить приглашение',
+      inviteWaiting: 'Ждём партнёра…',
+      coopInviteMsg: 'Сыграем в VECHNOST вдвоём? 💜 Открой {bot} → «Играть вдвоём» → введи код: {code}',
+      yourTurn: '✨ Твой ход', partnerTurn: 'Отвечает {name}…',
+      notYourTurn: 'Сейчас ход партнёра',
+      partnerJoined: '{name} в игре!',
+      coopGone: 'Игра не найдена или закончилась',
+      coopFull: 'В этой игре уже двое',
+      coopDoneText: 'Вы прошли колоду вместе. Это только начало разговора.',
       themes: {
         'Acquaintance': { name: 'Знакомство', desc: 'Узнать друг друга по-настоящему', emoji: '✨', grad: 'g-acq' },
         'For Couples':  { name: 'Для пар', desc: 'Стать ближе, чем когда-либо', emoji: '💞', grad: 'g-couples' },
@@ -445,6 +520,20 @@
       freeCount: '{free} of {total} free',
       shareText: 'A question from VECHNOST — the couples game',
       shareError: 'Could not share',
+      coopBtn: '👥 Play together', coopTitle: 'Play together',
+      coopCreate: 'Start a game', coopOr: 'or enter the code your partner sent',
+      coopJoinBtn: 'Join',
+      inviteTitle: 'Code for your partner',
+      inviteHint: 'Send this code to your partner. The game starts as soon as they join.',
+      inviteShare: '💌 Send the invite',
+      inviteWaiting: 'Waiting for your partner…',
+      coopInviteMsg: "Let's play VECHNOST together? 💜 Open {bot} → “Play together” → enter code: {code}",
+      yourTurn: '✨ Your turn', partnerTurn: '{name} is answering…',
+      notYourTurn: "It's your partner's turn",
+      partnerJoined: '{name} joined!',
+      coopGone: 'Game not found or finished',
+      coopFull: 'This game already has two players',
+      coopDoneText: 'You went through the deck together. The conversation is just beginning.',
       themes: {
         'Acquaintance': { name: 'Acquaintance', desc: 'Get to know each other for real', emoji: '✨', grad: 'g-acq' },
         'For Couples':  { name: 'For Couples', desc: 'Grow closer than ever', emoji: '💞', grad: 'g-couples' },
@@ -472,6 +561,20 @@
       freeCount: '{free} z {total} zdarma',
       shareText: 'Otázka z VECHNOST — hry pro páry',
       shareError: 'Sdílení se nepovedlo',
+      coopBtn: '👥 Hrát spolu', coopTitle: 'Hra ve dvou',
+      coopCreate: 'Založit hru', coopOr: 'nebo zadej kód od partnera',
+      coopJoinBtn: 'Připojit se',
+      inviteTitle: 'Kód pro partnera',
+      inviteHint: 'Pošli tento kód partnerovi. Hra začne, jakmile se připojí.',
+      inviteShare: '💌 Poslat pozvánku',
+      inviteWaiting: 'Čekáme na partnera…',
+      coopInviteMsg: 'Zahrajeme si VECHNOST spolu? 💜 Otevři {bot} → „Hrát spolu“ → zadej kód: {code}',
+      yourTurn: '✨ Tvůj tah', partnerTurn: 'Odpovídá {name}…',
+      notYourTurn: 'Teď je na tahu partner',
+      partnerJoined: '{name} se připojil(a)!',
+      coopGone: 'Hra nenalezena nebo skončila',
+      coopFull: 'V této hře už jsou dva hráči',
+      coopDoneText: 'Prošli jste balíček spolu. Rozhovor právě začíná.',
       themes: {
         'Acquaintance': { name: 'Seznámení', desc: 'Poznejte se doopravdy', emoji: '✨', grad: 'g-acq' },
         'For Couples':  { name: 'Pro páry', desc: 'Buďte si blíž než kdy dřív', emoji: '💞', grad: 'g-couples' },
@@ -529,8 +632,10 @@
     try {
       tg.BackButton.onClick(() => {
         if ($('deck').classList.contains('active')) leaveDeck();
+        else if ($('invite').classList.contains('active')) $('inviteBack').click();
+        else if ($('coop').classList.contains('active')) show('home');
         else if ($('levels').classList.contains('active')) show('themes');
-        else if ($('themes').classList.contains('active')) show('home');
+        else if ($('themes').classList.contains('active')) { COOP.creating = false; show('home'); }
       });
     } catch (e) {}
   }
@@ -635,6 +740,8 @@
     if (th.levels) {
       renderLevels();
       show('levels');
+    } else if (COOP.creating) {
+      createCoopRoom(null);
     } else {
       S.level = null;
       S.type = th.questions ? 'questions' : 'tasks';
@@ -669,7 +776,12 @@
         '<span class="level-num">' + lv + '</span>' +
         '<span class="level-info"><b>' + T().level + ' ' + lv + '</b>' +
         '<span>' + (T().levelDesc[lv] || '') + ' · ' + countLabel + '</span></span>';
-      btn.onclick = () => { haptic('light'); S.level = lv; enterDeck(); };
+      btn.onclick = () => {
+        haptic('light');
+        if (COOP.creating) { createCoopRoom(lv); return; }
+        S.level = lv;
+        enterDeck();
+      };
       box.appendChild(btn);
     });
   }
@@ -702,6 +814,10 @@
   }
 
   function enterDeck(forceReset) {
+    COOP.active = false;
+    $('turnChip').style.display = 'none';
+    $('btnShuffle').style.display = '';
+    $('btnPrev').style.display = '';
     initOrder(forceReset);
     const meta = T().themes[S.theme];
     $('deckTitle').textContent = meta.emoji + ' ' + meta.name + (S.level ? ' · ' + T().level + ' ' + S.level : '');
@@ -715,6 +831,7 @@
   }
 
   function leaveDeck() {
+    if (COOP.active) { leaveCoop(); return; }
     persistDeck();
     if (DATA[S.theme].levels) show('levels'); else show('themes');
   }
@@ -810,6 +927,7 @@
 
   function dragStart(e) {
     if (deckDirty || !drag.card) return;
+    if (COOP.active && (!C.st || !C.st.your_turn)) return;
     drag.active = true;
     const p = e.touches ? e.touches[0] : e;
     drag.x0 = p.clientX; drag.y0 = p.clientY; drag.dx = 0; drag.dy = 0;
@@ -844,6 +962,10 @@
     card.style.transform = 'translate(' + (dir * (window.innerWidth * 1.1)) + 'px,' + (-40 + Math.random() * 120) + 'px) rotate(' + dir * 24 + 'deg)';
     card.style.opacity = '0';
     setTimeout(() => {
+      if (COOP.active) {
+        coopAdvanceAfterFly();
+        return;
+      }
       if (S.idx + 1 >= S.order.length) {
         finishDeck();
       } else {
@@ -855,6 +977,11 @@
   }
 
   $('btnNext').onclick = () => {
+    if (COOP.active && (!C.st || !C.st.your_turn)) {
+      haptic('light');
+      toast(T().notYourTurn);
+      return;
+    }
     const top = document.querySelector('#stage .card.top');
     if (top) flyOut(top, 1);
   };
@@ -893,12 +1020,20 @@
   /* ---------------- share ---------------- */
   async function shareCard() {
     if (deckDirty) return;
-    const items = deckItems();
-    if (!items.length) return;
+    let theme, level, type, idx, cardText;
+    if (COOP.active) {
+      if (!C.st) return;
+      theme = C.st.theme; level = C.st.level || 0; type = C.st.type;
+      idx = C.st.card_index; cardText = C.st.card_text;
+    } else {
+      const items = deckItems();
+      if (!items.length) return;
+      theme = S.theme; level = S.level || 0; type = S.type;
+      idx = S.order[S.idx]; cardText = items[idx];
+    }
     haptic('light');
-    const idx = S.order[S.idx];
     const params = new URLSearchParams({
-      theme: S.theme, idx: idx, level: S.level || 0, type: S.type, lang: lang
+      theme: theme, idx: idx, level: level, type: type, lang: lang
     });
     $('loader').classList.add('show');
     try {
@@ -913,7 +1048,7 @@
         await navigator.share({ files: [file], text: shareText });
         haptic('ok');
       } else if (tg && BOT_URL) {
-        const text = items[idx] + '\n\n' + shareText;
+        const text = cardText + '\n\n' + shareText;
         tg.openTelegramLink('https://t.me/share/url?url=' + encodeURIComponent(BOT_URL) + '&text=' + encodeURIComponent(text));
       } else {
         const a = document.createElement('a');
@@ -948,6 +1083,7 @@
       showPaywall(freeN, full);
       return;
     }
+    document.querySelector('#done p').textContent = T().doneText;
     $('done').classList.add('show');
     confetti();
   }
@@ -967,11 +1103,246 @@
   }
   $('btnAgain').onclick = () => {
     $('done').classList.remove('show');
+    if (COOP.active) { leaveCoop(); return; }
     enterDeck(true);
   };
   $('btnToThemes').onclick = () => {
     $('done').classList.remove('show');
+    if (COOP.active) { leaveCoop(); return; }
     show('themes');
+  };
+
+  /* ---------------- coop (couple mode) ---------------- */
+  const COOP = { creating: false, active: false };
+  const C = { code: null, st: null, timer: null };
+
+  let guestId = store.get('guestId', null);
+  if (!guestId) {
+    guestId = Math.random().toString(36).slice(2, 12);
+    store.set('guestId', guestId);
+  }
+
+  function coopHeaders(json) {
+    const h = { 'X-Guest-Id': guestId };
+    if (tg && tg.initData) h['Authorization'] = 'tma ' + tg.initData;
+    if (json) h['Content-Type'] = 'application/json';
+    return h;
+  }
+
+  async function coopFetch(path, opts) {
+    opts = opts || {};
+    const res = await fetch(path + (path.includes('?') ? '&' : '?') + 'lang=' + lang, {
+      method: opts.method || 'GET',
+      headers: coopHeaders(!!opts.json),
+      body: opts.json ? JSON.stringify(opts.json) : undefined
+    });
+    if (!res.ok) { const e = new Error('http ' + res.status); e.status = res.status; throw e; }
+    return res.json();
+  }
+
+  function coopError(e) {
+    if (e.status === 409) toast(T().coopFull);
+    else if (e.status === 404 || e.status === 410) toast(T().coopGone);
+    else toast(T().loadError);
+  }
+
+  function stopCoopPoll() {
+    if (C.timer) { clearInterval(C.timer); C.timer = null; }
+  }
+
+  function startCoopPoll(onState) {
+    stopCoopPoll();
+    C.timer = setInterval(async () => {
+      if (!C.code) return;
+      try {
+        const st = await coopFetch('/api/rooms/' + C.code);
+        onState(st);
+      } catch (e) {
+        if (e.status === 404 || e.status === 410) {
+          stopCoopPoll();
+          toast(T().coopGone);
+          leaveCoop();
+        }
+      }
+    }, 2500);
+  }
+
+  async function createCoopRoom(level) {
+    COOP.creating = false;
+    $('loader').classList.add('show');
+    try {
+      const st = await coopFetch('/api/rooms', {
+        method: 'POST',
+        json: { theme: S.theme, level: level, type: 'questions' }
+      });
+      C.code = st.code; C.st = st;
+      $('inviteCode').textContent = st.code;
+      $('inviteWaiting').textContent = T().inviteWaiting;
+      show('invite');
+      startCoopPoll(st2 => {
+        C.st = st2;
+        if (st2.started) {
+          stopCoopPoll();
+          haptic('ok');
+          toast(fmt(T().partnerJoined, { name: st2.players.guest || '' }));
+          enterCoopDeck();
+        }
+      });
+    } catch (e) {
+      coopError(e);
+    } finally {
+      $('loader').classList.remove('show');
+    }
+  }
+
+  async function joinCoopRoom() {
+    const code = ($('coopCodeInput').value || '').trim().toUpperCase();
+    if (code.length < 4) return;
+    haptic('light');
+    $('loader').classList.add('show');
+    try {
+      const st = await coopFetch('/api/rooms/' + code + '/join', { method: 'POST' });
+      C.code = st.code; C.st = st;
+      enterCoopDeck();
+    } catch (e) {
+      coopError(e);
+    } finally {
+      $('loader').classList.remove('show');
+    }
+  }
+
+  function coopThemeMeta() {
+    return T().themes[C.st.theme] || { name: C.st.theme, emoji: '👥' };
+  }
+
+  function enterCoopDeck() {
+    COOP.active = true;
+    S.theme = C.st.theme;  // suit on the card face
+    const meta = coopThemeMeta();
+    $('deckTitle').textContent = '👥 ' + meta.name + (C.st.level ? ' · ' + T().level + ' ' + C.st.level : '');
+    $('modeRow').style.display = 'none';
+    $('btnShuffle').style.display = 'none';
+    $('btnPrev').style.display = 'none';
+    show('deck');
+    renderCoopStage(true);
+    startCoopPoll(st => {
+      const prevIdx = C.st ? C.st.idx : -1;
+      const wasFinished = C.st ? C.st.finished : false;
+      C.st = st;
+      if (st.finished && !wasFinished) { coopFinish(); return; }
+      if (st.idx !== prevIdx) {
+        coopFlyTop(() => renderCoopStage(true));
+      } else {
+        updateCoopHud();
+      }
+    });
+  }
+
+  function coopFlyTop(cb) {
+    const top = document.querySelector('#stage .card.top');
+    if (!top) { cb(); return; }
+    top.style.transition = 'transform .38s cubic-bezier(.5,.05,.9,.4), opacity .38s';
+    top.style.transform = 'translate(' + window.innerWidth * 1.1 + 'px,-30px) rotate(20deg)';
+    top.style.opacity = '0';
+    setTimeout(cb, 300);
+  }
+
+  async function coopAdvanceAfterFly() {
+    try {
+      const st = await coopFetch('/api/rooms/' + C.code + '/advance', { method: 'POST' });
+      C.st = st;
+      haptic('medium');
+      if (st.finished) { coopFinish(); return; }
+      renderCoopStage(true);
+    } catch (e) {
+      // Turn was probably taken by a race; resync.
+      try { C.st = await coopFetch('/api/rooms/' + C.code); } catch (e2) {}
+      renderCoopStage(false);
+      if (e.status === 403) toast(T().notYourTurn);
+      else coopError(e);
+    }
+  }
+
+  function updateCoopHud() {
+    if (!C.st) return;
+    const total = C.st.total || 1;
+    $('progressFill').style.width = ((C.st.idx + 1) / total) * 100 + '%';
+    $('progressNum').textContent = (C.st.idx + 1) + ' / ' + total;
+    const chip = $('turnChipText');
+    $('turnChip').style.display = 'flex';
+    if (!C.st.started) {
+      chip.textContent = T().inviteWaiting;
+      chip.className = 'chip';
+    } else if (C.st.your_turn) {
+      chip.textContent = T().yourTurn;
+      chip.className = 'chip turn-you';
+    } else {
+      chip.textContent = fmt(T().partnerTurn, { name: C.st.turn_name || '…' });
+      chip.className = 'chip';
+    }
+  }
+
+  function renderCoopStage(withFlip) {
+    const stage = $('stage');
+    stage.innerHTML = '';
+    if (!C.st || !C.st.total) return;
+    const top = document.createElement('div');
+    top.className = 'card top';
+    top.innerHTML = cardHTML(C.st.card_text, C.st.idx + 1, C.st.total);
+    stage.appendChild(top);
+    const flipper = top.querySelector('.flipper');
+    if (withFlip) {
+      flipper.classList.add('faced');
+      requestAnimationFrame(() => setTimeout(() => {
+        flipper.classList.remove('faced');
+        haptic('light');
+      }, 260));
+    }
+    attachSwipe(top);
+    updateCoopHud();
+    deckDirty = false;
+  }
+
+  function coopFinish() {
+    stopCoopPoll();
+    haptic('ok');
+    document.querySelector('#done p').textContent = T().coopDoneText;
+    $('done').classList.add('show');
+    confetti();
+  }
+
+  function leaveCoop() {
+    stopCoopPoll();
+    COOP.active = false;
+    COOP.creating = false;
+    C.code = null; C.st = null;
+    $('turnChip').style.display = 'none';
+    $('btnShuffle').style.display = '';
+    $('btnPrev').style.display = '';
+    show('home');
+  }
+
+  $('btnCoop').onclick = () => { haptic('light'); $('coopCodeInput').value = ''; show('coop'); };
+  $('coopBack').onclick = () => show('home');
+  $('btnCoopJoin').onclick = joinCoopRoom;
+  $('coopCodeInput').addEventListener('keydown', e => { if (e.key === 'Enter') joinCoopRoom(); });
+  $('btnCoopCreate').onclick = async () => {
+    haptic('light');
+    if (!DATA) await loadData();
+    if (!DATA) return;
+    COOP.creating = true;
+    renderThemes();
+    show('themes');
+  };
+  $('inviteBack').onclick = () => { stopCoopPoll(); C.code = null; C.st = null; show('coop'); };
+  $('btnInviteShare').onclick = () => {
+    if (!C.code) return;
+    haptic('light');
+    const text = fmt(T().coopInviteMsg, { bot: BOT_URL || 'VECHNOST', code: C.code });
+    const url = 'https://t.me/share/url?url=' + encodeURIComponent(BOT_URL || '') + '&text=' + encodeURIComponent(text);
+    try {
+      if (tg) tg.openTelegramLink(url); else window.open(url, '_blank');
+    } catch (e) { window.open(url, '_blank'); }
   };
 
   /* ---------------- boot ---------------- */
@@ -982,7 +1353,7 @@
     renderThemes();
     show('themes');
   };
-  $('backHome').onclick = () => show('home');
+  $('backHome').onclick = () => { COOP.creating = false; show('home'); };
   $('backThemes').onclick = () => show('themes');
 
   document.querySelectorAll('#langRow .chip').forEach(ch => {

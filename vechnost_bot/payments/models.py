@@ -232,3 +232,32 @@ class Certificate(Base):
     def __repr__(self) -> str:
         status = "used" if self.is_used else "available"
         return f"<Certificate(id={self.id}, code='{self.code}', status='{status}')>"
+
+
+class Room(Base):
+    """A shared couple-mode game: two players, one deck, taking turns."""
+
+    __tablename__ = "rooms"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    code: Mapped[str] = mapped_column(String, unique=True, nullable=False)
+    creator_telegram_user_id: Mapped[int] = mapped_column(BigInteger, nullable=False)
+    creator_name: Mapped[Optional[str]] = mapped_column(String, nullable=True)
+    guest_telegram_user_id: Mapped[Optional[int]] = mapped_column(BigInteger, nullable=True)
+    guest_name: Mapped[Optional[str]] = mapped_column(String, nullable=True)
+    theme: Mapped[str] = mapped_column(String, nullable=False)
+    level: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
+    content_type: Mapped[str] = mapped_column(String, default="questions", nullable=False)
+    card_order: Mapped[dict] = mapped_column(JSONEncodedDict, nullable=False)  # list[int]
+    idx: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
+    turn: Mapped[int] = mapped_column(Integer, default=0, nullable=False)  # 0=creator, 1=guest
+    finished: Mapped[bool] = mapped_column(default=False, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(default=datetime.utcnow, nullable=False)
+    updated_at: Mapped[datetime] = mapped_column(
+        default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False
+    )
+
+    __table_args__ = (Index("idx_room_code", "code"),)
+
+    def __repr__(self) -> str:
+        return f"<Room(code='{self.code}', idx={self.idx}, turn={self.turn})>"
