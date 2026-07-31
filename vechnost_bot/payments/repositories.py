@@ -7,7 +7,7 @@ from typing import Optional, List
 from sqlalchemy import select, or_
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from .models import User, Product, Payment, Subscription, WebhookEvent, Certificate
+from .models import User, Product, Payment, Subscription, WebhookEvent, Certificate, Room
 
 logger = logging.getLogger(__name__)
 
@@ -405,3 +405,39 @@ class CertificateRepository:
         )
         return list(result.scalars().all())
 
+
+
+class RoomRepository:
+    """Repository for couple-mode Room operations."""
+
+    @staticmethod
+    async def get_by_code(session: AsyncSession, code: str) -> Optional[Room]:
+        """Get room by its invite code."""
+        result = await session.execute(select(Room).where(Room.code == code))
+        return result.scalar_one_or_none()
+
+    @staticmethod
+    async def create(
+        session: AsyncSession,
+        code: str,
+        creator_telegram_user_id: int,
+        creator_name: Optional[str],
+        theme: str,
+        level: Optional[int],
+        content_type: str,
+        card_order: list,
+    ) -> Room:
+        """Create a new room."""
+        room = Room(
+            code=code,
+            creator_telegram_user_id=creator_telegram_user_id,
+            creator_name=creator_name,
+            theme=theme,
+            level=level,
+            content_type=content_type,
+            card_order=card_order,
+        )
+        session.add(room)
+        await session.flush()
+        logger.info(f"Created room {code} by {creator_telegram_user_id}")
+        return room

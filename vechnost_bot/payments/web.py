@@ -23,6 +23,7 @@ from .services import (
     sync_products_from_tribute,
     user_has_access,
 )
+from .rooms import router as rooms_router
 from .webapp_auth import InitDataError, validate_init_data
 
 logger = logging.getLogger(__name__)
@@ -53,6 +54,7 @@ app = FastAPI(
     version="1.0.0",
     lifespan=lifespan,
 )
+app.include_router(rooms_router)
 
 
 @app.get("/health")
