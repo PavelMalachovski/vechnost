@@ -7,7 +7,10 @@ are never pushed.
 
 import logging
 from datetime import date
+from functools import lru_cache
+from pathlib import Path
 
+import yaml
 from telegram import Bot, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.error import Forbidden
 
@@ -26,31 +29,43 @@ ELIGIBLE_THEMES = [Theme.ACQUAINTANCE, Theme.FOR_COUPLES, Theme.PROVOCATION]
 # the pool so the sequence doesn't walk through one deck in order.
 _HASH = 2654435761
 
+_EXCLUDE_PATH = Path(__file__).parent.parent / "data" / "daily_card_exclude.yaml"
 
-def _deck_specs() -> list[tuple[Theme, int | None, int]]:
-    """(theme, level, deck size) for every pushable deck, in stable order."""
-    specs: list[tuple[Theme, int | None, int]] = []
+
+@lru_cache(maxsize=1)
+def _excluded_texts() -> frozenset:
+    """Curated RU question texts that are never pushed (see the YAML for why)."""
+    try:
+        data = yaml.safe_load(_EXCLUDE_PATH.read_text(encoding="utf-8")) or {}
+        return frozenset(t.strip() for t in data.get("exclude", []))
+    except FileNotFoundError:
+        logger.warning("daily_card_exclude.yaml not found, pushing without curation")
+        return frozenset()
+
+
+@lru_cache(maxsize=1)
+def _eligible_cards() -> tuple:
+    """All (theme, level, index) cards allowed in the push, in stable order."""
+    excluded = _excluded_texts()
+    cards = []
     for theme in ELIGIBLE_THEMES:
         levels = localized_game_data.get_available_levels(theme, Language.RUSSIAN)
         for level in levels or [None]:
             items = localized_game_data.get_content(
                 theme, level, ContentType.QUESTIONS, Language.RUSSIAN
             )
-            if items:
-                specs.append((theme, level, len(items)))
-    return specs
+            for idx, text in enumerate(items or []):
+                if text.strip() not in excluded:
+                    cards.append((theme, level, idx))
+    return tuple(cards)
 
 
 def pick_daily_card(day: date) -> tuple[Theme, int | None, int]:
     """Deterministic (theme, level, card index) for a calendar date."""
-    specs = _deck_specs()
-    pool_size = sum(size for _, _, size in specs)
-    position = (day.toordinal() * _HASH) % pool_size
-    for theme, level, size in specs:
-        if position < size:
-            return theme, level, position
-        position -= size
-    raise RuntimeError("empty daily card pool")  # unreachable with valid data
+    cards = _eligible_cards()
+    if not cards:
+        raise RuntimeError("empty daily card pool")
+    return cards[(day.toordinal() * _HASH) % len(cards)]
 
 
 def _user_language(code: str | None) -> Language:
