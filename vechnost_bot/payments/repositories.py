@@ -2,12 +2,21 @@
 
 import logging
 from datetime import datetime
-from typing import Optional, List
 
-from sqlalchemy import select, or_
+from sqlalchemy import delete, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from .models import User, Product, Payment, Subscription, WebhookEvent, Certificate, Room
+from ..compat import TOTAL_QUESTIONS
+from .models import (
+    Certificate,
+    CompatTest,
+    Payment,
+    Product,
+    Room,
+    Subscription,
+    User,
+    WebhookEvent,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -18,7 +27,7 @@ class UserRepository:
     @staticmethod
     async def get_by_telegram_id(
         session: AsyncSession, telegram_user_id: int
-    ) -> Optional[User]:
+    ) -> User | None:
         """Get user by Telegram ID."""
         result = await session.execute(
             select(User).where(User.telegram_user_id == telegram_user_id)
@@ -29,10 +38,10 @@ class UserRepository:
     async def create_or_update(
         session: AsyncSession,
         telegram_user_id: int,
-        username: Optional[str] = None,
-        first_name: Optional[str] = None,
-        last_name: Optional[str] = None,
-        language: Optional[str] = None,
+        username: str | None = None,
+        first_name: str | None = None,
+        last_name: str | None = None,
+        language: str | None = None,
     ) -> User:
         """Create or update user."""
         user = await UserRepository.get_by_telegram_id(session, telegram_user_id)
@@ -74,7 +83,7 @@ class UserRepository:
             await session.flush()
 
     @staticmethod
-    async def get_daily_card_recipients(session: AsyncSession) -> List[User]:
+    async def get_daily_card_recipients(session: AsyncSession) -> list[User]:
         """All users who haven't opted out of the daily card."""
         result = await session.execute(
             select(User).where(User.daily_card_opt_out.is_(False))
@@ -86,13 +95,13 @@ class ProductRepository:
     """Repository for Product operations."""
 
     @staticmethod
-    async def get_by_id(session: AsyncSession, product_id: int) -> Optional[Product]:
+    async def get_by_id(session: AsyncSession, product_id: int) -> Product | None:
         """Get product by ID."""
         result = await session.execute(select(Product).where(Product.id == product_id))
         return result.scalar_one_or_none()
 
     @staticmethod
-    async def get_all(session: AsyncSession) -> List[Product]:
+    async def get_all(session: AsyncSession) -> list[Product]:
         """Get all products."""
         result = await session.execute(select(Product).order_by(Product.amount))
         return list(result.scalars().all())
@@ -105,9 +114,9 @@ class ProductRepository:
         name: str,
         amount: int,
         currency: str,
-        stars_amount: Optional[int] = None,
-        t_link: Optional[str] = None,
-        web_link: Optional[str] = None,
+        stars_amount: int | None = None,
+        t_link: str | None = None,
+        web_link: str | None = None,
     ) -> Product:
         """Create or update product."""
         product = await ProductRepository.get_by_id(session, product_id)
@@ -148,7 +157,7 @@ class PaymentRepository:
     @staticmethod
     async def get_by_body_sha256(
         session: AsyncSession, body_sha256: str
-    ) -> Optional[Payment]:
+    ) -> Payment | None:
         """Get payment by body SHA256."""
         result = await session.execute(
             select(Payment).where(Payment.body_sha256 == body_sha256)
@@ -167,8 +176,8 @@ class PaymentRepository:
         raw_body: dict,
         signature: str,
         body_sha256: str,
-        product_id: Optional[int] = None,
-        expires_at: Optional[datetime] = None,
+        product_id: int | None = None,
+        expires_at: datetime | None = None,
     ) -> Payment:
         """Create payment record."""
         payment = Payment(
@@ -192,7 +201,7 @@ class PaymentRepository:
     @staticmethod
     async def get_active_payments_for_user(
         session: AsyncSession, telegram_user_id: int
-    ) -> List[Payment]:
+    ) -> list[Payment]:
         """Get active (non-expired) payments for user."""
         now = datetime.utcnow()
         result = await session.execute(
@@ -211,7 +220,7 @@ class SubscriptionRepository:
     @staticmethod
     async def get_by_user_and_subscription_id(
         session: AsyncSession, user_id: int, subscription_id: int
-    ) -> Optional[Subscription]:
+    ) -> Subscription | None:
         """Get subscription by user and subscription ID."""
         result = await session.execute(
             select(Subscription)
@@ -228,7 +237,7 @@ class SubscriptionRepository:
         period: str,
         status: str,
         expires_at: datetime,
-        last_event_at: Optional[datetime] = None,
+        last_event_at: datetime | None = None,
     ) -> Subscription:
         """Create or update subscription."""
         subscription = await SubscriptionRepository.get_by_user_and_subscription_id(
@@ -268,7 +277,7 @@ class SubscriptionRepository:
     @staticmethod
     async def get_active_subscriptions_for_user(
         session: AsyncSession, user_id: int
-    ) -> List[Subscription]:
+    ) -> list[Subscription]:
         """Get active subscriptions for user (including lifetime subscriptions)."""
         now = datetime.utcnow()
         result = await session.execute(
@@ -289,7 +298,7 @@ class WebhookEventRepository:
     @staticmethod
     async def get_by_body_sha256(
         session: AsyncSession, body_sha256: str
-    ) -> Optional[WebhookEvent]:
+    ) -> WebhookEvent | None:
         """Get webhook event by body SHA256."""
         result = await session.execute(
             select(WebhookEvent).where(WebhookEvent.body_sha256 == body_sha256)
@@ -303,8 +312,8 @@ class WebhookEventRepository:
         sent_at: datetime,
         body_sha256: str,
         status_code: int,
-        processed_at: Optional[datetime] = None,
-        error: Optional[str] = None,
+        processed_at: datetime | None = None,
+        error: str | None = None,
     ) -> WebhookEvent:
         """Create webhook event record."""
         webhook_event = WebhookEvent(
@@ -326,7 +335,7 @@ class WebhookEventRepository:
         webhook_event: WebhookEvent,
         status_code: int,
         processed_at: datetime,
-        error: Optional[str] = None,
+        error: str | None = None,
     ) -> WebhookEvent:
         """Update webhook event status."""
         webhook_event.status_code = status_code
@@ -340,7 +349,7 @@ class CertificateRepository:
     """Repository for Certificate operations."""
 
     @staticmethod
-    async def get_by_code(session: AsyncSession, code: str) -> Optional[Certificate]:
+    async def get_by_code(session: AsyncSession, code: str) -> Certificate | None:
         """Get certificate by code."""
         result = await session.execute(
             select(Certificate).where(Certificate.code == code)
@@ -376,7 +385,7 @@ class CertificateRepository:
         return certificate
 
     @staticmethod
-    async def get_all_unused(session: AsyncSession) -> List[Certificate]:
+    async def get_all_unused(session: AsyncSession) -> list[Certificate]:
         """Get all unused certificates."""
         result = await session.execute(
             select(Certificate)
@@ -386,7 +395,7 @@ class CertificateRepository:
         return list(result.scalars().all())
 
     @staticmethod
-    async def get_all(session: AsyncSession) -> List[Certificate]:
+    async def get_all(session: AsyncSession) -> list[Certificate]:
         """Get all certificates."""
         result = await session.execute(
             select(Certificate).order_by(Certificate.created_at.desc())
@@ -396,7 +405,7 @@ class CertificateRepository:
     @staticmethod
     async def get_by_user(
         session: AsyncSession, telegram_user_id: int
-    ) -> List[Certificate]:
+    ) -> list[Certificate]:
         """Get all certificates used by a specific user."""
         result = await session.execute(
             select(Certificate).where(
@@ -411,7 +420,7 @@ class RoomRepository:
     """Repository for couple-mode Room operations."""
 
     @staticmethod
-    async def get_by_code(session: AsyncSession, code: str) -> Optional[Room]:
+    async def get_by_code(session: AsyncSession, code: str) -> Room | None:
         """Get room by its invite code."""
         result = await session.execute(select(Room).where(Room.code == code))
         return result.scalar_one_or_none()
@@ -421,9 +430,9 @@ class RoomRepository:
         session: AsyncSession,
         code: str,
         creator_telegram_user_id: int,
-        creator_name: Optional[str],
+        creator_name: str | None,
         theme: str,
-        level: Optional[int],
+        level: int | None,
         content_type: str,
         card_order: list,
     ) -> Room:
@@ -441,3 +450,73 @@ class RoomRepository:
         await session.flush()
         logger.info(f"Created room {code} by {creator_telegram_user_id}")
         return room
+
+
+class CompatTestRepository:
+    """Repository for compatibility-test sessions."""
+
+    @staticmethod
+    async def get_by_code(session: AsyncSession, code: str) -> CompatTest | None:
+        """Get a session by its invite code."""
+        result = await session.execute(
+            select(CompatTest).where(CompatTest.code == code)
+        )
+        return result.scalar_one_or_none()
+
+    @staticmethod
+    async def create(
+        session: AsyncSession,
+        code: str,
+        creator_telegram_user_id: int,
+        creator_name: str | None,
+    ) -> CompatTest:
+        """Create a session with both answer sets empty."""
+        test = CompatTest(
+            code=code,
+            creator_telegram_user_id=creator_telegram_user_id,
+            creator_name=creator_name,
+            creator_answers=[None] * TOTAL_QUESTIONS,
+            guest_answers=[None] * TOTAL_QUESTIONS,
+        )
+        session.add(test)
+        await session.flush()
+        logger.info(f"Created compat test {code} by {creator_telegram_user_id}")
+        return test
+
+    @staticmethod
+    async def latest_completed_for(
+        session: AsyncSession, telegram_user_id: int
+    ) -> CompatTest | None:
+        """The caller's most recently completed session, as either participant."""
+        result = await session.execute(
+            select(CompatTest)
+            .where(
+                CompatTest.finished_at.is_not(None),
+                or_(
+                    CompatTest.creator_telegram_user_id == telegram_user_id,
+                    CompatTest.guest_telegram_user_id == telegram_user_id,
+                ),
+            )
+            .order_by(CompatTest.finished_at.desc())
+            .limit(1)
+        )
+        return result.scalar_one_or_none()
+
+    @staticmethod
+    async def delete_superseded(
+        session: AsyncSession, pair_key: str, keep_id: int
+    ) -> int:
+        """
+        Delete this pair's other sessions.
+
+        Retaking replaces the previous result rather than adding to a history,
+        so the answers behind a superseded result do not linger in the
+        database.
+        """
+        result = await session.execute(
+            delete(CompatTest).where(
+                CompatTest.pair_key == pair_key, CompatTest.id != keep_id
+            )
+        )
+        await session.flush()
+        return result.rowcount or 0

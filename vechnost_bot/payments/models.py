@@ -2,17 +2,17 @@
 
 import json
 from datetime import datetime
-from typing import Optional, List
+from typing import Optional
 
 from sqlalchemy import (
     BigInteger,
     Boolean,
-    String,
-    Integer,
-    Text,
-    Index,
-    UniqueConstraint,
     ForeignKey,
+    Index,
+    Integer,
+    String,
+    Text,
+    UniqueConstraint,
 )
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
 from sqlalchemy.types import TypeDecorator
@@ -50,10 +50,10 @@ class User(Base):
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
     telegram_user_id: Mapped[int] = mapped_column(BigInteger, unique=True, nullable=False)
-    username: Mapped[Optional[str]] = mapped_column(String, nullable=True)
-    first_name: Mapped[Optional[str]] = mapped_column(String, nullable=True)
-    last_name: Mapped[Optional[str]] = mapped_column(String, nullable=True)
-    language: Mapped[Optional[str]] = mapped_column(String, nullable=True)
+    username: Mapped[str | None] = mapped_column(String, nullable=True)
+    first_name: Mapped[str | None] = mapped_column(String, nullable=True)
+    last_name: Mapped[str | None] = mapped_column(String, nullable=True)
+    language: Mapped[str | None] = mapped_column(String, nullable=True)
     daily_card_opt_out: Mapped[bool] = mapped_column(
         Boolean, default=False, nullable=False, server_default="0"
     )
@@ -62,10 +62,10 @@ class User(Base):
     )
 
     # Relationships
-    payments: Mapped[List["Payment"]] = relationship(
+    payments: Mapped[list["Payment"]] = relationship(
         "Payment", back_populates="user", cascade="all, delete-orphan"
     )
-    subscriptions: Mapped[List["Subscription"]] = relationship(
+    subscriptions: Mapped[list["Subscription"]] = relationship(
         "Subscription", back_populates="user", cascade="all, delete-orphan"
     )
 
@@ -85,15 +85,15 @@ class Product(Base):
     name: Mapped[str] = mapped_column(String, nullable=False)
     amount: Mapped[int] = mapped_column(Integer, nullable=False)  # in cents
     currency: Mapped[str] = mapped_column(String, nullable=False)
-    stars_amount: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
-    t_link: Mapped[Optional[str]] = mapped_column(String, nullable=True)
-    web_link: Mapped[Optional[str]] = mapped_column(String, nullable=True)
+    stars_amount: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    t_link: Mapped[str | None] = mapped_column(String, nullable=True)
+    web_link: Mapped[str | None] = mapped_column(String, nullable=True)
     updated_at: Mapped[datetime] = mapped_column(
         default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False
     )
 
     # Relationships
-    payments: Mapped[List["Payment"]] = relationship(
+    payments: Mapped[list["Payment"]] = relationship(
         "Payment", back_populates="product"
     )
 
@@ -115,12 +115,12 @@ class Payment(Base):
     telegram_user_id: Mapped[int] = mapped_column(
         BigInteger, nullable=False
     )  # Denormalized
-    product_id: Mapped[Optional[int]] = mapped_column(
+    product_id: Mapped[int | None] = mapped_column(
         Integer, ForeignKey("products.id"), nullable=True
     )
     amount: Mapped[int] = mapped_column(Integer, nullable=False)
     currency: Mapped[str] = mapped_column(String, nullable=False)
-    expires_at: Mapped[Optional[datetime]] = mapped_column(nullable=True)
+    expires_at: Mapped[datetime | None] = mapped_column(nullable=True)
     raw_body: Mapped[dict] = mapped_column(JSONEncodedDict, nullable=False)
     signature: Mapped[str] = mapped_column(String, nullable=False)
     body_sha256: Mapped[str] = mapped_column(String, unique=True, nullable=False)
@@ -157,7 +157,7 @@ class Subscription(Base):
     )  # ID from Tribute
     period: Mapped[str] = mapped_column(String, nullable=False)
     status: Mapped[str] = mapped_column(String, nullable=False)
-    expires_at: Mapped[Optional[datetime]] = mapped_column(nullable=True)  # NULL = lifetime subscription
+    expires_at: Mapped[datetime | None] = mapped_column(nullable=True)  # NULL = lifetime subscription
     last_event_at: Mapped[datetime] = mapped_column(
         default=datetime.utcnow, nullable=False
     )
@@ -191,8 +191,8 @@ class WebhookEvent(Base):
     )
     body_sha256: Mapped[str] = mapped_column(String, unique=True, nullable=False)
     status_code: Mapped[int] = mapped_column(Integer, nullable=False)
-    processed_at: Mapped[Optional[datetime]] = mapped_column(nullable=True)
-    error: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    processed_at: Mapped[datetime | None] = mapped_column(nullable=True)
+    error: Mapped[str | None] = mapped_column(Text, nullable=True)
 
     __table_args__ = (Index("idx_body_sha256_webhook", "body_sha256"),)
 
@@ -208,10 +208,10 @@ class Certificate(Base):
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
     code: Mapped[str] = mapped_column(String, unique=True, nullable=False)  # Unique certificate code
     is_used: Mapped[bool] = mapped_column(default=False, nullable=False)  # Whether certificate was used
-    used_by_telegram_user_id: Mapped[Optional[int]] = mapped_column(
+    used_by_telegram_user_id: Mapped[int | None] = mapped_column(
         BigInteger, nullable=True
     )  # Who used the certificate
-    used_at: Mapped[Optional[datetime]] = mapped_column(nullable=True)  # When it was used
+    used_at: Mapped[datetime | None] = mapped_column(nullable=True)  # When it was used
     created_at: Mapped[datetime] = mapped_column(
         default=datetime.utcnow, nullable=False
     )  # When certificate was created
@@ -242,11 +242,11 @@ class Room(Base):
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
     code: Mapped[str] = mapped_column(String, unique=True, nullable=False)
     creator_telegram_user_id: Mapped[int] = mapped_column(BigInteger, nullable=False)
-    creator_name: Mapped[Optional[str]] = mapped_column(String, nullable=True)
-    guest_telegram_user_id: Mapped[Optional[int]] = mapped_column(BigInteger, nullable=True)
-    guest_name: Mapped[Optional[str]] = mapped_column(String, nullable=True)
+    creator_name: Mapped[str | None] = mapped_column(String, nullable=True)
+    guest_telegram_user_id: Mapped[int | None] = mapped_column(BigInteger, nullable=True)
+    guest_name: Mapped[str | None] = mapped_column(String, nullable=True)
     theme: Mapped[str] = mapped_column(String, nullable=False)
-    level: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
+    level: Mapped[int | None] = mapped_column(Integer, nullable=True)
     content_type: Mapped[str] = mapped_column(String, default="questions", nullable=False)
     card_order: Mapped[dict] = mapped_column(JSONEncodedDict, nullable=False)  # list[int]
     idx: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
@@ -261,3 +261,34 @@ class Room(Base):
 
     def __repr__(self) -> str:
         return f"<Room(code='{self.code}', idx={self.idx}, turn={self.turn})>"
+
+
+class CompatTest(Base):
+    """A couples compatibility test: two partners answer 40 questions apart."""
+
+    __tablename__ = "compat_tests"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    code: Mapped[str] = mapped_column(String, unique=True, nullable=False)
+    creator_telegram_user_id: Mapped[int] = mapped_column(BigInteger, nullable=False)
+    creator_name: Mapped[str | None] = mapped_column(String, nullable=True)
+    guest_telegram_user_id: Mapped[int | None] = mapped_column(BigInteger, nullable=True)
+    guest_name: Mapped[str | None] = mapped_column(String, nullable=True)
+    # list[int | None], 40 entries; null means unanswered.
+    creator_answers: Mapped[dict] = mapped_column(JSONEncodedDict, nullable=False)
+    guest_answers: Mapped[dict] = mapped_column(JSONEncodedDict, nullable=False)
+    # "<lower id>:<higher id>", set when the guest joins.
+    pair_key: Mapped[str | None] = mapped_column(String, nullable=True)
+    finished_at: Mapped[datetime | None] = mapped_column(nullable=True)
+    created_at: Mapped[datetime] = mapped_column(default=datetime.utcnow, nullable=False)
+    updated_at: Mapped[datetime] = mapped_column(
+        default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False
+    )
+
+    __table_args__ = (
+        Index("idx_compat_code", "code"),
+        Index("idx_compat_pair", "pair_key"),
+    )
+
+    def __repr__(self) -> str:
+        return f"<CompatTest(code='{self.code}', finished={self.finished_at is not None})>"
