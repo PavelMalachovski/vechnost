@@ -5,7 +5,6 @@ result is computed and never read.
 """
 
 import logging
-from typing import Optional
 
 from telegram import Bot, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.error import Forbidden
@@ -16,14 +15,14 @@ from .i18n import Language, get_text
 logger = logging.getLogger(__name__)
 
 
-def _bot() -> Optional[Bot]:
+def _bot() -> Bot | None:
     """The bot to send with, or None when no token is configured."""
     if not settings.telegram_bot_token:
         return None
     return Bot(token=settings.telegram_bot_token)
 
 
-def _keyboard() -> Optional[InlineKeyboardMarkup]:
+def _keyboard() -> InlineKeyboardMarkup | None:
     url = settings.webapp_url
     if not url:
         return None
