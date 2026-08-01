@@ -92,7 +92,7 @@ pytest tests/test_freemium.py -q         # run one suite
   daily push no longer draws from the decks and there is no curated
   exclude-list file to keep in sync anymore.
 - The Library's 18+ gate (`nsfw=1` on `GET /api/library` and
-  `GET /api/library/{module}`) is client-asserted: the client sends the
+  `GET /api/library/{module_id}`) is client-asserted: the client sends the
   flag, the server keeps no record that anyone confirmed their age. It
   prevents accidental display, not deliberate access.
 - `ENABLE_PAYMENT=false` unlocks everything and skips initData checks — great

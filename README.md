@@ -13,7 +13,7 @@ inside a polished Telegram Mini App.
   images) and a Telegram **Mini App** at `/app` (swipeable card deck,
   animations, haptics).
 - **Four decks.** Acquaintance, For Couples, Sex (18+), Provocation —
-  300 questions/tasks per language, with 3 progressive levels on the
+  310 questions/tasks per language, with 3 progressive levels on the
   couple-facing decks.
 - **Library.** A second section beside the game: 150 date ideas in 8
   categories, the 36 questions to fall in love, 25 practices for couples and
