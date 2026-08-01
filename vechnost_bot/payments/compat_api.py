@@ -51,7 +51,10 @@ def _language(lang: str) -> Language:
 def _caller(
     authorization: str | None, guest_id: str | None
 ) -> tuple[int, str]:
-    """Resolve the caller, exactly as rooms.py does."""
+    """Resolve the caller from initData, or from a guest id when unpaid.
+
+    Not quite rooms.py's scheme — see the comment on the guest branch below.
+    """
     scheme, _, init_data = (authorization or "").partition(" ")
     if scheme.lower() == "tma" and init_data:
         try:
@@ -73,8 +76,10 @@ def _caller(
     raise HTTPException(status_code=401, detail="unauthorized")
 
 
-async def _load(session, code: str, user_id: int):
-    test = await CompatTestRepository.get_by_code(session, code.strip().upper())
+async def _load(session, code: str, user_id: int, for_update: bool = False):
+    test = await CompatTestRepository.get_by_code(
+        session, code.strip().upper(), for_update=for_update
+    )
     if not test:
         raise HTTPException(status_code=404, detail="test not found")
     if user_id not in (test.creator_telegram_user_id, test.guest_telegram_user_id):
@@ -96,6 +101,11 @@ def _state(test, user_id: int) -> dict[str, Any]:
         "your_role": "creator" if is_creator else "guest",
         "started": test.guest_telegram_user_id is not None,
         "answered": _answered(mine),
+        # Which questions *the caller* has already answered, so the client can
+        # resume an interrupted test at the first gap instead of restarting
+        # all 40. The caller's own indices only — never the partner's, and
+        # never any values, mine or theirs.
+        "answered_indices": [i for i, value in enumerate(mine) if value is not None],
         "partner_answered": _answered(theirs),
         "total": TOTAL_QUESTIONS,
         "finished": test.finished_at is not None,
@@ -208,7 +218,9 @@ async def answer(
     user_id, _ = _caller(authorization, x_guest_id)
 
     async with get_db() as session:
-        test = await _load(session, code, user_id)
+        # Locked: this is a read-modify-write of the whole answer array, and
+        # the client can have several answers in flight.
+        test = await _load(session, code, user_id, for_update=True)
         if test.guest_telegram_user_id is None:
             raise HTTPException(status_code=409, detail="partner has not joined yet")
         if test.finished_at is not None:
@@ -236,9 +248,44 @@ async def answer(
                 )
         test.updated_at = datetime.utcnow()
         await session.flush()
-        if just_finished:
-            await notify_result_ready(test)
-        return _state(test, user_id)
+        state = _state(test, user_id)
+        # Capture before leaving the block: the notification is sent after the
+        # commit, from outside any session. Telling both partners the result
+        # is ready before `finished_at` is durable would send them to a 409,
+        # and two Telegram round-trips inside the transaction would make the
+        # fortieth POST block on the network while holding a pooled connection
+        # and a row lock.
+        recipients = (
+            (test.creator_telegram_user_id, test.guest_telegram_user_id)
+            if just_finished else ()
+        )
+
+    if recipients:
+        await notify_result_ready(recipients, code=state["code"])
+    return state
+
+
+@router.delete("/{code}")
+async def delete(
+    code: str,
+    lang: str = "ru",
+    authorization: str | None = Header(default=None),
+    x_guest_id: str | None = Header(default=None),
+) -> dict[str, Any]:
+    """Erase the test and both answer sets. Either participant may do this.
+
+    The answers are about the couple's sex life, money and trust, so neither
+    of them should have to complete another eighty questions to get rid of
+    them. Either partner acting alone erases the pair's copy: there is one
+    shared row, and consent to keep it has to be unanimous.
+    """
+    user_id, _ = _caller(authorization, x_guest_id)
+
+    async with get_db() as session:
+        test = await _load(session, code, user_id)
+        await CompatTestRepository.delete(session, test.id)
+        logger.info(f"Compat test {test.code} deleted by participant")
+        return {"deleted": True}
 
 
 @router.get("/{code}/result")

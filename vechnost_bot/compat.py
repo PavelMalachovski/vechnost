@@ -36,11 +36,20 @@ class Sphere(BaseModel):
 
 
 class SphereResult(BaseModel):
+    """One sphere as a partner sees it.
+
+    Deliberately carries no numeric score. A sphere's score is
+    `(avg_a + avg_b) / 2` over five questions, so a partner who knows their
+    own five answers could solve `sum_b = 10 * score - sum_a` exactly — at
+    the boundaries (a sphere sum of 25) that pins every individual answer.
+    The score exists only to order `strengths` and `attention`, and stays
+    inside `build_result` as a parallel list.
+    """
+
     id: str
     title: str
     zone: Zone
     verdict: str
-    score: float
     divergent: list[int]
 
 
@@ -121,6 +130,9 @@ def build_result(
     # SphereResult because it is an internal signal, not part of the result
     # a partner sees.
     both_low_flags: list[bool] = []
+    # Parallel to `results`: the sphere's `(avg_a + avg_b) / 2`. Same reason,
+    # and a stronger one — it is invertible. See SphereResult's docstring.
+    scores: list[float] = []
 
     for index, sphere in enumerate(spheres):
         start = index * QUESTIONS_PER_SPHERE
@@ -140,19 +152,25 @@ def build_result(
             title=sphere.title,
             zone=zone,
             verdict=verdict,
-            score=(avg_a + avg_b) / 2,
             # 1-based and global: sphere 8's questions are 36..40.
             divergent=[start + i + 1 for i, gap in enumerate(gaps) if gap >= 3],
         ))
         both_low_flags.append(_both_low(avg_a, avg_b))
+        scores.append((avg_a + avg_b) / 2)
 
-    percent = round((sum(r.score for r in results) / len(results) - 1) / 4 * 100)
+    percent = round((sum(scores) / len(scores) - 1) / 4 * 100)
 
-    strengths = sorted(
-        [r for r in results if r.zone == "strength"],
-        key=lambda r: r.score,
-        reverse=True,
-    )[:3]
+    strengths = [
+        result
+        for result, _ in sorted(
+            (
+                pair for pair in zip(results, scores, strict=True)
+                if pair[0].zone == "strength"
+            ),
+            key=lambda pair: pair[1],
+            reverse=True,
+        )[:3]
+    ]
 
     # The attention block only ever holds spheres that are *not* a strength —
     # a sphere can't be both "where you are a team" and "worth talking
@@ -169,10 +187,10 @@ def build_result(
     # sentence to explain why. Say nothing rather than something false.
     ranked = sorted(
         (
-            pair for pair in zip(results, both_low_flags, strict=True)
-            if pair[0].zone != "strength"
+            triple for triple in zip(results, both_low_flags, scores, strict=True)
+            if triple[0].zone != "strength"
         ),
-        key=lambda pair: pair[0].score,
+        key=lambda triple: triple[2],
     )[:2]
     attention = [
         AttentionEntry(
@@ -183,7 +201,7 @@ def build_result(
                 else None
             ),
         )
-        for result, both_low in ranked
+        for result, both_low, _ in ranked
     ]
 
     divergent_all = sorted(n for r in results for n in r.divergent)

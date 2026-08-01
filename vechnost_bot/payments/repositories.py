@@ -456,12 +456,30 @@ class CompatTestRepository:
     """Repository for compatibility-test sessions."""
 
     @staticmethod
-    async def get_by_code(session: AsyncSession, code: str) -> CompatTest | None:
-        """Get a session by its invite code."""
-        result = await session.execute(
-            select(CompatTest).where(CompatTest.code == code)
-        )
+    async def get_by_code(
+        session: AsyncSession, code: str, for_update: bool = False
+    ) -> CompatTest | None:
+        """Get a session by its invite code.
+
+        `for_update` takes a row lock, which `/answer` needs: it does a
+        read-modify-write of the whole 40-element answer array, and a fast
+        tapper has several POSTs in flight at once. Without the lock, on
+        READ COMMITTED the second transaction reads the pre-update array and
+        writes back a stale copy of everything but its own index — one answer
+        silently vanishes. SQLite ignores the clause; it has no concurrent
+        writers to protect against.
+        """
+        stmt = select(CompatTest).where(CompatTest.code == code)
+        if for_update:
+            stmt = stmt.with_for_update()
+        result = await session.execute(stmt)
         return result.scalar_one_or_none()
+
+    @staticmethod
+    async def delete(session: AsyncSession, test_id: int) -> None:
+        """Delete one session outright, answers and all."""
+        await session.execute(delete(CompatTest).where(CompatTest.id == test_id))
+        await session.flush()
 
     @staticmethod
     async def create(
