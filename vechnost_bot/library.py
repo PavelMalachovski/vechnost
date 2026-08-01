@@ -1,0 +1,74 @@
+"""Library content: date ideas, practices, and reflection prompts.
+
+Content is Russian-only in this phase; other languages fall back to the
+Russian file. This module deliberately imports neither FastAPI nor
+python-telegram-bot so it can be used from the web API, the bot, and tests
+alike.
+"""
+
+from functools import lru_cache
+from pathlib import Path
+from typing import Literal
+
+import yaml
+from pydantic import BaseModel
+
+from .i18n import Language
+
+LIBRARY_DIR = Path(__file__).parent.parent / "data" / "library"
+
+
+class Practice(BaseModel):
+    title: str
+    why: str
+    result: str
+
+
+class LibraryCategory(BaseModel):
+    id: str
+    title: str
+    nsfw: bool = False
+    items: list[str]
+
+
+class LibraryModule(BaseModel):
+    id: str
+    title: str
+    emoji: str
+    type: Literal["list", "practice", "daily"]
+    paid: bool
+    count: int
+
+
+MODULES: dict[str, LibraryModule] = {
+    m.id: m
+    for m in [
+        LibraryModule(id="dates", title="Идеи для свиданий", emoji="💡",
+                      type="list", paid=True, count=150),
+        LibraryModule(id="fall_in_love", title="36 вопросов, чтобы влюбиться",
+                      emoji="💘", type="list", paid=False, count=36),
+        LibraryModule(id="practices_self", title="Практики для себя", emoji="🌱",
+                      type="practice", paid=False, count=25),
+        LibraryModule(id="practices_couples", title="Практики для пар", emoji="💞",
+                      type="practice", paid=True, count=25),
+        LibraryModule(id="reflection", title="Вопрос дня", emoji="🌙",
+                      type="daily", paid=False, count=365),
+    ]
+}
+
+
+@lru_cache(maxsize=None)
+def _load_yaml(module_id: str, language: Language) -> dict:
+    """Parsed YAML for a module. Non-Russian languages fall back to Russian."""
+    if module_id not in MODULES:
+        raise KeyError(module_id)
+    path = LIBRARY_DIR / f"{module_id}_{language.value}.yaml"
+    if not path.exists():
+        path = LIBRARY_DIR / f"{module_id}_ru.yaml"
+    return yaml.safe_load(path.read_text(encoding="utf-8")) or {}
+
+
+def load_practices(module_id: str, language: Language = Language.RUSSIAN) -> list[Practice]:
+    """The practices of a `practice`-type module, in authored order."""
+    data = _load_yaml(module_id, language)
+    return [Practice(**item) for item in data.get("items", [])]
