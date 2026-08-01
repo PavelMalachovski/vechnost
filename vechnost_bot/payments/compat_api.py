@@ -210,6 +210,8 @@ async def answer(
         test = await _load(session, code, user_id)
         if test.guest_telegram_user_id is None:
             raise HTTPException(status_code=409, detail="partner has not joined yet")
+        if test.finished_at is not None:
+            raise HTTPException(status_code=409, detail="test is already complete")
 
         is_creator = user_id == test.creator_telegram_user_id
         answers = list(test.creator_answers if is_creator else test.guest_answers)
