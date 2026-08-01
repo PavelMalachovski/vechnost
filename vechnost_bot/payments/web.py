@@ -15,7 +15,10 @@ from ..i18n import Language, get_text
 from ..logic import localized_game_data
 from ..models import ContentType, Theme
 from ..renderer import get_background_path, render_card
+from .compat_api import router as compat_router
 from .database import close_db, init_db
+from .library_api import router as library_router
+from .rooms import router as rooms_router
 from .services import (
     apply_webhook_event,
     get_price_label,
@@ -23,8 +26,6 @@ from .services import (
     sync_products_from_tribute,
     user_has_access,
 )
-from .library_api import router as library_router
-from .rooms import router as rooms_router
 from .webapp_auth import InitDataError, validate_init_data
 
 logger = logging.getLogger(__name__)
@@ -57,6 +58,7 @@ app = FastAPI(
 )
 app.include_router(rooms_router)
 app.include_router(library_router)
+app.include_router(compat_router)
 
 
 @app.get("/health")
