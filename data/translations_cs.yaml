@@ -22,6 +22,7 @@ welcome:
   # Tlačítka
   button_start: "VSTOUPIT DO VECHNOST ←"
   button_webapp: "🎮 HRÁT V APLIKACI"
+  button_library: "📚 KNIHOVNA"
   button_inside: "CO VÁS ČEKÁ UVNITŘ?"
   button_why: "PROČ TO FUNGUJE?"
 
@@ -131,9 +132,10 @@ gift:
 
 daily:
   title: "🌙 Otázka dne"
-  subtitle: "Den {day} z {total} — jedna otázka, abys slyšel(a) sám(sama) sebe."
+  subtitle: "Den {day} z {total} — jedna otázka pro naslouchání sobě."
   card_footer: "Otázka dne · {day}/{total}"
   play_button: "🎮 Hrát"
+  library_button: "📚 Knihovna"
   unsubscribe_button: "🔕 Už neposílat"
   resubscribe_button: "🔔 Zapnout otázku dne"
   unsubscribed: "🔕 Otázka dne je vypnutá. Vrať se, kdykoli budeš chtít."

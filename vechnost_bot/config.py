@@ -151,6 +151,14 @@ class Settings(BaseSettings):
         description="UTC hour when the daily card is sent (17 = ~19:00 Prague)."
     )
 
+    @property
+    def webapp_library_url(self) -> str | None:
+        """The Mini App URL that opens straight on the Library screen."""
+        if not self.webapp_url:
+            return None
+        separator = "&" if "?" in self.webapp_url else "?"
+        return f"{self.webapp_url}{separator}screen=library"
+
 
 # Global settings instance
 settings = Settings()

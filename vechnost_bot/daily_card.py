@@ -8,7 +8,7 @@ import logging
 from datetime import date
 from pathlib import Path
 
-from telegram import Bot, InlineKeyboardButton, InlineKeyboardMarkup
+from telegram import Bot, InlineKeyboardButton, InlineKeyboardMarkup, WebAppInfo
 from telegram.error import Forbidden
 
 from .config import settings
@@ -32,16 +32,21 @@ def _user_language(code: str | None) -> Language:
 
 
 def _daily_keyboard(language: Language) -> InlineKeyboardMarkup:
-    return InlineKeyboardMarkup([
-        [InlineKeyboardButton(
-            get_text('daily.play_button', language),
-            callback_data="start_game"
-        )],
-        [InlineKeyboardButton(
-            get_text('daily.unsubscribe_button', language),
-            callback_data="daily_off"
-        )],
-    ])
+    rows = [[InlineKeyboardButton(
+        get_text('daily.play_button', language),
+        callback_data="start_game"
+    )]]
+    # This push *is* a Library item, so offer the Library next to the deck.
+    if settings.webapp_library_url:
+        rows.append([InlineKeyboardButton(
+            get_text('daily.library_button', language),
+            web_app=WebAppInfo(url=settings.webapp_library_url)
+        )])
+    rows.append([InlineKeyboardButton(
+        get_text('daily.unsubscribe_button', language),
+        callback_data="daily_off"
+    )])
+    return InlineKeyboardMarkup(rows)
 
 
 def render_daily_card(day: date, language: Language):
