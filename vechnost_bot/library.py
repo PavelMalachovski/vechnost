@@ -99,7 +99,11 @@ def question_of_the_day(
 
     Day 366 of a leap year wraps back to the first prompt: one repeated day
     beats carrying a 366th question that is unused three years in four.
+
+    Wrapping on the actual number of prompts rather than on REFLECTION_TOTAL
+    keeps a short YAML from raising IndexError — the daily push renders
+    outside its try block, so one bad index would cancel the whole job.
     """
-    index = (day_of_year - 1) % REFLECTION_TOTAL
     flat = [q for block in load_reflection(language) for q in block]
+    index = (day_of_year - 1) % len(flat)
     return flat[index], index + 1

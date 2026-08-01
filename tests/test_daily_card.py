@@ -1,5 +1,6 @@
 """Tests for the daily self-reflection push."""
 
+import asyncio
 import os
 from datetime import date
 from unittest.mock import AsyncMock, MagicMock, patch
@@ -49,17 +50,74 @@ def test_renders_in_every_language(language):
     assert caption.strip()
 
 
-async def test_blocked_user_is_opted_out():
+# `send_daily_cards` imports `get_db` and `UserRepository` inside the function,
+# so both are patched where they are defined, not on `daily_card`.
+#
+# These two run the coroutine themselves instead of relying on pytest-asyncio:
+# the repo's session-scoped `event_loop` fixture in tests/conftest.py makes every
+# `async def` test error out with ScopeMismatch, and that fixture is out of scope
+# here. Driving the loop directly keeps the send path genuinely covered.
+
+
+def _run_send(bot, recipients, repo_extra=None):
+    """Run send_daily_cards against a mocked DB and repository."""
+    with patch("vechnost_bot.payments.repositories.UserRepository") as repo:
+        repo.get_daily_card_recipients = AsyncMock(return_value=recipients)
+        repo.set_daily_card_opt_out = AsyncMock()
+        if repo_extra is not None:
+            repo_extra.append(repo)
+        with patch("vechnost_bot.payments.database.get_db"):
+            return asyncio.run(send_daily_cards(bot))
+
+
+def test_healthy_recipient_gets_the_card():
+    user = MagicMock(telegram_user_id=42, language="ru")
+    bot = MagicMock()
+    bot.send_photo = AsyncMock()
+
+    sent = _run_send(bot, [user])
+
+    assert sent == 1
+    bot.send_photo.assert_awaited_once()
+    kwargs = bot.send_photo.await_args.kwargs
+    assert kwargs["chat_id"] == 42
+
+    image, caption = render_daily_card(date.today(), Language.RUSSIAN)
+    assert kwargs["photo"] == image.getvalue()
+    assert kwargs["caption"] == caption
+
+    labels = [b.callback_data for row in kwargs["reply_markup"].inline_keyboard for b in row]
+    assert "daily_off" in labels
+
+
+def test_library_button_appears_only_when_the_mini_app_is_configured():
+    from vechnost_bot.config import settings
+    from vechnost_bot.daily_card import _daily_keyboard
+
+    original = settings.webapp_url
+    try:
+        settings.webapp_url = None
+        rows = _daily_keyboard(Language.RUSSIAN).inline_keyboard
+        assert all(b.web_app is None for row in rows for b in row)
+
+        settings.webapp_url = "https://example.com/app"
+        rows = _daily_keyboard(Language.RUSSIAN).inline_keyboard
+        library = [b for row in rows for b in row if b.web_app]
+        assert len(library) == 1
+        assert library[0].web_app.url.endswith("screen=library")
+    finally:
+        settings.webapp_url = original
+
+
+def test_blocked_user_is_opted_out():
     from telegram.error import Forbidden
 
     user = MagicMock(telegram_user_id=42, language="ru")
     bot = MagicMock()
     bot.send_photo = AsyncMock(side_effect=Forbidden("blocked"))
+    captured = []
 
-    with patch("vechnost_bot.payments.repositories.UserRepository") as repo:
-        repo.get_daily_card_recipients = AsyncMock(return_value=[user])
-        repo.set_daily_card_opt_out = AsyncMock()
-        with patch("vechnost_bot.daily_card.get_db"):
-            sent = await send_daily_cards(bot)
+    sent = _run_send(bot, [user], repo_extra=captured)
 
     assert sent == 0
+    captured[0].set_daily_card_opt_out.assert_awaited_once()
