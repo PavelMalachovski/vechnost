@@ -6,7 +6,7 @@ python-telegram-bot so it can be used from the web API, the bot, and tests
 alike.
 """
 
-from functools import lru_cache
+from functools import cache
 from pathlib import Path
 from typing import Literal
 
@@ -57,7 +57,7 @@ MODULES: dict[str, LibraryModule] = {
 }
 
 
-@lru_cache(maxsize=None)
+@cache
 def _load_yaml(module_id: str, language: Language) -> dict:
     """Parsed YAML for a module. Non-Russian languages fall back to Russian."""
     if module_id not in MODULES:

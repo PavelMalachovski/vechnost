@@ -3,7 +3,24 @@
 import pytest
 
 from vechnost_bot.i18n import Language
-from vechnost_bot.library import MODULES, Practice, load_practices
+from vechnost_bot.library import (
+    MODULES,
+    LibraryCategory,
+    Practice,
+    load_categories,
+    load_practices,
+)
+
+DATE_CATEGORY_SIZES = {
+    "home": 25,
+    "outdoors": 25,
+    "culture": 25,
+    "extreme": 15,
+    "food": 10,
+    "deep": 15,
+    "spicy": 10,
+    "spontaneous": 25,
+}
 
 
 def test_practice_modules_are_registered():
@@ -38,20 +55,6 @@ def test_non_russian_falls_back_to_russian():
 def test_unknown_module_raises():
     with pytest.raises(KeyError):
         load_practices("nope", Language.RUSSIAN)
-
-
-from vechnost_bot.library import LibraryCategory, load_categories
-
-DATE_CATEGORY_SIZES = {
-    "home": 25,
-    "outdoors": 25,
-    "culture": 25,
-    "extreme": 15,
-    "food": 10,
-    "deep": 15,
-    "spicy": 10,
-    "spontaneous": 25,
-}
 
 
 def test_dates_has_eight_categories_with_expected_sizes():
