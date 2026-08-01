@@ -125,3 +125,44 @@ def test_delete_superseded_removes_other_rows_for_the_same_pair():
             await engine.dispose()
 
     asyncio.run(scenario())
+
+
+def test_delete_superseded_with_null_pair_key_is_a_no_op():
+    """
+    A null pair_key must never become a delete-everything-unpaired footgun.
+
+    SQLAlchemy compiles `Column == None` to `IS NULL`, which every unpaired
+    session across every user matches — not "no session". Without the
+    early-return guard in delete_superseded, this call would delete both
+    unpaired sessions below (and any other unpaired session in the table).
+    """
+
+    async def scenario():
+        engine, session = await _make_session()
+        try:
+            unpaired_a = await CompatTestRepository.create(
+                session, code="NUL111", creator_telegram_user_id=1, creator_name="A"
+            )
+            await CompatTestRepository.create(
+                session, code="NUL222", creator_telegram_user_id=2, creator_name="B"
+            )
+            paired = await CompatTestRepository.create(
+                session, code="PAI111", creator_telegram_user_id=3, creator_name="C"
+            )
+            paired.guest_telegram_user_id = 4
+            paired.pair_key = "3:4"
+            paired.finished_at = datetime.utcnow()
+            await session.flush()
+
+            removed = await CompatTestRepository.delete_superseded(
+                session, None, keep_id=unpaired_a.id
+            )
+            assert removed == 0
+            assert await CompatTestRepository.get_by_code(session, "NUL111") is not None
+            assert await CompatTestRepository.get_by_code(session, "NUL222") is not None
+            assert await CompatTestRepository.get_by_code(session, "PAI111") is not None
+        finally:
+            await session.close()
+            await engine.dispose()
+
+    asyncio.run(scenario())

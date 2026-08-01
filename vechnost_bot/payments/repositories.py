@@ -513,6 +513,13 @@ class CompatTestRepository:
         so the answers behind a superseded result do not linger in the
         database.
         """
+        if pair_key is None:
+            # SQLAlchemy compiles `Column == None` to `IS NULL`, not to a
+            # predicate that matches nothing — every unpaired session (any
+            # user whose guest hasn't joined yet) has a null pair_key. An
+            # unpaired session has nothing to supersede, so the honest
+            # answer is "deleted nothing", not an exception.
+            return 0
         result = await session.execute(
             delete(CompatTest).where(
                 CompatTest.pair_key == pair_key, CompatTest.id != keep_id
