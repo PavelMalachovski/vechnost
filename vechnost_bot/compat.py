@@ -106,6 +106,11 @@ def build_result(
     content = _content(language)
     spheres = load_spheres(language)
     results: list[SphereResult] = []
+    # Parallel to `results`: whether both partners averaged under 3 on that
+    # sphere. Drives the attention framing below — kept separate from
+    # SphereResult because it is an internal signal, not part of the result
+    # a partner sees.
+    both_low_flags: list[bool] = []
 
     for index, sphere in enumerate(spheres):
         start = index * QUESTIONS_PER_SPHERE
@@ -129,6 +134,7 @@ def build_result(
             # 1-based and global: sphere 8's questions are 36..40.
             divergent=[start + i + 1 for i, gap in enumerate(gaps) if gap >= 3],
         ))
+        both_low_flags.append(avg_a < 3 and avg_b < 3)
 
     percent = round((sum(r.score for r in results) / len(results) - 1) / 4 * 100)
 
@@ -138,12 +144,20 @@ def build_result(
         reverse=True,
     )[:3]
 
+    # Both averages under 3 means the partners agree the sphere is a
+    # problem — "both_low" wins even if some individual question also
+    # happened to diverge. "gap" is only for spheres that landed here
+    # through divergence with at least one average at 3 or above.
+    ranked = sorted(
+        zip(results, both_low_flags, strict=True),
+        key=lambda pair: pair[0].score,
+    )[:2]
     attention = [
         AttentionEntry(
             sphere=result,
-            framing=content["framings"]["gap" if result.divergent else "both_low"],
+            framing=content["framings"]["both_low" if both_low else "gap"],
         )
-        for result in sorted(results, key=lambda r: r.score)[:2]
+        for result, both_low in ranked
     ]
 
     divergent_all = sorted(n for r in results for n in r.divergent)

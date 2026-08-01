@@ -6,6 +6,7 @@ from vechnost_bot.compat import (
     QUESTIONS_PER_SPHERE,
     SPHERE_COUNT,
     TOTAL_QUESTIONS,
+    _content,
     build_result,
     load_spheres,
     scale_labels,
@@ -145,6 +146,34 @@ def test_attention_carries_two_spheres_with_a_framing():
     for entry in result.attention:
         assert entry.framing.strip()
         assert entry.sphere.zone == "crisis"
+
+
+def test_both_low_framing_wins_even_with_a_divergent_question():
+    """Both averages under 3 means they agree it's bad — even if one
+    question inside the sphere also happened to diverge, they are not
+    disagreeing about the sphere as a whole, so "gap" would be the wrong
+    story to tell them."""
+    a = [2, 2, 2, 2, 2] + [5] * 35     # sphere 1 avg 2.0
+    b = [2, 2, 2, 2, 5] + [5] * 35     # sphere 1 avg 2.6, question 5 gap of 3
+    result = build_result(a, b)
+    sphere_1 = next(e for e in result.attention if e.sphere.id == "values")
+    assert sphere_1.sphere.divergent == [5]
+    framings = _content(Language.RUSSIAN)["framings"]
+    assert sphere_1.framing == framings["both_low"]
+    assert sphere_1.framing != framings["gap"]
+
+
+def test_gap_framing_is_used_when_divergence_alone_put_it_there():
+    """A sphere with at least one average at or above 3 that still lands in
+    attention got there through disagreement, not shared low scores."""
+    a = [4, 4, 4, 4, 1] + [5] * 35     # sphere 1 avg 3.4, question 5 gap of 3
+    b = [4, 4, 4, 4, 4] + [5] * 35     # sphere 1 avg 4.0
+    result = build_result(a, b)
+    sphere_1 = next(e for e in result.attention if e.sphere.id == "values")
+    assert sphere_1.sphere.divergent == [5]
+    framings = _content(Language.RUSSIAN)["framings"]
+    assert sphere_1.framing == framings["gap"]
+    assert sphere_1.framing != framings["both_low"]
 
 
 def test_result_never_contains_raw_answers():
