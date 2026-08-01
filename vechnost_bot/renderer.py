@@ -30,12 +30,21 @@ LINE_SPACING = 1.32          # multiple of (ascent + descent)
 TEXT_COLOR = (53, 0, 39)     # dark maroon #350027, ~13:1 contrast on the pale pink
 FOOTER_COLOR = (122, 63, 100)  # muted plum, readable but secondary
 FOOTER_FONT_SIZE = 30
-FOOTER_BOTTOM_MARGIN = 92    # keeps clear of the bottom-right suit mark
+# The neutral background (default.png, used by the daily push) has a drawn
+# frame whose bottom line sits at y≈1287. Footer and watermark both live above
+# it, so no card is struck through. The deck backgrounds have no such line;
+# there the extra clearance simply reads as bottom padding.
+FOOTER_BOTTOM_MARGIN = 152
 
-# Brand watermark: quieter than the footer, at the very bottom edge.
+# Brand watermark: quieter than the footer, one line below it.
 WATERMARK_COLOR = (168, 118, 148)
 WATERMARK_FONT_SIZE = 24
-WATERMARK_BOTTOM_MARGIN = 48
+WATERMARK_BOTTOM_MARGIN = 107
+
+# Minimum breathing room between the question text and the footer. The text
+# block is centred on the card, but a card whose text overflows its area slides
+# up rather than running into the footer.
+TEXT_FOOTER_GAP = 14
 
 # Fonts: Montserrat is the brand font (ships in assets), DejaVu is the fallback.
 # The bundled Montserrat is a latin-only subset, so each render picks the first
@@ -275,8 +284,11 @@ def render_card(
         line_height = _line_height(font)
         total_text_height = len(lines) * line_height
 
-        # Center the block vertically on the card
+        # Center the block vertically on the card, but never under the footer
         start_y = (CARD_HEIGHT - total_text_height) // 2
+        if footer or watermark:
+            band_top = CARD_HEIGHT - FOOTER_BOTTOM_MARGIN - TEXT_FOOTER_GAP
+            start_y = max(0, min(start_y, band_top - total_text_height))
 
         for i, line in enumerate(lines):
             line_width = _text_width(line, font)

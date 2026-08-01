@@ -22,6 +22,7 @@ welcome:
   # Tlačítka
   button_start: "VSTOUPIT DO VECHNOST ←"
   button_webapp: "🎮 HRÁT V APLIKACI"
+  button_library: "📚 KNIHOVNA"
   button_inside: "CO VÁS ČEKÁ UVNITŘ?"
   button_why: "PROČ TO FUNGUJE?"
 
@@ -130,14 +131,15 @@ gift:
   delivered: "🎁 <b>Váš dárkový certifikát je připraven!</b>\n\nKód: <code>{code}</code>\n\nPošlete tuto kartu obdarovaným. Aktivace: /activate {code} v botovi @{bot}."
 
 daily:
-  title: "🃏 Karta dne"
-  subtitle: "Jedna otázka — jeden večer blíž k sobě."
-  card_footer: "Karta dne"
+  title: "🌙 Otázka dne"
+  subtitle: "Den {day} z {total} — jedna otázka pro naslouchání sobě."
+  card_footer: "Otázka dne · {day}/{total}"
   play_button: "🎮 Hrát"
+  library_button: "📚 Knihovna"
   unsubscribe_button: "🔕 Už neposílat"
-  resubscribe_button: "🔔 Zapnout kartu dne"
-  unsubscribed: "🔕 Karta dne je vypnutá. Vraťte se, kdy budete chtít."
-  resubscribed: "🔔 Karta dne je zpět — každý večer nová otázka."
+  resubscribe_button: "🔔 Zapnout otázku dne"
+  unsubscribed: "🔕 Otázka dne je vypnutá. Vrať se, kdykoli budeš chtít."
+  resubscribed: "🔔 Otázka dne je zpět — každý večer nová."
 
 about:
   title: "💎 O VECHNOST"

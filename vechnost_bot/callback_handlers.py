@@ -1143,6 +1143,10 @@ class LanguageHandler(CallbackHandler):
                 get_text('welcome.button_webapp', language),
                 web_app=WebAppInfo(url=settings.webapp_url)
             )])
+            rows.append([InlineKeyboardButton(
+                get_text('welcome.button_library', language),
+                web_app=WebAppInfo(url=settings.webapp_library_url)
+            )])
         rows.extend([
             [InlineKeyboardButton(
                 get_text('welcome.button_inside', language),
@@ -1267,7 +1271,7 @@ class ShowInsideHandler(CallbackHandler):
 
         try:
             await query.edit_message_text(inside_text, reply_markup=keyboard, parse_mode="HTML")
-        except:
+        except Exception:
             await query.message.reply_text(inside_text, reply_markup=keyboard, parse_mode="HTML")
 
 
@@ -1292,7 +1296,7 @@ class ShowWhyHandler(CallbackHandler):
 
         try:
             await query.edit_message_text(why_text, reply_markup=keyboard, parse_mode="HTML")
-        except:
+        except Exception:
             await query.message.reply_text(why_text, reply_markup=keyboard, parse_mode="HTML")
 
 
@@ -1390,7 +1394,7 @@ class StartGameHandler(CallbackHandler):
             logger.warning(f"Could not edit message: {edit_error}")
             try:
                 await query.message.delete()
-            except:
+            except Exception:
                 pass
             await query.message.reply_text(welcome_text, reply_markup=keyboard)
 

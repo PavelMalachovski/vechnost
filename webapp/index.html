@@ -188,6 +188,23 @@
   .level-info b { display: block; font-size: 17px; margin-bottom: 3px; }
   .level-info span { font-size: 13px; color: var(--muted-on-dark); line-height: 1.35; }
 
+  /* ---------- library ---------- */
+  #libraryList { display: flex; flex-direction: column; gap: 12px; flex: 1; overflow-y: auto; -webkit-overflow-scrolling: touch; }
+  #libDetailBody { flex: 1; overflow-y: auto; -webkit-overflow-scrolling: touch; }
+  .theme-card.lib-mod { background: rgba(255,255,255,.07); border: 1px solid rgba(255,255,255,.12); }
+  .lib-card{background:rgba(255,255,255,.05);border-radius:16px;padding:14px 16px;margin:10px 0}
+  .lib-card-title{font-weight:700;margin-bottom:6px}
+  .lib-card-line{font-size:14px;opacity:.85;margin-top:4px}
+  .lib-cat{background:rgba(255,255,255,.05);border-radius:16px;padding:12px 16px;margin:10px 0}
+  .lib-cat summary{font-weight:700;cursor:pointer}
+  .lib-cat ol{margin:10px 0 0 18px;line-height:1.6}
+  .lib-cat-nsfw{display:block;width:100%;text-align:left;font:inherit;font-weight:700;
+    color:inherit;border:1px dashed rgba(255,255,255,.18);cursor:pointer}
+  .lib-daily{text-align:center;padding:32px 20px}
+  .lib-day{opacity:.6;font-size:14px;margin-bottom:12px}
+  .lib-question{font-size:20px;line-height:1.5}
+  .lib-locked{text-align:center;padding:20px;opacity:.9}
+
   /* ---------- deck ---------- */
   #deck { padding-left: 14px; padding-right: 14px; }
   .progress-wrap { display: flex; align-items: center; gap: 12px; margin: 2px 4px 10px; }
@@ -326,6 +343,7 @@
     <div class="suits"><span>♥</span><span>♠</span><span>♦</span><span>♣</span></div>
     <button class="btn btn-play" id="btnPlay" data-i18n="play"></button>
     <button class="btn btn-second" id="btnCoop" data-i18n="coopBtn"></button>
+    <button class="btn btn-second" id="btnLibrary" data-i18n="libraryBtn"></button>
     <div class="lang-row" id="langRow">
       <button class="chip" data-lang="ru">RU</button>
       <button class="chip" data-lang="en">EN</button>
@@ -346,6 +364,25 @@
       <input class="coop-input" id="coopCodeInput" maxlength="6" autocomplete="off" spellcheck="false">
       <button class="btn btn-second" id="btnCoopJoin" data-i18n="coopJoinBtn" style="margin-top:0"></button>
     </div>
+  </section>
+
+  <!-- LIBRARY -->
+  <section class="screen" id="library">
+    <div class="top">
+      <button class="icon-btn" id="libBackHome">←</button>
+      <div class="title" data-i18n="libraryTitle"></div>
+      <div style="width:40px"></div>
+    </div>
+    <div id="libraryList"></div>
+  </section>
+
+  <section class="screen" id="libraryDetail">
+    <div class="top">
+      <button class="icon-btn" id="libBack">←</button>
+      <div class="title" id="libDetailTitle"></div>
+      <div style="width:40px"></div>
+    </div>
+    <div id="libDetailBody"></div>
   </section>
 
   <!-- COOP invite / waiting -->
@@ -412,7 +449,7 @@
   <div class="overlay" id="nsfw">
     <div class="big-emoji">🔞</div>
     <h2 data-i18n="nsfwTitle"></h2>
-    <p data-i18n="nsfwText"></p>
+    <p id="nsfwText" data-i18n="nsfwText"></p>
     <button class="btn btn-play" id="nsfwYes" data-i18n="nsfwYes"></button>
     <button class="btn btn-ghost" id="nsfwNo" data-i18n="nsfwNo"></button>
   </div>
@@ -467,6 +504,7 @@
       hint: 'Свайпни карту или нажми →',
       nsfwTitle: 'Контент 18+',
       nsfwText: 'В этой теме откровенные вопросы и задания для взрослых. Продолжая, ты подтверждаешь, что тебе есть 18 лет.',
+      nsfwLibText: 'В этой категории откровенные идеи для взрослых. Продолжая, ты подтверждаешь, что тебе есть 18 лет.',
       nsfwYes: 'Мне есть 18', nsfwNo: 'Назад',
       doneTitle: 'Колода пройдена!', doneText: 'Вы разобрали все карты этой колоды. Это только начало разговора.',
       again: 'Начать заново', toThemes: 'К темам',
@@ -493,6 +531,12 @@
       coopGone: 'Игра не найдена или закончилась',
       coopFull: 'В этой игре уже двое',
       coopDoneText: 'Вы прошли колоду вместе. Это только начало разговора.',
+      libraryBtn: '📚 Библиотека', libraryTitle: 'Библиотека',
+      libLocked: 'Открыть полностью',
+      libFreeNote: 'Показаны {free} из {total}',
+      libWhy: 'Зачем', libResult: 'Итог',
+      libDayOf: 'День {day} из 365',
+      libLoadError: 'Не удалось загрузить библиотеку. Проверь соединение.',
       themes: {
         'Acquaintance': { name: 'Знакомство', desc: 'Узнать друг друга по-настоящему', emoji: '✨', grad: 'g-acq' },
         'For Couples':  { name: 'Для пар', desc: 'Стать ближе, чем когда-либо', emoji: '💞', grad: 'g-couples' },
@@ -508,6 +552,7 @@
       hint: 'Swipe the card or tap →',
       nsfwTitle: '18+ content',
       nsfwText: 'This theme contains explicit adult questions and tasks. By continuing you confirm you are 18 or older.',
+      nsfwLibText: 'This category contains explicit suggestions for adults. By continuing you confirm you are 18 or older.',
       nsfwYes: "I'm 18+", nsfwNo: 'Back',
       doneTitle: 'Deck complete!', doneText: "You've been through every card. The conversation is just beginning.",
       again: 'Start over', toThemes: 'Themes',
@@ -534,6 +579,12 @@
       coopGone: 'Game not found or finished',
       coopFull: 'This game already has two players',
       coopDoneText: 'You went through the deck together. The conversation is just beginning.',
+      libraryBtn: '📚 Library', libraryTitle: 'Library',
+      libLocked: 'Unlock everything',
+      libFreeNote: 'Showing {free} of {total}',
+      libWhy: 'Why', libResult: 'Outcome',
+      libDayOf: 'Day {day} of 365',
+      libLoadError: 'Could not load the library. Check your connection.',
       themes: {
         'Acquaintance': { name: 'Acquaintance', desc: 'Get to know each other for real', emoji: '✨', grad: 'g-acq' },
         'For Couples':  { name: 'For Couples', desc: 'Grow closer than ever', emoji: '💞', grad: 'g-couples' },
@@ -549,6 +600,7 @@
       hint: 'Přejeď kartu nebo klepni →',
       nsfwTitle: 'Obsah 18+',
       nsfwText: 'Toto téma obsahuje otevřené otázky a úkoly pro dospělé. Pokračováním potvrzuješ, že ti je 18 let.',
+      nsfwLibText: 'Tato kategorie obsahuje otevřené náměty pro dospělé. Pokračováním potvrzuješ, že ti je 18 let.',
       nsfwYes: 'Je mi 18+', nsfwNo: 'Zpět',
       doneTitle: 'Balíček dokončen!', doneText: 'Prošli jste všechny karty. Rozhovor právě začíná.',
       again: 'Začít znovu', toThemes: 'Témata',
@@ -575,6 +627,12 @@
       coopGone: 'Hra nenalezena nebo skončila',
       coopFull: 'V této hře už jsou dva hráči',
       coopDoneText: 'Prošli jste balíček spolu. Rozhovor právě začíná.',
+      libraryBtn: '📚 Knihovna', libraryTitle: 'Knihovna',
+      libLocked: 'Odemknout vše',
+      libFreeNote: 'Zobrazeno {free} z {total}',
+      libWhy: 'Proč', libResult: 'Výsledek',
+      libDayOf: 'Den {day} z 365',
+      libLoadError: 'Knihovnu se nepodařilo načíst. Zkontroluj připojení.',
       themes: {
         'Acquaintance': { name: 'Seznámení', desc: 'Poznejte se doopravdy', emoji: '✨', grad: 'g-acq' },
         'For Couples':  { name: 'Pro páry', desc: 'Buďte si blíž než kdy dřív', emoji: '💞', grad: 'g-couples' },
@@ -636,6 +694,8 @@
         else if ($('coop').classList.contains('active')) show('home');
         else if ($('levels').classList.contains('active')) show('themes');
         else if ($('themes').classList.contains('active')) { COOP.creating = false; show('home'); }
+        else if ($('libraryDetail').classList.contains('active')) show('library');
+        else if ($('library').classList.contains('active')) show('home');
       });
     } catch (e) {}
   }
@@ -725,11 +785,18 @@
     });
   }
 
+  // One overlay, two callers: the Sex deck and a spicy Library category.
+  // The copy is swapped per caller so it always describes what it is gating.
+  function showNsfw(kind) {
+    $('nsfwText').textContent = kind === 'library' ? T().nsfwLibText : T().nsfwText;
+    $('nsfw').classList.add('show');
+  }
+
   function pickTheme(key) {
     S.theme = key;
     const th = DATA[key];
     if (th.nsfw && !store.get('nsfwOk', false)) {
-      $('nsfw').classList.add('show');
+      showNsfw('deck');
       return;
     }
     afterNsfw();
@@ -753,9 +820,18 @@
     store.set('nsfwOk', true);
     $('nsfw').classList.remove('show');
     haptic('ok');
+    if (LIB_NSFW_PENDING) {
+      const pending = LIB_NSFW_PENDING;
+      LIB_NSFW_PENDING = null;
+      openLibModule(pending.module, pending.category);
+      return;
+    }
     afterNsfw();
   };
-  $('nsfwNo').onclick = () => { $('nsfw').classList.remove('show'); };
+  $('nsfwNo').onclick = () => {
+    LIB_NSFW_PENDING = null;
+    $('nsfw').classList.remove('show');
+  };
 
   /* ---------------- levels screen ---------------- */
   function renderLevels() {
@@ -1354,6 +1430,114 @@
     } catch (e) { window.open(url, '_blank'); }
   };
 
+  /* ---------------- library ---------------- */
+  let LIB_NSFW_PENDING = null;   // {module, category} to open after the 18+ overlay
+
+  // The 18+ flag is device-scoped and shared with the Sex deck, so it is only
+  // ever sent — and only ever asked for — when the user reaches for something
+  // explicit. Everything else in a module stays open without it.
+  const libNsfwParam = () => store.get('nsfwOk', false) ? '&nsfw=1' : '';
+
+  async function libFetch(path) {
+    const headers = {};
+    if (tg && tg.initData) headers['Authorization'] = 'tma ' + tg.initData;
+    const res = await fetch(path, { cache: 'no-cache', headers });
+    if (!res.ok) throw new Error('http ' + res.status);
+    return res.json();
+  }
+
+  async function openLibrary() {
+    show('library');
+    $('loader').classList.add('show');
+    try {
+      const data = await libFetch('/api/library?lang=' + lang + libNsfwParam());
+      const box = $('libraryList');
+      box.innerHTML = data.modules.map(m => `
+        <button class="theme-card lib-mod" data-module="${m.id}">
+          <span class="t-emoji">${m.emoji}</span>
+          <span class="t-name">${escapeHTML(m.title)}</span>
+          <span class="t-desc">${m.count}${m.locked ? ' · 🔒' : ''}</span>
+        </button>`).join('');
+      box.querySelectorAll('[data-module]').forEach(btn => {
+        btn.onclick = () => openLibModule(btn.dataset.module);
+      });
+    } catch (e) {
+      toast(T().libLoadError);
+    } finally {
+      $('loader').classList.remove('show');
+    }
+  }
+
+  async function openLibModule(id, openCategory) {
+    $('loader').classList.add('show');
+    try {
+      const data = await libFetch(`/api/library/${id}?lang=${lang}${libNsfwParam()}`);
+      $('libDetailTitle').textContent = data.emoji + ' ' + data.title;
+      $('libDetailBody').innerHTML = renderLibModule(data, openCategory);
+      const buy = $('libBuy');
+      if (buy) buy.onclick = () => { haptic('light'); $('paywallBuy').click(); };
+      $('libDetailBody').querySelectorAll('[data-nsfw-cat]').forEach(row => {
+        row.onclick = () => {
+          haptic('light');
+          LIB_NSFW_PENDING = { module: id, category: row.dataset.nsfwCat };
+          showNsfw('library');
+        };
+      });
+      show('libraryDetail');
+    } catch (e) {
+      toast(T().libLoadError);
+    } finally {
+      $('loader').classList.remove('show');
+    }
+  }
+
+  function renderLibModule(data, openCategory) {
+    if (data.type === 'daily') {
+      return `<div class="lib-daily">
+        <div class="lib-day">${fmt(T().libDayOf, { day: data.day })}</div>
+        <p class="lib-question">${escapeHTML(data.question)}</p>
+      </div>`;
+    }
+    if (data.type === 'practice') {
+      return data.items.map((p, i) => `
+        <div class="lib-card">
+          <div class="lib-card-title">${i + 1}. ${escapeHTML(p.title)}</div>
+          <div class="lib-card-line"><b>${T().libWhy}:</b> ${escapeHTML(p.why)}</div>
+          <div class="lib-card-line"><b>${T().libResult}:</b> ${escapeHTML(p.result)}</div>
+        </div>`).join('') + libLockedFooter(data);
+    }
+    const visible = data.categories.map(c => `
+      <details class="lib-cat"${c.id === openCategory ? ' open' : ''}>
+        <summary>${escapeHTML(c.title)} · ${c.items.length}${c.items.length < c.total ? '/' + c.total : ''}</summary>
+        <ol>${c.items.map(i => `<li>${escapeHTML(i)}</li>`).join('')}</ol>
+      </details>`).join('');
+    // Categories the server withheld for want of an 18+ confirmation: shown by
+    // title only, and tapping one raises the overlay.
+    const withheld = (data.nsfw_withheld || []).map(c => `
+      <button class="lib-cat lib-cat-nsfw" data-nsfw-cat="${escapeHTML(c.id)}">
+        🔞 ${escapeHTML(c.title)} · ${c.total}
+      </button>`).join('');
+    return visible + withheld + libLockedFooter(data);
+  }
+
+  function libLockedFooter(data) {
+    if (!data.locked) return '';
+    const note = fmt(T().libFreeNote, { free: data.free_count, total: data.total });
+    // Same rule as showPaywall: no payment link, no button that does nothing.
+    if (!ACCESS.payment_url) return `<div class="lib-locked"><p>${note}</p></div>`;
+    const price = ACCESS.price ? ' — ' + ACCESS.price : '';
+    return `<div class="lib-locked">
+      <p>${note}</p>
+      <button class="btn btn-play" id="libBuy">${T().libLocked}${price}</button>
+    </div>`;
+  }
+
+  $('btnLibrary').onclick = () => { haptic('light'); openLibrary(); };
+  $('libBackHome').onclick = () => show('home');
+  // Re-fetch rather than just show: an 18+ confirmation taken inside a module
+  // changes the counts on the index, and the two screens must agree.
+  $('libBack').onclick = () => openLibrary();
+
   /* ---------------- boot ---------------- */
   $('btnPlay').onclick = async () => {
     haptic('light');
@@ -1378,6 +1562,10 @@
   applyI18n();
   // Preload content in background for instant start
   loadData();
+  // The bot's "Библиотека" button opens the app at ?screen=library.
+  try {
+    if (new URLSearchParams(location.search).get('screen') === 'library') openLibrary();
+  } catch (e) {}
 })();
 </script>
 </body>

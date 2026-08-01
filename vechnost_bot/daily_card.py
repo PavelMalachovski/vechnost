@@ -1,71 +1,27 @@
-"""Daily card push: one card a day, sent to everyone who hasn't opted out.
+"""Daily self-reflection push: one prompt a day for everyone who hasn't opted out.
 
-The card of the day is deterministic per calendar date and shared by all
-users; each user receives it rendered in their own language. NSFW themes
-are never pushed.
+The prompt is deterministic per calendar date and shared by all users; each
+user receives it rendered in their own language.
 """
 
 import logging
 from datetime import date
-from functools import lru_cache
 from pathlib import Path
 
-import yaml
-from telegram import Bot, InlineKeyboardButton, InlineKeyboardMarkup
+from telegram import Bot, InlineKeyboardButton, InlineKeyboardMarkup, WebAppInfo
 from telegram.error import Forbidden
 
 from .config import settings
 from .i18n import Language, get_text
-from .logic import localized_game_data
-from .models import ContentType, Theme
-from .renderer import get_background_path, render_card
+from .library import REFLECTION_TOTAL, question_of_the_day
+from .renderer import render_card
 
 logger = logging.getLogger(__name__)
 
-# Themes safe for unsolicited pushes (no NSFW).
-ELIGIBLE_THEMES = [Theme.ACQUAINTANCE, Theme.FOR_COUPLES, Theme.PROVOCATION]
-
-# Knuth's multiplicative hash constant: spreads consecutive days across
-# the pool so the sequence doesn't walk through one deck in order.
-_HASH = 2654435761
-
-_EXCLUDE_PATH = Path(__file__).parent.parent / "data" / "daily_card_exclude.yaml"
-
-
-@lru_cache(maxsize=1)
-def _excluded_texts() -> frozenset:
-    """Curated RU question texts that are never pushed (see the YAML for why)."""
-    try:
-        data = yaml.safe_load(_EXCLUDE_PATH.read_text(encoding="utf-8")) or {}
-        return frozenset(t.strip() for t in data.get("exclude", []))
-    except FileNotFoundError:
-        logger.warning("daily_card_exclude.yaml not found, pushing without curation")
-        return frozenset()
-
-
-@lru_cache(maxsize=1)
-def _eligible_cards() -> tuple:
-    """All (theme, level, index) cards allowed in the push, in stable order."""
-    excluded = _excluded_texts()
-    cards = []
-    for theme in ELIGIBLE_THEMES:
-        levels = localized_game_data.get_available_levels(theme, Language.RUSSIAN)
-        for level in levels or [None]:
-            items = localized_game_data.get_content(
-                theme, level, ContentType.QUESTIONS, Language.RUSSIAN
-            )
-            for idx, text in enumerate(items or []):
-                if text.strip() not in excluded:
-                    cards.append((theme, level, idx))
-    return tuple(cards)
-
-
-def pick_daily_card(day: date) -> tuple[Theme, int | None, int]:
-    """Deterministic (theme, level, card index) for a calendar date."""
-    cards = _eligible_cards()
-    if not cards:
-        raise RuntimeError("empty daily card pool")
-    return cards[(day.toordinal() * _HASH) % len(cards)]
+# Reflection prompts belong to no deck, so they get the neutral background.
+_BACKGROUND = str(
+    Path(__file__).parent.parent / "assets" / "backgrounds" / "default.png"
+)
 
 
 def _user_language(code: str | None) -> Language:
@@ -76,37 +32,40 @@ def _user_language(code: str | None) -> Language:
 
 
 def _daily_keyboard(language: Language) -> InlineKeyboardMarkup:
-    return InlineKeyboardMarkup([
-        [InlineKeyboardButton(
-            get_text('daily.play_button', language),
-            callback_data="start_game"
-        )],
-        [InlineKeyboardButton(
-            get_text('daily.unsubscribe_button', language),
-            callback_data="daily_off"
-        )],
-    ])
+    rows = [[InlineKeyboardButton(
+        get_text('daily.play_button', language),
+        callback_data="start_game"
+    )]]
+    # This push *is* a Library item, so offer the Library next to the deck.
+    if settings.webapp_library_url:
+        rows.append([InlineKeyboardButton(
+            get_text('daily.library_button', language),
+            web_app=WebAppInfo(url=settings.webapp_library_url)
+        )])
+    rows.append([InlineKeyboardButton(
+        get_text('daily.unsubscribe_button', language),
+        callback_data="daily_off"
+    )])
+    return InlineKeyboardMarkup(rows)
 
 
 def render_daily_card(day: date, language: Language):
-    """Rendered card image + caption for the given date and language."""
-    theme, level, idx = pick_daily_card(day)
-    items = localized_game_data.get_content(
-        theme, level, ContentType.QUESTIONS, language
-    )
-    text = items[idx]
-
-    bg_path = get_background_path(theme.value_short(), level or 0, "q")
+    """Rendered prompt image + caption for the given date and language."""
+    text, number = question_of_the_day(day.timetuple().tm_yday, language)
     watermark = (
         f"VECHNOST · @{settings.bot_username}" if settings.bot_username else "VECHNOST"
     )
     image = render_card(
         text,
-        bg_path,
-        footer=get_text('daily.card_footer', language),
+        _BACKGROUND,
+        footer=get_text('daily.card_footer', language, day=number,
+                        total=REFLECTION_TOTAL),
         watermark=watermark,
     )
-    caption = f"{get_text('daily.title', language)}\n{get_text('daily.subtitle', language)}"
+    caption = (
+        f"{get_text('daily.title', language)}\n"
+        f"{get_text('daily.subtitle', language, day=number, total=REFLECTION_TOTAL)}"
+    )
     return image, caption
 
 
