@@ -179,11 +179,10 @@ def test_gap_framing_is_used_when_divergence_alone_put_it_there():
 
 
 def test_no_framing_when_neither_condition_applies():
-    """The attention block always carries the two lowest-scoring spheres,
-    whatever the couple's overall picture — a healthy couple with no shared
-    low and no divergent question can still land here. There is nothing
-    true to say about why, so framing must be None rather than defaulting
-    to "gap"."""
+    """The attention block excludes strength spheres and ranks the rest by
+    score, so a growth/crisis sphere with no shared low and no divergent
+    question can still land here. There is nothing true to say about why,
+    so framing must be None rather than defaulting to "gap"."""
     a = [3, 4, 3, 4, 3] + [5] * 35     # sphere 1 avg 3.4
     b = [4, 3, 4, 4, 3] + [5] * 35     # sphere 1 avg 3.6, no gap >= 3
     result = build_result(a, b)

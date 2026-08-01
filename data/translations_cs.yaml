@@ -177,4 +177,8 @@ about:
   perfect_spice: "• Přidání koření"
   perfect_deep_talks: "• Hluboké rozhovory"
 
+compat:
+  ready: "💞 Váš výsledek testu kompatibility je hotový. Otevřete ho spolu — tak to má smysl."
+  open_button: "Zobrazit výsledek"
+
   cta: "Připraveni začít? Stiskněte /start"

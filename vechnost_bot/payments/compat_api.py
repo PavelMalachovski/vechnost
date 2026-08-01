@@ -17,6 +17,7 @@ from fastapi import APIRouter, Header, HTTPException
 from pydantic import BaseModel, Field
 
 from ..compat import TOTAL_QUESTIONS, build_result, load_spheres, scale_labels
+from ..compat_notify import notify_result_ready
 from ..config import settings
 from ..i18n import Language
 from .database import get_db
@@ -225,14 +226,18 @@ async def answer(
             _answered(test.creator_answers) == TOTAL_QUESTIONS
             and _answered(test.guest_answers) == TOTAL_QUESTIONS
         )
+        just_finished = False
         if both_done and test.finished_at is None:
             test.finished_at = datetime.utcnow()
+            just_finished = True
             if test.pair_key:
                 await CompatTestRepository.delete_superseded(
                     session, test.pair_key, keep_id=test.id
                 )
         test.updated_at = datetime.utcnow()
         await session.flush()
+        if just_finished:
+            await notify_result_ready(test)
         return _state(test, user_id)
 
 

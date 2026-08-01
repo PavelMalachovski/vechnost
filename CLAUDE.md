@@ -60,6 +60,26 @@ pytest tests/test_freemium.py -q         # run one suite
   creator's access so one payment covers both. `payments/library_api.py` was
   deliberately modelled on this pattern — extend it for the next two-partner
   feature rather than inventing a second one.
+- **The compatibility test** is the second two-partner feature and follows a
+  similar shape: `compat.py` is the domain layer (content, scoring, result
+  assembly — no FastAPI or python-telegram-bot imports, exactly like
+  `library.py`, so the API, the bot and the tests all use it directly),
+  `payments/compat_api.py` serves it at `/api/compat`, and `compat_tests`
+  stores it. Unlike rooms it has **no TTL** — a completed test is meant to
+  be re-read months later — and completing a retake deletes the pair's
+  previous sessions outright (`CompatTestRepository.delete_superseded`)
+  rather than keeping a history. A completed test is also immutable:
+  `/answer` returns 409 once both partners have finished, so neither partner
+  can quietly revise a conclusion the other has already read.
+- **A partner's individual answers never leave the server.** `/api/compat`
+  returns counts while a test is in progress, and zones, verdict texts,
+  percentages and question numbers once both finish — never the raw 1-5
+  answers. `tests/test_compat_api.py` asserts this on the raw response body
+  (`"creator_answers" not in body`) rather than on parsed fields, on purpose:
+  a leak under an unexpected key would slip past a field-level check.
+  `compat_notify.py` sends both partners a push the moment the test
+  completes, since the second partner often finishes hours later and would
+  otherwise never come back to read it.
 - **Card rendering** (`renderer.py`) auto-picks a font that covers the
   text's alphabet. The bundled **Montserrat** is the brand font and now
   includes Cyrillic; DejaVu is the fallback. If you touch fonts, keep the

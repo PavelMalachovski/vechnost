@@ -29,6 +29,11 @@ inside a polished Telegram Mini App.
   couple.
 - **Couple mode.** Two phones, one shared deck, taking turns — one payment
   covers both partners.
+- **Compatibility test.** Forty questions across eight areas, taken separately
+  by both partners and compared. The result names the areas where they are a
+  team, the two worth talking about, and the exact questions they answered
+  differently — without showing either partner the other's answers. A push
+  tells both partners the moment the result is ready.
 
 ## Tech stack
 
@@ -58,11 +63,14 @@ vechnost/
 │   ├── freemium.py        # Free-preview rules (shared bot + Mini App)
 │   ├── library.py         # Library content loader
 │   ├── daily_card.py      # Daily self-reflection push
+│   ├── compat.py          # Compatibility test: scoring, result assembly
+│   ├── compat_notify.py   # "Your result is ready" push to both partners
 │   ├── storage.py, redis_storage.py, hybrid_storage.py
 │   └── payments/          # Tribute integration + Mini App API
 │       ├── web.py         # FastAPI app: /app, /api/questions, /api/card, webhooks
 │       ├── library_api.py # /api/library
 │       ├── rooms.py       # Couple mode: /api/rooms
+│       ├── compat_api.py  # Compatibility test: /api/compat
 │       ├── services.py, repositories.py, models.py, database.py
 │       ├── webapp_auth.py # Telegram initData validation
 │       ├── gifts.py       # Gift certificates
@@ -147,14 +155,16 @@ startup so a fresh deploy works without a manual migration step. See
 
 Recently shipped: freemium funnel, branded card sharing, gift certificates,
 full-Cyrillic brand font, Mini App content-API protection, couple mode
-(`payments/rooms.py`), and the Library — date ideas, the 36 questions,
+(`payments/rooms.py`), the Library — date ideas, the 36 questions,
 practices, and a daily self-reflection question that replaced the old
-"card of the day" push.
+"card of the day" push — and the compatibility test (`compat.py`,
+`payments/compat_api.py`): 40 questions across 8 areas, answered separately
+by both partners, compared, and pushed to both the moment the result is
+ready.
 
-Not started: an interactive compatibility test (40 questions, both partners,
-compared side by side), the "Territory of Temptation" 18+ board game (69
-steps, dice, spoilers), and a nude-photography masterclass (blocked on pose
-illustrations that don't exist yet). Each has its own design spec under
+Not started: the "Territory of Temptation" 18+ board game (69 steps, dice,
+spoilers), and a nude-photography masterclass (blocked on pose illustrations
+that don't exist yet). Each has its own design spec under
 `docs/superpowers/specs/` and is expected to reuse the `rooms.py`
 two-partner pattern.
 

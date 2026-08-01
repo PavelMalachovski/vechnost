@@ -177,4 +177,8 @@ about:
   perfect_spice: "• Adding spice"
   perfect_deep_talks: "• Deep conversations"
 
+compat:
+  ready: "💞 Your compatibility result is ready. Open it together — it reads better that way."
+  open_button: "See the result"
+
   cta: "Ready to start? Press /start"
