@@ -154,17 +154,24 @@ def build_result(
         reverse=True,
     )[:3]
 
+    # The attention block only ever holds spheres that are *not* a strength —
+    # a sphere can't be both "where you are a team" and "worth talking
+    # about" at once, and a couple with eight strong spheres does not get
+    # told to go have a difficult conversation about their best area. Among
+    # the qualifying (growth/crisis) spheres, the two lowest-scoring lead;
+    # if none qualify, attention is empty and the caller renders nothing.
+    #
     # Both averages under 3 means the partners agree the sphere is a
     # problem — "both_low" wins even if some individual question also
     # happened to diverge. "gap" is for spheres that landed here through
     # divergence with at least one average at 3 or above. Neither applies
-    # to a merely middling sphere with no divergence — the attention block
-    # always carries the two lowest-scoring spheres regardless of how good
-    # the couple's overall picture is, so a healthy couple can land here
-    # too, and there's no true sentence to explain why. Say nothing rather
-    # than something false.
+    # to a merely middling sphere with no divergence — there's no true
+    # sentence to explain why. Say nothing rather than something false.
     ranked = sorted(
-        zip(results, both_low_flags, strict=True),
+        (
+            pair for pair in zip(results, both_low_flags, strict=True)
+            if pair[0].zone != "strength"
+        ),
         key=lambda pair: pair[0].score,
     )[:2]
     attention = [

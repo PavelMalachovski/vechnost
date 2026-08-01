@@ -1788,15 +1788,29 @@
       ? r.strengths.map(s => sphereCard(s)).join('')
       : `<p class="lib-card-line">${escapeHTML(r.strengths_fallback)}</p>`;
 
+    // No sphere qualifies for attention when the couple is strong across
+    // the board — omit the whole block, heading included, rather than show
+    // a heading over nothing.
+    const attention = r.attention.length
+      ? `<h3 class="compat-h">${escapeHTML(T().compatAttention)}</h3>
+         ${r.attention.map(a => sphereCard(a.sphere, a.framing
+           ? `<div class="lib-card-line"><i>${escapeHTML(a.framing)}</i></div>`
+           : '')).join('')}`
+      : '';
+
+    // The recommendation text quotes divergent question numbers; with none
+    // to quote it would read as "Обсудите вопросы №" with nothing after
+    // the sign, so omit the line entirely instead.
+    const recommendation = r.divergent_all.length
+      ? `<div class="lib-card"><div class="lib-card-line">${escapeHTML(r.recommendation)}</div></div>`
+      : '';
+
     return `
       <div class="compat-percent">${r.percent}%</div>
       <h3 class="compat-h">${escapeHTML(T().compatStrengths)}</h3>
       ${strengths}
-      <h3 class="compat-h">${escapeHTML(T().compatAttention)}</h3>
-      ${r.attention.map(a => sphereCard(a.sphere, a.framing
-        ? `<div class="lib-card-line"><i>${escapeHTML(a.framing)}</i></div>`
-        : '')).join('')}
-      <div class="lib-card"><div class="lib-card-line">${escapeHTML(r.recommendation)}</div></div>
+      ${attention}
+      ${recommendation}
       ${r.critical_blocks.map(b =>
         `<div class="lib-card compat-crisis"><div class="lib-card-line">${escapeHTML(b)}</div></div>`).join('')}
       <h3 class="compat-h">${escapeHTML(T().compatAll)}</h3>

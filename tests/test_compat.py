@@ -1,5 +1,7 @@
 """Tests for the compatibility test's content and scoring."""
 
+import random
+
 import pytest
 
 from vechnost_bot.compat import (
@@ -188,6 +190,56 @@ def test_no_framing_when_neither_condition_applies():
     sphere_1 = next(e for e in result.attention if e.sphere.id == "values")
     assert sphere_1.sphere.divergent == []
     assert sphere_1.framing is None
+
+
+def test_all_strengths_leaves_attention_empty():
+    """A couple with no sphere outside the strength zone gets no attention
+    entries at all — not the two lowest-scoring strengths, nothing."""
+    result = build_result([5] * 40, [5] * 40)
+    assert result.attention == []
+
+
+def test_one_growth_sphere_among_strengths_is_the_sole_attention_entry():
+    a = [4] * 5 + [5] * 35     # sphere 0: avg 4.0
+    b = [3] * 5 + [5] * 35     # sphere 0: avg 3.0, no single gap >= 3 -> growth
+    result = build_result(a, b)
+    assert result.spheres[0].zone == "growth"
+    assert all(s.zone == "strength" for s in result.spheres[1:])
+    assert len(result.attention) == 1
+    assert result.attention[0].sphere.id == "values"
+
+
+def test_no_sphere_is_ever_in_both_strengths_and_attention():
+    """The invariant a partner actually reads the screen by: a sphere can't
+    be labelled both "where you are a team" and "worth talking about" at
+    once. Checked over a spread of inputs, not a single lucky case — the
+    first three are concrete reproductions of the reported bug (one or two
+    growth spheres surrounded by spheres tied at a strength score), which
+    reliably fail against the pre-fix "two lowest-scoring, unconditionally"
+    logic; the fuzzed batch adds broader coverage on top."""
+    concrete_cases = [
+        # Exactly the coordinator's report: one sphere avg 3.0, seven at 4.0.
+        ([3] * 5 + [4] * 35, [3] * 5 + [4] * 35),
+        # Two growth spheres (one both-low, one gap-driven) among six tied
+        # strength spheres.
+        ([3] * 5 + [4, 4, 4, 4, 1] + [4] * 30, [3] * 5 + [4] * 35),
+        # A single narrowly-growth sphere (avg just under 4, no divergence)
+        # among seven spheres exactly tied at a strength score.
+        ([3, 4, 3, 4, 3] + [4] * 35, [4, 3, 4, 4, 3] + [4] * 35),
+    ]
+    rng = random.Random(20260801)
+    fuzzed_cases = [
+        (
+            [rng.randint(1, 5) for _ in range(TOTAL_QUESTIONS)],
+            [rng.randint(1, 5) for _ in range(TOTAL_QUESTIONS)],
+        )
+        for _ in range(200)
+    ]
+    for a, b in concrete_cases + fuzzed_cases:
+        result = build_result(a, b)
+        strength_ids = {s.id for s in result.strengths}
+        attention_ids = {e.sphere.id for e in result.attention}
+        assert not (strength_ids & attention_ids), (a, b)
 
 
 def test_result_never_contains_raw_answers():
