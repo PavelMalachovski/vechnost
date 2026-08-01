@@ -101,14 +101,27 @@ In this order:
    the only sentence in the feature not authored by the product owner; it is
    marked as such in the content file so it can be rewritten.
 3. **Топ-2 сферы, которые требуют разговора** — the two lowest-scoring
-   spheres, each with its verdict text and the numbers of its divergent
-   questions. Each is introduced by one of the two authored framings, chosen
-   by what triggered it:
+   spheres **that are not in Сфера силы**, each with its verdict text and the
+   numbers of its divergent questions.
+
+   The exclusion is not a detail. Taking the two lowest unconditionally means
+   a couple whose spheres cluster — seven at 4.0 and one at 3.0 — sees a
+   strength sphere listed as needing a conversation, labelled "Сфера силы" in
+   both blocks at once. If no sphere qualifies, the block and its heading are
+   omitted entirely: a couple with eight strong spheres is not handed an
+   invented problem.
+
+   Each entry is introduced by one of the two authored framings when one of
+   them is true, chosen by what put the sphere there:
    - large gap → «Вы по-разному ощущаете… Один из вас удовлетворён, а другой
      чувствует дефицит. Это почва для скрытых обид».
    - both low → «Это ваша общая "болевая точка". Вы оба чувствуете проблему
      здесь, и это хорошая новость — вы признаёте реальность и можете начать
      работу».
+
+   A sphere can reach this block through neither route — simply by being the
+   weakest of eight middling ones. Neither framing is true about it, so it
+   gets none, and `framing` serializes as `null`. Consumers must guard.
 4. **Рекомендация** — «Обсудите вопросы №… из теста сегодня вечером за чаем»,
    listing every divergent question across all spheres.
 5. **Per-sphere breakdown** — all eight, in the fixed order above, each with
