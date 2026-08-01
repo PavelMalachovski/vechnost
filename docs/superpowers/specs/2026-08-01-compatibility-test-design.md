@@ -29,8 +29,8 @@ neither of them could have found alone.
 | Question | Decision |
 |---|---|
 | Pairing | A six-character invite code, the `rooms.py` pattern — but no TTL. |
-| Persistence | Indefinite. Retaking deletes the previous completed session's answers for that pair. |
-| Privacy | Individual answers never leave the server. |
+| Persistence | Indefinite. Retaking deletes the previous completed session's answers for that pair, and either partner can delete the current one outright at any time. |
+| Privacy | Individual answers never leave the server, and nothing the result carries inverts back to them. |
 | Access | Paid, in full. The creator's payment covers both partners. |
 | Entry point | A fourth button on the Mini App home screen. |
 | Languages | `ru` only. |
@@ -90,7 +90,12 @@ discuss.
 
 In this order:
 
-1. **Percentage**, with the count of spheres in each zone beneath it.
+1. **Percentage**, with the count of spheres in each zone beneath it —
+   «Сфера силы — 3 · Зона роста — 4 · Критическая зона — 1». All three zones
+   are named even at zero: an omitted line reads as "not measured" rather
+   than "none". The percentage says how close the couple is; this says how
+   that closeness is distributed, which two couples on the same percentage do
+   not share.
 2. **Топ-3 сферы, где вы идеальная команда** — the spheres in Сфера силы,
    highest-scoring first, at most three. Each carries its Синергия text.
 
@@ -124,11 +129,21 @@ In this order:
    gets none, and `framing` serializes as `null`. Consumers must guard.
 4. **Рекомендация** — «Обсудите вопросы №… из теста сегодня вечером за чаем»,
    listing every divergent question across all spheres.
-5. **Per-sphere breakdown** — all eight, in the fixed order above, each with
-   its zone and its verdict text.
-6. **If any sphere is in the критическая зона**, the authored 💡 block, once
+5. **If any sphere is in the критическая зона**, the authored 💡 block, once
    per such sphere: the sphere's name, its divergent question numbers, and the
    suggestion to see a family psychologist.
+6. **Per-sphere breakdown** — all eight, in the fixed order above, each with
+   its zone and its verdict text.
+
+   *Changed 2026-08-01, post-review:* this spec originally put the breakdown
+   at 5 and the critical blocks at 6, and the implementation shipped them the
+   other way round. The implementation is right and the spec was changed to
+   match. Everything above the breakdown is what the couple should act on;
+   the breakdown is an eight-card reference list, and putting the "see a
+   family psychologist" advice after it buries the single most important
+   sentence in the result below a long scroll.
+7. **Deletion** — a control that erases the test and both answer sets, at the
+   very bottom, behind a confirmation. See the API section.
 
 ## Data model
 
@@ -186,6 +201,7 @@ GET  /api/compat/{code}               → state for the caller
 POST /api/compat/{code}/answer        → {index: 0..39, value: 1..5}
 GET  /api/compat/{code}/result        → 409 until both have finished
 GET  /api/compat/mine                 → the caller's latest completed session
+DELETE /api/compat/{code}             → erase the test and both answer sets
 ```
 
 `/questions` needs no authentication: the questions are the product's shop
@@ -199,11 +215,33 @@ Rules:
   including the `X-Guest-Id` fallback when payments are disabled.
 - Access is checked at creation with `user_has_access`; the room-style
   inheritance applies, so the creator's payment covers the guest.
-- `GET /api/compat/{code}` returns the caller's own answered count and the
-  partner's answered **count only** — never their values.
+- `GET /api/compat/{code}` returns the caller's own answered count *and the
+  indices they have answered*, and the partner's answered **count only** —
+  never the partner's indices, and never anyone's values. The indices are
+  what lets the client resume an interrupted test at the first gap; a test
+  designed to be taken hours or days apart cannot restart at question 1
+  every time the app closes.
 - `/result` returns the assembled result and, per the privacy decision,
   contains no individual answers at all: percentages, zones, verdict texts,
-  and question numbers.
+  and question numbers. It carries **no per-sphere score**. A score is
+  `(avg_a + avg_b) / 2` over five questions, so a partner who knows their own
+  five recovers `sum_theirs = 10 * score - sum_mine` exactly — at a sphere
+  sum of 25 that pins every individual answer. The score lives inside
+  `build_result` as a list parallel to the results, used only to order
+  `strengths` and `attention`. The overall `percent` stays public: one coarse
+  number over all forty questions, which inverts to nothing useful.
+- `DELETE /api/compat/{code}` erases the row outright, finished or not.
+  Either participant may call it, acting alone: there is one shared row, and
+  consent to keep answers about a couple's sex life, money and trust has to
+  be unanimous. `delete_superseded` is not enough — it only fires when a pair
+  *completes* a retake, so a couple who answer twenty each and stop had no
+  way to remove forty real answers.
+- `POST /api/compat/{code}/answer` loads the row `FOR UPDATE`. It is a
+  read-modify-write of the whole 40-element array, and the client can have
+  several in flight; without the lock, on READ COMMITTED the second
+  transaction writes back a stale copy of every index but its own and one
+  answer silently vanishes. The Mini App also refuses to send a second answer
+  until the first resolves — the lock is correctness, the client is latency.
 - A caller who is neither participant gets 403; an unknown code gets 404.
 
 ## Notifications
@@ -211,7 +249,23 @@ Rules:
 When the second partner's fortieth answer lands, the bot sends both a short
 message with a button into the result. The second partner may finish hours or
 days after the first, and without a push the moment is lost. Reuses the
-existing `WEBAPP_URL` guard; silently skipped when unset.
+existing `WEBAPP_URL` guard; the button is omitted when unset.
+
+The button is `web_app=WebAppInfo(url=...)`, like every other Mini App entry
+point in the repo, **not** `url=`: a plain url opens Telegram's in-app
+browser, where `Telegram.WebApp.initData` is empty, so the client falls back
+to the guest path and `_caller` 401s in production. The push's only call to
+action would dead-end.
+
+Each partner is messaged in their own language, looked up through
+`UserRepository` exactly as `daily_card.py::send_daily_cards` does, falling
+back to Russian. The `compat.*` keys exist in all three translation files.
+
+The send happens **after** the answer's transaction commits, from ids
+captured before leaving the `async with`. Announcing the result before
+`finished_at` is durable sends both partners to a 409, and two Telegram
+round-trips inside the transaction would make the fortieth `POST /answer`
+block on the network while holding a pooled connection and a row lock.
 
 ## Testing
 
@@ -232,11 +286,26 @@ existing `WEBAPP_URL` guard; silently skipped when unset.
 `tests/test_compat_api.py` — the HTTP layer:
 
 - the partner's answers never appear in any response body, at any stage;
+- no `score` appears in `/result` or `/mine`, and given one partner's answers
+  plus the whole payload, no number in it inverts to the other partner's
+  per-sphere sums;
 - `/result` is 409 until both are finished;
 - a third party gets 403;
 - an unpaid creator cannot create a session; a guest joining a paid creator's
   session can answer;
-- completing a retake deletes the previous completed session for that pair.
+- completing a retake deletes the previous completed session for that pair;
+- the fortieth answer notifies both partners exactly once, and nobody is
+  notified before that;
+- `answered_indices` holds the caller's own indices and never the partner's;
+- either participant can delete the test, finished or not; a third party gets
+  403 and an unknown code 404.
+
+`notify_result_ready` is patched in `test_compat_api.py`'s fixture. A fake
+token is set at import, so without the patch `_bot()` builds a real `Bot` and
+every test that completes a session fires two live HTTPS requests at
+api.telegram.org. They fail as `InvalidToken` and are swallowed, so the suite
+passes either way — which is the problem: in a network-isolated CI they
+become connect timeouts.
 
 ## Open items
 
