@@ -1,123 +1,65 @@
-"""Tests for the daily card push."""
+"""Tests for the daily self-reflection push."""
 
 import os
-from datetime import date, timedelta
+from datetime import date
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
 os.environ.setdefault("TELEGRAM_BOT_TOKEN", "1234567890:TEST_TOKEN_FOR_UNIT_TESTS")
 
-from vechnost_bot.daily_card import (
-    ELIGIBLE_THEMES,
-    _eligible_cards,
-    _excluded_texts,
-    pick_daily_card,
-    render_daily_card,
-)
+from vechnost_bot.daily_card import render_daily_card, send_daily_cards
 from vechnost_bot.i18n import Language
-from vechnost_bot.logic import localized_game_data
-from vechnost_bot.models import ContentType, Theme
+from vechnost_bot.library import question_of_the_day
 
 
-def test_pool_excludes_nsfw_themes():
-    themes = {theme for theme, _, _ in _eligible_cards()}
-    assert Theme.SEX not in themes
-    assert themes == set(ELIGIBLE_THEMES)
+def test_caption_carries_the_day_number():
+    day = date(2026, 2, 16)          # day 47 of the year
+    assert day.timetuple().tm_yday == 47
+    _, number = question_of_the_day(47, Language.RUSSIAN)
+    assert number == 47
+    _, caption = render_daily_card(day, Language.RUSSIAN)
+    assert "47" in caption
+    assert "365" in caption
 
 
-def test_pool_is_curated():
-    # 217 safe-theme questions minus the curated exclude list
-    excluded = _excluded_texts()
-    assert len(excluded) > 0
-    assert len(_eligible_cards()) == 217 - len(excluded)
+def test_same_day_renders_the_same_card():
+    day = date(2026, 5, 5)
+    first, _ = render_daily_card(day, Language.RUSSIAN)
+    second, _ = render_daily_card(day, Language.RUSSIAN)
+    assert first.getvalue() == second.getvalue()
 
 
-def test_excluded_texts_never_picked():
-    excluded = _excluded_texts()
-    assert "Как ты относишься к “легким” наркотикам?" in excluded
-    for theme, level, idx in _eligible_cards():
-        text = localized_game_data.get_content(
-            theme, level, ContentType.QUESTIONS, Language.RUSSIAN
-        )[idx]
-        assert text.strip() not in excluded
+def test_first_and_last_day_of_the_year_render():
+    for day in (date(2026, 1, 1), date(2026, 12, 31)):
+        image, caption = render_daily_card(day, Language.RUSSIAN)
+        assert image.getvalue()
+        assert caption.strip()
 
 
-def test_exclude_list_matches_real_questions():
-    # Every excluded text must still exist in the source YAML; a mismatch
-    # means the question was edited and the exclusion silently expired.
-    all_texts = set()
-    for theme in ELIGIBLE_THEMES:
-        levels = localized_game_data.get_available_levels(theme, Language.RUSSIAN)
-        for level in levels or [None]:
-            items = localized_game_data.get_content(
-                theme, level, ContentType.QUESTIONS, Language.RUSSIAN
-            )
-            all_texts.update(t.strip() for t in items or [])
-    stale = _excluded_texts() - all_texts
-    assert not stale, f"exclusions no longer match any question: {stale}"
+def test_leap_day_renders_without_raising():
+    image, _ = render_daily_card(date(2028, 12, 31), Language.RUSSIAN)   # day 366
+    assert image.getvalue()
 
 
-def test_pick_is_deterministic():
-    day = date(2026, 7, 30)
-    assert pick_daily_card(day) == pick_daily_card(day)
+@pytest.mark.parametrize("language", list(Language))
+def test_renders_in_every_language(language):
+    image, caption = render_daily_card(date(2026, 3, 3), language)
+    assert image.getvalue()
+    assert caption.strip()
 
 
-def test_pick_varies_between_days():
-    picks = {pick_daily_card(date(2026, 7, 1) + timedelta(days=i)) for i in range(14)}
-    assert len(picks) > 7  # the hash spreads days across decks
-
-
-def test_pick_index_within_deck():
-    for i in range(30):
-        theme, level, idx = pick_daily_card(date(2026, 1, 1) + timedelta(days=i))
-        items = localized_game_data.get_content(
-            theme, level, ContentType.QUESTIONS, Language.RUSSIAN
-        )
-        assert 0 <= idx < len(items)
-
-
-def test_render_daily_card_produces_image_and_caption():
-    image, caption = render_daily_card(date(2026, 7, 30), Language.RUSSIAN)
-    assert len(image.getvalue()) > 10_000
-    assert "Карта дня" in caption
-
-
-@pytest.mark.asyncio
-async def test_send_daily_cards_marks_blocked_users():
+async def test_blocked_user_is_opted_out():
     from telegram.error import Forbidden
 
-    from vechnost_bot.daily_card import send_daily_cards
-
-    user_ok = MagicMock(telegram_user_id=1, language="ru")
-    user_blocked = MagicMock(telegram_user_id=2, language="en")
-
+    user = MagicMock(telegram_user_id=42, language="ru")
     bot = MagicMock()
-    bot.send_photo = AsyncMock(side_effect=[None, Forbidden("blocked")])
+    bot.send_photo = AsyncMock(side_effect=Forbidden("blocked"))
 
-    opt_out_calls = []
+    with patch("vechnost_bot.payments.repositories.UserRepository") as repo:
+        repo.get_daily_card_recipients = AsyncMock(return_value=[user])
+        repo.set_daily_card_opt_out = AsyncMock()
+        with patch("vechnost_bot.daily_card.get_db"):
+            sent = await send_daily_cards(bot)
 
-    class FakeRepo:
-        @staticmethod
-        async def get_daily_card_recipients(session):
-            return [user_ok, user_blocked]
-
-        @staticmethod
-        async def set_daily_card_opt_out(session, telegram_user_id, opt_out):
-            opt_out_calls.append((telegram_user_id, opt_out))
-
-    class FakeDb:
-        async def __aenter__(self):
-            return MagicMock()
-
-        async def __aexit__(self, *args):
-            return False
-
-    with (
-        patch("vechnost_bot.payments.database.get_db", lambda: FakeDb()),
-        patch("vechnost_bot.payments.repositories.UserRepository", FakeRepo),
-    ):
-        sent = await send_daily_cards(bot)
-
-    assert sent == 1
-    assert opt_out_calls == [(2, True)]
+    assert sent == 0

@@ -130,14 +130,14 @@ gift:
   delivered: "🎁 <b>Ваш подарочный сертификат готов!</b>\n\nКод: <code>{code}</code>\n\nОтправьте эту карточку тем, кому дарите. Активация: команда /activate {code} в боте @{bot}."
 
 daily:
-  title: "🃏 Карта дня"
-  subtitle: "Один вопрос — один вечер ближе друг к другу."
-  card_footer: "Карта дня"
+  title: "🌙 Вопрос дня"
+  subtitle: "День {day} из {total} — один вопрос, чтобы услышать себя."
+  card_footer: "Вопрос дня · {day}/{total}"
   play_button: "🎮 Играть"
   unsubscribe_button: "🔕 Больше не присылать"
-  resubscribe_button: "🔔 Включить карту дня"
-  unsubscribed: "🔕 Карта дня отключена. Возвращайтесь, когда захотите."
-  resubscribed: "🔔 Карта дня снова с вами — каждый вечер новый вопрос."
+  resubscribe_button: "🔔 Включить вопрос дня"
+  unsubscribed: "🔕 Вопрос дня отключён. Возвращайтесь, когда захотите."
+  resubscribed: "🔔 Вопрос дня снова с вами — каждый вечер новый."
 
 about:
   title: "💎 О VECHNOST"

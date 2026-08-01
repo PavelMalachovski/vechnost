@@ -130,14 +130,14 @@ gift:
   delivered: "🎁 <b>Your gift certificate is ready!</b>\n\nCode: <code>{code}</code>\n\nSend this card to the couple you're gifting. Activation: /activate {code} in @{bot}."
 
 daily:
-  title: "🃏 Card of the day"
-  subtitle: "One question — one evening closer to each other."
-  card_footer: "Card of the day"
+  title: "🌙 Question of the day"
+  subtitle: "Day {day} of {total} — one question to hear yourself."
+  card_footer: "Question of the day · {day}/{total}"
   play_button: "🎮 Play"
   unsubscribe_button: "🔕 Stop sending"
-  resubscribe_button: "🔔 Turn the daily card back on"
-  unsubscribed: "🔕 Daily card is off. Come back anytime."
-  resubscribed: "🔔 The daily card is back — a new question every evening."
+  resubscribe_button: "🔔 Turn the daily question on"
+  unsubscribed: "🔕 The daily question is off. Come back whenever you like."
+  resubscribed: "🔔 The daily question is back — a new one every evening."
 
 about:
   title: "💎 About VECHNOST"
