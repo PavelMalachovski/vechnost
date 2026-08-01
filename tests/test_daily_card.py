@@ -27,10 +27,10 @@ def test_pool_excludes_nsfw_themes():
 
 
 def test_pool_is_curated():
-    # 210 safe-theme questions minus the curated exclude list
+    # 217 safe-theme questions minus the curated exclude list
     excluded = _excluded_texts()
     assert len(excluded) > 0
-    assert len(_eligible_cards()) == 210 - len(excluded)
+    assert len(_eligible_cards()) == 217 - len(excluded)
 
 
 def test_excluded_texts_never_picked():

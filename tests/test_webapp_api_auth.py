@@ -190,6 +190,6 @@ def test_paid_user_gets_full_content():
     assert body["access"] == {"paid": True}
     has_access.assert_awaited_once_with(42)
     totals = [deck[f"{key}_total"] for deck, key in all_decks(body["themes"])]
-    assert sum(totals) == 300
+    assert sum(totals) == 310
     for deck, key in all_decks(body["themes"]):
         assert len(deck[key]) == deck[f"{key}_total"]
