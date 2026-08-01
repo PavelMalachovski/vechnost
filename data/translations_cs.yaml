@@ -178,3 +178,7 @@ about:
   perfect_deep_talks: "• Hluboké rozhovory"
 
   cta: "Připraveni začít? Stiskněte /start"
+
+compat:
+  ready: "💞 Váš výsledek testu kompatibility je hotový. Otevřete ho spolu — tak to má smysl."
+  open_button: "Zobrazit výsledek"
