@@ -37,10 +37,17 @@ pytest tests/test_freemium.py -q         # run one suite
 - **Content** lives in `data/questions*.yaml` (one file per language) and
   `data/translations_*.yaml`. `logic.py` / `i18n.py` load and localize it.
   Themes and levels are defined by `models.py` (`Theme`, `ContentType`).
-- **Freemium is one shared rule.** `freemium.py` (`FREE_CARDS_PER_DECK = 5`)
-  is the single source of truth, used by both the bot card gate
-  (`callback_handlers.py`) and the Mini App API (`payments/web.py`). Change
-  the rule there, not in two places.
+- **Library content** lives in `data/library/` — one YAML per module
+  (`dates`, `fall_in_love`, `practices_self`, `practices_couples`,
+  `reflection`). `library.py` loads it and deliberately imports neither
+  FastAPI nor python-telegram-bot, so the bot, the API and the tests can all
+  use it. Content is Russian-only for now; other languages fall back to the
+  `_ru` file.
+- **Freemium is one shared rule, in two constants.** `freemium.py` holds
+  `FREE_CARDS_PER_DECK = 5` for the four game decks (used by
+  `callback_handlers.py`, `payments/web.py`, and `payments/rooms.py`) and
+  `FREE_LIBRARY_ITEMS_PER_LIST = 3` for Library lists (used by
+  `payments/library_api.py`). Change a rule there, not at each call site.
 - **Access** is decided by `payments/services.py::user_has_access()`
   (payment OR subscription OR certificate OR `ENABLE_PAYMENT=false`). Reuse
   it; don't reinvent access checks.
@@ -48,6 +55,11 @@ pytest tests/test_freemium.py -q         # run one suite
   Telegram `initData` via `payments/webapp_auth.py::validate_init_data`
   (`Authorization: tma <initData>`). The server never ships paid content to
   an unpaid client — enforce access server-side, not in the client.
+- **Two-partner features follow `payments/rooms.py`**: a short room code,
+  both players polling for state, a 24-hour TTL, and the room inheriting the
+  creator's access so one payment covers both. `payments/library_api.py` was
+  deliberately modelled on this pattern — extend it for the next two-partner
+  feature rather than inventing a second one.
 - **Card rendering** (`renderer.py`) auto-picks a font that covers the
   text's alphabet. The bundled **Montserrat** is the brand font and now
   includes Cyrillic; DejaVu is the fallback. If you touch fonts, keep the
@@ -71,9 +83,18 @@ pytest tests/test_freemium.py -q         # run one suite
 
 ## Gotchas
 
-- Editing a question's text can silently disengage anything that matches it
-  by exact string (e.g. the daily-card exclude list). Re-check after content
-  edits.
+- Editing content can silently break things that reference it by position,
+  not just by text match. `payments/rooms.py` indexes into
+  `localized_game_data` by list position, so all three language decks must
+  stay the same length. `library.question_of_the_day` maps day-of-year to a
+  flat index across `data/library/reflection_ru.yaml`'s blocks — keep the
+  block sizes at 31/30×10/34 (`tests/test_library.py` enforces them). The
+  daily push no longer draws from the decks and there is no curated
+  exclude-list file to keep in sync anymore.
+- The Library's 18+ gate (`nsfw=1` on `GET /api/library` and
+  `GET /api/library/{module}`) is client-asserted: the client sends the
+  flag, the server keeps no record that anyone confirmed their age. It
+  prevents accidental display, not deliberate access.
 - `ENABLE_PAYMENT=false` unlocks everything and skips initData checks — great
   for local dev, but means auth/paywall paths aren't exercised unless you
   flip it on.
