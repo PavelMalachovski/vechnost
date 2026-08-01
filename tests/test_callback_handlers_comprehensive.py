@@ -471,6 +471,36 @@ class TestLanguageHandler:
             mock_query.edit_message_text.assert_called_once()
 
 
+class TestLanguageBackHandler:
+    """Test language selection back navigation."""
+
+    @pytest.fixture
+    def handler(self):
+        """Create language back handler."""
+        return LanguageBackHandler()
+
+    @pytest.mark.asyncio
+    @pytest.mark.parametrize("language", list(Language))
+    async def test_welcome_text_is_translated(self, handler, language):
+        """The back screen shows real copy, not raw translation keys."""
+        query = MagicMock(spec=CallbackQuery)
+        query.edit_message_text = AsyncMock()
+        session = MagicMock(spec=SessionState)
+        session.language = language
+
+        callback_data = LanguageBackCallbackData(
+            action=CallbackAction.LANGUAGE_BACK,
+            raw_data="lang_back"
+        )
+
+        await handler.handle(query, callback_data, session)
+
+        text = query.edit_message_text.call_args.args[0]
+        assert text.strip()
+        # get_text() returns the key itself when the key is missing
+        assert "welcome." not in text
+
+
 class TestSimpleActionHandler:
     """Test simple action handler."""
 

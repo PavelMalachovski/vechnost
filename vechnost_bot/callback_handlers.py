@@ -1218,7 +1218,11 @@ class LanguageBackHandler(CallbackHandler):
     async def handle(self, query: Any, callback_data: LanguageBackCallbackData, session: SessionState) -> None:
         """Handle language selection back navigation."""
         # Show language selection again
-        welcome_text = f"{get_text('welcome.title', session.language)}\n\n{get_text('welcome.subtitle', session.language)}\n\n{get_text('welcome.prompt', session.language)}"
+        welcome_text = (
+            f"{get_text('welcome.greeting_title', session.language)}\n\n"
+            f"{get_text('welcome.greeting_subtitle', session.language)}\n\n"
+            f"{get_text('welcome.language_prompt', session.language)}"
+        )
         keyboard = get_language_selection_keyboard(session.language)
 
         await self._edit_or_send_message(query, welcome_text, keyboard)
