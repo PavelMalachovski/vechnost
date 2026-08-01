@@ -5,10 +5,13 @@ import pytest
 from vechnost_bot.i18n import Language
 from vechnost_bot.library import (
     MODULES,
+    REFLECTION_TOTAL,
     LibraryCategory,
     Practice,
     load_categories,
     load_practices,
+    load_reflection,
+    question_of_the_day,
 )
 
 DATE_CATEGORY_SIZES = {
@@ -91,3 +94,34 @@ def test_module_counts_match_loaded_categories():
 def test_no_duplicate_ideas_within_a_category():
     for category in load_categories("dates", Language.RUSSIAN):
         assert len(set(category.items)) == len(category.items), category.id
+
+
+BLOCK_SIZES = [31, 30, 30, 30, 30, 30, 30, 30, 30, 30, 30, 34]
+
+
+def test_reflection_has_twelve_blocks_summing_to_365():
+    blocks = load_reflection(Language.RUSSIAN)
+    assert [len(b) for b in blocks] == BLOCK_SIZES
+    assert sum(len(b) for b in blocks) == REFLECTION_TOTAL == 365
+
+
+def test_first_and_last_question_of_the_year():
+    blocks = load_reflection(Language.RUSSIAN)
+    assert question_of_the_day(1, Language.RUSSIAN) == (blocks[0][0], 1)
+    assert question_of_the_day(365, Language.RUSSIAN) == (blocks[11][33], 365)
+
+
+def test_leap_day_wraps_to_the_first_question():
+    text, day = question_of_the_day(366, Language.RUSSIAN)
+    assert (text, day) == question_of_the_day(1, Language.RUSSIAN)
+
+
+def test_question_of_the_day_is_deterministic():
+    assert question_of_the_day(200, Language.RUSSIAN) == question_of_the_day(
+        200, Language.RUSSIAN
+    )
+
+
+def test_no_duplicate_reflection_questions():
+    flat = [q for block in load_reflection(Language.RUSSIAN) for q in block]
+    assert len(set(flat)) == len(flat)

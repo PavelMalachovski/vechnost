@@ -80,3 +80,26 @@ def load_categories(
     """The categories of a `list`-type module, in authored order."""
     data = _load_yaml(module_id, language)
     return [LibraryCategory(**category) for category in data.get("categories", [])]
+
+
+REFLECTION_TOTAL = 365
+
+
+def load_reflection(language: Language = Language.RUSSIAN) -> list[list[str]]:
+    """The twelve blocks of reflection prompts, in order."""
+    data = _load_yaml("reflection", language)
+    return [block["items"] for block in data.get("blocks", [])]
+
+
+def question_of_the_day(
+    day_of_year: int, language: Language = Language.RUSSIAN
+) -> tuple[str, int]:
+    """
+    The reflection prompt for a day of the year, plus its 1-based number.
+
+    Day 366 of a leap year wraps back to the first prompt: one repeated day
+    beats carrying a 366th question that is unused three years in four.
+    """
+    index = (day_of_year - 1) % REFLECTION_TOTAL
+    flat = [q for block in load_reflection(language) for q in block]
+    return flat[index], index + 1
