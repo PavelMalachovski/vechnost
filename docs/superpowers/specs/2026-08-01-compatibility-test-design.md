@@ -140,7 +140,12 @@ Indexed on `code` and on `pair_key`.
 *other* row with the same `pair_key` is deleted outright. The couple sees one
 result, and the sensitive answers behind superseded results do not linger.
 
-Migration plus the idempotent startup add, both, per `CLAUDE.md`.
+An alembic revision is needed. The idempotent startup hook is **not**:
+`create_tables()` runs `Base.metadata.create_all`, which creates missing
+tables on its own. `database.py::_ensure_user_columns` exists only because
+`create_all` never *alters* an existing table, so it covers new columns on
+`users` — a brand-new table needs nothing from it. `CLAUDE.md`'s "do both"
+rule is about columns, and does not apply here.
 
 ## Code
 
@@ -152,6 +157,7 @@ Migration plus the idempotent startup add, both, per `CLAUDE.md`.
 | `vechnost_bot/payments/models.py` | the `CompatTest` model |
 | `vechnost_bot/payments/repositories.py` | `CompatTestRepository` |
 | `alembic/versions/*_add_compat_tests_table.py` | migration |
+| `docs/superpowers/specs/2026-08-01-compatibility-test-source-content.md` | the 40 questions and 24 verdict texts verbatim, the source the YAML is transcribed from |
 | `webapp/index.html` | home button and the test's screens |
 
 `compat.py` mirrors `library.py`: it is the domain layer, usable from the web
@@ -160,6 +166,7 @@ API, the bot, and tests without adapters.
 ## API
 
 ```
+GET  /api/compat/questions            → the 40 questions and the answer scale
 POST /api/compat                      → create a session, returns the code
 POST /api/compat/{code}/join          → join by code
 GET  /api/compat/{code}               → state for the caller
@@ -167,6 +174,11 @@ POST /api/compat/{code}/answer        → {index: 0..39, value: 1..5}
 GET  /api/compat/{code}/result        → 409 until both have finished
 GET  /api/compat/mine                 → the caller's latest completed session
 ```
+
+`/questions` needs no authentication: the questions are the product's shop
+window, they reveal nothing about anyone, and gating them would only mean the
+client cannot render the test it already paid to create. Access is enforced
+where it matters — at creation.
 
 Rules:
 
