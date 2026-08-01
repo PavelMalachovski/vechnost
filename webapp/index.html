@@ -207,7 +207,13 @@
 
   /* ---------- compatibility test ---------- */
   .compat-opt{margin:8px 0;width:100%}
+  /* An answer is in flight: the next question is already on screen, but its
+     buttons stay dead until the previous POST lands, so a fast tapper cannot
+     put several read-modify-writes of the answer array in flight at once. */
+  .compat-opt[disabled]{opacity:.35;pointer-events:none}
   .compat-percent{font-size:56px;font-weight:700;text-align:center;margin:20px 0 6px}
+  .compat-zones{text-align:center;font-size:13px;opacity:.75;margin:0 0 6px;line-height:1.7}
+  .compat-danger{margin-top:26px;width:100%;opacity:.85}
   .compat-h{margin:22px 0 8px;font-size:15px;opacity:.7;text-transform:uppercase;letter-spacing:.06em}
   .compat-strength{border-left:3px solid rgba(120,220,160,.7)}
   .compat-growth{border-left:3px solid rgba(255,200,120,.7)}
@@ -615,6 +621,11 @@
       compatZoneGrowth: 'Зона роста', compatZoneCrisis: 'Критическая зона',
       compatNoResult: 'У вас пока нет пройденного теста',
       compatPaywall: 'Тест совместимости входит в полный доступ',
+      compatInviteMsg: 'Пройдём тест совместимости в VECHNOST? 💞 Открой {bot} → «Тест совместимости» → введи код: {code}',
+      compatResume: 'Продолжаем с вопроса {n}',
+      compatDelete: 'Удалить результат и ответы',
+      compatDeleteConfirm: 'Удалить тест? Ваши ответы и ответы партнёра будут стёрты навсегда.',
+      compatDeleted: 'Тест удалён',
       themes: {
         'Acquaintance': { name: 'Знакомство', desc: 'Узнать друг друга по-настоящему', emoji: '✨', grad: 'g-acq' },
         'For Couples':  { name: 'Для пар', desc: 'Стать ближе, чем когда-либо', emoji: '💞', grad: 'g-couples' },
@@ -675,6 +686,11 @@
       compatZoneGrowth: 'Room to grow', compatZoneCrisis: 'Needs attention',
       compatNoResult: "You haven't completed a test yet",
       compatPaywall: 'The compatibility test is part of full access',
+      compatInviteMsg: 'Shall we take the VECHNOST compatibility test? 💞 Open {bot} → “Compatibility test” → enter code: {code}',
+      compatResume: 'Picking up at question {n}',
+      compatDelete: 'Delete the result and our answers',
+      compatDeleteConfirm: 'Delete this test? Your answers and your partner’s will be erased for good.',
+      compatDeleted: 'Test deleted',
       themes: {
         'Acquaintance': { name: 'Acquaintance', desc: 'Get to know each other for real', emoji: '✨', grad: 'g-acq' },
         'For Couples':  { name: 'For Couples', desc: 'Grow closer than ever', emoji: '💞', grad: 'g-couples' },
@@ -735,6 +751,11 @@
       compatZoneGrowth: 'Prostor k růstu', compatZoneCrisis: 'Vyžaduje pozornost',
       compatNoResult: 'Zatím jsi žádný test nedokončil(a)',
       compatPaywall: 'Test kompatibility je součástí plného přístupu',
+      compatInviteMsg: 'Uděláme si test kompatibility VECHNOST? 💞 Otevři {bot} → „Test kompatibility“ → zadej kód: {code}',
+      compatResume: 'Pokračujeme otázkou {n}',
+      compatDelete: 'Smazat výsledek i odpovědi',
+      compatDeleteConfirm: 'Smazat test? Tvoje i partnerovy odpovědi budou navždy vymazány.',
+      compatDeleted: 'Test smazán',
       themes: {
         'Acquaintance': { name: 'Seznámení', desc: 'Poznejte se doopravdy', emoji: '✨', grad: 'g-acq' },
         'For Couples':  { name: 'Pro páry', desc: 'Buďte si blíž než kdy dřív', emoji: '💞', grad: 'g-couples' },
@@ -1645,7 +1666,11 @@
   $('libBack').onclick = () => openLibrary();
 
   /* ---------------- compatibility test ---------------- */
-  const CT = { code: null, st: null, timer: null, questions: null, idx: 0, answers: [] };
+  // `pending` is an answer POST in flight; `resultCode` is the test whose
+  // result is currently on the result screen, which /mine may set to a
+  // different code than the one being played.
+  const CT = { code: null, st: null, timer: null, questions: null, idx: 0,
+               pending: false, resultCode: null };
 
   function stopCompatPoll() {
     if (CT.timer) { clearInterval(CT.timer); CT.timer = null; }
@@ -1684,11 +1709,32 @@
     return CT.questions;
   }
 
+  // The first question the caller has *not* answered. The test is meant to be
+  // taken over hours or days, so re-entering must not restart all 40.
+  // `answered_indices` is the caller's own; the server never sends the
+  // partner's.
+  function compatResumeIndex(st) {
+    const done = new Set(st.answered_indices || []);
+    for (let i = 0; i < st.total; i++) if (!done.has(i)) return i;
+    return st.total;
+  }
+
+  function adoptCompatState(st) {
+    CT.code = st.code;
+    CT.st = st;
+    CT.pending = false;
+    CT.idx = compatResumeIndex(st);
+    // Remembered so the intro screen can offer the code back: without it a
+    // creator who closes the app mid-quiz has no way to name their own test.
+    store.set('compatCode', st.code);
+    $('compatCodeInput').value = st.code;
+  }
+
   async function compatCreate() {
     $('loader').classList.add('show');
     try {
       const st = await coopFetch('/api/compat', { method: 'POST', json: {} });
-      CT.code = st.code; CT.st = st; CT.idx = 0; CT.answers = new Array(st.total).fill(null);
+      adoptCompatState(st);
       $('compatCode').textContent = st.code;
       $('compatWaiting').textContent = T().inviteWaiting;
       show('compatInvite');
@@ -1702,9 +1748,19 @@
     $('loader').classList.add('show');
     try {
       const st = await coopFetch('/api/compat/' + code + '/join', { method: 'POST', json: {} });
-      CT.code = st.code; CT.st = st; CT.idx = 0; CT.answers = new Array(st.total).fill(null);
+      adoptCompatState(st);
       startCompatPoll();
-      if (st.finished) loadCompatResult(st.code); else enterCompatQuiz();
+      if (st.finished) { loadCompatResult(st.code); return; }
+      // The creator re-opening their own test before the partner has joined
+      // belongs on the invite screen, not in a quiz they cannot answer yet.
+      if (!st.started) {
+        $('compatCode').textContent = st.code;
+        $('compatWaiting').textContent = T().inviteWaiting;
+        show('compatInvite');
+        return;
+      }
+      if (CT.idx > 0 && CT.idx < st.total) toast(fmt(T().compatResume, { n: CT.idx + 1 }));
+      enterCompatQuiz();
     } catch (e) {
       if (e.status === 409) toast(T().coopFull);
       else if (e.status === 404) toast(T().coopGone);
@@ -1736,21 +1792,36 @@
     $('compatScale').querySelectorAll('.compat-opt').forEach(btn => {
       btn.onclick = () => submitCompatAnswer(parseInt(btn.dataset.value, 10));
     });
+    setCompatScaleEnabled(!CT.pending);
+  }
+
+  function setCompatScaleEnabled(on) {
+    $('compatScale').querySelectorAll('.compat-opt').forEach(btn => { btn.disabled = !on; });
   }
 
   async function submitCompatAnswer(value) {
+    // One answer in flight at a time. Each POST is a read-modify-write of the
+    // whole 40-slot array server-side, so overlapping them is how an answer
+    // goes missing and the couple sits at 39/40 with no way to find it.
+    if (CT.pending) return;
     haptic('light');
     const index = CT.idx;
+    CT.pending = true;
     CT.idx += 1;
-    renderCompatQuestion();
+    renderCompatQuestion();  // next question up front; its buttons stay dead
     try {
       const st = await coopFetch('/api/compat/' + CT.code + '/answer', {
         method: 'POST', json: { index, value }
       });
       CT.st = st;
-      if (st.finished) { stopCompatPoll(); loadCompatResult(CT.code); }
+      CT.pending = false;
+      if (st.finished) { stopCompatPoll(); loadCompatResult(CT.code); return; }
+      setCompatScaleEnabled(true);
     } catch (e) {
-      if (e.status === 409) return; // completed under us, or partner not joined yet; poll/result will catch up
+      CT.pending = false;
+      // Completed under us, or the partner has not joined yet; the poll or
+      // the result screen will catch up. Re-enable so the screen is not stuck.
+      if (e.status === 409) { setCompatScaleEnabled(true); return; }
       CT.idx = index;
       renderCompatQuestion();
       toast(T().loadError);
@@ -1761,10 +1832,43 @@
     $('loader').classList.add('show');
     try {
       const data = await coopFetch('/api/compat/' + code + '/result');
-      $('compatResultBody').innerHTML = renderCompatResult(data);
-      show('compatResult');
+      showCompatResult(data, code);
     } catch (e) {
       toast(T().loadError);
+    } finally { $('loader').classList.remove('show'); }
+  }
+
+  function showCompatResult(result, code) {
+    CT.resultCode = code;
+    $('compatResultBody').innerHTML = renderCompatResult(result);
+    $('compatDeleteBtn').onclick = () => compatDelete(code);
+    show('compatResult');
+  }
+
+  // Telegram's native confirm where it exists, the browser's otherwise.
+  function compatConfirm(message) {
+    return new Promise(resolve => {
+      try {
+        if (tg && tg.showConfirm) { tg.showConfirm(message, ok => resolve(!!ok)); return; }
+      } catch (e) {}
+      resolve(window.confirm(message));
+    });
+  }
+
+  async function compatDelete(code) {
+    if (!await compatConfirm(T().compatDeleteConfirm)) return;
+    $('loader').classList.add('show');
+    try {
+      await coopFetch('/api/compat/' + code, { method: 'DELETE' });
+      stopCompatPoll();
+      if (store.get('compatCode', null) === code) store.set('compatCode', null);
+      if (CT.code === code) { CT.code = null; CT.st = null; CT.idx = 0; }
+      CT.resultCode = null;
+      $('compatCodeInput').value = '';
+      toast(T().compatDeleted);
+      show('compat');
+    } catch (e) {
+      toast(e.status === 404 ? T().coopGone : T().loadError);
     } finally { $('loader').classList.remove('show'); }
   }
 
@@ -1805,8 +1909,17 @@
       ? `<div class="lib-card"><div class="lib-card-line">${escapeHTML(r.recommendation)}</div></div>`
       : '';
 
+    // How the eight spheres split across the three zones, under the headline
+    // percentage: one number says how close the couple is, this says how that
+    // closeness is distributed. All three are listed even at zero — a missing
+    // line would read as "not measured" rather than "none".
+    const zoneCounts = ['strength', 'growth', 'crisis']
+      .map(z => escapeHTML(zoneLabel[z]) + ' — ' + r.spheres.filter(s => s.zone === z).length)
+      .join(' · ');
+
     return `
       <div class="compat-percent">${r.percent}%</div>
+      <p class="compat-zones">${zoneCounts}</p>
       <h3 class="compat-h">${escapeHTML(T().compatStrengths)}</h3>
       ${strengths}
       ${attention}
@@ -1814,10 +1927,17 @@
       ${r.critical_blocks.map(b =>
         `<div class="lib-card compat-crisis"><div class="lib-card-line">${escapeHTML(b)}</div></div>`).join('')}
       <h3 class="compat-h">${escapeHTML(T().compatAll)}</h3>
-      ${r.spheres.map(s => sphereCard(s)).join('')}`;
+      ${r.spheres.map(s => sphereCard(s)).join('')}
+      <button class="btn btn-second compat-danger" id="compatDeleteBtn">${escapeHTML(T().compatDelete)}</button>`;
   }
 
-  $('btnCompat').onclick = () => { haptic('light'); show('compat'); };
+  $('btnCompat').onclick = () => {
+    haptic('light');
+    // Offer the last test back so an interrupted run is one tap from resuming.
+    const saved = store.get('compatCode', null);
+    if (saved && !$('compatCodeInput').value) $('compatCodeInput').value = saved;
+    show('compat');
+  };
   $('compatBack').onclick = () => { stopCompatPoll(); show('home'); };
   $('compatInviteBack').onclick = () => { stopCompatPoll(); CT.code = null; show('compat'); };
   $('compatQuizBack').onclick = () => { stopCompatPoll(); show('compat'); };
@@ -1831,14 +1951,17 @@
   $('btnCompatMine').onclick = async () => {
     try {
       const data = await coopFetch('/api/compat/mine');
-      $('compatResultBody').innerHTML = renderCompatResult(data.result);
-      show('compatResult');
+      showCompatResult(data.result, data.code);
     } catch (e) {
       toast(e.status === 404 ? T().compatNoResult : T().loadError);
     }
   };
   $('btnCompatShare').onclick = () => {
-    const msg = fmt(T().coopInviteMsg, { bot: BOT_URL || '', code: CT.code });
+    // Its own message, not coopInviteMsg: that one sends the partner to
+    // «Играть вдвоём», where the code hits /api/rooms and 404s. Both features
+    // draw six-character codes from the same alphabet, so the wrong door
+    // fails confusingly rather than obviously.
+    const msg = fmt(T().compatInviteMsg, { bot: BOT_URL || 'VECHNOST', code: CT.code });
     try {
       if (tg) tg.openTelegramLink('https://t.me/share/url?url=' + encodeURIComponent(msg));
       else navigator.clipboard.writeText(msg);
