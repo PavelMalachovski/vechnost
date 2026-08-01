@@ -176,6 +176,20 @@ def test_gap_framing_is_used_when_divergence_alone_put_it_there():
     assert sphere_1.framing != framings["both_low"]
 
 
+def test_no_framing_when_neither_condition_applies():
+    """The attention block always carries the two lowest-scoring spheres,
+    whatever the couple's overall picture — a healthy couple with no shared
+    low and no divergent question can still land here. There is nothing
+    true to say about why, so framing must be None rather than defaulting
+    to "gap"."""
+    a = [3, 4, 3, 4, 3] + [5] * 35     # sphere 1 avg 3.4
+    b = [4, 3, 4, 4, 3] + [5] * 35     # sphere 1 avg 3.6, no gap >= 3
+    result = build_result(a, b)
+    sphere_1 = next(e for e in result.attention if e.sphere.id == "values")
+    assert sphere_1.sphere.divergent == []
+    assert sphere_1.framing is None
+
+
 def test_result_never_contains_raw_answers():
     """The whole feature's privacy promise, asserted on the serialized model."""
     a = [1, 2, 3, 4, 5] * 8

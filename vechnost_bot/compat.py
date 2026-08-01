@@ -46,7 +46,7 @@ class SphereResult(BaseModel):
 
 class AttentionEntry(BaseModel):
     sphere: SphereResult
-    framing: str
+    framing: str | None = None
 
 
 class CompatResult(BaseModel):
@@ -79,6 +79,16 @@ def scale_labels(language: Language = Language.RUSSIAN) -> list[str]:
     return list(_content(language).get("scale", []))
 
 
+def _both_low(avg_a: float, avg_b: float) -> bool:
+    """True when both partners averaged under 3 on a sphere.
+
+    The single source of truth for "both low" — `_zone`'s crisis check and
+    `build_result`'s framing selection both call this rather than each
+    restating the threshold.
+    """
+    return avg_a < 3 and avg_b < 3
+
+
 def _zone(avg_a: float, avg_b: float, max_gap: int) -> Zone:
     """
     Classify one sphere.
@@ -87,7 +97,7 @@ def _zone(avg_a: float, avg_b: float, max_gap: int) -> Zone:
     averages are high, because it means the partners live in different
     realities on that question.
     """
-    if (avg_a < 3 and avg_b < 3) or max_gap > 3:
+    if _both_low(avg_a, avg_b) or max_gap > 3:
         return "crisis"
     if avg_a >= 4 and avg_b >= 4:
         return "strength"
@@ -134,7 +144,7 @@ def build_result(
             # 1-based and global: sphere 8's questions are 36..40.
             divergent=[start + i + 1 for i, gap in enumerate(gaps) if gap >= 3],
         ))
-        both_low_flags.append(avg_a < 3 and avg_b < 3)
+        both_low_flags.append(_both_low(avg_a, avg_b))
 
     percent = round((sum(r.score for r in results) / len(results) - 1) / 4 * 100)
 
@@ -146,8 +156,13 @@ def build_result(
 
     # Both averages under 3 means the partners agree the sphere is a
     # problem — "both_low" wins even if some individual question also
-    # happened to diverge. "gap" is only for spheres that landed here
-    # through divergence with at least one average at 3 or above.
+    # happened to diverge. "gap" is for spheres that landed here through
+    # divergence with at least one average at 3 or above. Neither applies
+    # to a merely middling sphere with no divergence — the attention block
+    # always carries the two lowest-scoring spheres regardless of how good
+    # the couple's overall picture is, so a healthy couple can land here
+    # too, and there's no true sentence to explain why. Say nothing rather
+    # than something false.
     ranked = sorted(
         zip(results, both_low_flags, strict=True),
         key=lambda pair: pair[0].score,
@@ -155,7 +170,11 @@ def build_result(
     attention = [
         AttentionEntry(
             sphere=result,
-            framing=content["framings"]["both_low" if both_low else "gap"],
+            framing=(
+                content["framings"]["both_low"] if both_low
+                else content["framings"]["gap"] if result.divergent
+                else None
+            ),
         )
         for result, both_low in ranked
     ]
