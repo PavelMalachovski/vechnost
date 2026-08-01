@@ -127,6 +127,21 @@ def test_room_requires_identity(client):
     assert response.status_code == 401
 
 
+def test_guest_ids_sharing_a_prefix_are_different_players(client):
+    """Guest ids used to be truncated to six bytes, so any two that shared
+    their first six characters resolved to the same player."""
+    alice = {"X-Guest-Id": "alice-device"}
+    alice_phone = {"X-Guest-Id": "alice-phone"}
+
+    code = create_room(client, headers=alice)["code"]
+    state = client.post(f"/api/rooms/{code}/join", headers=alice_phone).json()
+    assert state["your_role"] == "guest"
+
+    # And a third prefix-sharing id is still an outsider, not a re-join.
+    response = client.post(f"/api/rooms/{code}/join", headers={"X-Guest-Id": "alice-tablet"})
+    assert response.status_code == 409
+
+
 def test_unpaid_creator_shares_only_free_preview(client):
     async def no_access(user_id):
         return False

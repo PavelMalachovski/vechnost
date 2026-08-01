@@ -6,6 +6,7 @@ from here (localized per requester) — so one payment covers both partners,
 and an unpaid guest still sees every card of a paid creator's room.
 """
 
+import hashlib
 import logging
 import random
 import secrets
@@ -64,9 +65,11 @@ def _identity(
             raise HTTPException(status_code=401, detail="unauthorized")
 
     if not settings.enable_payment and guest_id:
-        # Stable fake id derived from the client-supplied guest id.
-        pseudo = int.from_bytes(guest_id.encode()[:6].ljust(6, b"_"), "big")
-        return pseudo, "Player"
+        # Stable fake id derived from the client-supplied guest id. Hash the
+        # whole id — truncating it made any two ids sharing a prefix
+        # ("alice-device"/"alice-phone") the same player.
+        digest = hashlib.blake2b(guest_id.encode(), digest_size=6).digest()
+        return int.from_bytes(digest, "big"), "Player"
 
     raise HTTPException(status_code=401, detail="unauthorized")
 
