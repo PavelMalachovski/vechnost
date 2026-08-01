@@ -72,3 +72,11 @@ def load_practices(module_id: str, language: Language = Language.RUSSIAN) -> lis
     """The practices of a `practice`-type module, in authored order."""
     data = _load_yaml(module_id, language)
     return [Practice(**item) for item in data.get("items", [])]
+
+
+def load_categories(
+    module_id: str, language: Language = Language.RUSSIAN
+) -> list[LibraryCategory]:
+    """The categories of a `list`-type module, in authored order."""
+    data = _load_yaml(module_id, language)
+    return [LibraryCategory(**category) for category in data.get("categories", [])]
