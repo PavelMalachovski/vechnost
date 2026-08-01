@@ -151,6 +151,14 @@ async def library_module(
         return payload
 
     categories = _visible_categories(module_id, language, nsfw)
+    # Categories held back for want of an 18+ confirmation are advertised by
+    # title and size only — never by content. The client needs this much to
+    # offer the confirmation; without it the 18+ path is unreachable.
+    payload["nsfw_withheld"] = [
+        {"id": c.id, "title": c.title, "total": len(c.items)}
+        for c in load_categories(module_id, language)
+        if c.nsfw and nsfw != 1
+    ]
     payload["categories"] = [
         {
             "id": c.id,

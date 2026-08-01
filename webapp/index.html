@@ -198,6 +198,8 @@
   .lib-cat{background:rgba(255,255,255,.05);border-radius:16px;padding:12px 16px;margin:10px 0}
   .lib-cat summary{font-weight:700;cursor:pointer}
   .lib-cat ol{margin:10px 0 0 18px;line-height:1.6}
+  .lib-cat-nsfw{display:block;width:100%;text-align:left;font:inherit;font-weight:700;
+    color:inherit;border:1px dashed rgba(255,255,255,.18);cursor:pointer}
   .lib-daily{text-align:center;padding:32px 20px}
   .lib-day{opacity:.6;font-size:14px;margin-bottom:12px}
   .lib-question{font-size:20px;line-height:1.5}
@@ -447,7 +449,7 @@
   <div class="overlay" id="nsfw">
     <div class="big-emoji">🔞</div>
     <h2 data-i18n="nsfwTitle"></h2>
-    <p data-i18n="nsfwText"></p>
+    <p id="nsfwText" data-i18n="nsfwText"></p>
     <button class="btn btn-play" id="nsfwYes" data-i18n="nsfwYes"></button>
     <button class="btn btn-ghost" id="nsfwNo" data-i18n="nsfwNo"></button>
   </div>
@@ -502,6 +504,7 @@
       hint: 'Свайпни карту или нажми →',
       nsfwTitle: 'Контент 18+',
       nsfwText: 'В этой теме откровенные вопросы и задания для взрослых. Продолжая, ты подтверждаешь, что тебе есть 18 лет.',
+      nsfwLibText: 'В этой категории откровенные идеи для взрослых. Продолжая, ты подтверждаешь, что тебе есть 18 лет.',
       nsfwYes: 'Мне есть 18', nsfwNo: 'Назад',
       doneTitle: 'Колода пройдена!', doneText: 'Вы разобрали все карты этой колоды. Это только начало разговора.',
       again: 'Начать заново', toThemes: 'К темам',
@@ -549,6 +552,7 @@
       hint: 'Swipe the card or tap →',
       nsfwTitle: '18+ content',
       nsfwText: 'This theme contains explicit adult questions and tasks. By continuing you confirm you are 18 or older.',
+      nsfwLibText: 'This category contains explicit suggestions for adults. By continuing you confirm you are 18 or older.',
       nsfwYes: "I'm 18+", nsfwNo: 'Back',
       doneTitle: 'Deck complete!', doneText: "You've been through every card. The conversation is just beginning.",
       again: 'Start over', toThemes: 'Themes',
@@ -596,6 +600,7 @@
       hint: 'Přejeď kartu nebo klepni →',
       nsfwTitle: 'Obsah 18+',
       nsfwText: 'Toto téma obsahuje otevřené otázky a úkoly pro dospělé. Pokračováním potvrzuješ, že ti je 18 let.',
+      nsfwLibText: 'Tato kategorie obsahuje otevřené náměty pro dospělé. Pokračováním potvrzuješ, že ti je 18 let.',
       nsfwYes: 'Je mi 18+', nsfwNo: 'Zpět',
       doneTitle: 'Balíček dokončen!', doneText: 'Prošli jste všechny karty. Rozhovor právě začíná.',
       again: 'Začít znovu', toThemes: 'Témata',
@@ -780,11 +785,18 @@
     });
   }
 
+  // One overlay, two callers: the Sex deck and a spicy Library category.
+  // The copy is swapped per caller so it always describes what it is gating.
+  function showNsfw(kind) {
+    $('nsfwText').textContent = kind === 'library' ? T().nsfwLibText : T().nsfwText;
+    $('nsfw').classList.add('show');
+  }
+
   function pickTheme(key) {
     S.theme = key;
     const th = DATA[key];
     if (th.nsfw && !store.get('nsfwOk', false)) {
-      $('nsfw').classList.add('show');
+      showNsfw('deck');
       return;
     }
     afterNsfw();
@@ -809,9 +821,9 @@
     $('nsfw').classList.remove('show');
     haptic('ok');
     if (LIB_NSFW_PENDING) {
-      const id = LIB_NSFW_PENDING;
+      const pending = LIB_NSFW_PENDING;
       LIB_NSFW_PENDING = null;
-      openLibModule(id);
+      openLibModule(pending.module, pending.category);
       return;
     }
     afterNsfw();
@@ -1419,7 +1431,12 @@
   };
 
   /* ---------------- library ---------------- */
-  let LIB_NSFW_PENDING = null;   // module to reopen after the 18+ overlay
+  let LIB_NSFW_PENDING = null;   // {module, category} to open after the 18+ overlay
+
+  // The 18+ flag is device-scoped and shared with the Sex deck, so it is only
+  // ever sent — and only ever asked for — when the user reaches for something
+  // explicit. Everything else in a module stays open without it.
+  const libNsfwParam = () => store.get('nsfwOk', false) ? '&nsfw=1' : '';
 
   async function libFetch(path) {
     const headers = {};
@@ -1433,7 +1450,7 @@
     show('library');
     $('loader').classList.add('show');
     try {
-      const data = await libFetch('/api/library?lang=' + lang);
+      const data = await libFetch('/api/library?lang=' + lang + libNsfwParam());
       const box = $('libraryList');
       box.innerHTML = data.modules.map(m => `
         <button class="theme-card lib-mod" data-module="${m.id}">
@@ -1451,22 +1468,21 @@
     }
   }
 
-  async function openLibModule(id) {
-    // The 18+ date category needs the same confirmation the Sex deck uses.
-    const confirmed = store.get('nsfwOk', false);
-    if (id === 'dates' && !confirmed) {
-      LIB_NSFW_PENDING = id;
-      $('nsfw').classList.add('show');
-      return;
-    }
-    const nsfw = (id === 'dates' && confirmed) ? '&nsfw=1' : '';
+  async function openLibModule(id, openCategory) {
     $('loader').classList.add('show');
     try {
-      const data = await libFetch(`/api/library/${id}?lang=${lang}${nsfw}`);
+      const data = await libFetch(`/api/library/${id}?lang=${lang}${libNsfwParam()}`);
       $('libDetailTitle').textContent = data.emoji + ' ' + data.title;
-      $('libDetailBody').innerHTML = renderLibModule(data);
+      $('libDetailBody').innerHTML = renderLibModule(data, openCategory);
       const buy = $('libBuy');
       if (buy) buy.onclick = () => { haptic('light'); $('paywallBuy').click(); };
+      $('libDetailBody').querySelectorAll('[data-nsfw-cat]').forEach(row => {
+        row.onclick = () => {
+          haptic('light');
+          LIB_NSFW_PENDING = { module: id, category: row.dataset.nsfwCat };
+          showNsfw('library');
+        };
+      });
       show('libraryDetail');
     } catch (e) {
       toast(T().libLoadError);
@@ -1475,7 +1491,7 @@
     }
   }
 
-  function renderLibModule(data) {
+  function renderLibModule(data, openCategory) {
     if (data.type === 'daily') {
       return `<div class="lib-daily">
         <div class="lib-day">${fmt(T().libDayOf, { day: data.day })}</div>
@@ -1490,16 +1506,25 @@
           <div class="lib-card-line"><b>${T().libResult}:</b> ${escapeHTML(p.result)}</div>
         </div>`).join('') + libLockedFooter(data);
     }
-    return data.categories.map(c => `
-      <details class="lib-cat">
+    const visible = data.categories.map(c => `
+      <details class="lib-cat"${c.id === openCategory ? ' open' : ''}>
         <summary>${escapeHTML(c.title)} · ${c.items.length}${c.items.length < c.total ? '/' + c.total : ''}</summary>
         <ol>${c.items.map(i => `<li>${escapeHTML(i)}</li>`).join('')}</ol>
-      </details>`).join('') + libLockedFooter(data);
+      </details>`).join('');
+    // Categories the server withheld for want of an 18+ confirmation: shown by
+    // title only, and tapping one raises the overlay.
+    const withheld = (data.nsfw_withheld || []).map(c => `
+      <button class="lib-cat lib-cat-nsfw" data-nsfw-cat="${escapeHTML(c.id)}">
+        🔞 ${escapeHTML(c.title)} · ${c.total}
+      </button>`).join('');
+    return visible + withheld + libLockedFooter(data);
   }
 
   function libLockedFooter(data) {
     if (!data.locked) return '';
     const note = fmt(T().libFreeNote, { free: data.free_count, total: data.total });
+    // Same rule as showPaywall: no payment link, no button that does nothing.
+    if (!ACCESS.payment_url) return `<div class="lib-locked"><p>${note}</p></div>`;
     const price = ACCESS.price ? ' — ' + ACCESS.price : '';
     return `<div class="lib-locked">
       <p>${note}</p>
@@ -1509,7 +1534,9 @@
 
   $('btnLibrary').onclick = () => { haptic('light'); openLibrary(); };
   $('libBackHome').onclick = () => show('home');
-  $('libBack').onclick = () => show('library');
+  // Re-fetch rather than just show: an 18+ confirmation taken inside a module
+  // changes the counts on the index, and the two screens must agree.
+  $('libBack').onclick = () => openLibrary();
 
   /* ---------------- boot ---------------- */
   $('btnPlay').onclick = async () => {
@@ -1535,6 +1562,10 @@
   applyI18n();
   // Preload content in background for instant start
   loadData();
+  // The bot's "Библиотека" button opens the app at ?screen=library.
+  try {
+    if (new URLSearchParams(location.search).get('screen') === 'library') openLibrary();
+  } catch (e) {}
 })();
 </script>
 </body>

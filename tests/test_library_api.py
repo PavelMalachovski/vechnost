@@ -6,7 +6,6 @@ import pytest
 from fastapi.testclient import TestClient
 
 os.environ.setdefault("TELEGRAM_BOT_TOKEN", "1234567890:TEST_TOKEN_FOR_UNIT_TESTS")
-os.environ["ENABLE_PAYMENT"] = "FALSE"
 
 from vechnost_bot.payments.web import app
 
@@ -37,10 +36,19 @@ def test_spicy_category_is_withheld_without_the_nsfw_flag():
     assert body["total"] == 140
 
 
+def test_withheld_category_is_advertised_by_title_only():
+    body = client.get("/api/library/dates").json()
+    withheld = body["nsfw_withheld"]
+    assert [c["id"] for c in withheld] == ["spicy"]
+    assert withheld[0]["total"] == 10
+    assert "items" not in withheld[0]
+
+
 def test_spicy_category_is_served_with_the_nsfw_flag():
     body = client.get("/api/library/dates?nsfw=1").json()
     assert "spicy" in [c["id"] for c in body["categories"]]
     assert body["total"] == 150
+    assert body["nsfw_withheld"] == []
 
 
 def test_daily_module_returns_one_question():
