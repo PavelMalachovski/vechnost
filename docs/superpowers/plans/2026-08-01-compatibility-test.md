@@ -44,7 +44,7 @@ The heart of the feature, and the only part that is pure computation. Built firs
   - `load_spheres(language: Language = Language.RUSSIAN) -> list[Sphere]` — eight, in authored order
   - `scale_labels(language: Language = Language.RUSSIAN) -> list[str]` — five, index 0 is value 1
   - `SphereResult` — Pydantic model: `id`, `title`, `zone: Zone`, `verdict: str`, `score: float`, `divergent: list[int]`
-  - `AttentionEntry` — Pydantic model: `sphere: SphereResult`, `framing: str`
+  - `AttentionEntry` — Pydantic model: `sphere: SphereResult`, `framing: str | None`. **`framing` is genuinely optional.** A sphere reaches the attention block whenever it is one of the two lowest-scoring, which happens even to a couple with no problem anywhere. Neither authored framing is true about such a sphere, so it gets none. Serialized, the key is present with the JSON value `null` — consumers must guard, not assume a string.
   - `build_result(a: list[int], b: list[int], language: Language = Language.RUSSIAN) -> CompatResult`
   - `CompatResult` — Pydantic model: `percent: int`, `spheres: list[SphereResult]`, `strengths: list[SphereResult]`, `strengths_fallback: str | None`, `attention: list[AttentionEntry]`, `divergent_all: list[int]`, `recommendation: str`, `critical_blocks: list[str]`
 
@@ -1517,8 +1517,9 @@ compatPaywall: 'Test kompatibility je součástí plného přístupu',
       <h3 class="compat-h">${escapeHTML(T().compatStrengths)}</h3>
       ${strengths}
       <h3 class="compat-h">${escapeHTML(T().compatAttention)}</h3>
-      ${r.attention.map(a => sphereCard(a.sphere,
-        `<div class="lib-card-line"><i>${escapeHTML(a.framing)}</i></div>`)).join('')}
+      ${r.attention.map(a => sphereCard(a.sphere, a.framing
+        ? `<div class="lib-card-line"><i>${escapeHTML(a.framing)}</i></div>`
+        : '')).join('')}
       <div class="lib-card"><div class="lib-card-line">${escapeHTML(r.recommendation)}</div></div>
       ${r.critical_blocks.map(b =>
         `<div class="lib-card compat-crisis"><div class="lib-card-line">${escapeHTML(b)}</div></div>`).join('')}
