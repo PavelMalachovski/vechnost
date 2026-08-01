@@ -228,8 +228,23 @@ Rules:
   five recovers `sum_theirs = 10 * score - sum_mine` exactly — at a sphere
   sum of 25 that pins every individual answer. The score lives inside
   `build_result` as a list parallel to the results, used only to order
-  `strengths` and `attention`. The overall `percent` stays public: one coarse
-  number over all forty questions, which inverts to nothing useful.
+  `strengths` and `attention`. The overall `percent` stays public, and it is
+  worth being exact about what that costs rather than calling it harmless.
+  `percent = round((T − 80) × 5/16)` over the combined forty-question total
+  `T`, so each percentage point maps to three or four values of `T`: a
+  partner who knows their own total recovers the other's to within one
+  point, their mean to within 0.025. What it never does is localise — it
+  says nothing about any sphere or any question.
+
+  Two further channels are inherent to the product rather than incidental.
+  A question listed as divergent has a gap of exactly 3 in any non-crisis
+  sphere, which pins the partner's answer to a single value; and a zone
+  bounds their sphere average into a band. Measured over 2400 spheres this
+  pins about one question in seven and reconstructs no whole sphere. That
+  disclosure *is* the feature — the Mini App promises «только то, в чём вы
+  разошлись» — and telling someone they diverged is not separable from
+  implying roughly what the other answered. The line worth holding is the
+  one drawn here: no exact per-sphere arithmetic on the wire.
 - `DELETE /api/compat/{code}` erases the row outright, finished or not.
   Either participant may call it, acting alone: there is one shared row, and
   consent to keep answers about a couple's sex life, money and trust has to
