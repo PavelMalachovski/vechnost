@@ -1,0 +1,87 @@
+"""Tests for the Library HTTP API."""
+
+import os
+
+import pytest
+from fastapi.testclient import TestClient
+
+os.environ.setdefault("TELEGRAM_BOT_TOKEN", "1234567890:TEST_TOKEN_FOR_UNIT_TESTS")
+os.environ["ENABLE_PAYMENT"] = "FALSE"
+
+from vechnost_bot.payments.web import app
+
+client = TestClient(app)
+
+
+def test_index_lists_all_five_modules():
+    body = client.get("/api/library").json()
+    ids = [m["id"] for m in body["modules"]]
+    assert ids == [
+        "dates",
+        "fall_in_love",
+        "practices_self",
+        "practices_couples",
+        "reflection",
+    ]
+
+
+def test_paid_caller_gets_every_item():
+    body = client.get("/api/library/practices_couples").json()
+    assert len(body["items"]) == 25
+    assert body["locked"] is False
+
+
+def test_spicy_category_is_withheld_without_the_nsfw_flag():
+    body = client.get("/api/library/dates").json()
+    assert "spicy" not in [c["id"] for c in body["categories"]]
+    assert body["total"] == 140
+
+
+def test_spicy_category_is_served_with_the_nsfw_flag():
+    body = client.get("/api/library/dates?nsfw=1").json()
+    assert "spicy" in [c["id"] for c in body["categories"]]
+    assert body["total"] == 150
+
+
+def test_daily_module_returns_one_question():
+    body = client.get("/api/library/reflection").json()
+    assert body["type"] == "daily"
+    assert body["question"].strip()
+    assert 1 <= body["day"] <= 365
+
+
+def test_unknown_module_is_404():
+    assert client.get("/api/library/nope").status_code == 404
+
+
+@pytest.fixture
+def paywalled(monkeypatch):
+    """Run the API as if payments were on and the caller had not paid."""
+    from vechnost_bot.payments import library_api
+
+    monkeypatch.setattr(library_api, "_caller_is_paid", _unpaid)
+    yield
+
+
+async def _unpaid(_authorization):
+    return False
+
+
+def test_unpaid_caller_gets_three_items_per_category(paywalled):
+    body = client.get("/api/library/dates").json()
+    assert body["locked"] is True
+    assert all(len(c["items"]) == 3 for c in body["categories"])
+    assert body["free_count"] == 21   # 7 non-spicy categories x 3
+    assert body["total"] == 140
+
+
+def test_unpaid_caller_gets_three_practices(paywalled):
+    body = client.get("/api/library/practices_couples").json()
+    assert len(body["items"]) == 3
+    assert body["total"] == 25
+
+
+def test_free_modules_are_identical_for_unpaid_callers(paywalled):
+    body = client.get("/api/library/practices_self").json()
+    assert len(body["items"]) == 25
+    assert body["locked"] is False
