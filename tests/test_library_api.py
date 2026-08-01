@@ -85,3 +85,22 @@ def test_free_modules_are_identical_for_unpaid_callers(paywalled):
     body = client.get("/api/library/practices_self").json()
     assert len(body["items"]) == 25
     assert body["locked"] is False
+
+
+def test_unpaid_caller_with_nsfw_flag_gets_spicy_trimmed_to_three(paywalled):
+    body = client.get("/api/library/dates?nsfw=1").json()
+    categories = {c["id"]: c for c in body["categories"]}
+    assert "spicy" in categories
+    assert len(categories["spicy"]["items"]) == 3
+    assert categories["spicy"]["total"] == 10
+    assert all(len(c["items"]) == 3 for c in body["categories"])
+    assert body["total"] == 150
+
+
+def test_index_count_for_dates_respects_nsfw_flag():
+    without = client.get("/api/library").json()
+    with_nsfw = client.get("/api/library?nsfw=1").json()
+    dates_without = next(m for m in without["modules"] if m["id"] == "dates")
+    dates_with = next(m for m in with_nsfw["modules"] if m["id"] == "dates")
+    assert dates_without["count"] == 140
+    assert dates_with["count"] == 150

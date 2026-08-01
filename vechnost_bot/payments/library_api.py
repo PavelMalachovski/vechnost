@@ -16,6 +16,9 @@ from ..freemium import FREE_LIBRARY_ITEMS_PER_LIST, free_library_slice
 from ..i18n import Language
 from ..library import (
     MODULES,
+    REFLECTION_TOTAL,
+    LibraryCategory,
+    LibraryModule,
     load_categories,
     load_practices,
     question_of_the_day,
@@ -33,6 +36,33 @@ def _language(lang: str) -> Language:
         return Language(lang)
     except ValueError:
         return Language.RUSSIAN
+
+
+def _visible_categories(
+    module_id: str, language: Language, nsfw: int
+) -> list[LibraryCategory]:
+    """A module's categories, minus any withheld because they are nsfw."""
+    return [
+        c for c in load_categories(module_id, language)
+        if not c.nsfw or nsfw == 1
+    ]
+
+
+def _module_count(module: LibraryModule, language: Language, nsfw: int) -> int:
+    """
+    The item count for a module, honoring the nsfw filter.
+
+    The single source of truth for "how many items does this module have,
+    from this caller's point of view" — shared by the index and module
+    routes so the two can never disagree about what's being withheld.
+    """
+    if module.type == "daily":
+        return REFLECTION_TOTAL
+    if module.type == "practice":
+        return len(load_practices(module.id, language))
+    return sum(
+        len(c.items) for c in _visible_categories(module.id, language, nsfw)
+    )
 
 
 async def _caller_is_paid(authorization: str | None) -> bool:
@@ -53,9 +83,11 @@ async def _caller_is_paid(authorization: str | None) -> bool:
 @router.get("")
 async def library_index(
     lang: str = "ru",
+    nsfw: int = 0,
     authorization: str | None = Header(default=None),
 ) -> dict[str, Any]:
     """The module list for the Library home screen."""
+    language = _language(lang)
     paid = await _caller_is_paid(authorization)
     return {
         "modules": [
@@ -64,7 +96,7 @@ async def library_index(
                 "title": m.title,
                 "emoji": m.emoji,
                 "type": m.type,
-                "count": m.count,
+                "count": _module_count(m, language, nsfw),
                 "locked": m.paid and not paid,
             }
             for m in MODULES.values()
@@ -100,7 +132,11 @@ async def library_module(
         text, day = question_of_the_day(
             date.today().timetuple().tm_yday, language
         )
-        payload.update({"question": text, "day": day, "total": module.count})
+        payload.update({
+            "question": text,
+            "day": day,
+            "total": _module_count(module, language, nsfw),
+        })
         return payload
 
     if module.type == "practice":
@@ -109,15 +145,12 @@ async def library_module(
             "items": [i.model_dump() for i in (
                 free_library_slice(items) if locked else items
             )],
-            "total": len(items),
+            "total": _module_count(module, language, nsfw),
             "free_count": min(FREE_LIBRARY_ITEMS_PER_LIST, len(items)) if locked else len(items),
         })
         return payload
 
-    categories = [
-        c for c in load_categories(module_id, language)
-        if not c.nsfw or nsfw == 1
-    ]
+    categories = _visible_categories(module_id, language, nsfw)
     payload["categories"] = [
         {
             "id": c.id,
