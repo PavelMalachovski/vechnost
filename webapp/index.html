@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
-<title>Vechnost — игра для близости</title>
+<title>Vechnost – игра для близости</title>
 <script src="https://telegram.org/js/telegram-web-app.js"></script>
 <style>
   /* The brand three, the same faces the bot composites onto its cards:
@@ -712,10 +712,10 @@
       cardWord: 'Карта', resumed: 'Продолжаем с места остановки',
       loadError: 'Не удалось загрузить вопросы. Проверь соединение.',
       paywallTitle: 'Бесплатные карты закончились',
-      paywallText: 'Вы прошли {free} бесплатных карт из {total}. Полный доступ откроет все колоды целиком — сотни вопросов, все уровни, навсегда.',
+      paywallText: 'Вы прошли {free} бесплатных карт из {total}. Полный доступ откроет все колоды целиком: сотни вопросов, все уровни, навсегда.',
       paywallBuy: '💳 Открыть всё', paywallClose: 'Закрыть',
       freeCount: 'бесплатно {free} из {total}',
-      shareText: 'Вопрос из VECHNOST — игры для пар',
+      shareText: 'Вопрос из VECHNOST, игры для пар',
       shareError: 'Не получилось поделиться',
       coopBtn: '👥 Играть вдвоём', coopTitle: 'Игра вдвоём',
       coopCreate: 'Создать игру', coopOr: 'или введи код, который прислал партнёр',
@@ -738,7 +738,7 @@
       libDayOf: 'День {day} из 365',
       libLoadError: 'Не удалось загрузить библиотеку. Проверь соединение.',
       compatBtn: '💞 Тест совместимости', compatTitle: 'Тест совместимости',
-      compatIntro: '40 вопросов о восьми сферах вашей жизни. Отвечаете порознь — результат видите вместе. Партнёр никогда не увидит ваши ответы, только то, в чём вы разошлись.',
+      compatIntro: '40 вопросов о восьми сферах вашей жизни. Отвечаете порознь – результат видите вместе. Партнёр никогда не увидит ваши ответы, только то, в чём вы разошлись.',
       compatCreate: 'Начать тест', compatMine: 'Прошлый результат',
       compatInviteHint: 'Отправь этот код партнёру. Отвечать можно, как только он войдёт.',
       compatWaitingPartner: 'Партнёр ответил на {n} из {total}',
@@ -879,7 +879,7 @@
 
   function showPaywall(freeCount, totalCount) {
     $('paywallText').textContent = fmt(T().paywallText, { free: freeCount, total: totalCount });
-    $('paywallBuy').textContent = T().paywallBuy + (ACCESS.price ? ' — ' + ACCESS.price : '');
+    $('paywallBuy').textContent = T().paywallBuy + (ACCESS.price ? ' – ' + ACCESS.price : '');
     $('paywallBuy').style.display = ACCESS.payment_url ? '' : 'none';
     $('paywall').classList.add('show');
   }
@@ -1809,7 +1809,7 @@
     const note = fmt(T().libFreeNote, { free: data.free_count, total: data.total });
     // Same rule as showPaywall: no payment link, no button that does nothing.
     if (!ACCESS.payment_url) return `<div class="lib-locked"><p>${note}</p></div>`;
-    const price = ACCESS.price ? ' — ' + ACCESS.price : '';
+    const price = ACCESS.price ? ' – ' + ACCESS.price : '';
     return `<div class="lib-locked">
       <p>${note}</p>
       <button class="btn btn-play" id="libBuy">${T().libLocked}${price}</button>
@@ -1868,11 +1868,11 @@
     // Same rule as showPaywall: no payment link, no button that does nothing.
     const cta = ACCESS.payment_url
       ? '<button class="btn btn-play q-lock">' +
-        escapeHTML(T().libLocked + (ACCESS.price ? ' — ' + ACCESS.price : '')) + '</button>'
+        escapeHTML(T().libLocked + (ACCESS.price ? ' – ' + ACCESS.price : '')) + '</button>'
       : '';
     // A dash, not a position: this card is not the deck's Nth item, and
     // repeating the last content card's number reads as a rendering fault.
-    return { text: '<b>🔒</b><br><br>' + note + cta, footer: '—', lock: true };
+    return { text: '<b>🔒</b><br><br>' + note + cta, footer: '–', lock: true };
   }
 
   function renderLibStage(withFlip) {
@@ -2178,7 +2178,7 @@
     // closeness is distributed. All three are listed even at zero — a missing
     // line would read as "not measured" rather than "none".
     const zoneCounts = ['strength', 'growth', 'crisis']
-      .map(z => escapeHTML(zoneLabel[z]) + ' — ' + r.spheres.filter(s => s.zone === z).length)
+      .map(z => escapeHTML(zoneLabel[z]) + ': ' + r.spheres.filter(s => s.zone === z).length)
       .join(' · ');
 
     return `
