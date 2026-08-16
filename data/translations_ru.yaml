@@ -50,9 +50,9 @@ level:
   level: "Уровень"
 
 calendar:
-  header: "{theme} – Уровень {level}\nОсталось карточек: {remaining_count}"
-  sex_questions: "🔥 Секс – Вопросы"
-  sex_tasks: "🔥 Секс – Задания"
+  header: "{theme} · Уровень {level}\nОсталось карточек: {remaining_count}"
+  sex_questions: "🔥 Секс · Вопросы"
+  sex_tasks: "🔥 Секс · Задания"
 
 question:
   header: "{current} из {total}"
