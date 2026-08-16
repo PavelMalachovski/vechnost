@@ -232,6 +232,15 @@ def test_a_card_that_flies_out_lands_in_the_deck_that_launched_it():
     assert "classList.contains('active')" in after
 
 
+def test_the_mini_app_ships_one_language():
+    html = INDEX.read_text(encoding="utf-8")
+    assert 'class="lang-row"' not in html
+    assert 'data-lang="en"' not in html
+    assert 'data-lang="cs"' not in html
+    assert "Pick a theme" not in html      # the English dictionary is gone
+    assert "Vyber téma" not in html        # and the Czech one
+
+
 def test_the_home_screen_shows_decks_not_typographic_suits():
     """The first thing the Mini App shows should be the game, not ♥♠♦♣."""
     html = INDEX.read_text(encoding="utf-8")

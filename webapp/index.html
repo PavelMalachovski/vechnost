@@ -157,7 +157,6 @@
     color: #fff; background: rgba(232,107,181,.28); border-color: rgba(232,107,181,.8);
   }
 
-  .lang-row { display: flex; gap: 8px; margin-top: 22px; }
   .chip {
     padding: 8px 16px; border-radius: 999px; font-size: 13px; font-weight: 600;
     color: var(--muted-on-dark); background: rgba(255,255,255,.07);
@@ -452,11 +451,6 @@
     <button class="btn btn-second" id="btnCoop" data-i18n="coopBtn"></button>
     <button class="btn btn-second" id="btnLibrary" data-i18n="libraryBtn"></button>
     <button class="btn btn-second" id="btnCompat" data-i18n="compatBtn"></button>
-    <div class="lang-row" id="langRow">
-      <button class="chip" data-lang="ru">RU</button>
-      <button class="chip" data-lang="en">EN</button>
-      <button class="chip" data-lang="cs">CS</button>
-    </div>
   </section>
 
   <!-- COOP entry -->
@@ -679,8 +673,9 @@
   };
 
   /* ---------------- i18n ---------------- */
+  // Russian is the only language the Mini App ships. The other two are in
+  // git history alongside the bot's YAML, one revert away.
   const I18N = {
-    ru: {
       tagline: 'Карточная игра для пар и разговоров, которые сближают',
       play: 'Играть', chooseTheme: 'Выбери тему', level: 'Уровень',
       questions: 'Вопросы', tasks: 'Задания',
@@ -744,137 +739,6 @@
         'Provocation':  { name: 'Провокация', desc: 'Вопросы на грани', emoji: '⚡', grad: 'g-prov' }
       },
       levelDesc: { '1': 'Лёгкий старт', '2': 'Глубже и личнее', '3': 'Максимальная откровенность' }
-    },
-    en: {
-      tagline: 'A card game for couples and conversations that bring you closer',
-      play: 'Play', chooseTheme: 'Pick a theme', level: 'Level',
-      questions: 'Questions', tasks: 'Tasks',
-      hint: 'Swipe the card or tap →',
-      nsfwTitle: '18+ content',
-      nsfwText: 'This theme contains explicit adult questions and tasks. By continuing you confirm you are 18 or older.',
-      nsfwLibText: 'This category contains explicit suggestions for adults. By continuing you confirm you are 18 or older.',
-      nsfwYes: "I'm 18+", nsfwNo: 'Back',
-      doneTitle: 'Deck complete!', doneText: "You've been through every card. The conversation is just beginning.",
-      again: 'Start over', toThemes: 'Themes',
-      shuffled: 'Deck shuffled', ordered: 'In order',
-      cardWord: 'Card', resumed: 'Resumed where you left off',
-      loadError: 'Could not load questions. Check your connection.',
-      paywallTitle: 'End of the free cards',
-      paywallText: "You've been through {free} free cards of {total}. Full access unlocks every deck completely — hundreds of questions, all levels, forever.",
-      paywallBuy: '💳 Unlock everything', paywallClose: 'Close',
-      freeCount: '{free} of {total} free',
-      shareText: 'A question from VECHNOST — the couples game',
-      shareError: 'Could not share',
-      coopBtn: '👥 Play together', coopTitle: 'Play together',
-      coopCreate: 'Start a game', coopOr: 'or enter the code your partner sent',
-      coopJoinBtn: 'Join',
-      inviteTitle: 'Code for your partner',
-      inviteHint: 'Send this code to your partner. The game starts as soon as they join.',
-      inviteShare: '💌 Send the invite',
-      inviteWaiting: 'Waiting for your partner…',
-      coopInviteMsg: "Let's play VECHNOST together? 💜 Open {bot} → “Play together” → enter code: {code}",
-      yourTurn: '✨ Your turn', partnerTurn: '{name} is answering…',
-      notYourTurn: "It's your partner's turn",
-      partnerJoined: '{name} joined!',
-      coopGone: 'Game not found or finished',
-      coopFull: 'This game already has two players',
-      coopDoneText: 'You went through the deck together. The conversation is just beginning.',
-      libraryBtn: '📚 Library', libraryTitle: 'Library',
-      libLocked: 'Unlock everything',
-      libFreeNote: 'Showing {free} of {total}',
-      libWhy: 'Why', libResult: 'Outcome',
-      libDayOf: 'Day {day} of 365',
-      libLoadError: 'Could not load the library. Check your connection.',
-      compatBtn: '💞 Compatibility test', compatTitle: 'Compatibility test',
-      compatIntro: 'Forty questions across eight areas of your life. You answer apart and read the result together. Your partner never sees your answers — only where the two of you diverged.',
-      compatCreate: 'Start the test', compatMine: 'Previous result',
-      compatInviteHint: 'Send this code to your partner. You can start answering as soon as they join.',
-      compatWaitingPartner: 'Your partner has answered {n} of {total}',
-      compatDone: "You've answered all 40. Waiting for your partner…",
-      compatResultTitle: 'Your result',
-      compatStrengths: 'Where you are a team', compatAttention: 'Worth talking about',
-      compatAll: 'Every area', compatZoneStrength: 'Strength',
-      compatZoneGrowth: 'Room to grow', compatZoneCrisis: 'Needs attention',
-      compatNoResult: "You haven't completed a test yet",
-      compatPaywall: 'The compatibility test is part of full access',
-      compatInviteMsg: 'Shall we take the VECHNOST compatibility test? 💞 Open {bot} → “Compatibility test” → enter code: {code}',
-      compatResume: 'Picking up at question {n}',
-      compatDelete: 'Delete the result and our answers',
-      compatDeleteConfirm: 'Delete this test? Your answers and your partner’s will be erased for good.',
-      compatDeleted: 'Test deleted',
-      themes: {
-        'Acquaintance': { name: 'Acquaintance', desc: 'Get to know each other for real', emoji: '✨', grad: 'g-acq' },
-        'For Couples':  { name: 'For Couples', desc: 'Grow closer than ever', emoji: '💞', grad: 'g-couples' },
-        'Sex':          { name: 'Sex', desc: 'Honest talk about desire', emoji: '🔥', grad: 'g-sex' },
-        'Provocation':  { name: 'Provocation', desc: 'Questions on the edge', emoji: '⚡', grad: 'g-prov' }
-      },
-      levelDesc: { '1': 'Easy start', '2': 'Deeper and more personal', '3': 'Full honesty' }
-    },
-    cs: {
-      tagline: 'Karetní hra pro páry a rozhovory, které sbližují',
-      play: 'Hrát', chooseTheme: 'Vyber téma', level: 'Úroveň',
-      questions: 'Otázky', tasks: 'Úkoly',
-      hint: 'Přejeď kartu nebo klepni →',
-      nsfwTitle: 'Obsah 18+',
-      nsfwText: 'Toto téma obsahuje otevřené otázky a úkoly pro dospělé. Pokračováním potvrzuješ, že ti je 18 let.',
-      nsfwLibText: 'Tato kategorie obsahuje otevřené náměty pro dospělé. Pokračováním potvrzuješ, že ti je 18 let.',
-      nsfwYes: 'Je mi 18+', nsfwNo: 'Zpět',
-      doneTitle: 'Balíček dokončen!', doneText: 'Prošli jste všechny karty. Rozhovor právě začíná.',
-      again: 'Začít znovu', toThemes: 'Témata',
-      shuffled: 'Balíček zamíchán', ordered: 'Po pořadí',
-      cardWord: 'Karta', resumed: 'Pokračujeme, kde jsi skončil',
-      loadError: 'Otázky se nepodařilo načíst. Zkontroluj připojení.',
-      paywallTitle: 'Karty zdarma končí',
-      paywallText: 'Prošli jste {free} karet zdarma z {total}. Plný přístup odemkne všechny balíčky — stovky otázek, všechny úrovně, navždy.',
-      paywallBuy: '💳 Odemknout vše', paywallClose: 'Zavřít',
-      freeCount: '{free} z {total} zdarma',
-      shareText: 'Otázka z VECHNOST — hry pro páry',
-      shareError: 'Sdílení se nepovedlo',
-      coopBtn: '👥 Hrát spolu', coopTitle: 'Hra ve dvou',
-      coopCreate: 'Založit hru', coopOr: 'nebo zadej kód od partnera',
-      coopJoinBtn: 'Připojit se',
-      inviteTitle: 'Kód pro partnera',
-      inviteHint: 'Pošli tento kód partnerovi. Hra začne, jakmile se připojí.',
-      inviteShare: '💌 Poslat pozvánku',
-      inviteWaiting: 'Čekáme na partnera…',
-      coopInviteMsg: 'Zahrajeme si VECHNOST spolu? 💜 Otevři {bot} → „Hrát spolu“ → zadej kód: {code}',
-      yourTurn: '✨ Tvůj tah', partnerTurn: 'Odpovídá {name}…',
-      notYourTurn: 'Teď je na tahu partner',
-      partnerJoined: '{name} se připojil(a)!',
-      coopGone: 'Hra nenalezena nebo skončila',
-      coopFull: 'V této hře už jsou dva hráči',
-      coopDoneText: 'Prošli jste balíček spolu. Rozhovor právě začíná.',
-      libraryBtn: '📚 Knihovna', libraryTitle: 'Knihovna',
-      libLocked: 'Odemknout vše',
-      libFreeNote: 'Zobrazeno {free} z {total}',
-      libWhy: 'Proč', libResult: 'Výsledek',
-      libDayOf: 'Den {day} z 365',
-      libLoadError: 'Knihovnu se nepodařilo načíst. Zkontroluj připojení.',
-      compatBtn: '💞 Test kompatibility', compatTitle: 'Test kompatibility',
-      compatIntro: 'Čtyřicet otázek o osmi oblastech vašeho života. Odpovídáte odděleně, výsledek čtete spolu. Partner nikdy neuvidí vaše odpovědi — jen to, v čem se lišíte.',
-      compatCreate: 'Začít test', compatMine: 'Předchozí výsledek',
-      compatInviteHint: 'Pošli tento kód partnerovi. Odpovídat můžeš, jakmile se připojí.',
-      compatWaitingPartner: 'Partner odpověděl na {n} ze {total}',
-      compatDone: 'Odpověděl(a) jsi na všech 40. Čekáme na partnera…',
-      compatResultTitle: 'Váš výsledek',
-      compatStrengths: 'Kde jste tým', compatAttention: 'Stojí za rozhovor',
-      compatAll: 'Všechny oblasti', compatZoneStrength: 'Silná stránka',
-      compatZoneGrowth: 'Prostor k růstu', compatZoneCrisis: 'Vyžaduje pozornost',
-      compatNoResult: 'Zatím jsi žádný test nedokončil(a)',
-      compatPaywall: 'Test kompatibility je součástí plného přístupu',
-      compatInviteMsg: 'Uděláme si test kompatibility VECHNOST? 💞 Otevři {bot} → „Test kompatibility“ → zadej kód: {code}',
-      compatResume: 'Pokračujeme otázkou {n}',
-      compatDelete: 'Smazat výsledek i odpovědi',
-      compatDeleteConfirm: 'Smazat test? Tvoje i partnerovy odpovědi budou navždy vymazány.',
-      compatDeleted: 'Test smazán',
-      themes: {
-        'Acquaintance': { name: 'Seznámení', desc: 'Poznejte se doopravdy', emoji: '✨', grad: 'g-acq' },
-        'For Couples':  { name: 'Pro páry', desc: 'Buďte si blíž než kdy dřív', emoji: '💞', grad: 'g-couples' },
-        'Sex':          { name: 'Sex', desc: 'Otevřeně o touhách', emoji: '🔥', grad: 'g-sex' },
-        'Provocation':  { name: 'Provokace', desc: 'Otázky na hraně', emoji: '⚡', grad: 'g-prov' }
-      },
-      levelDesc: { '1': 'Lehký začátek', '2': 'Hlubší a osobnější', '3': 'Naprostá otevřenost' }
-    }
   };
 
   const THEME_ORDER = ['Acquaintance', 'For Couples', 'Sex', 'Provocation'];
@@ -918,8 +782,10 @@
     set(k, v) { try { localStorage.setItem('vech.' + k, JSON.stringify(v)); } catch (e) {} }
   };
 
-  const tgLang = tg && tg.initDataUnsafe && tg.initDataUnsafe.user && tg.initDataUnsafe.user.language_code;
-  let lang = store.get('lang', ['ru', 'en', 'cs'].includes(tgLang) ? tgLang : 'ru');
+  // The Mini App is Russian-only; the server still accepts (and coerces
+  // unknown values to) a lang query param, so this stays a constant rather
+  // than a widened surface.
+  const lang = 'ru';
   let DATA = null;          // themes payload from API
   let S = {                 // current game selection
     theme: null, level: null, type: 'questions',
@@ -928,7 +794,7 @@
   let deckDirty = false;    // guards double-swipes during animation
 
   const $ = (id) => document.getElementById(id);
-  const T = () => I18N[lang];
+  const T = () => I18N;
 
   /* ---------------- i18n render ---------------- */
   function applyI18n() {
@@ -936,8 +802,6 @@
       const key = el.getAttribute('data-i18n');
       if (T()[key]) el.textContent = T()[key];
     });
-    document.querySelectorAll('#langRow .chip').forEach(ch =>
-      ch.classList.toggle('on', ch.dataset.lang === lang));
     $('modeQ').textContent = '❓ ' + T().questions;
     $('modeT').textContent = '📝 ' + T().tasks;
   }
@@ -2329,16 +2193,6 @@
   };
   $('backHome').onclick = () => { COOP.creating = false; show('home'); };
   $('backThemes').onclick = () => show('themes');
-
-  document.querySelectorAll('#langRow .chip').forEach(ch => {
-    ch.onclick = async () => {
-      lang = ch.dataset.lang;
-      store.set('lang', lang);
-      haptic('light');
-      applyI18n();
-      DATA = null; // reload content in the new language on next Play
-    };
-  });
 
   applyI18n();
   // Preload content in background for instant start
