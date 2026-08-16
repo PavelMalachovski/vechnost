@@ -9,9 +9,9 @@ import logging
 from telegram import Update
 from telegram.ext import ContextTypes
 
-from .i18n import detect_language_from_text, get_text
+from .callback_handlers import welcome_screen
+from .i18n import Language, get_text
 from .keyboards import get_reset_confirmation_keyboard
-from .language_keyboards import get_language_selection_keyboard
 from .logo_generator import generate_welcome_image_with_logo  # noqa: F401  (re-exported)
 from .monitoring import (
     log_bot_event,
@@ -84,29 +84,19 @@ async def start_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
                 await update.message.reply_text(error_text)
                 return
 
-    # Detect language from user's message or default to Russian
-    detected_language = detect_language_from_text(update.message.text or "")
-
-    # English only text for language selection
-    welcome_text = ""
-
-    keyboard = get_language_selection_keyboard(detected_language)
-    logger.info(f"Sending language selection keyboard with {len(keyboard.inline_keyboard)} rows")
-
-    # Send the attached VECHNOST logo image
+    # There is nothing to choose any more: open straight on the greeting.
+    # The logo goes first, as its own message and without a caption — the
+    # greeting is ~1530 characters and Telegram caps photo captions at 1024,
+    # so it cannot ride along. A missing or unreadable logo must not take
+    # /start down, hence the fallback to the greeting alone.
     try:
         with open("assets/images/vechnost_logo.png", "rb") as logo_file:
-            await update.message.reply_photo(
-                photo=logo_file,
-                caption=welcome_text,
-                reply_markup=keyboard
-            )
+            await update.message.reply_photo(photo=logo_file)
     except Exception as e:
-        logger.warning(f"Failed to load logo image: {e}, sending text only")
-        await update.message.reply_text(
-            welcome_text,
-            reply_markup=keyboard
-        )
+        logger.warning(f"Failed to load logo image: {e}, sending greeting only")
+
+    text, keyboard = welcome_screen(Language.RUSSIAN)
+    await update.message.reply_text(text, reply_markup=keyboard, parse_mode="HTML")
 
 
 async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
@@ -167,8 +157,8 @@ async def about_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
         f"{get_text('about.feature_tasks_desc', language)}\n\n"
         f"{get_text('about.feature_privacy', language)}\n"
         f"{get_text('about.feature_privacy_desc', language)}\n\n"
-        f"{get_text('about.feature_languages', language)}\n"
-        f"{get_text('about.feature_languages_desc', language)}\n\n"
+        f"{get_text('about.feature_library', language)}\n"
+        f"{get_text('about.feature_library_desc', language)}\n\n"
         f"{get_text('about.how_it_works', language)}\n"
         f"{get_text('about.step1', language)}\n"
         f"{get_text('about.step2', language)}\n"

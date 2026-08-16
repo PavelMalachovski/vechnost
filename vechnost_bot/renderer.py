@@ -30,10 +30,10 @@ LINE_SPACING = 1.32          # multiple of (ascent + descent)
 TEXT_COLOR = (53, 0, 39)     # dark maroon #350027, ~13:1 contrast on the pale pink
 FOOTER_COLOR = (122, 63, 100)  # muted plum, readable but secondary
 FOOTER_FONT_SIZE = 30
-# The neutral background (default.png, used by the daily push) has a drawn
-# frame whose bottom line sits at y≈1287. Footer and watermark both live above
-# it, so no card is struck through. The deck backgrounds have no such line;
-# there the extra clearance simply reads as bottom padding.
+# The Library card (library.png, used by the daily push) carries its Λ letter
+# in the bottom-right corner, so the footer and watermark both stay above it.
+# The deck backgrounds have their own corner marks at the same height; there
+# the clearance simply reads as bottom padding.
 FOOTER_BOTTOM_MARGIN = 152
 
 # Brand watermark: quieter than the footer, one line below it.
@@ -46,11 +46,18 @@ WATERMARK_BOTTOM_MARGIN = 107
 # up rather than running into the footer.
 TEXT_FOOTER_GAP = 14
 
-# Fonts: Montserrat is the brand font (ships in assets), DejaVu is the fallback.
-# The bundled Montserrat is a latin-only subset, so each render picks the first
-# font that actually covers the text's characters (Cyrillic falls back to DejaVu).
+# The only fonts this module draws with. Inter sets every card's text and
+# covers Cyrillic; DejaVu is the last resort, and _pick_font_path picks between
+# them per string, so a text in an alphabet Inter lacks (Greek, say) degrades
+# instead of tofuing.
+#
+# The brand's other two faces are not the renderer's business. Lora (the
+# VECHNOST wordmark) and Forum (the V/Λ letters and the 2/3 ranks) are printed
+# *into* the backgrounds by scripts/generate_card_assets.py, which loads them
+# by filename itself; renderer.py only composites question text onto the
+# finished art. Look there, not here, if a wordmark or a rank looks wrong.
 _ASSETS_FONTS = Path(__file__).parent.parent / "assets" / "fonts"
-FONT_PATH = _ASSETS_FONTS / "Montserrat-Regular.ttf"
+FONT_PATH = _ASSETS_FONTS / "Inter-Regular.ttf"
 FALLBACK_FONT_PATH = _ASSETS_FONTS / "DejaVuSans.ttf"
 
 

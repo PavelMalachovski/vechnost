@@ -49,10 +49,11 @@ def test_module_count_matches_loaded_items():
     )
 
 
-def test_non_russian_falls_back_to_russian():
-    ru = load_practices("practices_self", Language.RUSSIAN)
-    en = load_practices("practices_self", Language.ENGLISH)
-    assert en == ru
+def test_unsupported_code_coerces_to_russian():
+    """The YAML-fallback behaviour this replaced is no longer reachable from
+    outside `library.py` now that `Language` has one member; this pins the
+    `Language.coerce` fallback that stands in for it."""
+    assert Language.coerce("en") is Language.RUSSIAN
 
 
 def test_unknown_module_raises():

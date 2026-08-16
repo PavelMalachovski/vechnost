@@ -24,10 +24,7 @@ def _bot() -> Bot | None:
 
 
 def _user_language(code: str | None) -> Language:
-    try:
-        return Language(code)
-    except ValueError:
-        return Language.RUSSIAN
+    return Language.coerce(code)
 
 
 def _keyboard(language: Language) -> InlineKeyboardMarkup | None:

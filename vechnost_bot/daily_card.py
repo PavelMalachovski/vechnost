@@ -18,17 +18,15 @@ from .renderer import render_card
 
 logger = logging.getLogger(__name__)
 
-# Reflection prompts belong to no deck, so they get the neutral background.
+# The daily prompt belongs to no deck, so it rides the Library card: the
+# brand face with the V/Λ letters and the VECHNOST wordmark, and no suit.
 _BACKGROUND = str(
-    Path(__file__).parent.parent / "assets" / "backgrounds" / "default.png"
+    Path(__file__).parent.parent / "assets" / "backgrounds" / "library.png"
 )
 
 
 def _user_language(code: str | None) -> Language:
-    try:
-        return Language(code)
-    except ValueError:
-        return Language.RUSSIAN
+    return Language.coerce(code)
 
 
 def _daily_keyboard(language: Language) -> InlineKeyboardMarkup:

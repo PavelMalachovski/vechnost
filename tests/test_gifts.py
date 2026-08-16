@@ -46,7 +46,9 @@ def test_is_gift_purchase_matches_configured_product():
 
 
 def test_gift_language_fallback():
-    assert gift_language("en") == Language.ENGLISH
+    """`en` is a pre-single-language code carried over from old certificates;
+    every code now coerces to Russian, the only language left."""
+    assert gift_language("en") == Language.RUSSIAN
     assert gift_language("de") == Language.RUSSIAN
     assert gift_language(None) == Language.RUSSIAN
 

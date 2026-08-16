@@ -4,14 +4,19 @@ import logging
 from abc import ABC, abstractmethod
 from typing import Any
 
-from telegram import InlineKeyboardButton, InlineKeyboardMarkup, InputMediaPhoto, Update
+from telegram import (
+    InlineKeyboardButton,
+    InlineKeyboardMarkup,
+    InputMediaPhoto,
+    Update,
+    WebAppInfo,
+)
 
 from .callback_models import (
     BackCallbackData,
     CalendarCallbackData,
     CallbackAction,
     CallbackData,
-    LanguageBackCallbackData,
     LanguageCallbackData,
     LanguageConfirmCallbackData,
     LevelCallbackData,
@@ -21,6 +26,7 @@ from .callback_models import (
     ThemeCallbackData,
     ToggleCallbackData,
 )
+from .config import settings
 from .hybrid_storage import get_redis_storage
 from .i18n import Language, format_number, get_text
 from .keyboards import (
@@ -31,7 +37,6 @@ from .keyboards import (
     get_reset_confirmation_keyboard,
     get_theme_keyboard,
 )
-from .language_keyboards import get_language_selection_keyboard
 from .logic import load_game_data, localized_game_data
 from .models import ContentType, SessionState, Theme
 from .renderer import get_background_path, render_card
@@ -48,6 +53,42 @@ def _card_footer(theme: Theme, index: int, total: int, language: Language) -> st
     theme_label = get_text(f'themes.{theme.value}', language)
     plain = ''.join(ch for ch in theme_label if ch.isalpha() or ch.isspace()).strip()
     return f"{plain} · {index + 1}/{total}"
+
+
+def _calendar_header(
+    session: SessionState, content_type: ContentType, remaining_count: int
+) -> str:
+    """The line above the calendar keyboard, for whichever deck is open.
+
+    Four shapes, not one, and the differences are deliberate: the Sex deck is
+    titled by content type, Provocation carries neither a level nor a count, a
+    levelled deck is a one-line title, and only the levelless fallback spends a
+    second line on how many cards are left. Merging the last two would put a
+    card count on a message that has never had one — and the levelless one
+    names no level, which is why its key has no `{level}` slot to leave empty.
+
+    Six call sites held this decision verbatim, which is how the levelled
+    branch kept a plain hyphen while its twin in the YAML moved to the middot
+    that `_card_footer` above already prints onto the card image.
+    """
+    if session.theme == Theme.SEX:
+        key = ('calendar.sex_questions' if content_type == ContentType.QUESTIONS
+               else 'calendar.sex_tasks')
+        return get_text(key, session.language)
+
+    theme_name = get_text(f'themes.{session.theme.value}', session.language)
+    if session.theme == Theme.PROVOCATION:
+        # Provocation: show only theme name without level and card count
+        return theme_name
+    if session.level:
+        return get_text('calendar.level_header', session.language).format(
+            theme=theme_name,
+            level=format_number(session.level, session.language),
+        )
+    return get_text('calendar.header', session.language).format(
+        theme=theme_name,
+        remaining_count=format_number(remaining_count, session.language),
+    )
 
 
 def _card_watermark() -> str:
@@ -198,27 +239,7 @@ class ThemeHandler(CallbackHandler):
         # Calculate remaining count
         remaining_count = len(items)
 
-        # Build header text
-        if session.theme == Theme.SEX:
-            if content_type == ContentType.QUESTIONS:
-                header = get_text('calendar.sex_questions', session.language)
-            else:
-                header = get_text('calendar.sex_tasks', session.language)
-        else:
-            # Get theme name from translations
-            theme_name = get_text(f'themes.{session.theme.value}', session.language)
-            if session.theme == Theme.PROVOCATION:
-                # Provocation: show only theme name without level and card count
-                header = theme_name
-            elif session.level:
-                level_text = get_text('level.level', session.language)
-                header = f"{theme_name} - {level_text} {session.level}"
-            else:
-                header = get_text('calendar.header', session.language).format(
-                    theme=theme_name,
-                    level=format_number(session.level, session.language) if session.level else "",
-                    remaining_count=format_number(remaining_count, session.language)
-                )
+        header = _calendar_header(session, content_type, remaining_count)
 
         # Show toggle only for Sex theme
         show_toggle = (session.theme == Theme.SEX)
@@ -301,27 +322,7 @@ class LevelHandler(CallbackHandler):
         # Calculate remaining count
         remaining_count = len(items)
 
-        # Build header text
-        if session.theme == Theme.SEX:
-            if content_type == ContentType.QUESTIONS:
-                header = get_text('calendar.sex_questions', session.language)
-            else:
-                header = get_text('calendar.sex_tasks', session.language)
-        else:
-            # Get theme name from translations
-            theme_name = get_text(f'themes.{session.theme.value}', session.language)
-            if session.theme == Theme.PROVOCATION:
-                # Provocation: show only theme name without level and card count
-                header = theme_name
-            elif session.level:
-                level_text = get_text('level.level', session.language)
-                header = f"{theme_name} - {level_text} {session.level}"
-            else:
-                header = get_text('calendar.header', session.language).format(
-                    theme=theme_name,
-                    level=format_number(session.level, session.language) if session.level else "",
-                    remaining_count=format_number(remaining_count, session.language)
-                )
+        header = _calendar_header(session, content_type, remaining_count)
 
         # Show toggle only for Sex theme
         show_toggle = (session.theme == Theme.SEX)
@@ -411,27 +412,7 @@ class CalendarHandler(CallbackHandler):
         # Calculate remaining count
         remaining_count = len(items)
 
-        # Build header text
-        if session.theme == Theme.SEX:
-            if content_type == ContentType.QUESTIONS:
-                header = get_text('calendar.sex_questions', session.language)
-            else:
-                header = get_text('calendar.sex_tasks', session.language)
-        else:
-            # Get theme name from translations
-            theme_name = get_text(f'themes.{session.theme.value}', session.language)
-            if session.theme == Theme.PROVOCATION:
-                # Provocation: show only theme name without level and card count
-                header = theme_name
-            elif session.level:
-                level_text = get_text('level.level', session.language)
-                header = f"{theme_name} - {level_text} {session.level}"
-            else:
-                header = get_text('calendar.header', session.language).format(
-                    theme=theme_name,
-                    level=format_number(session.level, session.language) if session.level else "",
-                    remaining_count=format_number(remaining_count, session.language)
-                )
+        header = _calendar_header(session, content_type, remaining_count)
 
         # Show toggle only for Sex theme
         show_toggle = (session.theme == Theme.SEX)
@@ -678,27 +659,7 @@ class ToggleHandler(CallbackHandler):
         # Calculate remaining count
         remaining_count = len(items)
 
-        # Build header text
-        if session.theme == Theme.SEX:
-            if content_type == ContentType.QUESTIONS:
-                header = get_text('calendar.sex_questions', session.language)
-            else:
-                header = get_text('calendar.sex_tasks', session.language)
-        else:
-            # Get theme name from translations
-            theme_name = get_text(f'themes.{session.theme.value}', session.language)
-            if session.theme == Theme.PROVOCATION:
-                # Provocation: show only theme name without level and card count
-                header = theme_name
-            elif session.level:
-                level_text = get_text('level.level', session.language)
-                header = f"{theme_name} - {level_text} {session.level}"
-            else:
-                header = get_text('calendar.header', session.language).format(
-                    theme=theme_name,
-                    level=format_number(session.level, session.language) if session.level else "",
-                    remaining_count=format_number(remaining_count, session.language)
-                )
+        header = _calendar_header(session, content_type, remaining_count)
 
         # Show toggle only for Sex theme
         show_toggle = (session.theme == Theme.SEX)
@@ -810,27 +771,7 @@ class BackHandler(CallbackHandler):
         # Calculate remaining count
         remaining_count = len(items)
 
-        # Build header text
-        if session.theme == Theme.SEX:
-            if content_type == ContentType.QUESTIONS:
-                header = get_text('calendar.sex_questions', session.language)
-            else:
-                header = get_text('calendar.sex_tasks', session.language)
-        else:
-            # Get theme name from translations
-            theme_name = get_text(f'themes.{session.theme.value}', session.language)
-            if session.theme == Theme.PROVOCATION:
-                # Provocation: show only theme name without level and card count
-                header = theme_name
-            elif session.level:
-                level_text = get_text('level.level', session.language)
-                header = f"{theme_name} - {level_text} {session.level}"
-            else:
-                header = get_text('calendar.header', session.language).format(
-                    theme=theme_name,
-                    level=format_number(session.level, session.language) if session.level else "",
-                    remaining_count=format_number(remaining_count, session.language)
-                )
+        header = _calendar_header(session, content_type, remaining_count)
 
         # Show toggle only for Sex theme
         show_toggle = (session.theme == Theme.SEX)
@@ -982,27 +923,7 @@ class SimpleActionHandler(CallbackHandler):
         # Calculate remaining count
         remaining_count = len(items)
 
-        # Build header text
-        if session.theme == Theme.SEX:
-            if content_type == ContentType.QUESTIONS:
-                header = get_text('calendar.sex_questions', session.language)
-            else:
-                header = get_text('calendar.sex_tasks', session.language)
-        else:
-            # Get theme name from translations
-            theme_name = get_text(f'themes.{session.theme.value}', session.language)
-            if session.theme == Theme.PROVOCATION:
-                # Provocation: show only theme name without level and card count
-                header = theme_name
-            elif session.level:
-                level_text = get_text('level.level', session.language)
-                header = f"{theme_name} - {level_text} {session.level}"
-            else:
-                header = get_text('calendar.header', session.language).format(
-                    theme=theme_name,
-                    level=format_number(session.level, session.language) if session.level else "",
-                    remaining_count=format_number(remaining_count, session.language)
-                )
+        header = _calendar_header(session, content_type, remaining_count)
 
         # Show toggle only for Sex theme
         show_toggle = (session.theme == Theme.SEX)
@@ -1046,7 +967,6 @@ class CallbackHandlerRegistry:
             CallbackAction.NOOP: SimpleActionHandler(),
             CallbackAction.LANGUAGE: LanguageHandler(),
             CallbackAction.LANGUAGE_CONFIRM: LanguageConfirmHandler(),
-            CallbackAction.LANGUAGE_BACK: LanguageBackHandler(),
             CallbackAction.CHECK_PAYMENT: CheckPaymentHandler(),
             CallbackAction.START_GAME: StartGameHandler(),
             CallbackAction.SHOW_INSIDE: ShowInsideHandler(),
@@ -1097,74 +1017,70 @@ class CallbackHandlerRegistry:
                 logger.error(f"Error editing message: {edit_error}")
 
 
+def welcome_screen(language: Language) -> tuple[str, InlineKeyboardMarkup]:
+    """The greeting page: what `/start` opens on and what every 'back'
+    button returns to. One builder, so the two can never drift apart."""
+    text = (
+        f"<b>{get_text('welcome.greeting_title', language)}</b>\n"
+        f"<i>{get_text('welcome.greeting_subtitle', language)}</i>\n\n"
+        f"━━━━━━━━━━━━━━━━━━━━\n\n"
+        f"<b>{get_text('welcome.section_connection_title', language)}</b>\n"
+        f"{get_text('welcome.section_connection_text', language)}\n\n"
+        f"<b>{get_text('welcome.section_intimacy_title', language)}</b>\n"
+        f"{get_text('welcome.section_intimacy_text', language)}\n\n"
+        f"<b>{get_text('welcome.section_themes_title', language)}</b>\n"
+        f"{get_text('welcome.section_themes_text', language)}\n\n"
+        f"<b>{get_text('welcome.section_best_title', language)}</b>\n"
+        f"{get_text('welcome.section_best_text', language)}\n\n"
+        f"━━━━━━━━━━━━━━━━━━━━"
+    )
+
+    rows = [[InlineKeyboardButton(
+        get_text('welcome.button_start', language), callback_data="start_game"
+    )]]
+    if settings.webapp_url:
+        rows.append([InlineKeyboardButton(
+            get_text('welcome.button_webapp', language),
+            web_app=WebAppInfo(url=settings.webapp_url)
+        )])
+        rows.append([InlineKeyboardButton(
+            get_text('welcome.button_library', language),
+            web_app=WebAppInfo(url=settings.webapp_library_url)
+        )])
+    rows.extend([
+        [InlineKeyboardButton(get_text('welcome.button_inside', language),
+                              callback_data="show_inside")],
+        [InlineKeyboardButton(get_text('welcome.button_why', language),
+                              callback_data="show_why")],
+    ])
+    # The gift entry point is only reachable from here; dropping it would
+    # strand `ShowGiftHandler` behind a button nothing renders any more.
+    if settings.gift_product_id or settings.gift_payment_url:
+        rows.append([InlineKeyboardButton(
+            get_text('gift.button', language), callback_data="show_gift"
+        )])
+    return text, InlineKeyboardMarkup(rows)
+
+
 class LanguageHandler(CallbackHandler):
-    """Handler for language selection callbacks."""
+    """The welcome screen, reached by the `lang_` callbacks.
+
+    Named for the language chooser it used to serve. The choice is gone, but
+    the prefix stays routed: `ShowInsideHandler`, `ShowWhyHandler` and
+    `ShowGiftHandler` send `lang_ru` as their 'back' target, and messages
+    already sitting in users' chat histories carry those buttons too.
+    """
 
     async def handle(self, query: Any, callback_data: LanguageCallbackData, session: SessionState) -> None:
-        """Handle language selection."""
-        try:
-            language = Language(callback_data.language_code)
-        except ValueError:
-            await query.edit_message_text(get_text('errors.unknown_callback', session.language))
-            return
+        """Show the welcome screen."""
+        language = Language.coerce(callback_data.language_code)
 
         # Update session language
         session.language = language
 
-        # Show greeting page with sections (like in the screenshot)
-        greeting_text = (
-            f"<b>{get_text('welcome.greeting_title', language)}</b>\n"
-            f"<i>{get_text('welcome.greeting_subtitle', language)}</i>\n\n"
-            f"━━━━━━━━━━━━━━━━━━━━\n\n"
-            f"<b>{get_text('welcome.section_connection_title', language)}</b>\n"
-            f"{get_text('welcome.section_connection_text', language)}\n\n"
-            f"<b>{get_text('welcome.section_intimacy_title', language)}</b>\n"
-            f"{get_text('welcome.section_intimacy_text', language)}\n\n"
-            f"<b>{get_text('welcome.section_themes_title', language)}</b>\n"
-            f"{get_text('welcome.section_themes_text', language)}\n\n"
-            f"<b>{get_text('welcome.section_best_title', language)}</b>\n"
-            f"{get_text('welcome.section_best_text', language)}\n\n"
-            f"━━━━━━━━━━━━━━━━━━━━"
-        )
+        text, keyboard = welcome_screen(language)
 
-        # Create keyboard with three buttons (like in the screenshot)
-        from telegram import WebAppInfo
-
-        from .config import settings
-
-        rows = [
-            [InlineKeyboardButton(
-                get_text('welcome.button_start', language),
-                callback_data="start_game"
-            )],
-        ]
-        if settings.webapp_url:
-            rows.append([InlineKeyboardButton(
-                get_text('welcome.button_webapp', language),
-                web_app=WebAppInfo(url=settings.webapp_url)
-            )])
-            rows.append([InlineKeyboardButton(
-                get_text('welcome.button_library', language),
-                web_app=WebAppInfo(url=settings.webapp_library_url)
-            )])
-        rows.extend([
-            [InlineKeyboardButton(
-                get_text('welcome.button_inside', language),
-                callback_data="show_inside"
-            )],
-            [InlineKeyboardButton(
-                get_text('welcome.button_why', language),
-                callback_data="show_why"
-            )]
-        ])
-        if settings.gift_product_id or settings.gift_payment_url:
-            rows.append([InlineKeyboardButton(
-                get_text('gift.button', language),
-                callback_data="show_gift"
-            )])
-        keyboard = InlineKeyboardMarkup(rows)
-
-        await self._edit_or_send_message(query, greeting_text, keyboard, parse_mode="HTML")
+        await self._edit_or_send_message(query, text, keyboard, parse_mode="HTML")
 
     async def _edit_or_send_message(self, query: Any, text: str, keyboard: Any, parse_mode: str = None) -> None:
         """Edit message or send new one if editing fails."""
@@ -1184,11 +1100,7 @@ class LanguageConfirmHandler(CallbackHandler):
 
     async def handle(self, query: Any, callback_data: LanguageConfirmCallbackData, session: SessionState) -> None:
         """Handle language confirmation."""
-        try:
-            language = Language(callback_data.language_code)
-        except ValueError:
-            await query.edit_message_text(get_text('errors.unknown_callback', session.language))
-            return
+        language = Language.coerce(callback_data.language_code)
 
         # Update session language
         session.language = language
@@ -1196,34 +1108,6 @@ class LanguageConfirmHandler(CallbackHandler):
         # Show welcome message and theme selection
         welcome_text = get_text('welcome.welcome_message', language)
         keyboard = get_theme_keyboard(language)
-
-        await self._edit_or_send_message(query, welcome_text, keyboard)
-
-    async def _edit_or_send_message(self, query: Any, text: str, keyboard: Any) -> None:
-        """Edit message or send new one if editing fails."""
-        try:
-            await query.edit_message_text(text, reply_markup=keyboard)
-        except Exception as edit_error:
-            logger.warning(f"Could not edit message text: {edit_error}, deleting and sending new message")
-            try:
-                await query.message.delete()
-            except Exception as delete_error:
-                logger.warning(f"Could not delete message: {delete_error}")
-            await query.message.reply_text(text, reply_markup=keyboard)
-
-
-class LanguageBackHandler(CallbackHandler):
-    """Handler for language selection back navigation."""
-
-    async def handle(self, query: Any, callback_data: LanguageBackCallbackData, session: SessionState) -> None:
-        """Handle language selection back navigation."""
-        # Show language selection again
-        welcome_text = (
-            f"{get_text('welcome.greeting_title', session.language)}\n\n"
-            f"{get_text('welcome.greeting_subtitle', session.language)}\n\n"
-            f"{get_text('welcome.language_prompt', session.language)}"
-        )
-        keyboard = get_language_selection_keyboard(session.language)
 
         await self._edit_or_send_message(query, welcome_text, keyboard)
 

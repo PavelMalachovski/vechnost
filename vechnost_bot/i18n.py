@@ -13,10 +13,30 @@ logger = logging.getLogger(__name__)
 
 
 class Language(str, Enum):
-    """Supported languages."""
+    """The languages the product ships. English and Czech are retired: the
+    content behind them is in git history, one revert away, but nothing at
+    runtime branches on language any more."""
     RUSSIAN = "ru"
-    ENGLISH = "en"
-    CZECH = "cs"
+
+    @classmethod
+    def coerce(cls, code: "str | Language | None") -> "Language":
+        """A stored or client-supplied code, read as a supported language.
+
+        Users predating this change carry `en`/`cs` in the database and in
+        Mini App query strings; `Language(code)` would raise on those, and
+        it is called on paths that render outside a try block.
+
+        An already-typed member short-circuits: this is a `str, Enum`, so
+        `str(Language.RUSSIAN)` is `"Language.RUSSIAN"` and a member would
+        otherwise fall through to the fallback and come back as Russian by
+        luck rather than by lookup.
+        """
+        if isinstance(code, cls):
+            return code
+        try:
+            return cls(str(code).lower())
+        except (ValueError, AttributeError):
+            return cls.RUSSIAN
 
 
 class I18nManager:
@@ -41,19 +61,12 @@ class I18nManager:
                 else:
                     ui_translations = {}
 
-                # Load questions translations
-                questions_file = self.data_dir / f"questions_{language.value}.yaml"
-                if questions_file.exists():
-                    with open(questions_file, 'r', encoding='utf-8') as f:
-                        questions_translations = yaml.safe_load(f) or {}
-                else:
-                    questions_translations = {}
-
-                # Merge translations
-                self.translations[language] = {
-                    "ui": ui_translations,
-                    "questions": questions_translations
-                }
+                # Only the UI strings. This also read `questions_{lang}.yaml`
+                # into a "questions" key for `get_questions`, but that file has
+                # never existed under that name — the deck lives in
+                # `data/questions.yaml` and is loaded by `logic.py` — so the
+                # key was always empty, and its one reader is gone.
+                self.translations[language] = {"ui": ui_translations}
 
                 logger.info(f"Loaded translations for {language.value}")
 
@@ -104,35 +117,6 @@ class I18nManager:
             logger.error(f"Error getting text for key {key}: {e}")
             return key
 
-    def get_questions(self, theme: str, level: int, content_type: str, language: Language = Language.RUSSIAN) -> list[str]:
-        """Get translated questions for a theme and level."""
-        try:
-            questions_data = self.translations.get(language, {}).get("questions", {})
-            themes = questions_data.get("themes", {})
-            theme_data = themes.get(theme, {})
-            levels = theme_data.get("levels", {})
-            level_data = levels.get(str(level), {})
-            content = level_data.get(content_type, [])
-
-            if not content and language != Language.RUSSIAN:
-                # Fallback to Russian
-                return self.get_questions(theme, level, content_type, Language.RUSSIAN)
-
-            return content if isinstance(content, list) else []
-
-        except Exception as e:
-            logger.error(f"Error getting questions for {theme}/{level}/{content_type}: {e}")
-            return []
-
-    def get_available_themes(self, language: Language = Language.RUSSIAN) -> Dict[str, str]:
-        """Get available themes with their translated names."""
-        try:
-            themes_data = self.translations.get(language, {}).get("themes", {})
-            return themes_data
-        except Exception as e:
-            logger.error(f"Error getting themes for {language.value}: {e}")
-            return {}
-
     def format_number(self, number: int, language: Language = Language.RUSSIAN) -> str:
         """Format a number according to locale rules."""
         try:
@@ -143,28 +127,6 @@ class I18nManager:
         except Exception as e:
             logger.error(f"Error formatting number {number} for {language.value}: {e}")
             return str(number)
-
-    def get_language_name(self, language: Language, target_language: Language = Language.RUSSIAN) -> str:
-        """Get the display name of a language in the target language."""
-        language_names = {
-            Language.RUSSIAN: {
-                Language.RUSSIAN: "Русский",
-                Language.ENGLISH: "Russian",
-                Language.CZECH: "Ruština"
-            },
-            Language.ENGLISH: {
-                Language.RUSSIAN: "Английский",
-                Language.ENGLISH: "English",
-                Language.CZECH: "Angličtina"
-            },
-            Language.CZECH: {
-                Language.RUSSIAN: "Чешский",
-                Language.ENGLISH: "Czech",
-                Language.CZECH: "Čeština"
-            }
-        }
-
-        return language_names.get(language, {}).get(target_language, language.value)
 
 
 # Global i18n manager instance
@@ -177,45 +139,20 @@ def get_text(key: str, language: Language = Language.RUSSIAN, **kwargs) -> str:
     return i18n_manager.get_text(key, language, **kwargs)
 
 
-def get_questions(theme: str, level: int, content_type: str, language: Language = Language.RUSSIAN) -> list[str]:
-    """Get translated questions for a theme and level."""
-    return i18n_manager.get_questions(theme, level, content_type, language)
-
-
-def get_available_themes(language: Language = Language.RUSSIAN) -> Dict[str, str]:
-    """Get available themes with their translated names."""
-    return i18n_manager.get_available_themes(language)
-
-
 def format_number(number: int, language: Language = Language.RUSSIAN) -> str:
     """Format a number according to locale rules."""
     return i18n_manager.format_number(number, language)
 
 
-def get_language_name(language: Language, target_language: Language = Language.RUSSIAN) -> str:
-    """Get the display name of a language in the target language."""
-    return i18n_manager.get_language_name(language, target_language)
-
-
-# Language detection utilities
-def detect_language_from_text(text: str) -> Language:
-    """Simple language detection based on text content."""
-    text_lower = text.lower()
-
-    # Czech indicators
-    czech_indicators = ['č', 'ř', 'ž', 'š', 'ď', 'ť', 'ň', 'ů', 'ý', 'á', 'í', 'é', 'ó', 'ú']
-    if any(char in text_lower for char in czech_indicators):
-        return Language.CZECH
-
-    # English indicators (common English words)
-    english_indicators = ['the', 'and', 'or', 'but', 'in', 'on', 'at', 'to', 'for', 'of', 'with', 'by']
-    if any(word in text_lower for word in english_indicators):
-        return Language.ENGLISH
-
-    # Default to Russian
-    return Language.RUSSIAN
-
-
-def get_supported_languages() -> list[Language]:
-    """Get list of supported languages."""
-    return list(Language)
+# `get_language_name`, `get_supported_languages` and `detect_language_from_text`
+# lived here to feed the language chooser and the `/start` flow that picked a
+# language from the user's message. Both of those callers are gone, and all
+# three functions had collapsed to a constant — deleted rather than left as
+# Russian-shaped stubs.
+#
+# `get_questions` and `get_available_themes` went the same way, and had never
+# worked: the first read a "questions" key filled from a `questions_ru.yaml`
+# that has never existed, the second a "themes" key `_load_translations` never
+# wrote, so it always returned `{}`. Nothing imported either. The deck is
+# `logic.py`'s (`data/questions.yaml`) and the theme names are ordinary
+# `get_text('themes.…')` lookups.

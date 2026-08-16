@@ -10,7 +10,6 @@ from vechnost_bot.handlers import (
     help_command,
     reset_command,
     handle_callback_query,
-    detect_language_from_text,
     generate_welcome_image_with_logo
 )
 from vechnost_bot.models import SessionState, Theme, Language
@@ -43,20 +42,22 @@ class TestCommandHandlers:
     @pytest.mark.asyncio
     async def test_start_command_success(self, mock_update, mock_context):
         """Test successful start command."""
-        with patch('vechnost_bot.handlers.get_language_selection_keyboard') as mock_keyboard, \
-             patch('vechnost_bot.handlers.detect_language_from_text') as mock_detect, \
-             patch('vechnost_bot.handlers.open') as mock_open, \
+        with patch('vechnost_bot.handlers.welcome_screen') as mock_welcome, \
              patch('vechnost_bot.handlers.set_user_context') as mock_set_context:
 
-            mock_detect.return_value = Language.ENGLISH
-            mock_keyboard.return_value = MagicMock()
-            mock_open.return_value.__enter__.return_value = MagicMock()
+            keyboard = MagicMock()
+            mock_welcome.return_value = ("добро пожаловать", keyboard)
+            mock_update.message.reply_text = AsyncMock()
             mock_update.message.reply_photo = AsyncMock()
 
             await start_command(mock_update, mock_context)
 
             mock_set_context.assert_called_once_with(12345, "testuser")
+            # brand logo first, as its own message, then the greeting
             mock_update.message.reply_photo.assert_called_once()
+            mock_update.message.reply_text.assert_called_once_with(
+                "добро пожаловать", reply_markup=keyboard, parse_mode="HTML"
+            )
 
     @pytest.mark.asyncio
     async def test_start_command_no_message(self, mock_context):
@@ -83,7 +84,7 @@ class TestCommandHandlers:
              patch('vechnost_bot.handlers.get_reset_keyboard') as mock_keyboard:
 
             mock_session = MagicMock(spec=SessionState)
-            mock_session.language = Language.ENGLISH
+            mock_session.language = Language.RUSSIAN
             mock_get_session.return_value = mock_session
             mock_keyboard.return_value = MagicMock()
             mock_update.message.reply_text = AsyncMock()
@@ -143,36 +144,12 @@ class TestCallbackHandlers:
 class TestUtilityFunctions:
     """Test utility functions."""
 
-    def test_detect_language_from_text_russian(self):
-        """Test Russian language detection."""
-        text = "Привет, как дела?"
-        result = detect_language_from_text(text)
-        assert result == Language.RUSSIAN
-
-    def test_detect_language_from_text_english(self):
-        """Test English language detection."""
-        text = "Hello, how are you?"
-        result = detect_language_from_text(text)
-        assert result == Language.ENGLISH
-
-    def test_detect_language_from_text_czech(self):
-        """Test Czech language detection."""
-        text = "Ahoj, jak se máš?"
-        result = detect_language_from_text(text)
-        assert result == Language.CZECH
-
-    def test_detect_language_from_text_default(self):
-        """Test default language detection."""
-        text = "123456789"
-        result = detect_language_from_text(text)
-        assert result == Language.RUSSIAN
-
     @patch('vechnost_bot.handlers.generate_vechnost_logo')
     def test_generate_welcome_image_with_logo(self, mock_generate_logo):
         """Test welcome image generation."""
         mock_generate_logo.return_value = MagicMock()
 
-        result = generate_welcome_image_with_logo(Language.ENGLISH)
+        result = generate_welcome_image_with_logo(Language.RUSSIAN)
 
         mock_generate_logo.assert_called_once()
         assert result is not None

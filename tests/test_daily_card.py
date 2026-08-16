@@ -3,9 +3,8 @@
 import asyncio
 import os
 from datetime import date
+from pathlib import Path
 from unittest.mock import AsyncMock, MagicMock, patch
-
-import pytest
 
 os.environ.setdefault("TELEGRAM_BOT_TOKEN", "1234567890:TEST_TOKEN_FOR_UNIT_TESTS")
 
@@ -43,9 +42,8 @@ def test_leap_day_renders_without_raising():
     assert image.getvalue()
 
 
-@pytest.mark.parametrize("language", list(Language))
-def test_renders_in_every_language(language):
-    image, caption = render_daily_card(date(2026, 3, 3), language)
+def test_renders_in_russian():
+    image, caption = render_daily_card(date(2026, 3, 3), Language.RUSSIAN)
     assert image.getvalue()
     assert caption.strip()
 
@@ -121,3 +119,12 @@ def test_blocked_user_is_opted_out():
 
     assert sent == 0
     captured[0].set_daily_card_opt_out.assert_awaited_once()
+
+
+def test_daily_card_uses_the_library_face():
+    """The daily prompt is a Library item, so it must ride the Library card,
+    not the blank framed default the deck falls back to."""
+    from vechnost_bot import daily_card
+
+    assert Path(daily_card._BACKGROUND).name == "library.png"
+    assert Path(daily_card._BACKGROUND).exists()

@@ -1,4 +1,4 @@
-"""Deck content invariants that must hold across all languages."""
+"""Deck content invariants for the shipped question file."""
 
 import re
 from pathlib import Path
@@ -7,7 +7,7 @@ import pytest
 import yaml
 
 DATA = Path(__file__).parent.parent / "data"
-FILES = ["questions.yaml", "questions_en.yaml", "questions_cs.yaml"]
+FILES = ["questions.yaml"]  # English and Czech decks are retired; see i18n.Language.
 
 EXPECTED_SIZES = {
     ("Acquaintance", 1, "questions"): 30,
@@ -39,12 +39,6 @@ def _sizes(filename: str) -> dict:
 @pytest.mark.parametrize("filename", FILES)
 def test_deck_sizes_match_spec(filename):
     assert _sizes(filename) == EXPECTED_SIZES
-
-
-def test_all_languages_have_identical_deck_sizes():
-    reference = _sizes(FILES[0])
-    for filename in FILES[1:]:
-        assert _sizes(filename) == reference, f"{filename} diverged from {FILES[0]}"
 
 
 def test_russian_provocation_uses_partnersha():

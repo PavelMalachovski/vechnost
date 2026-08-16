@@ -77,6 +77,14 @@ class RedisStorage:
                 # Convert list back to set for drawn_cards
                 if 'drawn_cards' in session_dict and isinstance(session_dict['drawn_cards'], list):
                     session_dict['drawn_cards'] = set(session_dict['drawn_cards'])
+                # A session written before the product went Russian-only carries
+                # `en`/`cs`. `SessionState(language='en')` raises, the `except`
+                # below swallows it, and the caller gets None — the user's theme,
+                # level, position, drawn cards and 18+ confirmation are silently
+                # discarded mid-game, with an ERROR logged on every read. This is
+                # the deserialization path `Language.coerce` exists for.
+                if 'language' in session_dict:
+                    session_dict['language'] = Language.coerce(session_dict['language'])
                 return SessionState(**session_dict)
             return None
 

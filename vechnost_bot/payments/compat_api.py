@@ -42,10 +42,7 @@ def _generate_code() -> str:
 
 
 def _language(lang: str) -> Language:
-    try:
-        return Language(lang)
-    except ValueError:
-        return Language.RUSSIAN
+    return Language.coerce(lang)
 
 
 def _caller(

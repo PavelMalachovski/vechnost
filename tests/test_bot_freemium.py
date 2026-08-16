@@ -102,7 +102,7 @@ async def test_paywall_message_without_price():
             AsyncMock(return_value=None),
         ),
     ):
-        await _send_card_paywall(query, Language.ENGLISH)
+        await _send_card_paywall(query, Language.RUSSIAN)
 
     text = query.message.reply_text.call_args.args[0]
     assert "🔒" in text

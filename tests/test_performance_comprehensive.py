@@ -21,7 +21,7 @@ class TestStoragePerformance:
     async def test_session_save_performance(self, hybrid_storage_with_memory):
         """Test session save performance."""
         session = SessionState(
-            language=Language.ENGLISH,
+            language=Language.RUSSIAN,
             theme=Theme.ACQUAINTANCE,
             level=1,
             content_type=ContentType.QUESTIONS
@@ -40,7 +40,7 @@ class TestStoragePerformance:
     async def test_session_get_performance(self, hybrid_storage_with_memory):
         """Test session get performance."""
         session = SessionState(
-            language=Language.ENGLISH,
+            language=Language.RUSSIAN,
             theme=Theme.ACQUAINTANCE,
             level=1
         )
@@ -62,7 +62,7 @@ class TestStoragePerformance:
         async def create_session(user_id: int):
             """Create a session for a user."""
             session = SessionState(
-                language=Language.ENGLISH,
+                language=Language.RUSSIAN,
                 theme=Theme.ACQUAINTANCE,
                 level=1
             )
@@ -84,7 +84,7 @@ class TestStoragePerformance:
         # Verify all sessions were created correctly
         for session in sessions:
             assert session is not None
-            assert session.language == Language.ENGLISH
+            assert session.language == Language.RUSSIAN
             assert session.theme == Theme.ACQUAINTANCE
 
     @pytest.mark.performance
@@ -92,7 +92,7 @@ class TestStoragePerformance:
     async def test_session_update_performance(self, hybrid_storage_with_memory):
         """Test session update performance."""
         session = SessionState(
-            language=Language.ENGLISH,
+            language=Language.RUSSIAN,
             theme=Theme.ACQUAINTANCE,
             level=1
         )
@@ -127,7 +127,7 @@ class TestStoragePerformance:
         sessions = []
         for i in range(1000):
             session = SessionState(
-                language=Language.ENGLISH,
+                language=Language.RUSSIAN,
                 theme=Theme.ACQUAINTANCE,
                 level=1
             )
@@ -340,7 +340,7 @@ class TestMemoryPerformance:
             # Create sessions
             for i in range(count):
                 session = SessionState(
-                    language=Language.ENGLISH,
+                    language=Language.RUSSIAN,
                     theme=Theme.ACQUAINTANCE,
                     level=1
                 )
@@ -363,7 +363,7 @@ class TestMemoryPerformance:
         # Create many sessions
         for i in range(1000):
             session = SessionState(
-                language=Language.ENGLISH,
+                language=Language.RUSSIAN,
                 theme=Theme.ACQUAINTANCE,
                 level=1
             )
@@ -433,7 +433,7 @@ class TestLoadTesting:
             """Simulate a user session."""
             # Create session
             session = SessionState(
-                language=Language.ENGLISH,
+                language=Language.RUSSIAN,
                 theme=Theme.ACQUAINTANCE,
                 level=1
             )
@@ -471,7 +471,7 @@ class TestLoadTesting:
             """Perform sustained operations."""
             for i in range(100):
                 session = SessionState(
-                    language=Language.ENGLISH,
+                    language=Language.RUSSIAN,
                     theme=Theme.ACQUAINTANCE,
                     level=1
                 )
@@ -567,7 +567,7 @@ class TestPerformanceBenchmarks:
     async def test_benchmark_session_operations(self, hybrid_storage_with_memory):
         """Benchmark session operations."""
         session = SessionState(
-            language=Language.ENGLISH,
+            language=Language.RUSSIAN,
             theme=Theme.ACQUAINTANCE,
             level=1
         )

@@ -31,7 +31,7 @@ class TestRedisStorage:
         chat_id = 12345
         session = SessionState(
             chat_id=chat_id,
-            language=Language.ENGLISH,
+            language=Language.RUSSIAN,
             theme=Theme.ACQUAINTANCE,
             level=1,
             current_question=5
@@ -44,7 +44,7 @@ class TestRedisStorage:
         retrieved_session = await redis_storage_instance.get_session(chat_id)
         assert retrieved_session is not None
         assert retrieved_session.chat_id == chat_id
-        assert retrieved_session.language == Language.ENGLISH
+        assert retrieved_session.language == Language.RUSSIAN
         assert retrieved_session.theme == Theme.ACQUAINTANCE
         assert retrieved_session.level == 1
         assert retrieved_session.current_question == 5
@@ -172,7 +172,7 @@ class TestRedisPerformance:
         """Test batch operations performance."""
         chat_ids = list(range(1000, 1100))  # 100 sessions
         sessions = [
-            SessionState(chat_id=chat_id, language=Language.ENGLISH)
+            SessionState(chat_id=chat_id, language=Language.RUSSIAN)
             for chat_id in chat_ids
         ]
 
@@ -215,7 +215,7 @@ class TestRedisPerformance:
             "array_field": list(range(1000))  # 1000 integers
         }
 
-        session = SessionState(chat_id=12345, language=Language.ENGLISH)
+        session = SessionState(chat_id=12345, language=Language.RUSSIAN)
         session_dict = session.dict()
         session_dict.update(large_data)
 

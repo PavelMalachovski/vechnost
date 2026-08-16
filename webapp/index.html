@@ -3,24 +3,52 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
-<title>Vechnost — игра для близости</title>
+<title>Vechnost – игра для близости</title>
 <script src="https://telegram.org/js/telegram-web-app.js"></script>
 <style>
-  @font-face {
-    font-family: 'Montserrat';
-    src: url('fonts/Montserrat-Regular.woff2') format('woff2');
+  /* The brand three, the same faces the bot composites onto its cards:
+     Inter for text, Lora for the wordmark, Forum for the V/Λ emblem.
+     Each ships as two subsets — the bare file is Cyrillic-only and the
+     -latin one carries ASCII — so both are declared with the unicode-range
+     that selects them. Drop the -latin faces and every English string falls
+     back to the system sans. */
+  @font-face { font-family: 'Inter'; src: url('fonts/inter-400-latin.woff2') format('woff2');
     font-weight: 400; font-style: normal; font-display: swap;
-  }
-  @font-face {
-    font-family: 'Montserrat';
-    src: url('fonts/Montserrat-Bold.woff2') format('woff2');
+    unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+2000-206F, U+20AC, U+2122, U+2212; }
+  @font-face { font-family: 'Inter'; src: url('fonts/inter-400.woff2') format('woff2');
+    font-weight: 400; font-style: normal; font-display: swap;
+    unicode-range: U+0301, U+0400-045F, U+0490-0491, U+04B0-04B1, U+2116; }
+  @font-face { font-family: 'Inter'; src: url('fonts/inter-600-latin.woff2') format('woff2');
+    font-weight: 600; font-style: normal; font-display: swap;
+    unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+2000-206F, U+20AC, U+2122, U+2212; }
+  @font-face { font-family: 'Inter'; src: url('fonts/inter-600.woff2') format('woff2');
+    font-weight: 600; font-style: normal; font-display: swap;
+    unicode-range: U+0301, U+0400-045F, U+0490-0491, U+04B0-04B1, U+2116; }
+  @font-face { font-family: 'Inter'; src: url('fonts/inter-700-latin.woff2') format('woff2');
     font-weight: 700; font-style: normal; font-display: swap;
-  }
+    unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+2000-206F, U+20AC, U+2122, U+2212; }
+  @font-face { font-family: 'Inter'; src: url('fonts/inter-700.woff2') format('woff2');
+    font-weight: 700; font-style: normal; font-display: swap;
+    unicode-range: U+0301, U+0400-045F, U+0490-0491, U+04B0-04B1, U+2116; }
+  @font-face { font-family: 'Lora'; src: url('fonts/lora-400-latin.woff2') format('woff2');
+    font-weight: 400; font-style: normal; font-display: swap;
+    unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+2000-206F, U+20AC, U+2122, U+2212; }
+  @font-face { font-family: 'Lora'; src: url('fonts/lora-400.woff2') format('woff2');
+    font-weight: 400; font-style: normal; font-display: swap;
+    unicode-range: U+0301, U+0400-045F, U+0490-0491, U+04B0-04B1, U+2116; }
+  @font-face { font-family: 'Forum'; src: url('fonts/forum-400-latin.woff2') format('woff2');
+    font-weight: 400; font-style: normal; font-display: swap;
+    unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+2000-206F, U+20AC, U+2122, U+2212; }
+  @font-face { font-family: 'Forum'; src: url('fonts/forum-400.woff2') format('woff2');
+    font-weight: 400; font-style: normal; font-display: swap;
+    unicode-range: U+0301, U+0400-045F, U+0490-0491, U+04B0-04B1, U+2116; }
 
   :root {
+    --font-text: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    --font-logo: 'Lora', serif;
+    --font-emblem: 'Forum', serif;
     --ink: #350027;
     --card-bg: #FDEBF7;
-    --card-edge: #F5D3EA;
     --shell-1: #1C0414;
     --text-on-dark: #FBE9F4;
     --muted-on-dark: rgba(251, 233, 244, .62);
@@ -35,7 +63,7 @@
     height: 100%;
     overflow: hidden;
     overscroll-behavior: none;
-    font-family: 'Montserrat', -apple-system, BlinkMacSystemFont, "SF Pro Text", Roboto, "Segoe UI", sans-serif;
+    font-family: var(--font-text);
     background: #1C0414;
     color: var(--text-on-dark);
     user-select: none;
@@ -63,7 +91,7 @@
   /* ---------- home ---------- */
   #home { align-items: center; justify-content: center; text-align: center; gap: 10px; }
   .logo {
-    font-family: Georgia, "Times New Roman", serif;
+    font-family: var(--font-logo);
     font-size: 52px; letter-spacing: .14em; font-weight: 400;
     background: linear-gradient(180deg, #FFD9EF 20%, #E86BB5 90%);
     -webkit-background-clip: text; background-clip: text; color: transparent;
@@ -72,12 +100,23 @@
   .logo .heart { color: #E86BB5; -webkit-text-fill-color: #E86BB5; }
   .tagline { font-size: 15px; color: var(--muted-on-dark); max-width: 260px; line-height: 1.45; }
 
-  .suits { display: flex; gap: 18px; font-size: 22px; margin: 18px 0 6px; opacity: .9; }
-  .suits span { animation: float 3.2s ease-in-out infinite; }
-  .suits span:nth-child(2) { animation-delay: .4s; }
-  .suits span:nth-child(3) { animation-delay: .8s; }
-  .suits span:nth-child(4) { animation-delay: 1.2s; }
-  @keyframes float { 0%,100% { transform: translateY(0); } 50% { transform: translateY(-7px); } }
+  /* Four real decks, overlapped like a hand of cards. The 72x108 tile is the
+     2:3 of the *source art* in assets/backgrounds (600x900), not of the
+     printed card, which renderer.py composites at 1080x1350 — 4:5. So the
+     art lands here unsquashed, and the fan is a narrower shape than the card
+     it advertises. */
+  .deck-fan { display: flex; justify-content: center; margin: 20px 0 4px; height: 108px; }
+  .deck-fan i {
+    display: block; width: 72px; height: 108px; margin: 0 -14px;
+    border-radius: 8px; background-size: cover; background-position: center;
+    box-shadow: 0 8px 20px rgba(0,0,0,.45);
+    animation: fan-float 3.2s ease-in-out infinite;
+  }
+  .deck-fan i:nth-child(1) { transform: rotate(-12deg); }
+  .deck-fan i:nth-child(2) { transform: rotate(-4deg);  animation-delay: .4s; }
+  .deck-fan i:nth-child(3) { transform: rotate(4deg);   animation-delay: .8s; }
+  .deck-fan i:nth-child(4) { transform: rotate(12deg);  animation-delay: 1.2s; }
+  @keyframes fan-float { 0%,100% { translate: 0 0; } 50% { translate: 0 -7px; } }
 
   .btn {
     border: 0; cursor: pointer; font: inherit;
@@ -109,7 +148,7 @@
   }
   .coop-input:focus { border-color: rgba(232,107,181,.8); }
   .code-display {
-    font-family: Georgia, serif; font-size: 46px; letter-spacing: .2em;
+    font-family: var(--font-emblem); font-size: 46px; letter-spacing: .2em;
     color: #FFD9EF; text-align: center; margin: 10px 0 4px;
     text-shadow: 0 0 30px rgba(232,107,181,.4);
   }
@@ -121,7 +160,6 @@
     color: #fff; background: rgba(232,107,181,.28); border-color: rgba(232,107,181,.8);
   }
 
-  .lang-row { display: flex; gap: 8px; margin-top: 22px; }
   .chip {
     padding: 8px 16px; border-radius: 999px; font-size: 13px; font-weight: 600;
     color: var(--muted-on-dark); background: rgba(255,255,255,.07);
@@ -196,16 +234,20 @@
   .lib-card-title{font-weight:700;margin-bottom:6px}
   .lib-card-line{font-size:14px;opacity:.85;margin-top:4px}
   .lib-cat{background:rgba(255,255,255,.05);border-radius:16px;padding:12px 16px;margin:10px 0}
-  .lib-cat summary{font-weight:700;cursor:pointer}
-  .lib-cat ol{margin:10px 0 0 18px;line-height:1.6}
+  /* A category is a button into its deck now, not a <details> full of text. */
+  .lib-cat-open{display:block;width:100%;text-align:left;font:inherit;font-weight:700;
+    color:inherit;border:1px solid rgba(255,255,255,.12);cursor:pointer}
   .lib-cat-nsfw{display:block;width:100%;text-align:left;font:inherit;font-weight:700;
     color:inherit;border:1px dashed rgba(255,255,255,.18);cursor:pointer}
-  .lib-daily{text-align:center;padding:32px 20px}
-  .lib-day{opacity:.6;font-size:14px;margin-bottom:12px}
-  .lib-question{font-size:20px;line-height:1.5}
   .lib-locked{text-align:center;padding:20px;opacity:.9}
+  /* The secondary lines of a practice card: "why" and "outcome" sit under the
+     title, small enough that the three read as one card. */
+  .q-sub{font-size:.82em;font-weight:500;opacity:.85}
+  /* The last card of a truncated deck: the note and the way out of it. */
+  .q-lock{display:block;margin:14px auto 0;padding:11px 22px;font-size:14px}
 
   /* ---------- compatibility test ---------- */
+  .compat-q{font-size:20px;line-height:1.5}
   .compat-opt{margin:8px 0;width:100%}
   /* An answer is in flight: the next question is already on screen, but its
      buttons stay dead until the previous POST lands, so a fast tapper cannot
@@ -222,7 +264,7 @@
   #compatResultBody{flex:1;overflow-y:auto;padding:0 16px 32px}
 
   /* ---------- deck ---------- */
-  #deck { padding-left: 14px; padding-right: 14px; }
+  #deck, #libDeck { padding-left: 14px; padding-right: 14px; }
   .progress-wrap { display: flex; align-items: center; gap: 12px; margin: 2px 4px 10px; }
   .progress-track {
     flex: 1; height: 5px; border-radius: 99px; background: rgba(255,255,255,.12); overflow: hidden;
@@ -236,7 +278,29 @@
 
   .mode-row { display: flex; gap: 8px; justify-content: center; margin-bottom: 8px; }
 
-  #stage { flex: 1; position: relative; perspective: 1300px; margin: 4px 0 10px; touch-action: none; }
+  /* pan-y, not none. `none` blocks the browser's horizontal panning — which
+     is what protects the card swipe — but it also cancels the vertical pan
+     that scrolls a long question inside .q-zone. Chromium stops intersecting
+     touch-action at the nested scroller, so .q-zone's own pan-y would win
+     there; WebKit is not worth betting the iOS build on.
+
+     What pan-y costs is version-gated, so do not read this as "it costs
+     nothing". Nothing above the stage scrolls vertically (html/body are
+     overflow:hidden), but the other half of the protection —
+     tg.disableVerticalSwipes() below — is a no-op before Bot API 7.7, and
+     Telegram logs exactly that ("Changing swipes behavior is not supported in
+     version 6.0") on the clients we actually see. On such a client a vertical
+     drag on a long card can still reach Telegram's own swipe-to-collapse and
+     pull the Mini App down instead of scrolling the question. That is the
+     trade pan-y buys, deliberately: unreadable long cards on every client
+     against a collapse gesture on old ones. Widening touch-action further
+     would give back the horizontal block that protects the card swipe, and
+     the Telegram-side guarantee is not there to catch it. */
+  #stage { flex: 1; position: relative; perspective: 1300px; margin: 4px 0 10px; touch-action: pan-y; }
+  /* The Library deck stands on the same stage — identical declarations, kept
+     as its own rule rather than a comma group because the tests read the
+     `#stage {` block by name and compare the two. */
+  #libStage { flex: 1; position: relative; perspective: 1300px; margin: 4px 0 10px; touch-action: pan-y; }
 
   .card {
     position: absolute; inset: 0; margin: auto;
@@ -250,43 +314,86 @@
     backface-visibility: hidden; -webkit-backface-visibility: hidden;
     display: flex; flex-direction: column; overflow: hidden;
   }
+  /* The face IS the printed card: the same PNG the bot composites onto, so
+     the Mini App and the photos the bot sends are the same object. Only the
+     text and the footer are drawn on top.
+
+     background-size is 100% 100%, not cover, because that is what the bot
+     does — renderer.py resizes the 600x900 art into its 1080x1350 frame.
+     Nothing is cropped either side, so every fraction of the art is the same
+     fraction of this box and the padding below can be read off renderer.py's
+     TEXT_AREA_* constants rather than guessed around a crop. Measured: the
+     text band sits at 0.219 from the top and 0.219 from the bottom of the
+     face, against the renderer's central 56% — 0.22 to 0.78.
+
+     The *box* is not the card's shape, though. 340x470 is 1:1.38 where the
+     printed card is 4:5, so the art is stretched about 11% taller here than
+     in the photo the same user gets in chat. Deliberate, and reviewed side by
+     side against a bot-rendered JPEG — at this size it reads as the same
+     card. Do not "fix" it by switching to cover: that would crop the corner
+     marks and break the fractions above. */
   .card .front {
-    background: var(--card-bg);
-    border: 1px solid var(--card-edge);
+    background-color: var(--card-bg);
+    background-image: var(--art);
+    background-size: 100% 100%;
+    background-repeat: no-repeat;
     box-shadow: 0 18px 44px rgba(0,0,0,.5);
-    padding: 26px 24px;
+    /* The printed V+suit marks occupy the top 21.3% and the bottom 21.4% of
+       the art; renderer.py keeps its text inside the central 56% x 76%.
+       These are those fractions of the 340x470 card. */
+    padding: 103px 41px 103px;
   }
   .card .back {
     transform: rotateY(180deg);
-    background:
-      radial-gradient(90% 70% at 50% 40%, #5C1140 0%, #350027 70%),
-      #350027;
-    border: 1px solid #5C1140;
+    background: #4A0A38 url('/assets/backgrounds/card_back.png') no-repeat;
+    background-size: 100% 100%;
     box-shadow: 0 18px 44px rgba(0,0,0,.5);
-    display: grid; place-items: center;
   }
-  .card .back .emblem {
-    font-family: Georgia, serif; font-size: 64px; color: #E86BB5; letter-spacing: .1em;
-    text-shadow: 0 0 34px rgba(232,107,181,.55);
+
+  /* The text area scrolls on its own. A long question keeps its readable
+     size instead of shrinking and still overrunning the footer, and it can
+     never reach the printed corner marks — the band is the same one
+     renderer.py types into, and .q-zone clips to it.
+
+     The grid stays: a single auto row stretches to the band when the text
+     fits (so short questions still sit centred) and grows to the text when
+     it doesn't, which leaves the first line at scrollTop 0 instead of
+     stranded above it the way align-items:center on a flex box would.
+
+     The mask fades a cut edge so a clipped line reads as "there's more"
+     rather than as a rendering bug — but only an edge that really hides
+     something. A permanent fade dims the first line of an unscrolled card
+     and the last line at the end of the scroll, which is the rendering bug
+     it was meant to prevent. markZoneEdges() sets cut-top/cut-bottom. */
+  .q-zone {
+    flex: 1; display: grid; place-items: center;
+    overflow-y: auto; overscroll-behavior: contain;
+    -webkit-overflow-scrolling: touch; touch-action: pan-y;
+    scrollbar-width: none;
+    --cut-top: 0px; --cut-bottom: 0px;
+    -webkit-mask-image: linear-gradient(180deg, transparent 0, #000 var(--cut-top),
+                        #000 calc(100% - var(--cut-bottom)), transparent 100%);
+            mask-image: linear-gradient(180deg, transparent 0, #000 var(--cut-top),
+                        #000 calc(100% - var(--cut-bottom)), transparent 100%);
   }
-  .card .back .emblem small { display: block; font-size: 15px; letter-spacing: .42em; text-align: center; margin-top: 6px; color: rgba(232,107,181,.75); }
-
-  .corner { position: absolute; font-size: 19px; line-height: 1.05; color: var(--ink); font-family: Georgia, serif; text-align: center; }
-  .corner .s { font-size: 15px; display: block; }
-  .corner.tl { top: 14px; left: 16px; }
-  .corner.br { bottom: 14px; right: 16px; transform: rotate(180deg); }
-
-  .q-zone { flex: 1; display: grid; place-items: center; padding: 12px 2px; }
+  .q-zone.cut-top { --cut-top: 18px; }
+  .q-zone.cut-bottom { --cut-bottom: 18px; }
+  .q-zone::-webkit-scrollbar { display: none; }
   .q-text {
     color: var(--ink); text-align: center; font-weight: 600;
     font-size: 22px; line-height: 1.42; letter-spacing: .002em;
     overflow-wrap: anywhere;
   }
-  .q-text.small  { font-size: 18px; }
-  .q-text.tiny   { font-size: 15.5px; }
-  .card-footer { text-align: center; font-size: 12px; font-weight: 600; color: #7A3F64; letter-spacing: .06em; }
+  /* Level with the bottom-right mark but centred, well clear of it — the
+     same place renderer.py puts it, ~11% up from the bottom edge. */
+  .card-footer {
+    position: absolute; left: 0; right: 0; bottom: 40px;
+    text-align: center; font-size: 12px; font-weight: 600; color: #7A3F64; letter-spacing: .06em;
+  }
 
-  .card.under { transition: transform .3s ease, opacity .3s ease; }
+  /* Inert: it is a preview of the next card, and it sticks out 14px below the
+     top one — enough to catch a tap meant for something else. */
+  .card.under { transition: transform .3s ease, opacity .3s ease; pointer-events: none; }
 
   .flipper { position: absolute; inset: 0; transform-style: preserve-3d; transition: transform .45s cubic-bezier(.2,.7,.25,1); }
   .flipper.faced { transform: rotateY(180deg); }
@@ -356,16 +463,16 @@
   <section class="screen active" id="home">
     <div class="logo">Vechnost</div>
     <div class="tagline" data-i18n="tagline"></div>
-    <div class="suits"><span>♥</span><span>♠</span><span>♦</span><span>♣</span></div>
+    <div class="deck-fan">
+      <i style="background-image:url(/assets/backgrounds/acq/acq_1.png)"></i>
+      <i style="background-image:url(/assets/backgrounds/couples/couples_1.png)"></i>
+      <i style="background-image:url(/assets/backgrounds/sex/questions.png)"></i>
+      <i style="background-image:url(/assets/backgrounds/prov/prov.png)"></i>
+    </div>
     <button class="btn btn-play" id="btnPlay" data-i18n="play"></button>
     <button class="btn btn-second" id="btnCoop" data-i18n="coopBtn"></button>
     <button class="btn btn-second" id="btnLibrary" data-i18n="libraryBtn"></button>
     <button class="btn btn-second" id="btnCompat" data-i18n="compatBtn"></button>
-    <div class="lang-row" id="langRow">
-      <button class="chip" data-lang="ru">RU</button>
-      <button class="chip" data-lang="en">EN</button>
-      <button class="chip" data-lang="cs">CS</button>
-    </div>
   </section>
 
   <!-- COOP entry -->
@@ -400,6 +507,26 @@
       <div style="width:40px"></div>
     </div>
     <div id="libDetailBody"></div>
+  </section>
+
+  <!-- LIBRARY DECK: the same stage, controls and swipe as the game deck,
+       printed on the Library face instead of a deck face. -->
+  <section class="screen" id="libDeck">
+    <div class="top">
+      <button class="icon-btn" id="libDeckBack">←</button>
+      <div class="title" id="libDeckTitle"></div>
+      <div style="width:40px"></div>
+    </div>
+    <div class="progress-wrap">
+      <div class="progress-track"><div class="progress-fill" id="libProgressFill"></div></div>
+      <div class="progress-num" id="libProgressNum"></div>
+    </div>
+    <div id="libStage"></div>
+    <div class="hint" data-i18n="hint"></div>
+    <div class="deck-controls">
+      <button class="ctrl" id="libPrev">↩</button>
+      <button class="ctrl main" id="libNext">→</button>
+    </div>
   </section>
 
   <!-- COMPATIBILITY TEST -->
@@ -568,8 +695,9 @@
   };
 
   /* ---------------- i18n ---------------- */
+  // Russian is the only language the Mini App ships. The other two are in
+  // git history alongside the bot's YAML, one revert away.
   const I18N = {
-    ru: {
       tagline: 'Карточная игра для пар и разговоров, которые сближают',
       play: 'Играть', chooseTheme: 'Выбери тему', level: 'Уровень',
       questions: 'Вопросы', tasks: 'Задания',
@@ -584,10 +712,10 @@
       cardWord: 'Карта', resumed: 'Продолжаем с места остановки',
       loadError: 'Не удалось загрузить вопросы. Проверь соединение.',
       paywallTitle: 'Бесплатные карты закончились',
-      paywallText: 'Вы прошли {free} бесплатных карт из {total}. Полный доступ откроет все колоды целиком — сотни вопросов, все уровни, навсегда.',
+      paywallText: 'Вы прошли {free} бесплатных карт из {total}. Полный доступ откроет все колоды целиком: сотни вопросов, все уровни, навсегда.',
       paywallBuy: '💳 Открыть всё', paywallClose: 'Закрыть',
       freeCount: 'бесплатно {free} из {total}',
-      shareText: 'Вопрос из VECHNOST — игры для пар',
+      shareText: 'Вопрос из VECHNOST, игры для пар',
       shareError: 'Не получилось поделиться',
       coopBtn: '👥 Играть вдвоём', coopTitle: 'Игра вдвоём',
       coopCreate: 'Создать игру', coopOr: 'или введи код, который прислал партнёр',
@@ -610,7 +738,7 @@
       libDayOf: 'День {day} из 365',
       libLoadError: 'Не удалось загрузить библиотеку. Проверь соединение.',
       compatBtn: '💞 Тест совместимости', compatTitle: 'Тест совместимости',
-      compatIntro: '40 вопросов о восьми сферах вашей жизни. Отвечаете порознь — результат видите вместе. Партнёр никогда не увидит ваши ответы, только то, в чём вы разошлись.',
+      compatIntro: '40 вопросов о восьми сферах вашей жизни. Отвечаете порознь – результат видите вместе. Партнёр никогда не увидит ваши ответы, только то, в чём вы разошлись.',
       compatCreate: 'Начать тест', compatMine: 'Прошлый результат',
       compatInviteHint: 'Отправь этот код партнёру. Отвечать можно, как только он войдёт.',
       compatWaitingPartner: 'Партнёр ответил на {n} из {total}',
@@ -633,141 +761,38 @@
         'Provocation':  { name: 'Провокация', desc: 'Вопросы на грани', emoji: '⚡', grad: 'g-prov' }
       },
       levelDesc: { '1': 'Лёгкий старт', '2': 'Глубже и личнее', '3': 'Максимальная откровенность' }
-    },
-    en: {
-      tagline: 'A card game for couples and conversations that bring you closer',
-      play: 'Play', chooseTheme: 'Pick a theme', level: 'Level',
-      questions: 'Questions', tasks: 'Tasks',
-      hint: 'Swipe the card or tap →',
-      nsfwTitle: '18+ content',
-      nsfwText: 'This theme contains explicit adult questions and tasks. By continuing you confirm you are 18 or older.',
-      nsfwLibText: 'This category contains explicit suggestions for adults. By continuing you confirm you are 18 or older.',
-      nsfwYes: "I'm 18+", nsfwNo: 'Back',
-      doneTitle: 'Deck complete!', doneText: "You've been through every card. The conversation is just beginning.",
-      again: 'Start over', toThemes: 'Themes',
-      shuffled: 'Deck shuffled', ordered: 'In order',
-      cardWord: 'Card', resumed: 'Resumed where you left off',
-      loadError: 'Could not load questions. Check your connection.',
-      paywallTitle: 'End of the free cards',
-      paywallText: "You've been through {free} free cards of {total}. Full access unlocks every deck completely — hundreds of questions, all levels, forever.",
-      paywallBuy: '💳 Unlock everything', paywallClose: 'Close',
-      freeCount: '{free} of {total} free',
-      shareText: 'A question from VECHNOST — the couples game',
-      shareError: 'Could not share',
-      coopBtn: '👥 Play together', coopTitle: 'Play together',
-      coopCreate: 'Start a game', coopOr: 'or enter the code your partner sent',
-      coopJoinBtn: 'Join',
-      inviteTitle: 'Code for your partner',
-      inviteHint: 'Send this code to your partner. The game starts as soon as they join.',
-      inviteShare: '💌 Send the invite',
-      inviteWaiting: 'Waiting for your partner…',
-      coopInviteMsg: "Let's play VECHNOST together? 💜 Open {bot} → “Play together” → enter code: {code}",
-      yourTurn: '✨ Your turn', partnerTurn: '{name} is answering…',
-      notYourTurn: "It's your partner's turn",
-      partnerJoined: '{name} joined!',
-      coopGone: 'Game not found or finished',
-      coopFull: 'This game already has two players',
-      coopDoneText: 'You went through the deck together. The conversation is just beginning.',
-      libraryBtn: '📚 Library', libraryTitle: 'Library',
-      libLocked: 'Unlock everything',
-      libFreeNote: 'Showing {free} of {total}',
-      libWhy: 'Why', libResult: 'Outcome',
-      libDayOf: 'Day {day} of 365',
-      libLoadError: 'Could not load the library. Check your connection.',
-      compatBtn: '💞 Compatibility test', compatTitle: 'Compatibility test',
-      compatIntro: 'Forty questions across eight areas of your life. You answer apart and read the result together. Your partner never sees your answers — only where the two of you diverged.',
-      compatCreate: 'Start the test', compatMine: 'Previous result',
-      compatInviteHint: 'Send this code to your partner. You can start answering as soon as they join.',
-      compatWaitingPartner: 'Your partner has answered {n} of {total}',
-      compatDone: "You've answered all 40. Waiting for your partner…",
-      compatResultTitle: 'Your result',
-      compatStrengths: 'Where you are a team', compatAttention: 'Worth talking about',
-      compatAll: 'Every area', compatZoneStrength: 'Strength',
-      compatZoneGrowth: 'Room to grow', compatZoneCrisis: 'Needs attention',
-      compatNoResult: "You haven't completed a test yet",
-      compatPaywall: 'The compatibility test is part of full access',
-      compatInviteMsg: 'Shall we take the VECHNOST compatibility test? 💞 Open {bot} → “Compatibility test” → enter code: {code}',
-      compatResume: 'Picking up at question {n}',
-      compatDelete: 'Delete the result and our answers',
-      compatDeleteConfirm: 'Delete this test? Your answers and your partner’s will be erased for good.',
-      compatDeleted: 'Test deleted',
-      themes: {
-        'Acquaintance': { name: 'Acquaintance', desc: 'Get to know each other for real', emoji: '✨', grad: 'g-acq' },
-        'For Couples':  { name: 'For Couples', desc: 'Grow closer than ever', emoji: '💞', grad: 'g-couples' },
-        'Sex':          { name: 'Sex', desc: 'Honest talk about desire', emoji: '🔥', grad: 'g-sex' },
-        'Provocation':  { name: 'Provocation', desc: 'Questions on the edge', emoji: '⚡', grad: 'g-prov' }
-      },
-      levelDesc: { '1': 'Easy start', '2': 'Deeper and more personal', '3': 'Full honesty' }
-    },
-    cs: {
-      tagline: 'Karetní hra pro páry a rozhovory, které sbližují',
-      play: 'Hrát', chooseTheme: 'Vyber téma', level: 'Úroveň',
-      questions: 'Otázky', tasks: 'Úkoly',
-      hint: 'Přejeď kartu nebo klepni →',
-      nsfwTitle: 'Obsah 18+',
-      nsfwText: 'Toto téma obsahuje otevřené otázky a úkoly pro dospělé. Pokračováním potvrzuješ, že ti je 18 let.',
-      nsfwLibText: 'Tato kategorie obsahuje otevřené náměty pro dospělé. Pokračováním potvrzuješ, že ti je 18 let.',
-      nsfwYes: 'Je mi 18+', nsfwNo: 'Zpět',
-      doneTitle: 'Balíček dokončen!', doneText: 'Prošli jste všechny karty. Rozhovor právě začíná.',
-      again: 'Začít znovu', toThemes: 'Témata',
-      shuffled: 'Balíček zamíchán', ordered: 'Po pořadí',
-      cardWord: 'Karta', resumed: 'Pokračujeme, kde jsi skončil',
-      loadError: 'Otázky se nepodařilo načíst. Zkontroluj připojení.',
-      paywallTitle: 'Karty zdarma končí',
-      paywallText: 'Prošli jste {free} karet zdarma z {total}. Plný přístup odemkne všechny balíčky — stovky otázek, všechny úrovně, navždy.',
-      paywallBuy: '💳 Odemknout vše', paywallClose: 'Zavřít',
-      freeCount: '{free} z {total} zdarma',
-      shareText: 'Otázka z VECHNOST — hry pro páry',
-      shareError: 'Sdílení se nepovedlo',
-      coopBtn: '👥 Hrát spolu', coopTitle: 'Hra ve dvou',
-      coopCreate: 'Založit hru', coopOr: 'nebo zadej kód od partnera',
-      coopJoinBtn: 'Připojit se',
-      inviteTitle: 'Kód pro partnera',
-      inviteHint: 'Pošli tento kód partnerovi. Hra začne, jakmile se připojí.',
-      inviteShare: '💌 Poslat pozvánku',
-      inviteWaiting: 'Čekáme na partnera…',
-      coopInviteMsg: 'Zahrajeme si VECHNOST spolu? 💜 Otevři {bot} → „Hrát spolu“ → zadej kód: {code}',
-      yourTurn: '✨ Tvůj tah', partnerTurn: 'Odpovídá {name}…',
-      notYourTurn: 'Teď je na tahu partner',
-      partnerJoined: '{name} se připojil(a)!',
-      coopGone: 'Hra nenalezena nebo skončila',
-      coopFull: 'V této hře už jsou dva hráči',
-      coopDoneText: 'Prošli jste balíček spolu. Rozhovor právě začíná.',
-      libraryBtn: '📚 Knihovna', libraryTitle: 'Knihovna',
-      libLocked: 'Odemknout vše',
-      libFreeNote: 'Zobrazeno {free} z {total}',
-      libWhy: 'Proč', libResult: 'Výsledek',
-      libDayOf: 'Den {day} z 365',
-      libLoadError: 'Knihovnu se nepodařilo načíst. Zkontroluj připojení.',
-      compatBtn: '💞 Test kompatibility', compatTitle: 'Test kompatibility',
-      compatIntro: 'Čtyřicet otázek o osmi oblastech vašeho života. Odpovídáte odděleně, výsledek čtete spolu. Partner nikdy neuvidí vaše odpovědi — jen to, v čem se lišíte.',
-      compatCreate: 'Začít test', compatMine: 'Předchozí výsledek',
-      compatInviteHint: 'Pošli tento kód partnerovi. Odpovídat můžeš, jakmile se připojí.',
-      compatWaitingPartner: 'Partner odpověděl na {n} ze {total}',
-      compatDone: 'Odpověděl(a) jsi na všech 40. Čekáme na partnera…',
-      compatResultTitle: 'Váš výsledek',
-      compatStrengths: 'Kde jste tým', compatAttention: 'Stojí za rozhovor',
-      compatAll: 'Všechny oblasti', compatZoneStrength: 'Silná stránka',
-      compatZoneGrowth: 'Prostor k růstu', compatZoneCrisis: 'Vyžaduje pozornost',
-      compatNoResult: 'Zatím jsi žádný test nedokončil(a)',
-      compatPaywall: 'Test kompatibility je součástí plného přístupu',
-      compatInviteMsg: 'Uděláme si test kompatibility VECHNOST? 💞 Otevři {bot} → „Test kompatibility“ → zadej kód: {code}',
-      compatResume: 'Pokračujeme otázkou {n}',
-      compatDelete: 'Smazat výsledek i odpovědi',
-      compatDeleteConfirm: 'Smazat test? Tvoje i partnerovy odpovědi budou navždy vymazány.',
-      compatDeleted: 'Test smazán',
-      themes: {
-        'Acquaintance': { name: 'Seznámení', desc: 'Poznejte se doopravdy', emoji: '✨', grad: 'g-acq' },
-        'For Couples':  { name: 'Pro páry', desc: 'Buďte si blíž než kdy dřív', emoji: '💞', grad: 'g-couples' },
-        'Sex':          { name: 'Sex', desc: 'Otevřeně o touhách', emoji: '🔥', grad: 'g-sex' },
-        'Provocation':  { name: 'Provokace', desc: 'Otázky na hraně', emoji: '⚡', grad: 'g-prov' }
-      },
-      levelDesc: { '1': 'Lehký začátek', '2': 'Hlubší a osobnější', '3': 'Naprostá otevřenost' }
-    }
   };
 
   const THEME_ORDER = ['Acquaintance', 'For Couples', 'Sex', 'Provocation'];
-  const SUITS = { 'Acquaintance': '♠', 'For Couples': '♥', 'Sex': '♣', 'Provocation': '♦' };
+
+  // The card face each deck is printed on, same mapping the bot reads from
+  // assets/backgrounds.yml. What identifies a face differs per deck: the two
+  // levelled decks by level, Sex by content type, Provocation by nothing —
+  // so each entry says which, rather than the lookup guessing.
+  const CARD_ART = {
+    'Acquaintance': { by: 'level', faces: { 1: 'acq/acq_1.png', 2: 'acq/acq_2.png', 3: 'acq/acq_3.png' } },
+    'For Couples':  { by: 'level', faces: { 1: 'couples/couples_1.png', 2: 'couples/couples_2.png', 3: 'couples/couples_3.png' } },
+    // S.type is 'questions' / 'tasks' — the same words rooms.py serves.
+    'Sex':          { by: 'type',  faces: { questions: 'sex/questions.png', tasks: 'sex/tasks.png' } },
+    'Provocation':  { by: 'deck',  faces: { deck: 'prov/prov.png' } }
+  };
+
+  // The Library has one face of its own — no levels, no content types, so no
+  // lookup. Same PNG the bot composites the daily push onto.
+  const LIBRARY_ART = '/assets/backgrounds/library.png';
+
+  // Returns the URL of the printed face, or null when nothing matches. Null
+  // leaves --art unset, so the card renders as a blank pink rectangle with no
+  // corner marks: wrong in a way you can see, rather than quietly wearing some
+  // other deck's face.
+  function cardArt(theme, level, type) {
+    const deck = CARD_ART[theme];
+    if (!deck) { console.warn('vechnost: no card art for theme', theme); return null; }
+    const key = deck.by === 'level' ? level : deck.by === 'type' ? type : 'deck';
+    const file = deck.faces[key];
+    if (!file) { console.warn('vechnost: no card art for', theme, deck.by, key); return null; }
+    return '/assets/backgrounds/' + file;
+  }
 
   /* ---------------- state ---------------- */
   const store = {
@@ -775,17 +800,29 @@
     set(k, v) { try { localStorage.setItem('vech.' + k, JSON.stringify(v)); } catch (e) {} }
   };
 
-  const tgLang = tg && tg.initDataUnsafe && tg.initDataUnsafe.user && tg.initDataUnsafe.user.language_code;
-  let lang = store.get('lang', ['ru', 'en', 'cs'].includes(tgLang) ? tgLang : 'ru');
+  // The Mini App is Russian-only; the server still accepts (and coerces
+  // unknown values to) a lang query param, so this stays a constant rather
+  // than a widened surface.
+  const lang = 'ru';
   let DATA = null;          // themes payload from API
   let S = {                 // current game selection
     theme: null, level: null, type: 'questions',
     order: [], idx: 0, shuffled: false
   };
   let deckDirty = false;    // guards double-swipes during animation
+  // Which deck is on the stage, as a number that only ever goes up. flyOut's
+  // 300ms timer belongs to the deck that launched it, and the "did they leave?"
+  // check inside it asks the *screen element* — which cannot tell two decks
+  // apart when they share one: every Library deck is #libDeck, and solo and
+  // couple mode are both #deck. Leaving one Library deck for another inside the
+  // animation stepped the new deck by one; coop → home → a solo deck inside it
+  // ran coopAdvanceAfterFly against a room that no longer existed and left a
+  // blank stage with deckDirty stuck on. Every entry point stamps a new
+  // generation; the timer stands down if it has moved.
+  let deckGen = 0;
 
   const $ = (id) => document.getElementById(id);
-  const T = () => I18N[lang];
+  const T = () => I18N;
 
   /* ---------------- i18n render ---------------- */
   function applyI18n() {
@@ -793,8 +830,6 @@
       const key = el.getAttribute('data-i18n');
       if (T()[key]) el.textContent = T()[key];
     });
-    document.querySelectorAll('#langRow .chip').forEach(ch =>
-      ch.classList.toggle('on', ch.dataset.lang === lang));
     $('modeQ').textContent = '❓ ' + T().questions;
     $('modeT').textContent = '📝 ' + T().tasks;
   }
@@ -817,6 +852,7 @@
         else if ($('coop').classList.contains('active')) show('home');
         else if ($('levels').classList.contains('active')) show('themes');
         else if ($('themes').classList.contains('active')) { COOP.creating = false; show('home'); }
+        else if ($('libDeck').classList.contains('active')) libDeckLeave();
         else if ($('libraryDetail').classList.contains('active')) show('library');
         else if ($('library').classList.contains('active')) show('home');
         else if ($('compatResult').classList.contains('active')) show('compat');
@@ -843,7 +879,7 @@
 
   function showPaywall(freeCount, totalCount) {
     $('paywallText').textContent = fmt(T().paywallText, { free: freeCount, total: totalCount });
-    $('paywallBuy').textContent = T().paywallBuy + (ACCESS.price ? ' — ' + ACCESS.price : '');
+    $('paywallBuy').textContent = T().paywallBuy + (ACCESS.price ? ' – ' + ACCESS.price : '');
     $('paywallBuy').style.display = ACCESS.payment_url ? '' : 'none';
     $('paywall').classList.add('show');
   }
@@ -1017,6 +1053,8 @@
   }
 
   function enterDeck(forceReset) {
+    deckGen++;                                   // a new deck owns the stage
+    drag.onAdvance = null; drag.onBack = null;   // the Library's, if we came from it
     COOP.active = false;
     $('turnChip').style.display = 'none';
     $('btnShuffle').style.display = '';
@@ -1058,18 +1096,15 @@
   }
 
   function cardHTML(text, number, total) {
-    const suit = SUITS[S.theme] || '♥';
-    const len = text.length;
-    const sizeClass = len > 220 ? ' tiny' : (len > 120 ? ' small' : '');
+    const art = cardArt(S.theme, S.level, S.type);
+    const style = art ? ' style="--art:url(' + art + ')"' : '';
     return (
       '<div class="flipper">' +
-        '<div class="face front">' +
-          '<div class="corner tl">V<span class="s">' + suit + '</span></div>' +
-          '<div class="q-zone"><div class="q-text' + sizeClass + '">' + escapeHTML(text) + '</div></div>' +
+        '<div class="face front"' + style + '>' +
+          '<div class="q-zone"><div class="q-text">' + escapeHTML(text) + '</div></div>' +
           '<div class="card-footer">' + T().cardWord + ' ' + number + ' / ' + total + '</div>' +
-          '<div class="corner br">V<span class="s">' + suit + '</span></div>' +
         '</div>' +
-        '<div class="face back"><div class="emblem">V<small>VECHNOST</small></div></div>' +
+        '<div class="face back"></div>' +
       '</div>'
     );
   }
@@ -1078,47 +1113,88 @@
     return s.replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
   }
 
-  function renderStage(withFlip) {
-    const stage = $('stage');
+  /* ---------------- long card text ---------------- */
+  // A long question scrolls inside .q-zone; these mark which end is actually
+  // cut so the CSS fades that end and only that end. Deliberately global
+  // rather than wired into renderStage: the game deck, couple mode and
+  // anything else built from cardHTML all get it without knowing about it.
+  function markZoneEdges(z) {
+    const slack = z.scrollHeight - z.clientHeight;
+    z.classList.toggle('cut-top', z.scrollTop > 1);
+    z.classList.toggle('cut-bottom', slack > 1 && z.scrollTop < slack - 1);
+  }
+  function refreshZoneEdges() { document.querySelectorAll('.q-zone').forEach(markZoneEdges); }
+  // scroll doesn't bubble, so listen in the capture phase.
+  document.addEventListener('scroll', e => {
+    if (e.target instanceof Element && e.target.classList.contains('q-zone')) markZoneEdges(e.target);
+  }, true);
+  // New cards arrive as innerHTML; the swapped-in font and a rotation both
+  // change how much of the question fits.
+  new MutationObserver(refreshZoneEdges).observe(document.body, { childList: true, subtree: true });
+  window.addEventListener('resize', refreshZoneEdges);
+  if (document.fonts && document.fonts.ready) document.fonts.ready.then(refreshZoneEdges);
+
+  /* ---------------- stage ---------------- */
+  // A card arrives face down and turns over. Shared by every deck, because
+  // an animation tuned in one place and not the other is how two decks stop
+  // feeling like the same object.
+  function flipUp(card) {
+    const flipper = card.querySelector('.flipper');
+    flipper.classList.add('faced');              // back side up
+    requestAnimationFrame(() => setTimeout(() => {
+      flipper.classList.remove('faced');         // flip to reveal
+      haptic('light');
+    }, 260));
+  }
+
+  // Lays out a deck's stage: the next card peeking from beneath, the current
+  // one on top, swipe attached. `htmlAt(index, number, total)` is the only
+  // thing that differs between the game deck and the Library's — everything
+  // about how a card sits on the stage is here, once. Returns the top card,
+  // or null when there is nothing to show.
+  function buildStage(stage, htmlAt, count, idx, withFlip) {
     stage.innerHTML = '';
-    const items = deckItems();
-    const total = S.order.length;
-    if (!total) return;
+    if (!count) return null;
 
     // under-card (next in deck), peeking from beneath
-    if (S.idx + 1 < total) {
+    if (idx + 1 < count) {
       const under = document.createElement('div');
       under.className = 'card under';
       under.style.transform = 'translateY(14px) scale(.94)';
       under.style.opacity = '.7';
-      under.innerHTML = cardHTML(items[S.order[S.idx + 1]], S.idx + 2, total);
+      under.innerHTML = htmlAt(idx + 1, idx + 2, count);
       stage.appendChild(under);
     }
 
     // top card
     const top = document.createElement('div');
     top.className = 'card top';
-    top.innerHTML = cardHTML(items[S.order[S.idx]], S.idx + 1, total);
+    top.innerHTML = htmlAt(idx, idx + 1, count);
     stage.appendChild(top);
 
-    const flipper = top.querySelector('.flipper');
-    if (withFlip) {
-      flipper.classList.add('faced');            // back side up
-      requestAnimationFrame(() => setTimeout(() => {
-        flipper.classList.remove('faced');       // flip to reveal
-        haptic('light');
-      }, 260));
-    }
-
+    if (withFlip) flipUp(top);
     attachSwipe(top);
-    updateProgress();
     deckDirty = false;
+    return top;
+  }
+
+  function renderStage(withFlip) {
+    const items = deckItems();
+    const top = buildStage($('stage'),
+      (i, number, total) => cardHTML(items[S.order[i]], number, total),
+      S.order.length, S.idx, withFlip);
+    if (!top) return;
+    updateProgress();
   }
 
   /* ---------------- swipe physics ---------------- */
   // Single global drag state: window listeners are registered once,
   // renderStage only points `drag.card` at the current top card.
-  const drag = { card: null, x0: 0, y0: 0, dx: 0, dy: 0, active: false };
+  // onAdvance/onBack are how a non-game deck borrows the physics: set, they
+  // replace flyOut's game transitions entirely. Null for the game and couple
+  // mode, and cleared on the way into both.
+  const drag = { card: null, x0: 0, y0: 0, dx: 0, dy: 0, active: false, axis: null,
+                 onAdvance: null, onBack: null };
 
   function attachSwipe(card) {
     drag.card = card;
@@ -1130,33 +1206,56 @@
 
   function dragStart(e) {
     if (deckDirty || !drag.card) return;
-    if (COOP.active && (!C.st || !C.st.your_turn)) return;
+    // The turn gate is couple mode's, not the swipe engine's: a Library deck
+    // borrowing the physics is never turn-based.
+    if (!drag.onAdvance && COOP.active && (!C.st || !C.st.your_turn)) return;
     drag.active = true;
     const p = e.touches ? e.touches[0] : e;
     drag.x0 = p.clientX; drag.y0 = p.clientY; drag.dx = 0; drag.dy = 0;
+    drag.axis = null;               // undecided until the gesture commits
     drag.card.style.transition = 'none';
   }
   function dragMove(e) {
     if (!drag.active || !drag.card) return;
     const p = e.touches ? e.touches[0] : e;
     drag.dx = p.clientX - drag.x0; drag.dy = p.clientY - drag.y0;
+
+    // Decide once, at 8px of travel, whether this gesture belongs to the
+    // card or to the text scrolling inside it. Without this, reading a long
+    // question by scrolling drags the card halfway off the stage.
+    if (!drag.axis) {
+      if (Math.abs(drag.dx) < 8 && Math.abs(drag.dy) < 8) return;
+      drag.axis = Math.abs(drag.dx) > Math.abs(drag.dy) ? 'x' : 'y';
+    }
+    if (drag.axis === 'y') return;
+
     drag.card.style.transform =
       'translate(' + drag.dx + 'px,' + (drag.dy * .35) + 'px) rotate(' + (drag.dx * .055) + 'deg)';
   }
   function dragEnd() {
     if (!drag.active || !drag.card) return;
+    // A vertical gesture was the text scrolling, not a swipe: leave the card
+    // where it is and do not step the deck.
+    if (drag.axis === 'y') { drag.active = false; drag.axis = null; return; }
     drag.active = false;
     // Right = next card, left = previous. A left swipe on the first card
     // snaps back; couple mode is turn-based, so left never goes back there.
-    if (drag.dx > 84) {
+    // A deck that installed its own callbacks (the Library) is asked about
+    // its own position — S.idx is the game's, and would let a swipe off
+    // either end of the Library fly the card away to nothing: there is no
+    // finishDeck() on that side to put something back on the stage.
+    const borrowed = !!drag.onAdvance;
+    const canGoBack = borrowed ? LS.idx > 0 : (!COOP.active && S.idx > 0);
+    const canGoOn = borrowed ? LS.idx < LS.items.length - 1 : true;
+    if (drag.dx > 84 && canGoOn) {
       flyOut(drag.card, 1);
-    } else if (drag.dx < -84 && !COOP.active && S.idx > 0) {
+    } else if (drag.dx < -84 && canGoBack) {
       flyOut(drag.card, -1);
     } else {
       drag.card.style.transition = 'transform .3s cubic-bezier(.2,.9,.3,1.2)';
       drag.card.style.transform = '';
     }
-    drag.dx = 0; drag.dy = 0;
+    drag.dx = 0; drag.dy = 0; drag.axis = null;
   }
   window.addEventListener('mousemove', dragMove);
   window.addEventListener('mouseup', dragEnd);
@@ -1165,11 +1264,35 @@
     if (deckDirty) return;
     deckDirty = true;
     haptic('medium');
+    // Who owns this flight is decided now, not in 300ms. The card stays in
+    // the air long enough for the user to tap back out of the deck, and
+    // everything below used to be read after that: paging the Library and
+    // leaving immediately stepped the *game's* saved position, and could put
+    // the game's "done" overlay up over the Library.
+    const onAdvance = drag.onAdvance, onBack = drag.onBack;
+    const wasCoop = COOP.active;
+    const screen = document.querySelector('.screen.active');
+    const gen = deckGen;
     card.style.transition = 'transform .38s cubic-bezier(.5,.05,.9,.4), opacity .38s';
     card.style.transform = 'translate(' + (dir * (window.innerWidth * 1.1)) + 'px,' + (-40 + Math.random() * 120) + 'px) rotate(' + dir * 24 + 'deg)';
     card.style.opacity = '0';
     setTimeout(() => {
-      if (COOP.active) {
+      // A different deck took the stage while this card was in the air. It
+      // has its own position and has already cleared deckDirty for its own
+      // card, so touch nothing at all — not even the guard.
+      if (gen !== deckGen) return;
+      // Left the deck mid-flight: nobody is looking at that stage any more,
+      // and stepping a deck now would step whichever one they left for.
+      if (!screen || !screen.classList.contains('active')) { deckDirty = false; return; }
+      // A deck that installed its own transitions (the Library) takes it from
+      // here. deckDirty is cleared by buildStage, which this branch never
+      // reaches — leave it set and the second swipe is swallowed.
+      if (onAdvance) {
+        deckDirty = false;
+        (dir > 0 ? onAdvance : onBack)();
+        return;
+      }
+      if (wasCoop) {
         coopAdvanceAfterFly();  // couple mode is always forward, server-driven
         return;
       }
@@ -1428,8 +1551,16 @@
   }
 
   function enterCoopDeck() {
+    deckGen++;                                   // a new deck owns the stage
+    drag.onAdvance = null; drag.onBack = null;   // the Library's, if we came from it
     COOP.active = true;
-    S.theme = C.st.theme;  // suit on the card face
+    // cardHTML picks the printed face from all three of these, and the room
+    // is the only thing that knows which deck the pair is actually playing.
+    // Copying only the theme left level and type at whatever a previous solo
+    // deck happened to set, so the pair got the wrong card.
+    S.theme = C.st.theme;
+    S.level = C.st.level || null;
+    S.type = C.st.type;
     const meta = coopThemeMeta();
     $('deckTitle').textContent = '👥 ' + meta.name + (C.st.level ? ' · ' + T().level + ' ' + C.st.level : '');
     $('modeRow').style.display = 'none';
@@ -1494,6 +1625,10 @@
     }
   }
 
+  // Not buildStage: couple mode has no under-card to draw. The room sends one
+  // card at a time and the next one does not exist client-side until the
+  // server says whose turn it is. It shares the flip, which is the part worth
+  // keeping in step.
   function renderCoopStage(withFlip) {
     const stage = $('stage');
     stage.innerHTML = '';
@@ -1502,14 +1637,7 @@
     top.className = 'card top';
     top.innerHTML = cardHTML(C.st.card_text, C.st.idx + 1, C.st.total);
     stage.appendChild(top);
-    const flipper = top.querySelector('.flipper');
-    if (withFlip) {
-      flipper.classList.add('faced');
-      requestAnimationFrame(() => setTimeout(() => {
-        flipper.classList.remove('faced');
-        haptic('light');
-      }, 260));
-    }
+    if (withFlip) flipUp(top);
     attachSwipe(top);
     updateCoopHud();
     deckDirty = false;
@@ -1599,10 +1727,31 @@
     $('loader').classList.add('show');
     try {
       const data = await libFetch(`/api/library/${id}?lang=${lang}${libNsfwParam()}`);
-      $('libDetailTitle').textContent = data.emoji + ' ' + data.title;
-      $('libDetailBody').innerHTML = renderLibModule(data, openCategory);
+      const title = data.emoji + ' ' + data.title;
+
+      // A daily or practice module is one deck and nothing else — no category
+      // screen to stop at on the way in, or back out to.
+      const items = libItems(data);
+      if (items) { libDeckOpen(items, title, openLibrary); return; }
+
+      // Nor is a `list` module that only has one category: the screen below
+      // would be a single button between the module and its deck. Open the
+      // deck, and hand it a `back` that skips the screen nobody saw. Guarded
+      // on nsfw_withheld, because a withheld category is a second row — the
+      // choice is real again, and the user needs the screen to reach it.
+      const cats = data.categories || [];
+      if (cats.length === 1 && !(data.nsfw_withheld || []).length) {
+        openLibCategory(data, id, cats[0].id, openLibrary);
+        return;
+      }
+
+      $('libDetailTitle').textContent = title;
+      $('libDetailBody').innerHTML = renderLibCategories(data);
       const buy = $('libBuy');
       if (buy) buy.onclick = () => { haptic('light'); $('paywallBuy').click(); };
+      $('libDetailBody').querySelectorAll('[data-cat]').forEach(row => {
+        row.onclick = () => { haptic('light'); openLibCategory(data, id, row.dataset.cat); };
+      });
       $('libDetailBody').querySelectorAll('[data-nsfw-cat]').forEach(row => {
         row.onclick = () => {
           haptic('light');
@@ -1611,6 +1760,10 @@
         };
       });
       show('libraryDetail');
+      // The 18+ path lands back here naming the category it was refused. The
+      // server is sending it now, so open it rather than making the user find
+      // it again. The category screen stays underneath as the way back.
+      if (openCategory) openLibCategory(data, id, openCategory);
     } catch (e) {
       toast(T().libLoadError);
     } finally {
@@ -1618,26 +1771,14 @@
     }
   }
 
-  function renderLibModule(data, openCategory) {
-    if (data.type === 'daily') {
-      return `<div class="lib-daily">
-        <div class="lib-day">${fmt(T().libDayOf, { day: data.day })}</div>
-        <p class="lib-question">${escapeHTML(data.question)}</p>
-      </div>`;
-    }
-    if (data.type === 'practice') {
-      return data.items.map((p, i) => `
-        <div class="lib-card">
-          <div class="lib-card-title">${i + 1}. ${escapeHTML(p.title)}</div>
-          <div class="lib-card-line"><b>${T().libWhy}:</b> ${escapeHTML(p.why)}</div>
-          <div class="lib-card-line"><b>${T().libResult}:</b> ${escapeHTML(p.result)}</div>
-        </div>`).join('') + libLockedFooter(data);
-    }
+  // The category screen of a `list` module: a button per category into its
+  // deck, the 18+ ones by title only, and the purchase prompt if the server
+  // truncated what it sent.
+  function renderLibCategories(data) {
     const visible = data.categories.map(c => `
-      <details class="lib-cat"${c.id === openCategory ? ' open' : ''}>
-        <summary>${escapeHTML(c.title)} · ${c.items.length}${c.items.length < c.total ? '/' + c.total : ''}</summary>
-        <ol>${c.items.map(i => `<li>${escapeHTML(i)}</li>`).join('')}</ol>
-      </details>`).join('');
+      <button class="lib-cat lib-cat-open" data-cat="${escapeHTML(c.id)}">
+        ${escapeHTML(c.title)} · ${c.items.length}${c.items.length < c.total ? '/' + c.total : ''}
+      </button>`).join('');
     // Categories the server withheld for want of an 18+ confirmation: shown by
     // title only, and tapping one raises the overlay.
     const withheld = (data.nsfw_withheld || []).map(c => `
@@ -1647,17 +1788,140 @@
     return visible + withheld + libLockedFooter(data);
   }
 
+  // `back` overrides where the deck's back arrow goes. The single-category
+  // fast path passes openLibrary, because returning to openLibModule would
+  // re-run the fast path and trap the user in the deck.
+  function openLibCategory(data, id, catId, back) {
+    const cat = (data.categories || []).find(c => c.id === catId);
+    if (!cat || !cat.items.length) return;
+    const items = cat.items.map((t, i) => ({
+      text: escapeHTML(t), footer: (i + 1) + ' / ' + cat.items.length
+    }));
+    const lock = libLockCard(cat.items.length, cat.total);
+    if (lock) items.push(lock);
+    // Back goes to the category screen, never to this same category — passing
+    // catId here would re-open the deck the user just left.
+    libDeckOpen(items, cat.title, back || (() => openLibModule(id)));
+  }
+
   function libLockedFooter(data) {
     if (!data.locked) return '';
     const note = fmt(T().libFreeNote, { free: data.free_count, total: data.total });
     // Same rule as showPaywall: no payment link, no button that does nothing.
     if (!ACCESS.payment_url) return `<div class="lib-locked"><p>${note}</p></div>`;
-    const price = ACCESS.price ? ' — ' + ACCESS.price : '';
+    const price = ACCESS.price ? ' – ' + ACCESS.price : '';
     return `<div class="lib-locked">
       <p>${note}</p>
       <button class="btn btn-play" id="libBuy">${T().libLocked}${price}</button>
     </div>`;
   }
+
+  /* ---------------- library deck ---------------- */
+  // The Library reuses the game's swipe physics but keeps its own state: the
+  // two decks are never on screen at once, and sharing S would mean a Library
+  // card could resume into the middle of a game deck.
+  const LS = { items: [], idx: 0, count: 0, back: null };
+
+  // `item.text` is HTML: the builders below escape the content once and then
+  // add their own markup, so escaping again here would print the tags. Every
+  // string that reaches `text` must have gone through escapeHTML already.
+  function libCardHTML(item, number, total) {
+    return (
+      '<div class="flipper">' +
+        '<div class="face front" style="--art:url(' + LIBRARY_ART + ')">' +
+          '<div class="q-zone"><div class="q-text">' + item.text + '</div></div>' +
+          '<div class="card-footer">' + escapeHTML(item.footer || (number + ' / ' + total)) + '</div>' +
+        '</div>' +
+        '<div class="face back"></div>' +
+      '</div>'
+    );
+  }
+
+  // The card text for each module type. Everything is escaped here, once.
+  // A `list` module returns null: it goes through its categories first.
+  function libItems(data) {
+    if (data.type === 'daily') {
+      return [{ text: escapeHTML(data.question),
+                footer: fmt(T().libDayOf, { day: data.day }) }];
+    }
+    if (data.type === 'practice') {
+      const items = data.items.map((p, i) => ({
+        text: '<b>' + escapeHTML(p.title) + '</b><br><br>' +
+              '<span class="q-sub"><b>' + escapeHTML(T().libWhy) + ':</b> ' + escapeHTML(p.why) + '</span><br>' +
+              '<span class="q-sub"><b>' + escapeHTML(T().libResult) + ':</b> ' + escapeHTML(p.result) + '</span>',
+        footer: (i + 1) + ' / ' + data.items.length
+      }));
+      const lock = libLockCard(data.items.length, data.total);
+      if (lock) items.push(lock);
+      return items;
+    }
+    return null;
+  }
+
+  // The last card of a deck the server truncated. A locked `list` module also
+  // says so on its category screen, but a practice module has no category
+  // screen — and either way the end of the deck is where the truncation is
+  // felt, so that is where the prompt belongs.
+  function libLockCard(shown, total) {
+    if (!(shown < total)) return null;
+    const note = escapeHTML(fmt(T().libFreeNote, { free: shown, total: total }));
+    // Same rule as showPaywall: no payment link, no button that does nothing.
+    const cta = ACCESS.payment_url
+      ? '<button class="btn btn-play q-lock">' +
+        escapeHTML(T().libLocked + (ACCESS.price ? ' – ' + ACCESS.price : '')) + '</button>'
+      : '';
+    // A dash, not a position: this card is not the deck's Nth item, and
+    // repeating the last content card's number reads as a rendering fault.
+    return { text: '<b>🔒</b><br><br>' + note + cta, footer: '–', lock: true };
+  }
+
+  function renderLibStage(withFlip) {
+    const top = buildStage($('libStage'),
+      (i, number, total) => libCardHTML(LS.items[i], number, total),
+      LS.items.length, LS.idx, withFlip);
+    if (!top) return;
+    // Only the top card's button: the under card carries a copy of the same
+    // markup, and .card.under is pointer-events:none so it cannot be tapped.
+    top.querySelectorAll('.q-lock').forEach(b => {
+      b.onclick = () => { haptic('light'); $('paywallBuy').click(); };
+    });
+    // The lock card is not content: the progress counts what there is to read.
+    const cur = Math.min(LS.idx + 1, LS.count);
+    $('libProgressFill').style.width = (LS.count ? (cur / LS.count) * 100 : 0) + '%';
+    $('libProgressNum').textContent = cur + ' / ' + LS.count;
+    $('libPrev').disabled = LS.idx <= 0;
+    $('libNext').disabled = LS.idx >= LS.items.length - 1;
+  }
+
+  function libNext() { if (LS.idx < LS.items.length - 1) { LS.idx++; renderLibStage(true); } }
+  function libPrev() { if (LS.idx > 0) { LS.idx--; renderLibStage(true); } }
+
+  function libDeckOpen(items, title, back) {
+    deckGen++;                // a new deck owns the stage, same #libDeck or not
+    LS.items = items;
+    LS.idx = 0;
+    LS.count = items.filter(i => !i.lock).length;
+    LS.back = back;
+    $('libDeckTitle').textContent = title;
+    // The swipe engine belongs to whoever is on screen; these send it here.
+    drag.onAdvance = libNext;
+    drag.onBack = libPrev;
+    deckDirty = false;
+    show('libDeck');
+    renderLibStage(true);
+  }
+
+  function libDeckLeave() {
+    drag.onAdvance = null; drag.onBack = null;
+    (LS.back || openLibrary)();
+  }
+
+  $('libPrev').onclick = () => { if (!deckDirty) libPrev(); };
+  $('libNext').onclick = () => {
+    const top = document.querySelector('#libStage .card.top');
+    if (top && LS.idx < LS.items.length - 1) flyOut(top, 1);
+  };
+  $('libDeckBack').onclick = libDeckLeave;
 
   $('btnLibrary').onclick = () => { haptic('light'); openLibrary(); };
   $('libBackHome').onclick = () => show('home');
@@ -1777,7 +2041,7 @@
   function renderCompatQuestion() {
     const total = CT.questions.length;
     if (CT.idx >= total) {
-      $('compatQuestion').innerHTML = '<p class="lib-question">' + escapeHTML(T().compatDone) + '</p>';
+      $('compatQuestion').innerHTML = '<p class="compat-q">' + escapeHTML(T().compatDone) + '</p>';
       $('compatScale').innerHTML = '';
       return;
     }
@@ -1785,7 +2049,7 @@
     $('compatSphereTitle').textContent = q.sphere;
     $('compatProgress').style.width = (CT.idx / total * 100) + '%';
     $('compatProgressNum').textContent = (CT.idx + 1) + ' / ' + total;
-    $('compatQuestion').innerHTML = '<p class="lib-question">' + escapeHTML(q.text) + '</p>';
+    $('compatQuestion').innerHTML = '<p class="compat-q">' + escapeHTML(q.text) + '</p>';
     $('compatScale').innerHTML = CT.scale.map((label, i) =>
       `<button class="btn btn-second compat-opt" data-value="${i + 1}">${escapeHTML(label)}</button>`
     ).join('');
@@ -1914,7 +2178,7 @@
     // closeness is distributed. All three are listed even at zero — a missing
     // line would read as "not measured" rather than "none".
     const zoneCounts = ['strength', 'growth', 'crisis']
-      .map(z => escapeHTML(zoneLabel[z]) + ' — ' + r.spheres.filter(s => s.zone === z).length)
+      .map(z => escapeHTML(zoneLabel[z]) + ': ' + r.spheres.filter(s => s.zone === z).length)
       .join(' · ');
 
     return `
@@ -1979,16 +2243,6 @@
   };
   $('backHome').onclick = () => { COOP.creating = false; show('home'); };
   $('backThemes').onclick = () => show('themes');
-
-  document.querySelectorAll('#langRow .chip').forEach(ch => {
-    ch.onclick = async () => {
-      lang = ch.dataset.lang;
-      store.set('lang', lang);
-      haptic('light');
-      applyI18n();
-      DATA = null; // reload content in the new language on next Play
-    };
-  });
 
   applyI18n();
   // Preload content in background for instant start

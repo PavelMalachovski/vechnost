@@ -80,14 +80,14 @@ def test_a_test_nobody_joined_sends_nothing():
     assert bot.send_message.await_count == 0
 
 
-def test_each_partner_is_messaged_in_their_own_language():
-    """Not both in Russian: the en/cs `compat.*` keys have to be reachable."""
+def test_a_partner_with_a_stored_en_or_cs_code_still_gets_messaged():
+    """`en`/`cs` are pre-single-language codes left over in the users table;
+    `_user_language` coerces both to Russian rather than raising."""
     bot = _send([1, 2], languages={1: "en", 2: "cs"})
 
     texts = {c.kwargs["chat_id"]: c.kwargs["text"] for c in bot.send_message.await_args_list}
-    assert texts[1] == get_text("compat.ready", Language.ENGLISH)
-    assert texts[2] == get_text("compat.ready", Language.CZECH)
-    assert texts[1] != texts[2]
+    assert texts[1] == get_text("compat.ready", Language.RUSSIAN)
+    assert texts[2] == get_text("compat.ready", Language.RUSSIAN)
 
 
 def test_an_unknown_user_falls_back_to_russian():
@@ -107,7 +107,7 @@ def test_the_button_opens_the_mini_app_not_the_in_app_browser():
     assert button.web_app is not None
     assert button.web_app.url == "https://example.com/app"
     assert button.url is None
-    assert button.text == get_text("compat.open_button", Language.ENGLISH)
+    assert button.text == get_text("compat.open_button", Language.RUSSIAN)
 
 
 def test_no_webapp_url_means_no_button():

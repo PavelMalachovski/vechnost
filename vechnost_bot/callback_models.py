@@ -24,7 +24,6 @@ class CallbackAction(str, Enum):
     NOOP = "noop"
     LANGUAGE = "lang"
     LANGUAGE_CONFIRM = "lang_confirm"
-    LANGUAGE_BACK = "lang_back"
     CHECK_PAYMENT = "check_payment"
     START_GAME = "start_game"
     SHOW_INSIDE = "show_inside"
@@ -69,9 +68,10 @@ class CallbackData(BaseModel):
         elif data.startswith("lang_confirm_"):
             return LanguageConfirmCallbackData.parse(data)
         elif data.startswith("lang_"):
+            # Also catches the retired "lang_back": its language code reads as
+            # Russian and it lands on the same welcome screen, which is where
+            # a back button wanted to go anyway.
             return LanguageCallbackData.parse(data)
-        elif data == "lang_back":
-            return LanguageBackCallbackData.parse(data)
         elif data in ["nsfw_confirm", "nsfw_deny", "reset_game", "reset_confirm", "reset_cancel", "noop", "check_payment", "start_game", "show_inside", "show_why", "daily_off", "daily_on", "show_gift"]:
             return SimpleCallbackData.parse(data)
         else:
@@ -357,15 +357,3 @@ class LanguageConfirmCallbackData(CallbackData):
         return cls(raw_data=data, language_code=language_code)
 
 
-class LanguageBackCallbackData(CallbackData):
-    """Callback data for language selection back navigation."""
-
-    action: CallbackAction = CallbackAction.LANGUAGE_BACK
-
-    @classmethod
-    def parse(cls, data: str) -> "LanguageBackCallbackData":
-        """Parse language back callback data."""
-        if data != "lang_back":
-            raise ValueError(f"Invalid language back callback data: {data}")
-
-        return cls(raw_data=data)

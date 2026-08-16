@@ -52,10 +52,7 @@ async def create_gift_certificate(session: AsyncSession) -> str:
 
 
 def gift_language(language_code: str | None) -> Language:
-    try:
-        return Language(language_code)
-    except ValueError:
-        return Language.RUSSIAN
+    return Language.coerce(language_code)
 
 
 def render_gift_card(code: str, language: Language) -> BytesIO:
