@@ -79,10 +79,21 @@ def test_the_mini_app_user_copy_has_no_em_dash(surface):
 
 
 def test_the_mini_app_slices_are_the_ones_we_think_they_are():
-    """A slice that silently missed would make the guard above vacuous."""
+    """A slice that silently missed would make the guard above vacuous.
+
+    The I18N terminator is positional: it stops at the first line that is
+    exactly "  };", so a nested multi-line object added to the literal at
+    two-space indent would truncate the slice early and quietly shrink what
+    the guard covers. Anchoring on the *last* key rather than on a key in the
+    middle is what makes that visible — `levelDesc` is the final entry, so a
+    slice that stops short cannot contain it.
+    """
     surfaces = _user_facing_html()
     assert "Vechnost" in surfaces["<title>"]
     i18n = surfaces["I18N"]
     assert "paywallText:" in i18n and "compatIntro:" in i18n
+    # The last key in the literal, and the line count that goes with it.
+    assert "levelDesc:" in i18n
+    assert len(i18n.splitlines()) >= 60, "I18N slice truncated"
     # The literal ends before the next top-level constant.
     assert "THEME_ORDER" not in i18n and "CARD_ART" not in i18n
