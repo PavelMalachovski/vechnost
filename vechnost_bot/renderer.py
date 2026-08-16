@@ -46,11 +46,16 @@ WATERMARK_BOTTOM_MARGIN = 107
 # up rather than running into the footer.
 TEXT_FOOTER_GAP = 14
 
-# Fonts: Montserrat is the brand font (ships in assets), DejaVu is the fallback.
-# The bundled Montserrat is a latin-only subset, so each render picks the first
-# font that actually covers the text's characters (Cyrillic falls back to DejaVu).
+# Brand fonts (ship in assets/fonts, all three cover Cyrillic):
+#   Inter  — the text of every card
+#   Lora   — the VECHNOST wordmark
+#   Forum  — the V/Λ letters and the 2/3 ranks
+# DejaVu stays as a last resort: _pick_font_path still checks coverage, so a
+# text with an alphabet Inter lacks (Greek, say) degrades instead of tofuing.
 _ASSETS_FONTS = Path(__file__).parent.parent / "assets" / "fonts"
-FONT_PATH = _ASSETS_FONTS / "Montserrat-Regular.ttf"
+FONT_PATH = _ASSETS_FONTS / "Inter-Regular.ttf"
+LOGO_FONT_PATH = _ASSETS_FONTS / "Lora-Regular.ttf"
+EMBLEM_FONT_PATH = _ASSETS_FONTS / "Forum-Regular.ttf"
 FALLBACK_FONT_PATH = _ASSETS_FONTS / "DejaVuSans.ttf"
 
 
