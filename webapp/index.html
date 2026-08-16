@@ -232,7 +232,6 @@
   .lib-card-title{font-weight:700;margin-bottom:6px}
   .lib-card-line{font-size:14px;opacity:.85;margin-top:4px}
   .lib-cat{background:rgba(255,255,255,.05);border-radius:16px;padding:12px 16px;margin:10px 0}
-  .lib-cat summary{font-weight:700;cursor:pointer}
   /* A category is a button into its deck now, not a <details> full of text. */
   .lib-cat-open{display:block;width:100%;text-align:left;font:inherit;font-weight:700;
     color:inherit;border:1px solid rgba(255,255,255,.12);cursor:pointer}
@@ -371,7 +370,9 @@
     text-align: center; font-size: 12px; font-weight: 600; color: #7A3F64; letter-spacing: .06em;
   }
 
-  .card.under { transition: transform .3s ease, opacity .3s ease; }
+  /* Inert: it is a preview of the next card, and it sticks out 14px below the
+     top one — enough to catch a tap meant for something else. */
+  .card.under { transition: transform .3s ease, opacity .3s ease; pointer-events: none; }
 
   .flipper { position: absolute; inset: 0; transform-style: preserve-3d; transition: transform .45s cubic-bezier(.2,.7,.25,1); }
   .flipper.faced { transform: rotateY(180deg); }
@@ -1240,41 +1241,57 @@
   window.addEventListener('resize', refreshZoneEdges);
   if (document.fonts && document.fonts.ready) document.fonts.ready.then(refreshZoneEdges);
 
-  function renderStage(withFlip) {
-    const stage = $('stage');
+  /* ---------------- stage ---------------- */
+  // A card arrives face down and turns over. Shared by every deck, because
+  // an animation tuned in one place and not the other is how two decks stop
+  // feeling like the same object.
+  function flipUp(card) {
+    const flipper = card.querySelector('.flipper');
+    flipper.classList.add('faced');              // back side up
+    requestAnimationFrame(() => setTimeout(() => {
+      flipper.classList.remove('faced');         // flip to reveal
+      haptic('light');
+    }, 260));
+  }
+
+  // Lays out a deck's stage: the next card peeking from beneath, the current
+  // one on top, swipe attached. `htmlAt(index, number, total)` is the only
+  // thing that differs between the game deck and the Library's — everything
+  // about how a card sits on the stage is here, once. Returns the top card,
+  // or null when there is nothing to show.
+  function buildStage(stage, htmlAt, count, idx, withFlip) {
     stage.innerHTML = '';
-    const items = deckItems();
-    const total = S.order.length;
-    if (!total) return;
+    if (!count) return null;
 
     // under-card (next in deck), peeking from beneath
-    if (S.idx + 1 < total) {
+    if (idx + 1 < count) {
       const under = document.createElement('div');
       under.className = 'card under';
       under.style.transform = 'translateY(14px) scale(.94)';
       under.style.opacity = '.7';
-      under.innerHTML = cardHTML(items[S.order[S.idx + 1]], S.idx + 2, total);
+      under.innerHTML = htmlAt(idx + 1, idx + 2, count);
       stage.appendChild(under);
     }
 
     // top card
     const top = document.createElement('div');
     top.className = 'card top';
-    top.innerHTML = cardHTML(items[S.order[S.idx]], S.idx + 1, total);
+    top.innerHTML = htmlAt(idx, idx + 1, count);
     stage.appendChild(top);
 
-    const flipper = top.querySelector('.flipper');
-    if (withFlip) {
-      flipper.classList.add('faced');            // back side up
-      requestAnimationFrame(() => setTimeout(() => {
-        flipper.classList.remove('faced');       // flip to reveal
-        haptic('light');
-      }, 260));
-    }
-
+    if (withFlip) flipUp(top);
     attachSwipe(top);
-    updateProgress();
     deckDirty = false;
+    return top;
+  }
+
+  function renderStage(withFlip) {
+    const items = deckItems();
+    const top = buildStage($('stage'),
+      (i, number, total) => cardHTML(items[S.order[i]], number, total),
+      S.order.length, S.idx, withFlip);
+    if (!top) return;
+    updateProgress();
   }
 
   /* ---------------- swipe physics ---------------- */
@@ -1354,19 +1371,30 @@
     if (deckDirty) return;
     deckDirty = true;
     haptic('medium');
+    // Who owns this flight is decided now, not in 300ms. The card stays in
+    // the air long enough for the user to tap back out of the deck, and
+    // everything below used to be read after that: paging the Library and
+    // leaving immediately stepped the *game's* saved position, and could put
+    // the game's "done" overlay up over the Library.
+    const onAdvance = drag.onAdvance, onBack = drag.onBack;
+    const wasCoop = COOP.active;
+    const screen = document.querySelector('.screen.active');
     card.style.transition = 'transform .38s cubic-bezier(.5,.05,.9,.4), opacity .38s';
     card.style.transform = 'translate(' + (dir * (window.innerWidth * 1.1)) + 'px,' + (-40 + Math.random() * 120) + 'px) rotate(' + dir * 24 + 'deg)';
     card.style.opacity = '0';
     setTimeout(() => {
+      // Left the deck mid-flight: nobody is looking at that stage any more,
+      // and stepping a deck now would step whichever one they left for.
+      if (!screen || !screen.classList.contains('active')) { deckDirty = false; return; }
       // A deck that installed its own transitions (the Library) takes it from
-      // here. deckDirty is cleared by renderStage, which this branch never
+      // here. deckDirty is cleared by buildStage, which this branch never
       // reaches — leave it set and the second swipe is swallowed.
-      if (drag.onAdvance) {
+      if (onAdvance) {
         deckDirty = false;
-        (dir > 0 ? drag.onAdvance : drag.onBack)();
+        (dir > 0 ? onAdvance : onBack)();
         return;
       }
-      if (COOP.active) {
+      if (wasCoop) {
         coopAdvanceAfterFly();  // couple mode is always forward, server-driven
         return;
       }
@@ -1698,6 +1726,10 @@
     }
   }
 
+  // Not buildStage: couple mode has no under-card to draw. The room sends one
+  // card at a time and the next one does not exist client-side until the
+  // server says whose turn it is. It shares the flip, which is the part worth
+  // keeping in step.
   function renderCoopStage(withFlip) {
     const stage = $('stage');
     stage.innerHTML = '';
@@ -1706,14 +1738,7 @@
     top.className = 'card top';
     top.innerHTML = cardHTML(C.st.card_text, C.st.idx + 1, C.st.total);
     stage.appendChild(top);
-    const flipper = top.querySelector('.flipper');
-    if (withFlip) {
-      flipper.classList.add('faced');
-      requestAnimationFrame(() => setTimeout(() => {
-        flipper.classList.remove('faced');
-        haptic('light');
-      }, 260));
-    }
+    if (withFlip) flipUp(top);
     attachSwipe(top);
     updateCoopHud();
     deckDirty = false;
@@ -1932,39 +1957,18 @@
       ? '<button class="btn btn-play q-lock">' +
         escapeHTML(T().libLocked + (ACCESS.price ? ' — ' + ACCESS.price : '')) + '</button>'
       : '';
-    return { text: '<b>🔒</b><br><br>' + note + cta, footer: '🔒', lock: true };
+    // A dash, not a position: this card is not the deck's Nth item, and
+    // repeating the last content card's number reads as a rendering fault.
+    return { text: '<b>🔒</b><br><br>' + note + cta, footer: '—', lock: true };
   }
 
   function renderLibStage(withFlip) {
-    const stage = $('libStage');
-    stage.innerHTML = '';
-    const total = LS.items.length;
-    if (!total) return;
-    if (LS.idx + 1 < total) {
-      const under = document.createElement('div');
-      under.className = 'card under';
-      under.style.transform = 'translateY(14px) scale(.94)';
-      under.style.opacity = '.7';
-      under.innerHTML = libCardHTML(LS.items[LS.idx + 1], LS.idx + 2, total);
-      stage.appendChild(under);
-    }
-    const top = document.createElement('div');
-    top.className = 'card top';
-    top.innerHTML = libCardHTML(LS.items[LS.idx], LS.idx + 1, total);
-    stage.appendChild(top);
-
-    const flipper = top.querySelector('.flipper');
-    if (withFlip) {
-      flipper.classList.add('faced');
-      requestAnimationFrame(() => setTimeout(() => {
-        flipper.classList.remove('faced');
-        haptic('light');
-      }, 260));
-    }
-
-    attachSwipe(top);
+    const top = buildStage($('libStage'),
+      (i, number, total) => libCardHTML(LS.items[i], number, total),
+      LS.items.length, LS.idx, withFlip);
+    if (!top) return;
     // Only the top card's button: the under card carries a copy of the same
-    // markup and is not meant to be reachable.
+    // markup, and .card.under is pointer-events:none so it cannot be tapped.
     top.querySelectorAll('.q-lock').forEach(b => {
       b.onclick = () => { haptic('light'); $('paywallBuy').click(); };
     });
@@ -1973,8 +1977,7 @@
     $('libProgressFill').style.width = (LS.count ? (cur / LS.count) * 100 : 0) + '%';
     $('libProgressNum').textContent = cur + ' / ' + LS.count;
     $('libPrev').disabled = LS.idx <= 0;
-    $('libNext').disabled = LS.idx >= total - 1;
-    deckDirty = false;
+    $('libNext').disabled = LS.idx >= LS.items.length - 1;
   }
 
   function libNext() { if (LS.idx < LS.items.length - 1) { LS.idx++; renderLibStage(true); } }

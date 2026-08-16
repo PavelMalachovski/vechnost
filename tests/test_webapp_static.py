@@ -161,9 +161,17 @@ def test_the_library_has_a_deck_screen():
     assert "LIBRARY_ART" in html
 
 
+def _library_js(html: str) -> str:
+    """The Library's slice of the page script, deck controller included."""
+    body = html.split("/* ---------------- library ---------------- */", 1)[1]
+    return body.split("/* ---------------- compatibility test ---------------- */", 1)[0]
+
+
 def test_the_library_no_longer_renders_bare_lists():
     html = INDEX.read_text(encoding="utf-8")
-    assert "<ol>" not in html
+    # Scoped: an <ol> elsewhere on the page (a translation string, say) is not
+    # this test's business, and banning it page-wide only sets a trap.
+    assert "<ol>" not in _library_js(html)
     assert "lib-daily" not in html
     assert "lib-question" not in html
 
@@ -189,9 +197,39 @@ def test_the_library_deck_hands_the_swipe_engine_its_own_transitions():
 
 def test_a_truncated_library_deck_says_so_on_its_last_card():
     """A practice module has no category screen to hang the paywall on, so
-    the deck itself must end on the prompt rather than just stopping."""
+    the deck itself must end on the prompt rather than just stopping. Both
+    deck builders have to append it — the practice one and the category one."""
     html = INDEX.read_text(encoding="utf-8")
-    assert "libLockCard" in html
+    assert "function libLockCard(" in html
+    for fn in ("function libItems(", "function openLibCategory("):
+        assert "libLockCard(" in html.split(fn)[1].split("\n  }")[0]
+
+
+def test_both_decks_lay_their_cards_out_through_one_builder():
+    """Two copies of the stage layout means two places to tune the animation,
+    and one of them silently drifts."""
+    html = INDEX.read_text(encoding="utf-8")
+    assert html.count("className = 'card under'") == 1
+    assert html.count("classList.add('faced')") == 1
+    for fn in ("function renderStage(", "function renderLibStage("):
+        assert "buildStage(" in html.split(fn)[1].split("\n  }")[0]
+
+
+def test_a_card_that_flies_out_lands_in_the_deck_that_launched_it():
+    """flyOut's callback runs 300ms later — long enough to leave the deck.
+    Reading drag.onAdvance/COOP.active at landing time drove whatever screen
+    the user went to: paging the Library stepped the saved game position."""
+    html = INDEX.read_text(encoding="utf-8")
+    fly = html.split("function flyOut(")[1].split("\n  }")[0]
+    before, after = fly.split("setTimeout(", 1)
+    # Captured on the way in...
+    assert "drag.onAdvance" in before
+    assert "COOP.active" in before
+    # ...and not re-read on the way out.
+    assert "drag.onAdvance" not in after
+    assert "COOP.active" not in after
+    # Left the deck mid-flight: step nothing.
+    assert "classList.contains('active')" in after
 
 
 def test_the_home_screen_shows_decks_not_typographic_suits():
