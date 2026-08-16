@@ -6,21 +6,49 @@
 <title>Vechnost — игра для близости</title>
 <script src="https://telegram.org/js/telegram-web-app.js"></script>
 <style>
-  @font-face {
-    font-family: 'Montserrat';
-    src: url('fonts/Montserrat-Regular.woff2') format('woff2');
+  /* The brand three, the same faces the bot composites onto its cards:
+     Inter for text, Lora for the wordmark, Forum for the V/Λ emblem.
+     Each ships as two subsets — the bare file is Cyrillic-only and the
+     -latin one carries ASCII — so both are declared with the unicode-range
+     that selects them. Drop the -latin faces and every English string falls
+     back to the system sans. */
+  @font-face { font-family: 'Inter'; src: url('fonts/inter-400-latin.woff2') format('woff2');
     font-weight: 400; font-style: normal; font-display: swap;
-  }
-  @font-face {
-    font-family: 'Montserrat';
-    src: url('fonts/Montserrat-Bold.woff2') format('woff2');
+    unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+2000-206F, U+20AC, U+2122, U+2212; }
+  @font-face { font-family: 'Inter'; src: url('fonts/inter-400.woff2') format('woff2');
+    font-weight: 400; font-style: normal; font-display: swap;
+    unicode-range: U+0301, U+0400-045F, U+0490-0491, U+04B0-04B1, U+2116; }
+  @font-face { font-family: 'Inter'; src: url('fonts/inter-600-latin.woff2') format('woff2');
+    font-weight: 600; font-style: normal; font-display: swap;
+    unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+2000-206F, U+20AC, U+2122, U+2212; }
+  @font-face { font-family: 'Inter'; src: url('fonts/inter-600.woff2') format('woff2');
+    font-weight: 600; font-style: normal; font-display: swap;
+    unicode-range: U+0301, U+0400-045F, U+0490-0491, U+04B0-04B1, U+2116; }
+  @font-face { font-family: 'Inter'; src: url('fonts/inter-700-latin.woff2') format('woff2');
     font-weight: 700; font-style: normal; font-display: swap;
-  }
+    unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+2000-206F, U+20AC, U+2122, U+2212; }
+  @font-face { font-family: 'Inter'; src: url('fonts/inter-700.woff2') format('woff2');
+    font-weight: 700; font-style: normal; font-display: swap;
+    unicode-range: U+0301, U+0400-045F, U+0490-0491, U+04B0-04B1, U+2116; }
+  @font-face { font-family: 'Lora'; src: url('fonts/lora-400-latin.woff2') format('woff2');
+    font-weight: 400; font-style: normal; font-display: swap;
+    unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+2000-206F, U+20AC, U+2122, U+2212; }
+  @font-face { font-family: 'Lora'; src: url('fonts/lora-400.woff2') format('woff2');
+    font-weight: 400; font-style: normal; font-display: swap;
+    unicode-range: U+0301, U+0400-045F, U+0490-0491, U+04B0-04B1, U+2116; }
+  @font-face { font-family: 'Forum'; src: url('fonts/forum-400-latin.woff2') format('woff2');
+    font-weight: 400; font-style: normal; font-display: swap;
+    unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+2000-206F, U+20AC, U+2122, U+2212; }
+  @font-face { font-family: 'Forum'; src: url('fonts/forum-400.woff2') format('woff2');
+    font-weight: 400; font-style: normal; font-display: swap;
+    unicode-range: U+0301, U+0400-045F, U+0490-0491, U+04B0-04B1, U+2116; }
 
   :root {
+    --font-text: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    --font-logo: 'Lora', serif;
+    --font-emblem: 'Forum', serif;
     --ink: #350027;
     --card-bg: #FDEBF7;
-    --card-edge: #F5D3EA;
     --shell-1: #1C0414;
     --text-on-dark: #FBE9F4;
     --muted-on-dark: rgba(251, 233, 244, .62);
@@ -35,7 +63,7 @@
     height: 100%;
     overflow: hidden;
     overscroll-behavior: none;
-    font-family: 'Montserrat', -apple-system, BlinkMacSystemFont, "SF Pro Text", Roboto, "Segoe UI", sans-serif;
+    font-family: var(--font-text);
     background: #1C0414;
     color: var(--text-on-dark);
     user-select: none;
@@ -63,7 +91,7 @@
   /* ---------- home ---------- */
   #home { align-items: center; justify-content: center; text-align: center; gap: 10px; }
   .logo {
-    font-family: Georgia, "Times New Roman", serif;
+    font-family: var(--font-logo);
     font-size: 52px; letter-spacing: .14em; font-weight: 400;
     background: linear-gradient(180deg, #FFD9EF 20%, #E86BB5 90%);
     -webkit-background-clip: text; background-clip: text; color: transparent;
@@ -109,7 +137,7 @@
   }
   .coop-input:focus { border-color: rgba(232,107,181,.8); }
   .code-display {
-    font-family: Georgia, serif; font-size: 46px; letter-spacing: .2em;
+    font-family: var(--font-emblem); font-size: 46px; letter-spacing: .2em;
     color: #FFD9EF; text-align: center; margin: 10px 0 4px;
     text-shadow: 0 0 30px rgba(232,107,181,.4);
   }
@@ -250,41 +278,45 @@
     backface-visibility: hidden; -webkit-backface-visibility: hidden;
     display: flex; flex-direction: column; overflow: hidden;
   }
+  /* The face IS the printed card: the same PNG the bot composites onto, so
+     the Mini App and the photos the bot sends are the same object. Only the
+     text and the footer are drawn on top.
+
+     background-size is 100% 100%, not cover, because that is what the bot
+     does — renderer.py resizes the 600x900 art into its 1080x1350 frame. It
+     also makes the geometry exact: every fraction of the art is the same
+     fraction of this box, so the padding below can be read off renderer.py's
+     TEXT_AREA_* constants instead of being guessed around a crop. */
   .card .front {
-    background: var(--card-bg);
-    border: 1px solid var(--card-edge);
+    background-color: var(--card-bg);
+    background-image: var(--art);
+    background-size: 100% 100%;
+    background-repeat: no-repeat;
     box-shadow: 0 18px 44px rgba(0,0,0,.5);
-    padding: 26px 24px;
+    /* The printed V+suit marks occupy the top 21.3% and the bottom 21.4% of
+       the art; renderer.py keeps its text inside the central 56% x 76%.
+       These are those fractions of the 340x470 card. */
+    padding: 103px 41px 103px;
   }
   .card .back {
     transform: rotateY(180deg);
-    background:
-      radial-gradient(90% 70% at 50% 40%, #5C1140 0%, #350027 70%),
-      #350027;
-    border: 1px solid #5C1140;
+    background: #4A0A38 url('/assets/backgrounds/card_back.png') no-repeat;
+    background-size: 100% 100%;
     box-shadow: 0 18px 44px rgba(0,0,0,.5);
-    display: grid; place-items: center;
   }
-  .card .back .emblem {
-    font-family: Georgia, serif; font-size: 64px; color: #E86BB5; letter-spacing: .1em;
-    text-shadow: 0 0 34px rgba(232,107,181,.55);
-  }
-  .card .back .emblem small { display: block; font-size: 15px; letter-spacing: .42em; text-align: center; margin-top: 6px; color: rgba(232,107,181,.75); }
 
-  .corner { position: absolute; font-size: 19px; line-height: 1.05; color: var(--ink); font-family: Georgia, serif; text-align: center; }
-  .corner .s { font-size: 15px; display: block; }
-  .corner.tl { top: 14px; left: 16px; }
-  .corner.br { bottom: 14px; right: 16px; transform: rotate(180deg); }
-
-  .q-zone { flex: 1; display: grid; place-items: center; padding: 12px 2px; }
+  .q-zone { flex: 1; display: grid; place-items: center; }
   .q-text {
     color: var(--ink); text-align: center; font-weight: 600;
     font-size: 22px; line-height: 1.42; letter-spacing: .002em;
     overflow-wrap: anywhere;
   }
-  .q-text.small  { font-size: 18px; }
-  .q-text.tiny   { font-size: 15.5px; }
-  .card-footer { text-align: center; font-size: 12px; font-weight: 600; color: #7A3F64; letter-spacing: .06em; }
+  /* Level with the bottom-right mark but centred, well clear of it — the
+     same place renderer.py puts it, ~11% up from the bottom edge. */
+  .card-footer {
+    position: absolute; left: 0; right: 0; bottom: 40px;
+    text-align: center; font-size: 12px; font-weight: 600; color: #7A3F64; letter-spacing: .06em;
+  }
 
   .card.under { transition: transform .3s ease, opacity .3s ease; }
 
@@ -767,7 +799,35 @@
   };
 
   const THEME_ORDER = ['Acquaintance', 'For Couples', 'Sex', 'Provocation'];
-  const SUITS = { 'Acquaintance': '♠', 'For Couples': '♥', 'Sex': '♣', 'Provocation': '♦' };
+  // The suits of the printed cards. The Mini App used to guess these, and
+  // guessed Acquaintance and For Couples backwards; the corners are part of
+  // the card art now, so SUITS only feeds the share text.
+  const SUITS = { 'Acquaintance': '♥', 'For Couples': '♠', 'Sex': '♣', 'Provocation': '♦' };
+
+  // The card face each deck is printed on, same mapping the bot reads from
+  // assets/backgrounds.yml. What identifies a face differs per deck: the two
+  // levelled decks by level, Sex by content type, Provocation by nothing —
+  // so each entry says which, rather than the lookup guessing.
+  const CARD_ART = {
+    'Acquaintance': { by: 'level', faces: { 1: 'acq/acq_1.png', 2: 'acq/acq_2.png', 3: 'acq/acq_3.png' } },
+    'For Couples':  { by: 'level', faces: { 1: 'couples/couples_1.png', 2: 'couples/couples_2.png', 3: 'couples/couples_3.png' } },
+    // S.type is 'questions' / 'tasks' — the same words rooms.py serves.
+    'Sex':          { by: 'type',  faces: { questions: 'sex/questions.png', tasks: 'sex/tasks.png' } },
+    'Provocation':  { by: 'deck',  faces: { deck: 'prov/prov.png' } }
+  };
+
+  // Returns the URL of the printed face, or null when nothing matches. Null
+  // leaves --art unset, so the card renders as a blank pink rectangle with no
+  // corner marks: wrong in a way you can see, rather than quietly wearing some
+  // other deck's face.
+  function cardArt(theme, level, type) {
+    const deck = CARD_ART[theme];
+    if (!deck) { console.warn('vechnost: no card art for theme', theme); return null; }
+    const key = deck.by === 'level' ? level : deck.by === 'type' ? type : 'deck';
+    const file = deck.faces[key];
+    if (!file) { console.warn('vechnost: no card art for', theme, deck.by, key); return null; }
+    return '/assets/backgrounds/' + file;
+  }
 
   /* ---------------- state ---------------- */
   const store = {
@@ -1058,18 +1118,15 @@
   }
 
   function cardHTML(text, number, total) {
-    const suit = SUITS[S.theme] || '♥';
-    const len = text.length;
-    const sizeClass = len > 220 ? ' tiny' : (len > 120 ? ' small' : '');
+    const art = cardArt(S.theme, S.level, S.type);
+    const style = art ? ' style="--art:url(' + art + ')"' : '';
     return (
       '<div class="flipper">' +
-        '<div class="face front">' +
-          '<div class="corner tl">V<span class="s">' + suit + '</span></div>' +
-          '<div class="q-zone"><div class="q-text' + sizeClass + '">' + escapeHTML(text) + '</div></div>' +
+        '<div class="face front"' + style + '>' +
+          '<div class="q-zone"><div class="q-text">' + escapeHTML(text) + '</div></div>' +
           '<div class="card-footer">' + T().cardWord + ' ' + number + ' / ' + total + '</div>' +
-          '<div class="corner br">V<span class="s">' + suit + '</span></div>' +
         '</div>' +
-        '<div class="face back"><div class="emblem">V<small>VECHNOST</small></div></div>' +
+        '<div class="face back"></div>' +
       '</div>'
     );
   }
@@ -1429,7 +1486,13 @@
 
   function enterCoopDeck() {
     COOP.active = true;
-    S.theme = C.st.theme;  // suit on the card face
+    // cardHTML picks the printed face from all three of these, and the room
+    // is the only thing that knows which deck the pair is actually playing.
+    // Copying only the theme left level and type at whatever a previous solo
+    // deck happened to set, so the pair got the wrong card.
+    S.theme = C.st.theme;
+    S.level = C.st.level || null;
+    S.type = C.st.type;
     const meta = coopThemeMeta();
     $('deckTitle').textContent = '👥 ' + meta.name + (C.st.level ? ' · ' + T().level + ' ' + C.st.level : '');
     $('modeRow').style.display = 'none';
