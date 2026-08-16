@@ -31,6 +31,7 @@ from .webapp_auth import InitDataError, validate_init_data
 logger = logging.getLogger(__name__)
 
 WEBAPP_DIR = Path(__file__).parent.parent.parent / "webapp"
+ASSETS_DIR = Path(__file__).parent.parent.parent / "assets"
 
 
 @asynccontextmanager
@@ -359,6 +360,14 @@ if WEBAPP_DIR.exists():
     app.mount("/app", StaticFiles(directory=str(WEBAPP_DIR), html=True), name="webapp")
 else:
     logger.warning(f"Mini App directory not found: {WEBAPP_DIR}")
+
+# The Mini App renders on the same card art the bot composites onto, so
+# it needs the PNGs themselves. Read-only and public: these are the same
+# images every user already receives as photos.
+if ASSETS_DIR.exists():
+    app.mount("/assets", StaticFiles(directory=str(ASSETS_DIR)), name="assets")
+else:
+    logger.warning(f"Assets directory not found: {ASSETS_DIR}")
 
 
 if __name__ == "__main__":
