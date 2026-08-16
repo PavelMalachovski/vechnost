@@ -55,6 +55,42 @@ def _card_footer(theme: Theme, index: int, total: int, language: Language) -> st
     return f"{plain} · {index + 1}/{total}"
 
 
+def _calendar_header(
+    session: SessionState, content_type: ContentType, remaining_count: int
+) -> str:
+    """The line above the calendar keyboard, for whichever deck is open.
+
+    Four shapes, not one, and the differences are deliberate: the Sex deck is
+    titled by content type, Provocation carries neither a level nor a count, a
+    levelled deck is a one-line title, and only the levelless fallback spends a
+    second line on how many cards are left. Merging the last two would put a
+    card count on a message that has never had one.
+
+    Six call sites held this decision verbatim, which is how the levelled
+    branch kept a plain hyphen while its twin in the YAML moved to the middot
+    that `_card_footer` above already prints onto the card image.
+    """
+    if session.theme == Theme.SEX:
+        key = ('calendar.sex_questions' if content_type == ContentType.QUESTIONS
+               else 'calendar.sex_tasks')
+        return get_text(key, session.language)
+
+    theme_name = get_text(f'themes.{session.theme.value}', session.language)
+    if session.theme == Theme.PROVOCATION:
+        # Provocation: show only theme name without level and card count
+        return theme_name
+    if session.level:
+        return get_text('calendar.level_header', session.language).format(
+            theme=theme_name,
+            level=format_number(session.level, session.language),
+        )
+    return get_text('calendar.header', session.language).format(
+        theme=theme_name,
+        level="",
+        remaining_count=format_number(remaining_count, session.language),
+    )
+
+
 def _card_watermark() -> str:
     """Brand line on rendered cards; forwarded images advertise the bot."""
     from .config import settings
@@ -203,27 +239,7 @@ class ThemeHandler(CallbackHandler):
         # Calculate remaining count
         remaining_count = len(items)
 
-        # Build header text
-        if session.theme == Theme.SEX:
-            if content_type == ContentType.QUESTIONS:
-                header = get_text('calendar.sex_questions', session.language)
-            else:
-                header = get_text('calendar.sex_tasks', session.language)
-        else:
-            # Get theme name from translations
-            theme_name = get_text(f'themes.{session.theme.value}', session.language)
-            if session.theme == Theme.PROVOCATION:
-                # Provocation: show only theme name without level and card count
-                header = theme_name
-            elif session.level:
-                level_text = get_text('level.level', session.language)
-                header = f"{theme_name} - {level_text} {session.level}"
-            else:
-                header = get_text('calendar.header', session.language).format(
-                    theme=theme_name,
-                    level=format_number(session.level, session.language) if session.level else "",
-                    remaining_count=format_number(remaining_count, session.language)
-                )
+        header = _calendar_header(session, content_type, remaining_count)
 
         # Show toggle only for Sex theme
         show_toggle = (session.theme == Theme.SEX)
@@ -306,27 +322,7 @@ class LevelHandler(CallbackHandler):
         # Calculate remaining count
         remaining_count = len(items)
 
-        # Build header text
-        if session.theme == Theme.SEX:
-            if content_type == ContentType.QUESTIONS:
-                header = get_text('calendar.sex_questions', session.language)
-            else:
-                header = get_text('calendar.sex_tasks', session.language)
-        else:
-            # Get theme name from translations
-            theme_name = get_text(f'themes.{session.theme.value}', session.language)
-            if session.theme == Theme.PROVOCATION:
-                # Provocation: show only theme name without level and card count
-                header = theme_name
-            elif session.level:
-                level_text = get_text('level.level', session.language)
-                header = f"{theme_name} - {level_text} {session.level}"
-            else:
-                header = get_text('calendar.header', session.language).format(
-                    theme=theme_name,
-                    level=format_number(session.level, session.language) if session.level else "",
-                    remaining_count=format_number(remaining_count, session.language)
-                )
+        header = _calendar_header(session, content_type, remaining_count)
 
         # Show toggle only for Sex theme
         show_toggle = (session.theme == Theme.SEX)
@@ -416,27 +412,7 @@ class CalendarHandler(CallbackHandler):
         # Calculate remaining count
         remaining_count = len(items)
 
-        # Build header text
-        if session.theme == Theme.SEX:
-            if content_type == ContentType.QUESTIONS:
-                header = get_text('calendar.sex_questions', session.language)
-            else:
-                header = get_text('calendar.sex_tasks', session.language)
-        else:
-            # Get theme name from translations
-            theme_name = get_text(f'themes.{session.theme.value}', session.language)
-            if session.theme == Theme.PROVOCATION:
-                # Provocation: show only theme name without level and card count
-                header = theme_name
-            elif session.level:
-                level_text = get_text('level.level', session.language)
-                header = f"{theme_name} - {level_text} {session.level}"
-            else:
-                header = get_text('calendar.header', session.language).format(
-                    theme=theme_name,
-                    level=format_number(session.level, session.language) if session.level else "",
-                    remaining_count=format_number(remaining_count, session.language)
-                )
+        header = _calendar_header(session, content_type, remaining_count)
 
         # Show toggle only for Sex theme
         show_toggle = (session.theme == Theme.SEX)
@@ -683,27 +659,7 @@ class ToggleHandler(CallbackHandler):
         # Calculate remaining count
         remaining_count = len(items)
 
-        # Build header text
-        if session.theme == Theme.SEX:
-            if content_type == ContentType.QUESTIONS:
-                header = get_text('calendar.sex_questions', session.language)
-            else:
-                header = get_text('calendar.sex_tasks', session.language)
-        else:
-            # Get theme name from translations
-            theme_name = get_text(f'themes.{session.theme.value}', session.language)
-            if session.theme == Theme.PROVOCATION:
-                # Provocation: show only theme name without level and card count
-                header = theme_name
-            elif session.level:
-                level_text = get_text('level.level', session.language)
-                header = f"{theme_name} - {level_text} {session.level}"
-            else:
-                header = get_text('calendar.header', session.language).format(
-                    theme=theme_name,
-                    level=format_number(session.level, session.language) if session.level else "",
-                    remaining_count=format_number(remaining_count, session.language)
-                )
+        header = _calendar_header(session, content_type, remaining_count)
 
         # Show toggle only for Sex theme
         show_toggle = (session.theme == Theme.SEX)
@@ -815,27 +771,7 @@ class BackHandler(CallbackHandler):
         # Calculate remaining count
         remaining_count = len(items)
 
-        # Build header text
-        if session.theme == Theme.SEX:
-            if content_type == ContentType.QUESTIONS:
-                header = get_text('calendar.sex_questions', session.language)
-            else:
-                header = get_text('calendar.sex_tasks', session.language)
-        else:
-            # Get theme name from translations
-            theme_name = get_text(f'themes.{session.theme.value}', session.language)
-            if session.theme == Theme.PROVOCATION:
-                # Provocation: show only theme name without level and card count
-                header = theme_name
-            elif session.level:
-                level_text = get_text('level.level', session.language)
-                header = f"{theme_name} - {level_text} {session.level}"
-            else:
-                header = get_text('calendar.header', session.language).format(
-                    theme=theme_name,
-                    level=format_number(session.level, session.language) if session.level else "",
-                    remaining_count=format_number(remaining_count, session.language)
-                )
+        header = _calendar_header(session, content_type, remaining_count)
 
         # Show toggle only for Sex theme
         show_toggle = (session.theme == Theme.SEX)
@@ -987,27 +923,7 @@ class SimpleActionHandler(CallbackHandler):
         # Calculate remaining count
         remaining_count = len(items)
 
-        # Build header text
-        if session.theme == Theme.SEX:
-            if content_type == ContentType.QUESTIONS:
-                header = get_text('calendar.sex_questions', session.language)
-            else:
-                header = get_text('calendar.sex_tasks', session.language)
-        else:
-            # Get theme name from translations
-            theme_name = get_text(f'themes.{session.theme.value}', session.language)
-            if session.theme == Theme.PROVOCATION:
-                # Provocation: show only theme name without level and card count
-                header = theme_name
-            elif session.level:
-                level_text = get_text('level.level', session.language)
-                header = f"{theme_name} - {level_text} {session.level}"
-            else:
-                header = get_text('calendar.header', session.language).format(
-                    theme=theme_name,
-                    level=format_number(session.level, session.language) if session.level else "",
-                    remaining_count=format_number(remaining_count, session.language)
-                )
+        header = _calendar_header(session, content_type, remaining_count)
 
         # Show toggle only for Sex theme
         show_toggle = (session.theme == Theme.SEX)

@@ -51,6 +51,10 @@ level:
 
 calendar:
   header: "{theme} · Уровень {level}\nОсталось карточек: {remaining_count}"
+  # A levelled deck's title carries no card count. It lived as an f-string in
+  # callback_handlers.py, which is how it drifted onto a plain hyphen while the
+  # line above it moved on; it is a string like any other and belongs here.
+  level_header: "{theme} · Уровень {level}"
   sex_questions: "🔥 Секс · Вопросы"
   sex_tasks: "🔥 Секс · Задания"
 
