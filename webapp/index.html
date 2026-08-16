@@ -272,7 +272,15 @@
 
   .mode-row { display: flex; gap: 8px; justify-content: center; margin-bottom: 8px; }
 
-  #stage { flex: 1; position: relative; perspective: 1300px; margin: 4px 0 10px; touch-action: none; }
+  /* pan-y, not none. `none` blocks the browser's horizontal panning — which
+     is what protects the card swipe — but it also cancels the vertical pan
+     that scrolls a long question inside .q-zone. Chromium stops intersecting
+     touch-action at the nested scroller, so .q-zone's own pan-y would win
+     there; WebKit is not worth betting the iOS build on. Nothing above the
+     stage scrolls vertically anyway (html/body are overflow:hidden) and
+     Telegram's own vertical swipe is off (disableVerticalSwipes below), so
+     allowing pan-y here costs nothing. */
+  #stage { flex: 1; position: relative; perspective: 1300px; margin: 4px 0 10px; touch-action: pan-y; }
 
   .card {
     position: absolute; inset: 0; margin: auto;
@@ -313,7 +321,35 @@
     box-shadow: 0 18px 44px rgba(0,0,0,.5);
   }
 
-  .q-zone { flex: 1; display: grid; place-items: center; }
+  /* The text area scrolls on its own. A long question keeps its readable
+     size instead of shrinking and still overrunning the footer, and it can
+     never reach the printed corner marks — the band is the same one
+     renderer.py types into, and .q-zone clips to it.
+
+     The grid stays: a single auto row stretches to the band when the text
+     fits (so short questions still sit centred) and grows to the text when
+     it doesn't, which leaves the first line at scrollTop 0 instead of
+     stranded above it the way align-items:center on a flex box would.
+
+     The mask fades a cut edge so a clipped line reads as "there's more"
+     rather than as a rendering bug — but only an edge that really hides
+     something. A permanent fade dims the first line of an unscrolled card
+     and the last line at the end of the scroll, which is the rendering bug
+     it was meant to prevent. markZoneEdges() sets cut-top/cut-bottom. */
+  .q-zone {
+    flex: 1; display: grid; place-items: center;
+    overflow-y: auto; overscroll-behavior: contain;
+    -webkit-overflow-scrolling: touch; touch-action: pan-y;
+    scrollbar-width: none;
+    --cut-top: 0px; --cut-bottom: 0px;
+    -webkit-mask-image: linear-gradient(180deg, transparent 0, #000 var(--cut-top),
+                        #000 calc(100% - var(--cut-bottom)), transparent 100%);
+            mask-image: linear-gradient(180deg, transparent 0, #000 var(--cut-top),
+                        #000 calc(100% - var(--cut-bottom)), transparent 100%);
+  }
+  .q-zone.cut-top { --cut-top: 18px; }
+  .q-zone.cut-bottom { --cut-bottom: 18px; }
+  .q-zone::-webkit-scrollbar { display: none; }
   .q-text {
     color: var(--ink); text-align: center; font-weight: 600;
     font-size: 22px; line-height: 1.42; letter-spacing: .002em;
@@ -1148,6 +1184,27 @@
     return s.replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
   }
 
+  /* ---------------- long card text ---------------- */
+  // A long question scrolls inside .q-zone; these mark which end is actually
+  // cut so the CSS fades that end and only that end. Deliberately global
+  // rather than wired into renderStage: the game deck, couple mode and
+  // anything else built from cardHTML all get it without knowing about it.
+  function markZoneEdges(z) {
+    const slack = z.scrollHeight - z.clientHeight;
+    z.classList.toggle('cut-top', z.scrollTop > 1);
+    z.classList.toggle('cut-bottom', slack > 1 && z.scrollTop < slack - 1);
+  }
+  function refreshZoneEdges() { document.querySelectorAll('.q-zone').forEach(markZoneEdges); }
+  // scroll doesn't bubble, so listen in the capture phase.
+  document.addEventListener('scroll', e => {
+    if (e.target instanceof Element && e.target.classList.contains('q-zone')) markZoneEdges(e.target);
+  }, true);
+  // New cards arrive as innerHTML; the swapped-in font and a rotation both
+  // change how much of the question fits.
+  new MutationObserver(refreshZoneEdges).observe(document.body, { childList: true, subtree: true });
+  window.addEventListener('resize', refreshZoneEdges);
+  if (document.fonts && document.fonts.ready) document.fonts.ready.then(refreshZoneEdges);
+
   function renderStage(withFlip) {
     const stage = $('stage');
     stage.innerHTML = '';
@@ -1188,7 +1245,7 @@
   /* ---------------- swipe physics ---------------- */
   // Single global drag state: window listeners are registered once,
   // renderStage only points `drag.card` at the current top card.
-  const drag = { card: null, x0: 0, y0: 0, dx: 0, dy: 0, active: false };
+  const drag = { card: null, x0: 0, y0: 0, dx: 0, dy: 0, active: false, axis: null };
 
   function attachSwipe(card) {
     drag.card = card;
@@ -1204,17 +1261,31 @@
     drag.active = true;
     const p = e.touches ? e.touches[0] : e;
     drag.x0 = p.clientX; drag.y0 = p.clientY; drag.dx = 0; drag.dy = 0;
+    drag.axis = null;               // undecided until the gesture commits
     drag.card.style.transition = 'none';
   }
   function dragMove(e) {
     if (!drag.active || !drag.card) return;
     const p = e.touches ? e.touches[0] : e;
     drag.dx = p.clientX - drag.x0; drag.dy = p.clientY - drag.y0;
+
+    // Decide once, at 8px of travel, whether this gesture belongs to the
+    // card or to the text scrolling inside it. Without this, reading a long
+    // question by scrolling drags the card halfway off the stage.
+    if (!drag.axis) {
+      if (Math.abs(drag.dx) < 8 && Math.abs(drag.dy) < 8) return;
+      drag.axis = Math.abs(drag.dx) > Math.abs(drag.dy) ? 'x' : 'y';
+    }
+    if (drag.axis === 'y') return;
+
     drag.card.style.transform =
       'translate(' + drag.dx + 'px,' + (drag.dy * .35) + 'px) rotate(' + (drag.dx * .055) + 'deg)';
   }
   function dragEnd() {
     if (!drag.active || !drag.card) return;
+    // A vertical gesture was the text scrolling, not a swipe: leave the card
+    // where it is and do not step the deck.
+    if (drag.axis === 'y') { drag.active = false; drag.axis = null; return; }
     drag.active = false;
     // Right = next card, left = previous. A left swipe on the first card
     // snaps back; couple mode is turn-based, so left never goes back there.
@@ -1226,7 +1297,7 @@
       drag.card.style.transition = 'transform .3s cubic-bezier(.2,.9,.3,1.2)';
       drag.card.style.transform = '';
     }
-    drag.dx = 0; drag.dy = 0;
+    drag.dx = 0; drag.dy = 0; drag.axis = null;
   }
   window.addEventListener('mousemove', dragMove);
   window.addEventListener('mouseup', dragEnd);
