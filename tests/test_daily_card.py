@@ -3,6 +3,7 @@
 import asyncio
 import os
 from datetime import date
+from pathlib import Path
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
@@ -121,3 +122,12 @@ def test_blocked_user_is_opted_out():
 
     assert sent == 0
     captured[0].set_daily_card_opt_out.assert_awaited_once()
+
+
+def test_daily_card_uses_the_library_face():
+    """The daily prompt is a Library item, so it must ride the Library card,
+    not the blank framed default the deck falls back to."""
+    from vechnost_bot import daily_card
+
+    assert Path(daily_card._BACKGROUND).name == "library.png"
+    assert Path(daily_card._BACKGROUND).exists()

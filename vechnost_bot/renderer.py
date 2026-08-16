@@ -30,10 +30,10 @@ LINE_SPACING = 1.32          # multiple of (ascent + descent)
 TEXT_COLOR = (53, 0, 39)     # dark maroon #350027, ~13:1 contrast on the pale pink
 FOOTER_COLOR = (122, 63, 100)  # muted plum, readable but secondary
 FOOTER_FONT_SIZE = 30
-# The neutral background (default.png, used by the daily push) has a drawn
-# frame whose bottom line sits at y≈1287. Footer and watermark both live above
-# it, so no card is struck through. The deck backgrounds have no such line;
-# there the extra clearance simply reads as bottom padding.
+# The Library card (library.png, used by the daily push) carries its Λ letter
+# in the bottom-right corner, so the footer and watermark both stay above it.
+# The deck backgrounds have their own corner marks at the same height; there
+# the clearance simply reads as bottom padding.
 FOOTER_BOTTOM_MARGIN = 152
 
 # Brand watermark: quieter than the footer, one line below it.
