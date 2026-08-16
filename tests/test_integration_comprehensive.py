@@ -33,6 +33,7 @@ class TestCompleteUserFlows:
 
                 mock_welcome.return_value = ("добро пожаловать", MagicMock())
                 mock_update.message.reply_text = AsyncMock()
+                mock_update.message.reply_photo = AsyncMock()
 
                 await start_command(mock_update, mock_context)
 

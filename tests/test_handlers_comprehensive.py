@@ -48,10 +48,13 @@ class TestCommandHandlers:
             keyboard = MagicMock()
             mock_welcome.return_value = ("добро пожаловать", keyboard)
             mock_update.message.reply_text = AsyncMock()
+            mock_update.message.reply_photo = AsyncMock()
 
             await start_command(mock_update, mock_context)
 
             mock_set_context.assert_called_once_with(12345, "testuser")
+            # brand logo first, as its own message, then the greeting
+            mock_update.message.reply_photo.assert_called_once()
             mock_update.message.reply_text.assert_called_once_with(
                 "добро пожаловать", reply_markup=keyboard, parse_mode="HTML"
             )

@@ -4,14 +4,19 @@ import logging
 from abc import ABC, abstractmethod
 from typing import Any
 
-from telegram import InlineKeyboardButton, InlineKeyboardMarkup, InputMediaPhoto, Update
+from telegram import (
+    InlineKeyboardButton,
+    InlineKeyboardMarkup,
+    InputMediaPhoto,
+    Update,
+    WebAppInfo,
+)
 
 from .callback_models import (
     BackCallbackData,
     CalendarCallbackData,
     CallbackAction,
     CallbackData,
-    LanguageBackCallbackData,
     LanguageCallbackData,
     LanguageConfirmCallbackData,
     LevelCallbackData,
@@ -21,6 +26,7 @@ from .callback_models import (
     ThemeCallbackData,
     ToggleCallbackData,
 )
+from .config import settings
 from .hybrid_storage import get_redis_storage
 from .i18n import Language, format_number, get_text
 from .keyboards import (
@@ -1045,7 +1051,6 @@ class CallbackHandlerRegistry:
             CallbackAction.NOOP: SimpleActionHandler(),
             CallbackAction.LANGUAGE: LanguageHandler(),
             CallbackAction.LANGUAGE_CONFIRM: LanguageConfirmHandler(),
-            CallbackAction.LANGUAGE_BACK: LanguageBackHandler(),
             CallbackAction.CHECK_PAYMENT: CheckPaymentHandler(),
             CallbackAction.START_GAME: StartGameHandler(),
             CallbackAction.SHOW_INSIDE: ShowInsideHandler(),
@@ -1113,10 +1118,6 @@ def welcome_screen(language: Language) -> tuple[str, InlineKeyboardMarkup]:
         f"{get_text('welcome.section_best_text', language)}\n\n"
         f"━━━━━━━━━━━━━━━━━━━━"
     )
-
-    from telegram import WebAppInfo
-
-    from .config import settings
 
     rows = [[InlineKeyboardButton(
         get_text('welcome.button_start', language), callback_data="start_game"
@@ -1205,32 +1206,6 @@ class LanguageConfirmHandler(CallbackHandler):
             except Exception as delete_error:
                 logger.warning(f"Could not delete message: {delete_error}")
             await query.message.reply_text(text, reply_markup=keyboard)
-
-
-class LanguageBackHandler(CallbackHandler):
-    """`lang_back`, kept alive for buttons already in users' chat histories.
-
-    It used to redraw the language chooser; now 'back' from anywhere means
-    the welcome screen.
-    """
-
-    async def handle(self, query: Any, callback_data: LanguageBackCallbackData, session: SessionState) -> None:
-        """Return to the welcome screen."""
-        text, keyboard = welcome_screen(session.language)
-
-        await self._edit_or_send_message(query, text, keyboard)
-
-    async def _edit_or_send_message(self, query: Any, text: str, keyboard: Any) -> None:
-        """Edit message or send new one if editing fails."""
-        try:
-            await query.edit_message_text(text, reply_markup=keyboard, parse_mode="HTML")
-        except Exception as edit_error:
-            logger.warning(f"Could not edit message text: {edit_error}, deleting and sending new message")
-            try:
-                await query.message.delete()
-            except Exception as delete_error:
-                logger.warning(f"Could not delete message: {delete_error}")
-            await query.message.reply_text(text, reply_markup=keyboard, parse_mode="HTML")
 
 
 class CheckPaymentHandler(CallbackHandler):

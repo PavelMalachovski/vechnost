@@ -15,8 +15,8 @@ from vechnost_bot.callback_handlers import (
     BackHandler,
     LanguageHandler,
     LanguageConfirmHandler,
-    LanguageBackHandler,
-    SimpleActionHandler
+    SimpleActionHandler,
+    welcome_screen
 )
 from vechnost_bot.callback_models import (
     CallbackData,
@@ -29,7 +29,6 @@ from vechnost_bot.callback_models import (
     BackCallbackData,
     LanguageCallbackData,
     LanguageConfirmCallbackData,
-    LanguageBackCallbackData,
     SimpleCallbackData,
     CallbackAction
 )
@@ -471,34 +470,102 @@ class TestLanguageHandler:
             mock_query.edit_message_text.assert_called_once()
 
 
-class TestLanguageBackHandler:
-    """Test language selection back navigation."""
+class TestWelcomeScreen:
+    """The welcome screen — what `/start` opens on and every 'back' returns to.
 
-    @pytest.fixture
-    def handler(self):
-        """Create language back handler."""
-        return LanguageBackHandler()
+    `welcome_screen` is synchronous and needs no fixtures, so unlike the
+    handler tests around it these actually execute rather than erroring at
+    setup on the suite-wide async-fixture ScopeMismatch.
+    """
 
-    @pytest.mark.asyncio
     @pytest.mark.parametrize("language", list(Language))
-    async def test_welcome_text_is_translated(self, handler, language):
-        """The back screen shows real copy, not raw translation keys."""
-        query = MagicMock(spec=CallbackQuery)
-        query.edit_message_text = AsyncMock()
-        session = MagicMock(spec=SessionState)
-        session.language = language
+    def test_welcome_screen_renders(self, language):
+        text, keyboard = welcome_screen(language)
 
-        callback_data = LanguageBackCallbackData(
-            action=CallbackAction.LANGUAGE_BACK,
-            raw_data="lang_back"
-        )
-
-        await handler.handle(query, callback_data, session)
-
-        text = query.edit_message_text.call_args.args[0]
         assert text.strip()
-        # get_text() returns the key itself when the key is missing
+        # get_text() returns the key itself when the key is missing, so a
+        # surviving "welcome." in the output means an unresolved key.
         assert "welcome." not in text
+        assert "<b>" in text and "</b>" in text, "text is sent with parse_mode=HTML"
+
+    @staticmethod
+    def _targets(keyboard):
+        return [
+            button.callback_data
+            for row in keyboard.inline_keyboard
+            for button in row
+            if button.callback_data
+        ]
+
+    @pytest.mark.parametrize("language", list(Language))
+    def test_welcome_screen_offers_every_entry_point(self, language):
+        """With the optional features configured, every route is on screen.
+
+        The web-app and gift rows are settings-gated, so they are configured
+        here explicitly — otherwise this passes vacuously in any environment
+        that happens to leave them unset.
+        """
+        configured = MagicMock()
+        configured.webapp_url = "https://example.test/app"
+        configured.webapp_library_url = "https://example.test/app?tab=library"
+        configured.gift_product_id = "gift-1"
+
+        with patch('vechnost_bot.callback_handlers.settings', configured):
+            _, keyboard = welcome_screen(language)
+
+        # show_gift is only ever rendered here; losing it strands ShowGiftHandler.
+        assert self._targets(keyboard) == [
+            "start_game", "show_inside", "show_why", "show_gift"
+        ]
+        web_app_urls = [
+            button.web_app.url
+            for row in keyboard.inline_keyboard
+            for button in row
+            if button.web_app
+        ]
+        assert web_app_urls == [
+            "https://example.test/app", "https://example.test/app?tab=library"
+        ]
+
+    @pytest.mark.parametrize("language", list(Language))
+    def test_welcome_screen_without_optional_features(self, language):
+        """Unconfigured web app and gift: the core routes still render."""
+        bare = MagicMock()
+        bare.webapp_url = ""
+        bare.gift_product_id = ""
+        bare.gift_payment_url = ""
+
+        with patch('vechnost_bot.callback_handlers.settings', bare):
+            _, keyboard = welcome_screen(language)
+
+        assert self._targets(keyboard) == ["start_game", "show_inside", "show_why"]
+
+    @pytest.mark.parametrize("data", ["lang_ru", "lang_back", "lang_en", "lang_cs"])
+    def test_legacy_language_callbacks_reach_the_welcome_screen(self, data):
+        """Buttons already sitting in users' chat histories must still work.
+
+        `lang_ru` is the 'back' target of the inside/why/gift screens;
+        `lang_back` came from the deleted chooser; `lang_en`/`lang_cs` from
+        before the collapse to Russian. All four fall to the `lang_` prefix
+        and land on `LanguageHandler`.
+        """
+        parsed = CallbackData.parse(data)
+
+        assert parsed.action == CallbackAction.LANGUAGE
+        assert isinstance(
+            CallbackHandlerRegistry()._handlers[parsed.action], LanguageHandler
+        )
+        assert Language.coerce(parsed.language_code) is Language.RUSSIAN
+
+    @pytest.mark.parametrize("language", list(Language))
+    def test_welcome_screen_buttons_are_labelled(self, language):
+        _, keyboard = welcome_screen(language)
+
+        for row in keyboard.inline_keyboard:
+            for button in row:
+                assert button.text.strip()
+                assert "welcome." not in button.text
+                assert "gift." not in button.text
 
 
 class TestSimpleActionHandler:

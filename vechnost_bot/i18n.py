@@ -192,5 +192,6 @@ def format_number(number: int, language: Language = Language.RUSSIAN) -> str:
 
 # `get_language_name`, `get_supported_languages` and `detect_language_from_text`
 # lived here to feed the language chooser and the `/start` flow that picked a
-# language from the user's message. Both are gone, and each of the three had
-# collapsed to a constant — deleted rather than left as a Russian-shaped stub.
+# language from the user's message. Both of those callers are gone, and all
+# three functions had collapsed to a constant — deleted rather than left as
+# Russian-shaped stubs.

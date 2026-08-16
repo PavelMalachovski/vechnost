@@ -85,6 +85,16 @@ async def start_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
                 return
 
     # There is nothing to choose any more: open straight on the greeting.
+    # The logo goes first, as its own message and without a caption — the
+    # greeting is ~1530 characters and Telegram caps photo captions at 1024,
+    # so it cannot ride along. A missing or unreadable logo must not take
+    # /start down, hence the fallback to the greeting alone.
+    try:
+        with open("assets/images/vechnost_logo.png", "rb") as logo_file:
+            await update.message.reply_photo(photo=logo_file)
+    except Exception as e:
+        logger.warning(f"Failed to load logo image: {e}, sending greeting only")
+
     text, keyboard = welcome_screen(Language.RUSSIAN)
     await update.message.reply_text(text, reply_markup=keyboard, parse_mode="HTML")
 
