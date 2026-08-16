@@ -10,7 +10,6 @@ from vechnost_bot.handlers import (
     help_command,
     reset_command,
     handle_callback_query,
-    detect_language_from_text,
     generate_welcome_image_with_logo
 )
 from vechnost_bot.models import SessionState, Theme, Language
@@ -43,20 +42,19 @@ class TestCommandHandlers:
     @pytest.mark.asyncio
     async def test_start_command_success(self, mock_update, mock_context):
         """Test successful start command."""
-        with patch('vechnost_bot.handlers.get_language_selection_keyboard') as mock_keyboard, \
-             patch('vechnost_bot.handlers.detect_language_from_text') as mock_detect, \
-             patch('vechnost_bot.handlers.open') as mock_open, \
+        with patch('vechnost_bot.handlers.welcome_screen') as mock_welcome, \
              patch('vechnost_bot.handlers.set_user_context') as mock_set_context:
 
-            mock_detect.return_value = Language.RUSSIAN
-            mock_keyboard.return_value = MagicMock()
-            mock_open.return_value.__enter__.return_value = MagicMock()
-            mock_update.message.reply_photo = AsyncMock()
+            keyboard = MagicMock()
+            mock_welcome.return_value = ("добро пожаловать", keyboard)
+            mock_update.message.reply_text = AsyncMock()
 
             await start_command(mock_update, mock_context)
 
             mock_set_context.assert_called_once_with(12345, "testuser")
-            mock_update.message.reply_photo.assert_called_once()
+            mock_update.message.reply_text.assert_called_once_with(
+                "добро пожаловать", reply_markup=keyboard, parse_mode="HTML"
+            )
 
     @pytest.mark.asyncio
     async def test_start_command_no_message(self, mock_context):
@@ -142,31 +140,6 @@ class TestCallbackHandlers:
 
 class TestUtilityFunctions:
     """Test utility functions."""
-
-    def test_detect_language_from_text_russian(self):
-        """Test Russian language detection."""
-        text = "Привет, как дела?"
-        result = detect_language_from_text(text)
-        assert result == Language.RUSSIAN
-
-    def test_detect_language_from_text_english_input_is_still_russian(self):
-        """`detect_language_from_text` no longer distinguishes scripts —
-        Russian is the only language left to return."""
-        text = "Hello, how are you?"
-        result = detect_language_from_text(text)
-        assert result == Language.RUSSIAN
-
-    def test_detect_language_from_text_czech_input_is_still_russian(self):
-        """Same as above for Czech-accented input."""
-        text = "Ahoj, jak se máš?"
-        result = detect_language_from_text(text)
-        assert result == Language.RUSSIAN
-
-    def test_detect_language_from_text_default(self):
-        """Test default language detection."""
-        text = "123456789"
-        result = detect_language_from_text(text)
-        assert result == Language.RUSSIAN
 
     @patch('vechnost_bot.handlers.generate_vechnost_logo')
     def test_generate_welcome_image_with_logo(self, mock_generate_logo):

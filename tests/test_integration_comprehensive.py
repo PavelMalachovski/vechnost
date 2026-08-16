@@ -28,20 +28,16 @@ class TestCompleteUserFlows:
         # Mock the storage
         with patch('vechnost_bot.storage.get_hybrid_storage', return_value=hybrid_storage_with_memory):
             # Step 1: Start command
-            with patch('vechnost_bot.handlers.get_language_selection_keyboard') as mock_keyboard, \
-                 patch('vechnost_bot.handlers.detect_language_from_text') as mock_detect, \
-                 patch('vechnost_bot.handlers.open') as mock_open, \
+            with patch('vechnost_bot.handlers.welcome_screen') as mock_welcome, \
                  patch('vechnost_bot.handlers.set_user_context') as mock_set_context:
 
-                mock_detect.return_value = Language.RUSSIAN
-                mock_keyboard.return_value = MagicMock()
-                mock_open.return_value.__enter__.return_value = MagicMock()
-                mock_update.message.reply_photo = AsyncMock()
+                mock_welcome.return_value = ("добро пожаловать", MagicMock())
+                mock_update.message.reply_text = AsyncMock()
 
                 await start_command(mock_update, mock_context)
 
-                # Verify language selection was sent
-                mock_update.message.reply_photo.assert_called_once()
+                # Verify the welcome screen was sent
+                mock_update.message.reply_text.assert_called_once()
                 mock_set_context.assert_called_once()
 
             # Step 2: Language selection

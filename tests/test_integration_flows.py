@@ -6,7 +6,7 @@ from telegram import Update, Message, Chat, User, CallbackQuery
 
 from vechnost_bot.handlers import start_command, handle_callback_query
 from vechnost_bot.callback_handlers import CallbackHandlerRegistry
-from vechnost_bot.models import SessionState, Theme, Language, ContentType
+from vechnost_bot.models import SessionState, Theme, ContentType
 from vechnost_bot.storage import get_session, reset_session
 
 
@@ -52,15 +52,11 @@ class TestCompleteUserFlows:
     async def test_complete_acquaintance_flow(self, mock_update, mock_context, mock_callback_query):
         """Test complete Acquaintance theme flow."""
         # Step 1: Start command
-        with patch('vechnost_bot.handlers.get_language_selection_keyboard') as mock_keyboard, \
-             patch('vechnost_bot.handlers.detect_language_from_text') as mock_detect, \
-             patch('vechnost_bot.handlers.open') as mock_open, \
+        with patch('vechnost_bot.handlers.welcome_screen') as mock_welcome, \
              patch('vechnost_bot.handlers.set_user_context') as mock_set_context:
 
-            mock_detect.return_value = Language.RUSSIAN
-            mock_keyboard.return_value = MagicMock()
-            mock_open.return_value.__enter__.return_value = MagicMock()
-            mock_update.message.reply_photo = AsyncMock()
+            mock_welcome.return_value = ("добро пожаловать", MagicMock())
+            mock_update.message.reply_text = AsyncMock()
 
             await start_command(mock_update, mock_context)
 
@@ -132,15 +128,11 @@ class TestCompleteUserFlows:
     async def test_complete_sex_theme_flow(self, mock_update, mock_context, mock_callback_query):
         """Test complete Sex theme flow with NSFW confirmation."""
         # Step 1: Start command
-        with patch('vechnost_bot.handlers.get_language_selection_keyboard') as mock_keyboard, \
-             patch('vechnost_bot.handlers.detect_language_from_text') as mock_detect, \
-             patch('vechnost_bot.handlers.open') as mock_open, \
+        with patch('vechnost_bot.handlers.welcome_screen') as mock_welcome, \
              patch('vechnost_bot.handlers.set_user_context') as mock_set_context:
 
-            mock_detect.return_value = Language.RUSSIAN
-            mock_keyboard.return_value = MagicMock()
-            mock_open.return_value.__enter__.return_value = MagicMock()
-            mock_update.message.reply_photo = AsyncMock()
+            mock_welcome.return_value = ("добро пожаловать", MagicMock())
+            mock_update.message.reply_text = AsyncMock()
 
             await start_command(mock_update, mock_context)
 
@@ -196,15 +188,11 @@ class TestCompleteUserFlows:
     async def test_complete_reset_flow(self, mock_update, mock_context, mock_callback_query):
         """Test complete reset flow."""
         # Step 1: Start command
-        with patch('vechnost_bot.handlers.get_language_selection_keyboard') as mock_keyboard, \
-             patch('vechnost_bot.handlers.detect_language_from_text') as mock_detect, \
-             patch('vechnost_bot.handlers.open') as mock_open, \
+        with patch('vechnost_bot.handlers.welcome_screen') as mock_welcome, \
              patch('vechnost_bot.handlers.set_user_context') as mock_set_context:
 
-            mock_detect.return_value = Language.RUSSIAN
-            mock_keyboard.return_value = MagicMock()
-            mock_open.return_value.__enter__.return_value = MagicMock()
-            mock_update.message.reply_photo = AsyncMock()
+            mock_welcome.return_value = ("добро пожаловать", MagicMock())
+            mock_update.message.reply_text = AsyncMock()
 
             await start_command(mock_update, mock_context)
 
@@ -236,15 +224,11 @@ class TestCompleteUserFlows:
     async def test_complete_navigation_flow(self, mock_update, mock_context, mock_callback_query):
         """Test complete navigation flow with back buttons."""
         # Step 1: Start command
-        with patch('vechnost_bot.handlers.get_language_selection_keyboard') as mock_keyboard, \
-             patch('vechnost_bot.handlers.detect_language_from_text') as mock_detect, \
-             patch('vechnost_bot.handlers.open') as mock_open, \
+        with patch('vechnost_bot.handlers.welcome_screen') as mock_welcome, \
              patch('vechnost_bot.handlers.set_user_context') as mock_set_context:
 
-            mock_detect.return_value = Language.RUSSIAN
-            mock_keyboard.return_value = MagicMock()
-            mock_open.return_value.__enter__.return_value = MagicMock()
-            mock_update.message.reply_photo = AsyncMock()
+            mock_welcome.return_value = ("добро пожаловать", MagicMock())
+            mock_update.message.reply_text = AsyncMock()
 
             await start_command(mock_update, mock_context)
 
@@ -300,15 +284,11 @@ class TestCompleteUserFlows:
     async def test_error_handling_flow(self, mock_update, mock_context, mock_callback_query):
         """Test error handling in user flows."""
         # Step 1: Start command
-        with patch('vechnost_bot.handlers.get_language_selection_keyboard') as mock_keyboard, \
-             patch('vechnost_bot.handlers.detect_language_from_text') as mock_detect, \
-             patch('vechnost_bot.handlers.open') as mock_open, \
+        with patch('vechnost_bot.handlers.welcome_screen') as mock_welcome, \
              patch('vechnost_bot.handlers.set_user_context') as mock_set_context:
 
-            mock_detect.return_value = Language.RUSSIAN
-            mock_keyboard.return_value = MagicMock()
-            mock_open.return_value.__enter__.return_value = MagicMock()
-            mock_update.message.reply_photo = AsyncMock()
+            mock_welcome.return_value = ("добро пожаловать", MagicMock())
+            mock_update.message.reply_text = AsyncMock()
 
             await start_command(mock_update, mock_context)
 

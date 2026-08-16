@@ -19,13 +19,20 @@ class Language(str, Enum):
     RUSSIAN = "ru"
 
     @classmethod
-    def coerce(cls, code: str | None) -> "Language":
+    def coerce(cls, code: "str | Language | None") -> "Language":
         """A stored or client-supplied code, read as a supported language.
 
         Users predating this change carry `en`/`cs` in the database and in
         Mini App query strings; `Language(code)` would raise on those, and
         it is called on paths that render outside a try block.
+
+        An already-typed member short-circuits: this is a `str, Enum`, so
+        `str(Language.RUSSIAN)` is `"Language.RUSSIAN"` and a member would
+        otherwise fall through to the fallback and come back as Russian by
+        luck rather than by lookup.
         """
+        if isinstance(code, cls):
+            return code
         try:
             return cls(str(code).lower())
         except (ValueError, AttributeError):
@@ -157,21 +164,6 @@ class I18nManager:
             logger.error(f"Error formatting number {number} for {language.value}: {e}")
             return str(number)
 
-    def get_language_name(self, language: Language, target_language: Language = Language.RUSSIAN) -> str:
-        """Get the display name of a language in the target language.
-
-        Only Russian is supported now, so this collapses to a single entry;
-        kept (rather than deleted) because the language-selection keyboard
-        that was its main consumer is still removed in a later task.
-        """
-        language_names = {
-            Language.RUSSIAN: {
-                Language.RUSSIAN: "Русский",
-            },
-        }
-
-        return language_names.get(language, {}).get(target_language, language.value)
-
 
 # Global i18n manager instance
 i18n_manager = I18nManager()
@@ -198,23 +190,7 @@ def format_number(number: int, language: Language = Language.RUSSIAN) -> str:
     return i18n_manager.format_number(number, language)
 
 
-def get_language_name(language: Language, target_language: Language = Language.RUSSIAN) -> str:
-    """Get the display name of a language in the target language."""
-    return i18n_manager.get_language_name(language, target_language)
-
-
-# Language detection utilities
-def detect_language_from_text(text: str) -> Language:
-    """Language detection based on text content.
-
-    Previously distinguished Russian/English/Czech by script and word
-    indicators; with only Russian left to detect, there is nothing left to
-    distinguish. Kept for callers that still call it (handlers.py's welcome
-    flow) rather than deleted here — that flow is a later task's to remove.
-    """
-    return Language.RUSSIAN
-
-
-def get_supported_languages() -> list[Language]:
-    """Get list of supported languages."""
-    return list(Language)
+# `get_language_name`, `get_supported_languages` and `detect_language_from_text`
+# lived here to feed the language chooser and the `/start` flow that picked a
+# language from the user's message. Both are gone, and each of the three had
+# collapsed to a constant — deleted rather than left as a Russian-shaped stub.

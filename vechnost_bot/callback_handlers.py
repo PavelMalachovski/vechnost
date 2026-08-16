@@ -31,7 +31,6 @@ from .keyboards import (
     get_reset_confirmation_keyboard,
     get_theme_keyboard,
 )
-from .language_keyboards import get_language_selection_keyboard
 from .logic import load_game_data, localized_game_data
 from .models import ContentType, SessionState, Theme
 from .renderer import get_background_path, render_card
@@ -1097,70 +1096,74 @@ class CallbackHandlerRegistry:
                 logger.error(f"Error editing message: {edit_error}")
 
 
+def welcome_screen(language: Language) -> tuple[str, InlineKeyboardMarkup]:
+    """The greeting page: what `/start` opens on and what every 'back'
+    button returns to. One builder, so the two can never drift apart."""
+    text = (
+        f"<b>{get_text('welcome.greeting_title', language)}</b>\n"
+        f"<i>{get_text('welcome.greeting_subtitle', language)}</i>\n\n"
+        f"━━━━━━━━━━━━━━━━━━━━\n\n"
+        f"<b>{get_text('welcome.section_connection_title', language)}</b>\n"
+        f"{get_text('welcome.section_connection_text', language)}\n\n"
+        f"<b>{get_text('welcome.section_intimacy_title', language)}</b>\n"
+        f"{get_text('welcome.section_intimacy_text', language)}\n\n"
+        f"<b>{get_text('welcome.section_themes_title', language)}</b>\n"
+        f"{get_text('welcome.section_themes_text', language)}\n\n"
+        f"<b>{get_text('welcome.section_best_title', language)}</b>\n"
+        f"{get_text('welcome.section_best_text', language)}\n\n"
+        f"━━━━━━━━━━━━━━━━━━━━"
+    )
+
+    from telegram import WebAppInfo
+
+    from .config import settings
+
+    rows = [[InlineKeyboardButton(
+        get_text('welcome.button_start', language), callback_data="start_game"
+    )]]
+    if settings.webapp_url:
+        rows.append([InlineKeyboardButton(
+            get_text('welcome.button_webapp', language),
+            web_app=WebAppInfo(url=settings.webapp_url)
+        )])
+        rows.append([InlineKeyboardButton(
+            get_text('welcome.button_library', language),
+            web_app=WebAppInfo(url=settings.webapp_library_url)
+        )])
+    rows.extend([
+        [InlineKeyboardButton(get_text('welcome.button_inside', language),
+                              callback_data="show_inside")],
+        [InlineKeyboardButton(get_text('welcome.button_why', language),
+                              callback_data="show_why")],
+    ])
+    # The gift entry point is only reachable from here; dropping it would
+    # strand `ShowGiftHandler` behind a button nothing renders any more.
+    if settings.gift_product_id or settings.gift_payment_url:
+        rows.append([InlineKeyboardButton(
+            get_text('gift.button', language), callback_data="show_gift"
+        )])
+    return text, InlineKeyboardMarkup(rows)
+
+
 class LanguageHandler(CallbackHandler):
-    """Handler for language selection callbacks."""
+    """The welcome screen, reached by the `lang_` callbacks.
+
+    Named for the language chooser it used to serve. The choice is gone, but
+    the prefix stays routed: `ShowInsideHandler`, `ShowWhyHandler` and
+    `ShowGiftHandler` send `lang_ru` as their 'back' target, and messages
+    already sitting in users' chat histories carry those buttons too.
+    """
 
     async def handle(self, query: Any, callback_data: LanguageCallbackData, session: SessionState) -> None:
-        """Handle language selection."""
+        """Show the welcome screen."""
         language = Language.coerce(callback_data.language_code)
 
         # Update session language
         session.language = language
 
-        # Show greeting page with sections (like in the screenshot)
-        greeting_text = (
-            f"<b>{get_text('welcome.greeting_title', language)}</b>\n"
-            f"<i>{get_text('welcome.greeting_subtitle', language)}</i>\n\n"
-            f"━━━━━━━━━━━━━━━━━━━━\n\n"
-            f"<b>{get_text('welcome.section_connection_title', language)}</b>\n"
-            f"{get_text('welcome.section_connection_text', language)}\n\n"
-            f"<b>{get_text('welcome.section_intimacy_title', language)}</b>\n"
-            f"{get_text('welcome.section_intimacy_text', language)}\n\n"
-            f"<b>{get_text('welcome.section_themes_title', language)}</b>\n"
-            f"{get_text('welcome.section_themes_text', language)}\n\n"
-            f"<b>{get_text('welcome.section_best_title', language)}</b>\n"
-            f"{get_text('welcome.section_best_text', language)}\n\n"
-            f"━━━━━━━━━━━━━━━━━━━━"
-        )
+        text, keyboard = welcome_screen(language)
 
-        # Create keyboard with three buttons (like in the screenshot)
-        from telegram import WebAppInfo
-
-        from .config import settings
-
-        rows = [
-            [InlineKeyboardButton(
-                get_text('welcome.button_start', language),
-                callback_data="start_game"
-            )],
-        ]
-        if settings.webapp_url:
-            rows.append([InlineKeyboardButton(
-                get_text('welcome.button_webapp', language),
-                web_app=WebAppInfo(url=settings.webapp_url)
-            )])
-            rows.append([InlineKeyboardButton(
-                get_text('welcome.button_library', language),
-                web_app=WebAppInfo(url=settings.webapp_library_url)
-            )])
-        rows.extend([
-            [InlineKeyboardButton(
-                get_text('welcome.button_inside', language),
-                callback_data="show_inside"
-            )],
-            [InlineKeyboardButton(
-                get_text('welcome.button_why', language),
-                callback_data="show_why"
-            )]
-        ])
-        if settings.gift_product_id or settings.gift_payment_url:
-            rows.append([InlineKeyboardButton(
-                get_text('gift.button', language),
-                callback_data="show_gift"
-            )])
-        keyboard = InlineKeyboardMarkup(rows)
-
-        await self._edit_or_send_message(query, greeting_text, keyboard, parse_mode="HTML")
+        await self._edit_or_send_message(query, text, keyboard, parse_mode="HTML")
 
     async def _edit_or_send_message(self, query: Any, text: str, keyboard: Any, parse_mode: str = None) -> None:
         """Edit message or send new one if editing fails."""
@@ -1205,31 +1208,29 @@ class LanguageConfirmHandler(CallbackHandler):
 
 
 class LanguageBackHandler(CallbackHandler):
-    """Handler for language selection back navigation."""
+    """`lang_back`, kept alive for buttons already in users' chat histories.
+
+    It used to redraw the language chooser; now 'back' from anywhere means
+    the welcome screen.
+    """
 
     async def handle(self, query: Any, callback_data: LanguageBackCallbackData, session: SessionState) -> None:
-        """Handle language selection back navigation."""
-        # Show language selection again
-        welcome_text = (
-            f"{get_text('welcome.greeting_title', session.language)}\n\n"
-            f"{get_text('welcome.greeting_subtitle', session.language)}\n\n"
-            f"{get_text('welcome.language_prompt', session.language)}"
-        )
-        keyboard = get_language_selection_keyboard(session.language)
+        """Return to the welcome screen."""
+        text, keyboard = welcome_screen(session.language)
 
-        await self._edit_or_send_message(query, welcome_text, keyboard)
+        await self._edit_or_send_message(query, text, keyboard)
 
     async def _edit_or_send_message(self, query: Any, text: str, keyboard: Any) -> None:
         """Edit message or send new one if editing fails."""
         try:
-            await query.edit_message_text(text, reply_markup=keyboard)
+            await query.edit_message_text(text, reply_markup=keyboard, parse_mode="HTML")
         except Exception as edit_error:
             logger.warning(f"Could not edit message text: {edit_error}, deleting and sending new message")
             try:
                 await query.message.delete()
             except Exception as delete_error:
                 logger.warning(f"Could not delete message: {delete_error}")
-            await query.message.reply_text(text, reply_markup=keyboard)
+            await query.message.reply_text(text, reply_markup=keyboard, parse_mode="HTML")
 
 
 class CheckPaymentHandler(CallbackHandler):

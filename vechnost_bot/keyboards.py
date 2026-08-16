@@ -2,8 +2,7 @@
 
 from telegram import InlineKeyboardButton, InlineKeyboardMarkup
 
-from .i18n import Language, get_text, get_language_name, get_supported_languages
-from .language_keyboards import get_language_selection_keyboard
+from .i18n import Language, get_text
 from .models import ContentType, Theme
 
 

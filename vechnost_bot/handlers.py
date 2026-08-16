@@ -9,9 +9,9 @@ import logging
 from telegram import Update
 from telegram.ext import ContextTypes
 
-from .i18n import detect_language_from_text, get_text
+from .callback_handlers import welcome_screen
+from .i18n import Language, get_text
 from .keyboards import get_reset_confirmation_keyboard
-from .language_keyboards import get_language_selection_keyboard
 from .logo_generator import generate_welcome_image_with_logo  # noqa: F401  (re-exported)
 from .monitoring import (
     log_bot_event,
@@ -84,29 +84,9 @@ async def start_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
                 await update.message.reply_text(error_text)
                 return
 
-    # Detect language from user's message or default to Russian
-    detected_language = detect_language_from_text(update.message.text or "")
-
-    # English only text for language selection
-    welcome_text = ""
-
-    keyboard = get_language_selection_keyboard(detected_language)
-    logger.info(f"Sending language selection keyboard with {len(keyboard.inline_keyboard)} rows")
-
-    # Send the attached VECHNOST logo image
-    try:
-        with open("assets/images/vechnost_logo.png", "rb") as logo_file:
-            await update.message.reply_photo(
-                photo=logo_file,
-                caption=welcome_text,
-                reply_markup=keyboard
-            )
-    except Exception as e:
-        logger.warning(f"Failed to load logo image: {e}, sending text only")
-        await update.message.reply_text(
-            welcome_text,
-            reply_markup=keyboard
-        )
+    # There is nothing to choose any more: open straight on the greeting.
+    text, keyboard = welcome_screen(Language.RUSSIAN)
+    await update.message.reply_text(text, reply_markup=keyboard, parse_mode="HTML")
 
 
 async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
