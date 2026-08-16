@@ -233,15 +233,20 @@
   .lib-card-line{font-size:14px;opacity:.85;margin-top:4px}
   .lib-cat{background:rgba(255,255,255,.05);border-radius:16px;padding:12px 16px;margin:10px 0}
   .lib-cat summary{font-weight:700;cursor:pointer}
-  .lib-cat ol{margin:10px 0 0 18px;line-height:1.6}
+  /* A category is a button into its deck now, not a <details> full of text. */
+  .lib-cat-open{display:block;width:100%;text-align:left;font:inherit;font-weight:700;
+    color:inherit;border:1px solid rgba(255,255,255,.12);cursor:pointer}
   .lib-cat-nsfw{display:block;width:100%;text-align:left;font:inherit;font-weight:700;
     color:inherit;border:1px dashed rgba(255,255,255,.18);cursor:pointer}
-  .lib-daily{text-align:center;padding:32px 20px}
-  .lib-day{opacity:.6;font-size:14px;margin-bottom:12px}
-  .lib-question{font-size:20px;line-height:1.5}
   .lib-locked{text-align:center;padding:20px;opacity:.9}
+  /* The secondary lines of a practice card: "why" and "outcome" sit under the
+     title, small enough that the three read as one card. */
+  .q-sub{font-size:.82em;font-weight:500;opacity:.85}
+  /* The last card of a truncated deck: the note and the way out of it. */
+  .q-lock{display:block;margin:14px auto 0;padding:11px 22px;font-size:14px}
 
   /* ---------- compatibility test ---------- */
+  .compat-q{font-size:20px;line-height:1.5}
   .compat-opt{margin:8px 0;width:100%}
   /* An answer is in flight: the next question is already on screen, but its
      buttons stay dead until the previous POST lands, so a fast tapper cannot
@@ -258,7 +263,7 @@
   #compatResultBody{flex:1;overflow-y:auto;padding:0 16px 32px}
 
   /* ---------- deck ---------- */
-  #deck { padding-left: 14px; padding-right: 14px; }
+  #deck, #libDeck { padding-left: 14px; padding-right: 14px; }
   .progress-wrap { display: flex; align-items: center; gap: 12px; margin: 2px 4px 10px; }
   .progress-track {
     flex: 1; height: 5px; border-radius: 99px; background: rgba(255,255,255,.12); overflow: hidden;
@@ -281,6 +286,10 @@
      Telegram's own vertical swipe is off (disableVerticalSwipes below), so
      allowing pan-y here costs nothing. */
   #stage { flex: 1; position: relative; perspective: 1300px; margin: 4px 0 10px; touch-action: pan-y; }
+  /* The Library deck stands on the same stage — identical declarations, kept
+     as its own rule rather than a comma group because the tests read the
+     `#stage {` block by name and compare the two. */
+  #libStage { flex: 1; position: relative; perspective: 1300px; margin: 4px 0 10px; touch-action: pan-y; }
 
   .card {
     position: absolute; inset: 0; margin: auto;
@@ -481,6 +490,26 @@
       <div style="width:40px"></div>
     </div>
     <div id="libDetailBody"></div>
+  </section>
+
+  <!-- LIBRARY DECK: the same stage, controls and swipe as the game deck,
+       printed on the Library face instead of a deck face. -->
+  <section class="screen" id="libDeck">
+    <div class="top">
+      <button class="icon-btn" id="libDeckBack">←</button>
+      <div class="title" id="libDeckTitle"></div>
+      <div style="width:40px"></div>
+    </div>
+    <div class="progress-wrap">
+      <div class="progress-track"><div class="progress-fill" id="libProgressFill"></div></div>
+      <div class="progress-num" id="libProgressNum"></div>
+    </div>
+    <div id="libStage"></div>
+    <div class="hint" data-i18n="hint"></div>
+    <div class="deck-controls">
+      <button class="ctrl" id="libPrev">↩</button>
+      <button class="ctrl main" id="libNext">→</button>
+    </div>
   </section>
 
   <!-- COMPATIBILITY TEST -->
@@ -865,6 +894,10 @@
     'Provocation':  { by: 'deck',  faces: { deck: 'prov/prov.png' } }
   };
 
+  // The Library has one face of its own — no levels, no content types, so no
+  // lookup. Same PNG the bot composites the daily push onto.
+  const LIBRARY_ART = '/assets/backgrounds/library.png';
+
   // Returns the URL of the printed face, or null when nothing matches. Null
   // leaves --art unset, so the card renders as a blank pink rectangle with no
   // corner marks: wrong in a way you can see, rather than quietly wearing some
@@ -926,6 +959,7 @@
         else if ($('coop').classList.contains('active')) show('home');
         else if ($('levels').classList.contains('active')) show('themes');
         else if ($('themes').classList.contains('active')) { COOP.creating = false; show('home'); }
+        else if ($('libDeck').classList.contains('active')) libDeckLeave();
         else if ($('libraryDetail').classList.contains('active')) show('library');
         else if ($('library').classList.contains('active')) show('home');
         else if ($('compatResult').classList.contains('active')) show('compat');
@@ -1126,6 +1160,7 @@
   }
 
   function enterDeck(forceReset) {
+    drag.onAdvance = null; drag.onBack = null;   // the Library's, if we came from it
     COOP.active = false;
     $('turnChip').style.display = 'none';
     $('btnShuffle').style.display = '';
@@ -1245,7 +1280,11 @@
   /* ---------------- swipe physics ---------------- */
   // Single global drag state: window listeners are registered once,
   // renderStage only points `drag.card` at the current top card.
-  const drag = { card: null, x0: 0, y0: 0, dx: 0, dy: 0, active: false, axis: null };
+  // onAdvance/onBack are how a non-game deck borrows the physics: set, they
+  // replace flyOut's game transitions entirely. Null for the game and couple
+  // mode, and cleared on the way into both.
+  const drag = { card: null, x0: 0, y0: 0, dx: 0, dy: 0, active: false, axis: null,
+                 onAdvance: null, onBack: null };
 
   function attachSwipe(card) {
     drag.card = card;
@@ -1257,7 +1296,9 @@
 
   function dragStart(e) {
     if (deckDirty || !drag.card) return;
-    if (COOP.active && (!C.st || !C.st.your_turn)) return;
+    // The turn gate is couple mode's, not the swipe engine's: a Library deck
+    // borrowing the physics is never turn-based.
+    if (!drag.onAdvance && COOP.active && (!C.st || !C.st.your_turn)) return;
     drag.active = true;
     const p = e.touches ? e.touches[0] : e;
     drag.x0 = p.clientX; drag.y0 = p.clientY; drag.dx = 0; drag.dy = 0;
@@ -1289,9 +1330,16 @@
     drag.active = false;
     // Right = next card, left = previous. A left swipe on the first card
     // snaps back; couple mode is turn-based, so left never goes back there.
-    if (drag.dx > 84) {
+    // A deck that installed its own callbacks (the Library) is asked about
+    // its own position — S.idx is the game's, and would let a swipe off
+    // either end of the Library fly the card away to nothing: there is no
+    // finishDeck() on that side to put something back on the stage.
+    const borrowed = !!drag.onAdvance;
+    const canGoBack = borrowed ? LS.idx > 0 : (!COOP.active && S.idx > 0);
+    const canGoOn = borrowed ? LS.idx < LS.items.length - 1 : true;
+    if (drag.dx > 84 && canGoOn) {
       flyOut(drag.card, 1);
-    } else if (drag.dx < -84 && !COOP.active && S.idx > 0) {
+    } else if (drag.dx < -84 && canGoBack) {
       flyOut(drag.card, -1);
     } else {
       drag.card.style.transition = 'transform .3s cubic-bezier(.2,.9,.3,1.2)';
@@ -1310,6 +1358,14 @@
     card.style.transform = 'translate(' + (dir * (window.innerWidth * 1.1)) + 'px,' + (-40 + Math.random() * 120) + 'px) rotate(' + dir * 24 + 'deg)';
     card.style.opacity = '0';
     setTimeout(() => {
+      // A deck that installed its own transitions (the Library) takes it from
+      // here. deckDirty is cleared by renderStage, which this branch never
+      // reaches — leave it set and the second swipe is swallowed.
+      if (drag.onAdvance) {
+        deckDirty = false;
+        (dir > 0 ? drag.onAdvance : drag.onBack)();
+        return;
+      }
       if (COOP.active) {
         coopAdvanceAfterFly();  // couple mode is always forward, server-driven
         return;
@@ -1569,6 +1625,7 @@
   }
 
   function enterCoopDeck() {
+    drag.onAdvance = null; drag.onBack = null;   // the Library's, if we came from it
     COOP.active = true;
     // cardHTML picks the printed face from all three of these, and the room
     // is the only thing that knows which deck the pair is actually playing.
@@ -1746,10 +1803,20 @@
     $('loader').classList.add('show');
     try {
       const data = await libFetch(`/api/library/${id}?lang=${lang}${libNsfwParam()}`);
-      $('libDetailTitle').textContent = data.emoji + ' ' + data.title;
-      $('libDetailBody').innerHTML = renderLibModule(data, openCategory);
+      const title = data.emoji + ' ' + data.title;
+
+      // A daily or practice module is one deck and nothing else — no category
+      // screen to stop at on the way in, or back out to.
+      const items = libItems(data);
+      if (items) { libDeckOpen(items, title, openLibrary); return; }
+
+      $('libDetailTitle').textContent = title;
+      $('libDetailBody').innerHTML = renderLibCategories(data);
       const buy = $('libBuy');
       if (buy) buy.onclick = () => { haptic('light'); $('paywallBuy').click(); };
+      $('libDetailBody').querySelectorAll('[data-cat]').forEach(row => {
+        row.onclick = () => { haptic('light'); openLibCategory(data, id, row.dataset.cat); };
+      });
       $('libDetailBody').querySelectorAll('[data-nsfw-cat]').forEach(row => {
         row.onclick = () => {
           haptic('light');
@@ -1758,6 +1825,10 @@
         };
       });
       show('libraryDetail');
+      // The 18+ path lands back here naming the category it was refused. The
+      // server is sending it now, so open it rather than making the user find
+      // it again. The category screen stays underneath as the way back.
+      if (openCategory) openLibCategory(data, id, openCategory);
     } catch (e) {
       toast(T().libLoadError);
     } finally {
@@ -1765,26 +1836,14 @@
     }
   }
 
-  function renderLibModule(data, openCategory) {
-    if (data.type === 'daily') {
-      return `<div class="lib-daily">
-        <div class="lib-day">${fmt(T().libDayOf, { day: data.day })}</div>
-        <p class="lib-question">${escapeHTML(data.question)}</p>
-      </div>`;
-    }
-    if (data.type === 'practice') {
-      return data.items.map((p, i) => `
-        <div class="lib-card">
-          <div class="lib-card-title">${i + 1}. ${escapeHTML(p.title)}</div>
-          <div class="lib-card-line"><b>${T().libWhy}:</b> ${escapeHTML(p.why)}</div>
-          <div class="lib-card-line"><b>${T().libResult}:</b> ${escapeHTML(p.result)}</div>
-        </div>`).join('') + libLockedFooter(data);
-    }
+  // The category screen of a `list` module: a button per category into its
+  // deck, the 18+ ones by title only, and the purchase prompt if the server
+  // truncated what it sent.
+  function renderLibCategories(data) {
     const visible = data.categories.map(c => `
-      <details class="lib-cat"${c.id === openCategory ? ' open' : ''}>
-        <summary>${escapeHTML(c.title)} · ${c.items.length}${c.items.length < c.total ? '/' + c.total : ''}</summary>
-        <ol>${c.items.map(i => `<li>${escapeHTML(i)}</li>`).join('')}</ol>
-      </details>`).join('');
+      <button class="lib-cat lib-cat-open" data-cat="${escapeHTML(c.id)}">
+        ${escapeHTML(c.title)} · ${c.items.length}${c.items.length < c.total ? '/' + c.total : ''}
+      </button>`).join('');
     // Categories the server withheld for want of an 18+ confirmation: shown by
     // title only, and tapping one raises the overlay.
     const withheld = (data.nsfw_withheld || []).map(c => `
@@ -1792,6 +1851,19 @@
         🔞 ${escapeHTML(c.title)} · ${c.total}
       </button>`).join('');
     return visible + withheld + libLockedFooter(data);
+  }
+
+  function openLibCategory(data, id, catId) {
+    const cat = (data.categories || []).find(c => c.id === catId);
+    if (!cat || !cat.items.length) return;
+    const items = cat.items.map((t, i) => ({
+      text: escapeHTML(t), footer: (i + 1) + ' / ' + cat.items.length
+    }));
+    const lock = libLockCard(cat.items.length, cat.total);
+    if (lock) items.push(lock);
+    // Back goes to the category screen, never to this same category — passing
+    // catId here would re-open the deck the user just left.
+    libDeckOpen(items, cat.title, () => openLibModule(id));
   }
 
   function libLockedFooter(data) {
@@ -1805,6 +1877,134 @@
       <button class="btn btn-play" id="libBuy">${T().libLocked}${price}</button>
     </div>`;
   }
+
+  /* ---------------- library deck ---------------- */
+  // The Library reuses the game's swipe physics but keeps its own state: the
+  // two decks are never on screen at once, and sharing S would mean a Library
+  // card could resume into the middle of a game deck.
+  const LS = { items: [], idx: 0, count: 0, back: null };
+
+  // `item.text` is HTML: the builders below escape the content once and then
+  // add their own markup, so escaping again here would print the tags. Every
+  // string that reaches `text` must have gone through escapeHTML already.
+  function libCardHTML(item, number, total) {
+    return (
+      '<div class="flipper">' +
+        '<div class="face front" style="--art:url(' + LIBRARY_ART + ')">' +
+          '<div class="q-zone"><div class="q-text">' + item.text + '</div></div>' +
+          '<div class="card-footer">' + escapeHTML(item.footer || (number + ' / ' + total)) + '</div>' +
+        '</div>' +
+        '<div class="face back"></div>' +
+      '</div>'
+    );
+  }
+
+  // The card text for each module type. Everything is escaped here, once.
+  // A `list` module returns null: it goes through its categories first.
+  function libItems(data) {
+    if (data.type === 'daily') {
+      return [{ text: escapeHTML(data.question),
+                footer: fmt(T().libDayOf, { day: data.day }) }];
+    }
+    if (data.type === 'practice') {
+      const items = data.items.map((p, i) => ({
+        text: '<b>' + escapeHTML(p.title) + '</b><br><br>' +
+              '<span class="q-sub"><b>' + escapeHTML(T().libWhy) + ':</b> ' + escapeHTML(p.why) + '</span><br>' +
+              '<span class="q-sub"><b>' + escapeHTML(T().libResult) + ':</b> ' + escapeHTML(p.result) + '</span>',
+        footer: (i + 1) + ' / ' + data.items.length
+      }));
+      const lock = libLockCard(data.items.length, data.total);
+      if (lock) items.push(lock);
+      return items;
+    }
+    return null;
+  }
+
+  // The last card of a deck the server truncated. A locked `list` module also
+  // says so on its category screen, but a practice module has no category
+  // screen — and either way the end of the deck is where the truncation is
+  // felt, so that is where the prompt belongs.
+  function libLockCard(shown, total) {
+    if (!(shown < total)) return null;
+    const note = escapeHTML(fmt(T().libFreeNote, { free: shown, total: total }));
+    // Same rule as showPaywall: no payment link, no button that does nothing.
+    const cta = ACCESS.payment_url
+      ? '<button class="btn btn-play q-lock">' +
+        escapeHTML(T().libLocked + (ACCESS.price ? ' — ' + ACCESS.price : '')) + '</button>'
+      : '';
+    return { text: '<b>🔒</b><br><br>' + note + cta, footer: '🔒', lock: true };
+  }
+
+  function renderLibStage(withFlip) {
+    const stage = $('libStage');
+    stage.innerHTML = '';
+    const total = LS.items.length;
+    if (!total) return;
+    if (LS.idx + 1 < total) {
+      const under = document.createElement('div');
+      under.className = 'card under';
+      under.style.transform = 'translateY(14px) scale(.94)';
+      under.style.opacity = '.7';
+      under.innerHTML = libCardHTML(LS.items[LS.idx + 1], LS.idx + 2, total);
+      stage.appendChild(under);
+    }
+    const top = document.createElement('div');
+    top.className = 'card top';
+    top.innerHTML = libCardHTML(LS.items[LS.idx], LS.idx + 1, total);
+    stage.appendChild(top);
+
+    const flipper = top.querySelector('.flipper');
+    if (withFlip) {
+      flipper.classList.add('faced');
+      requestAnimationFrame(() => setTimeout(() => {
+        flipper.classList.remove('faced');
+        haptic('light');
+      }, 260));
+    }
+
+    attachSwipe(top);
+    // Only the top card's button: the under card carries a copy of the same
+    // markup and is not meant to be reachable.
+    top.querySelectorAll('.q-lock').forEach(b => {
+      b.onclick = () => { haptic('light'); $('paywallBuy').click(); };
+    });
+    // The lock card is not content: the progress counts what there is to read.
+    const cur = Math.min(LS.idx + 1, LS.count);
+    $('libProgressFill').style.width = (LS.count ? (cur / LS.count) * 100 : 0) + '%';
+    $('libProgressNum').textContent = cur + ' / ' + LS.count;
+    $('libPrev').disabled = LS.idx <= 0;
+    $('libNext').disabled = LS.idx >= total - 1;
+    deckDirty = false;
+  }
+
+  function libNext() { if (LS.idx < LS.items.length - 1) { LS.idx++; renderLibStage(true); } }
+  function libPrev() { if (LS.idx > 0) { LS.idx--; renderLibStage(true); } }
+
+  function libDeckOpen(items, title, back) {
+    LS.items = items;
+    LS.idx = 0;
+    LS.count = items.filter(i => !i.lock).length;
+    LS.back = back;
+    $('libDeckTitle').textContent = title;
+    // The swipe engine belongs to whoever is on screen; these send it here.
+    drag.onAdvance = libNext;
+    drag.onBack = libPrev;
+    deckDirty = false;
+    show('libDeck');
+    renderLibStage(true);
+  }
+
+  function libDeckLeave() {
+    drag.onAdvance = null; drag.onBack = null;
+    (LS.back || openLibrary)();
+  }
+
+  $('libPrev').onclick = () => { if (!deckDirty) libPrev(); };
+  $('libNext').onclick = () => {
+    const top = document.querySelector('#libStage .card.top');
+    if (top && LS.idx < LS.items.length - 1) flyOut(top, 1);
+  };
+  $('libDeckBack').onclick = libDeckLeave;
 
   $('btnLibrary').onclick = () => { haptic('light'); openLibrary(); };
   $('libBackHome').onclick = () => show('home');
@@ -1924,7 +2124,7 @@
   function renderCompatQuestion() {
     const total = CT.questions.length;
     if (CT.idx >= total) {
-      $('compatQuestion').innerHTML = '<p class="lib-question">' + escapeHTML(T().compatDone) + '</p>';
+      $('compatQuestion').innerHTML = '<p class="compat-q">' + escapeHTML(T().compatDone) + '</p>';
       $('compatScale').innerHTML = '';
       return;
     }
@@ -1932,7 +2132,7 @@
     $('compatSphereTitle').textContent = q.sphere;
     $('compatProgress').style.width = (CT.idx / total * 100) + '%';
     $('compatProgressNum').textContent = (CT.idx + 1) + ' / ' + total;
-    $('compatQuestion').innerHTML = '<p class="lib-question">' + escapeHTML(q.text) + '</p>';
+    $('compatQuestion').innerHTML = '<p class="compat-q">' + escapeHTML(q.text) + '</p>';
     $('compatScale').innerHTML = CT.scale.map((label, i) =>
       `<button class="btn btn-second compat-opt" data-value="${i + 1}">${escapeHTML(label)}</button>`
     ).join('');

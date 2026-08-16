@@ -152,6 +152,48 @@ def test_a_vertical_drag_scrolls_the_text_instead_of_dragging_the_card():
     assert "drag.axis === 'y'" in end
 
 
+def test_the_library_has_a_deck_screen():
+    """Every Library module is read as cards now, on the Library face."""
+    html = INDEX.read_text(encoding="utf-8")
+    assert 'id="libDeck"' in html
+    assert 'id="libStage"' in html
+    assert "libDeckOpen" in html
+    assert "LIBRARY_ART" in html
+
+
+def test_the_library_no_longer_renders_bare_lists():
+    html = INDEX.read_text(encoding="utf-8")
+    assert "<ol>" not in html
+    assert "lib-daily" not in html
+    assert "lib-question" not in html
+
+
+def test_the_library_deck_stands_on_the_same_geometry_as_the_game_deck():
+    """#libStage is a second stage, not a second set of rules for one."""
+    html = INDEX.read_text(encoding="utf-8")
+    assert _css_block(html, "#stage") == _css_block(html, "#libStage")
+
+
+def test_the_library_deck_hands_the_swipe_engine_its_own_transitions():
+    """flyOut() ends in the game's S/COOP state unless told otherwise, and
+    dragEnd decides 'can I go back?' from S.idx. Both must ask the Library."""
+    html = INDEX.read_text(encoding="utf-8")
+    end = html.split("function dragEnd(")[1].split("\n  }")[0]
+    assert "LS.idx" in end
+    fly = html.split("function flyOut(")[1].split("\n  }")[0]
+    assert "drag.onAdvance" in fly
+    # Stale callbacks would send a game swipe into the Library.
+    for fn in ("function enterDeck(", "function enterCoopDeck("):
+        assert "drag.onAdvance = null" in html.split(fn)[1].split("\n  }")[0]
+
+
+def test_a_truncated_library_deck_says_so_on_its_last_card():
+    """A practice module has no category screen to hang the paywall on, so
+    the deck itself must end on the prompt rather than just stopping."""
+    html = INDEX.read_text(encoding="utf-8")
+    assert "libLockCard" in html
+
+
 def test_the_home_screen_shows_decks_not_typographic_suits():
     """The first thing the Mini App shows should be the game, not ♥♠♦♣."""
     html = INDEX.read_text(encoding="utf-8")
