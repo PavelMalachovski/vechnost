@@ -95,13 +95,17 @@ pytest tests/test_freemium.py -q         # run one suite
   `compat_notify.py` sends both partners a push the moment the test
   completes, since the second partner often finishes hours later and would
   otherwise never come back to read it.
-- **Card rendering** (`renderer.py`) auto-picks a font that covers the
-  text's alphabet. The brand three ship in `assets/fonts/`: **Inter** for
-  every card and UI text, **Lora** for the `VECHNOST` wordmark, **Forum**
-  for the `V`/`Λ` letters and the `2`/`3` ranks — all with Cyrillic. DejaVu
-  stays as the last-resort fallback. If you touch fonts, keep the Cyrillic
-  coverage — Russian is the only audience. Note Forum has no Greek capital
-  lambda glyph, so the `Λ` mark is a `V` rotated 180°.
+- **Card rendering** (`renderer.py`) draws only the question text, and
+  auto-picks between **Inter** (the card and UI face) and **DejaVu** (the
+  last-resort fallback) per string, so a text in an alphabet Inter lacks
+  degrades instead of tofuing. The brand's other two faces are the
+  *generator's*, not the renderer's: **Lora** (the `VECHNOST` wordmark) and
+  **Forum** (the `V`/`Λ` letters and the `2`/`3` ranks) are printed into the
+  backgrounds by `scripts/generate_card_assets.py`, which loads them by
+  filename — go there if a wordmark or rank looks wrong. All four ship in
+  `assets/fonts/` with Cyrillic; if you touch fonts, keep that coverage —
+  Russian is the only audience. Note Forum has no Greek capital lambda
+  glyph, so the `Λ` mark is a `V` rotated 180°.
 - **Both front-ends print the same cards.** The Mini App does not draw a CSS
   likeness — it loads the very PNGs the bot composites onto, through a
   read-only `/assets` mount in `payments/web.py` (`CARD_ART` / `LIBRARY_ART`

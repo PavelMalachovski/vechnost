@@ -1,7 +1,5 @@
 # Russian UI translations
 welcome:
-  language_prompt: "Выберите язык для начала игры"
-
   # Новая структурированная приветственная страница
   greeting_title: "💎 VECHNOST"
   greeting_subtitle: "Когда слова заканчиваются - начинается VECHNOST. Не терапия, не тренинг - просто игра, после которой вы ближе, чем когда-либо."
@@ -40,13 +38,6 @@ welcome:
 
   # Старая версия (на случай, если используется где-то еще)
   welcome_message: "💕 Добро пожаловать в VECHNOST\n\nИгра для пар, созданная, чтобы:\n• Узнать друг друга по-настоящему\n• Выйти за рамки обыденности\n• Открыть новые грани себя и партнёра\n\nВыберите колоду — и откройте свой мир близости:\n\n✨ Знакомство — лёгкость и флирт\n♥️ Для пар — глубина и тепло\n❤️‍🔥 Провокации — неожиданное и чувственное\n🔥 Секс — смелость, доверие, страсть"
-
-language:
-  selection_title: "🌍 Выберите язык"
-  selection_subtitle: "Choose your language / Vyberte si jazyk"
-  confirm_title: "✅ Язык выбран"
-  confirm_subtitle: "Language selected / Jazyk vybrán"
-  confirm: "Подтвердить"
 
 themes:
   Acquaintance: "✨ Знакомство"

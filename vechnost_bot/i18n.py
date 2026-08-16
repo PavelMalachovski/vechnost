@@ -61,19 +61,12 @@ class I18nManager:
                 else:
                     ui_translations = {}
 
-                # Load questions translations
-                questions_file = self.data_dir / f"questions_{language.value}.yaml"
-                if questions_file.exists():
-                    with open(questions_file, 'r', encoding='utf-8') as f:
-                        questions_translations = yaml.safe_load(f) or {}
-                else:
-                    questions_translations = {}
-
-                # Merge translations
-                self.translations[language] = {
-                    "ui": ui_translations,
-                    "questions": questions_translations
-                }
+                # Only the UI strings. This also read `questions_{lang}.yaml`
+                # into a "questions" key for `get_questions`, but that file has
+                # never existed under that name — the deck lives in
+                # `data/questions.yaml` and is loaded by `logic.py` — so the
+                # key was always empty, and its one reader is gone.
+                self.translations[language] = {"ui": ui_translations}
 
                 logger.info(f"Loaded translations for {language.value}")
 
@@ -124,35 +117,6 @@ class I18nManager:
             logger.error(f"Error getting text for key {key}: {e}")
             return key
 
-    def get_questions(self, theme: str, level: int, content_type: str, language: Language = Language.RUSSIAN) -> list[str]:
-        """Get translated questions for a theme and level."""
-        try:
-            questions_data = self.translations.get(language, {}).get("questions", {})
-            themes = questions_data.get("themes", {})
-            theme_data = themes.get(theme, {})
-            levels = theme_data.get("levels", {})
-            level_data = levels.get(str(level), {})
-            content = level_data.get(content_type, [])
-
-            if not content and language != Language.RUSSIAN:
-                # Fallback to Russian
-                return self.get_questions(theme, level, content_type, Language.RUSSIAN)
-
-            return content if isinstance(content, list) else []
-
-        except Exception as e:
-            logger.error(f"Error getting questions for {theme}/{level}/{content_type}: {e}")
-            return []
-
-    def get_available_themes(self, language: Language = Language.RUSSIAN) -> Dict[str, str]:
-        """Get available themes with their translated names."""
-        try:
-            themes_data = self.translations.get(language, {}).get("themes", {})
-            return themes_data
-        except Exception as e:
-            logger.error(f"Error getting themes for {language.value}: {e}")
-            return {}
-
     def format_number(self, number: int, language: Language = Language.RUSSIAN) -> str:
         """Format a number according to locale rules."""
         try:
@@ -175,16 +139,6 @@ def get_text(key: str, language: Language = Language.RUSSIAN, **kwargs) -> str:
     return i18n_manager.get_text(key, language, **kwargs)
 
 
-def get_questions(theme: str, level: int, content_type: str, language: Language = Language.RUSSIAN) -> list[str]:
-    """Get translated questions for a theme and level."""
-    return i18n_manager.get_questions(theme, level, content_type, language)
-
-
-def get_available_themes(language: Language = Language.RUSSIAN) -> Dict[str, str]:
-    """Get available themes with their translated names."""
-    return i18n_manager.get_available_themes(language)
-
-
 def format_number(number: int, language: Language = Language.RUSSIAN) -> str:
     """Format a number according to locale rules."""
     return i18n_manager.format_number(number, language)
@@ -195,3 +149,10 @@ def format_number(number: int, language: Language = Language.RUSSIAN) -> str:
 # language from the user's message. Both of those callers are gone, and all
 # three functions had collapsed to a constant — deleted rather than left as
 # Russian-shaped stubs.
+#
+# `get_questions` and `get_available_themes` went the same way, and had never
+# worked: the first read a "questions" key filled from a `questions_ru.yaml`
+# that has never existed, the second a "themes" key `_load_translations` never
+# wrote, so it always returned `{}`. Nothing imported either. The deck is
+# `logic.py`'s (`data/questions.yaml`) and the theme names are ordinary
+# `get_text('themes.…')` lookups.

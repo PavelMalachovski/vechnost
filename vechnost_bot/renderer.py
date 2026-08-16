@@ -46,16 +46,18 @@ WATERMARK_BOTTOM_MARGIN = 107
 # up rather than running into the footer.
 TEXT_FOOTER_GAP = 14
 
-# Brand fonts (ship in assets/fonts, all three cover Cyrillic):
-#   Inter  — the text of every card
-#   Lora   — the VECHNOST wordmark
-#   Forum  — the V/Λ letters and the 2/3 ranks
-# DejaVu stays as a last resort: _pick_font_path still checks coverage, so a
-# text with an alphabet Inter lacks (Greek, say) degrades instead of tofuing.
+# The only fonts this module draws with. Inter sets every card's text and
+# covers Cyrillic; DejaVu is the last resort, and _pick_font_path picks between
+# them per string, so a text in an alphabet Inter lacks (Greek, say) degrades
+# instead of tofuing.
+#
+# The brand's other two faces are not the renderer's business. Lora (the
+# VECHNOST wordmark) and Forum (the V/Λ letters and the 2/3 ranks) are printed
+# *into* the backgrounds by scripts/generate_card_assets.py, which loads them
+# by filename itself; renderer.py only composites question text onto the
+# finished art. Look there, not here, if a wordmark or a rank looks wrong.
 _ASSETS_FONTS = Path(__file__).parent.parent / "assets" / "fonts"
 FONT_PATH = _ASSETS_FONTS / "Inter-Regular.ttf"
-LOGO_FONT_PATH = _ASSETS_FONTS / "Lora-Regular.ttf"
-EMBLEM_FONT_PATH = _ASSETS_FONTS / "Forum-Regular.ttf"
 FALLBACK_FONT_PATH = _ASSETS_FONTS / "DejaVuSans.ttf"
 
 

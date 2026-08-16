@@ -4,7 +4,7 @@ import random
 from typing import Dict, Any
 
 from .models import GameData, SessionState, Theme, ContentType
-from .i18n import Language, i18n_manager
+from .i18n import Language
 
 
 class LocalizedGameData:
@@ -20,22 +20,16 @@ class LocalizedGameData:
         return self._cached_data[language]
 
     def _load_game_data_for_language(self, language: Language) -> GameData:
-        """Load game data for a specific language."""
+        """Load the one shipped content set.
+
+        `language` survives as the cache key its callers still pass, not as a
+        branch: there is a single deck file. The `questions_{lang}.yaml` files
+        this used to prefer are deleted, so the branch that looked for them
+        could not be taken.
+        """
         from pathlib import Path
         import yaml
 
-        # Try to load translated content first
-        if language != Language.RUSSIAN:
-            translated_file = Path(__file__).parent.parent / "data" / f"questions_{language.value}.yaml"
-            if translated_file.exists():
-                try:
-                    with open(translated_file, encoding="utf-8") as f:
-                        data = yaml.safe_load(f)
-                    return self._create_game_data_from_yaml(data)
-                except Exception as e:
-                    print(f"Failed to load translated content for {language.value}: {e}")
-
-        # Fallback to Russian (original) content
         yaml_path = Path(__file__).parent.parent / "data" / "questions.yaml"
         with open(yaml_path, encoding="utf-8") as f:
             data = yaml.safe_load(f)

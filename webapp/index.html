@@ -100,8 +100,11 @@
   .logo .heart { color: #E86BB5; -webkit-text-fill-color: #E86BB5; }
   .tagline { font-size: 15px; color: var(--muted-on-dark); max-width: 260px; line-height: 1.45; }
 
-  /* Four real decks, overlapped like a hand of cards. Each keeps the 2:3 of
-     the printed card so nothing is squashed. */
+  /* Four real decks, overlapped like a hand of cards. The 72x108 tile is the
+     2:3 of the *source art* in assets/backgrounds (600x900), not of the
+     printed card, which renderer.py composites at 1080x1350 — 4:5. So the
+     art lands here unsquashed, and the fan is a narrower shape than the card
+     it advertises. */
   .deck-fan { display: flex; justify-content: center; margin: 20px 0 4px; height: 108px; }
   .deck-fan i {
     display: block; width: 72px; height: 108px; margin: 0 -14px;
@@ -316,10 +319,19 @@
      text and the footer are drawn on top.
 
      background-size is 100% 100%, not cover, because that is what the bot
-     does — renderer.py resizes the 600x900 art into its 1080x1350 frame. It
-     also makes the geometry exact: every fraction of the art is the same
-     fraction of this box, so the padding below can be read off renderer.py's
-     TEXT_AREA_* constants instead of being guessed around a crop. */
+     does — renderer.py resizes the 600x900 art into its 1080x1350 frame.
+     Nothing is cropped either side, so every fraction of the art is the same
+     fraction of this box and the padding below can be read off renderer.py's
+     TEXT_AREA_* constants rather than guessed around a crop. Measured: the
+     text band sits at 0.219 from the top and 0.219 from the bottom of the
+     face, against the renderer's central 56% — 0.22 to 0.78.
+
+     The *box* is not the card's shape, though. 340x470 is 1:1.38 where the
+     printed card is 4:5, so the art is stretched about 11% taller here than
+     in the photo the same user gets in chat. Deliberate, and reviewed side by
+     side against a bot-rendered JPEG — at this size it reads as the same
+     card. Do not "fix" it by switching to cover: that would crop the corner
+     marks and break the fractions above. */
   .card .front {
     background-color: var(--card-bg);
     background-image: var(--art);
@@ -752,10 +764,6 @@
   };
 
   const THEME_ORDER = ['Acquaintance', 'For Couples', 'Sex', 'Provocation'];
-  // The suits of the printed cards. The Mini App used to guess these, and
-  // guessed Acquaintance and For Couples backwards; the corners are part of
-  // the card art now, so SUITS only feeds the share text.
-  const SUITS = { 'Acquaintance': '♥', 'For Couples': '♠', 'Sex': '♣', 'Provocation': '♦' };
 
   // The card face each deck is printed on, same mapping the bot reads from
   // assets/backgrounds.yml. What identifies a face differs per deck: the two
@@ -1726,6 +1734,17 @@
       const items = libItems(data);
       if (items) { libDeckOpen(items, title, openLibrary); return; }
 
+      // Nor is a `list` module that only has one category: the screen below
+      // would be a single button between the module and its deck. Open the
+      // deck, and hand it a `back` that skips the screen nobody saw. Guarded
+      // on nsfw_withheld, because a withheld category is a second row — the
+      // choice is real again, and the user needs the screen to reach it.
+      const cats = data.categories || [];
+      if (cats.length === 1 && !(data.nsfw_withheld || []).length) {
+        openLibCategory(data, id, cats[0].id, openLibrary);
+        return;
+      }
+
       $('libDetailTitle').textContent = title;
       $('libDetailBody').innerHTML = renderLibCategories(data);
       const buy = $('libBuy');
@@ -1769,7 +1788,10 @@
     return visible + withheld + libLockedFooter(data);
   }
 
-  function openLibCategory(data, id, catId) {
+  // `back` overrides where the deck's back arrow goes. The single-category
+  // fast path passes openLibrary, because returning to openLibModule would
+  // re-run the fast path and trap the user in the deck.
+  function openLibCategory(data, id, catId, back) {
     const cat = (data.categories || []).find(c => c.id === catId);
     if (!cat || !cat.items.length) return;
     const items = cat.items.map((t, i) => ({
@@ -1779,7 +1801,7 @@
     if (lock) items.push(lock);
     // Back goes to the category screen, never to this same category — passing
     // catId here would re-open the deck the user just left.
-    libDeckOpen(items, cat.title, () => openLibModule(id));
+    libDeckOpen(items, cat.title, back || (() => openLibModule(id)));
   }
 
   function libLockedFooter(data) {

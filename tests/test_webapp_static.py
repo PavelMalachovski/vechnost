@@ -36,6 +36,10 @@ def test_every_card_is_served(client, card):
 
 
 def test_the_mount_does_not_escape_the_assets_directory(client):
+    # Vacuous as a traversal test, kept as documentation of why: httpx
+    # normalises the literal ".." away client-side, so the server only ever
+    # sees GET /vechnost.db — a route that does not exist. The test that
+    # actually reaches StaticFiles' traversal guard is the next one.
     res = client.get("/assets/../vechnost.db")
     assert res.status_code != 200
 
@@ -66,13 +70,22 @@ def test_the_mini_app_no_longer_ships_the_old_typography():
 
 
 def test_the_mini_app_suits_match_the_printed_cards():
-    """acq ♥, couples ♠, sex ♣, prov ♦ — the art, not the old guess."""
+    """acq ♥, couples ♠, sex ♣, prov ♦.
+
+    The suit is printed into the art, so the Mini App cannot get it wrong by
+    naming the wrong character — it can only get it wrong by pointing a theme
+    at another deck's face. CARD_ART is where that happens, and it is the
+    mapping the app actually reads; the `SUITS` constant this test used to
+    assert against fed nothing at all.
+    """
     html = INDEX.read_text(encoding="utf-8")
-    line = next(line for line in html.splitlines() if "const SUITS" in line)
-    assert "'Acquaintance': '♥'" in line
-    assert "'For Couples': '♠'" in line
-    assert "'Sex': '♣'" in line
-    assert "'Provocation': '♦'" in line
+    art = html.split("const CARD_ART = {", 1)[1].split("\n  };", 1)[0]
+    for theme, folder in (("Acquaintance", "acq"), ("For Couples", "couples"),
+                          ("Sex", "sex"), ("Provocation", "prov")):
+        line = next(l for l in art.splitlines() if l.lstrip().startswith(f"'{theme}'"))
+        faces = re.findall(r"'([a-z_]+)/[a-z_0-9]+\.png'", line)
+        assert faces, f"{theme} names no card face"
+        assert set(faces) == {folder}, f"{theme} wears {set(faces)}, not {folder}"
 
 
 def test_every_deck_face_the_mini_app_names_is_a_file_that_exists():
@@ -114,8 +127,9 @@ def test_long_card_text_scrolls_instead_of_shrinking():
     assert ".q-text.small" not in html
     q_zone = _css_block(html, ".q-zone")
     assert "overflow-y" in q_zone
-    # #stage is touch-action: none, which would otherwise swallow the pan
-    # that scrolls this zone on a touch screen.
+    # #stage is touch-action: pan-y (see the test below), and this zone
+    # declares its own so a nested scroller keeps the vertical pan that
+    # scrolls the text on a touch screen.
     assert "touch-action" in q_zone
     q_text = _css_block(html, ".q-text")
     assert "font-size: 22px" in q_text

@@ -5,6 +5,7 @@ silently falls back to DejaVu, and a missing background raises only at
 render time, inside a try block.
 """
 
+import hashlib
 from pathlib import Path
 
 import pytest
@@ -62,12 +63,26 @@ def test_generated_card_has_the_deck_geometry(name):
         assert img.size == CARD_SIZE
 
 
-def test_library_card_is_pale_and_back_is_dark():
-    """The two cards carry opposite ink: text on the library card is dark on
-    pale, the back is a solid dark field. A swapped file would be invisible."""
-    with Image.open(BACKGROUNDS / "library.png") as img:
-        r, g, b = img.convert("RGB").getpixel((540, 340))
-        assert min(r, g, b) > 200
-    with Image.open(BACKGROUNDS / "card_back.png") as img:
-        r, g, b = img.convert("RGB").getpixel((540, 340))
-        assert max(r, g, b) < 120
+# scripts/generate_card_assets.py is byte-deterministic: no randomness, no
+# timestamp, no system font lookup — it draws from the TTFs in assets/fonts and
+# saves with Pillow's defaults, and re-running it reproduces these files
+# exactly. So the whole card can be pinned, which is what this checks. A single
+# pixel probe passed a swapped suit, a shifted corner mark or a moved wordmark;
+# a hash does not.
+#
+# If one of these fails, the art moved. Regenerate with
+# `python scripts/generate_card_assets.py`, look at the two PNGs, and if the
+# change was intended paste the new digest in — the failure message prints it.
+CARD_SHA256 = {
+    "library.png": "d2825d21ac1bf4f3b630e2d3332a3fc2b9c3d80afd92de0ae4f26eee92d0291e",
+    "card_back.png": "125e5d7ba10c74fd6444af60b9970271cc78862d81288aa10a573931388bbc12",
+}
+
+
+@pytest.mark.parametrize("name", ["library.png", "card_back.png"])
+def test_generated_card_is_the_art_the_generator_produces(name):
+    digest = hashlib.sha256((BACKGROUNDS / name).read_bytes()).hexdigest()
+    assert digest == CARD_SHA256[name], (
+        f"{name} is not the committed art. If you meant to change it, "
+        f"regenerate and pin: {digest}"
+    )
