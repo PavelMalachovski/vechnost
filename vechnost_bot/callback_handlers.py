@@ -64,7 +64,8 @@ def _calendar_header(
     titled by content type, Provocation carries neither a level nor a count, a
     levelled deck is a one-line title, and only the levelless fallback spends a
     second line on how many cards are left. Merging the last two would put a
-    card count on a message that has never had one.
+    card count on a message that has never had one — and the levelless one
+    names no level, which is why its key has no `{level}` slot to leave empty.
 
     Six call sites held this decision verbatim, which is how the levelled
     branch kept a plain hyphen while its twin in the YAML moved to the middot
@@ -86,7 +87,6 @@ def _calendar_header(
         )
     return get_text('calendar.header', session.language).format(
         theme=theme_name,
-        level="",
         remaining_count=format_number(remaining_count, session.language),
     )
 

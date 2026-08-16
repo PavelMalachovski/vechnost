@@ -50,7 +50,11 @@ level:
   level: "Уровень"
 
 calendar:
-  header: "{theme} · Уровень {level}\nОсталось карточек: {remaining_count}"
+  # The deck with no level chosen. It never had a level to name: the slot was
+  # filled with "" at every call site and rendered a dangling «Уровень » with a
+  # trailing space. The word is gone rather than blank, so the hole cannot
+  # reopen the next time someone formats this key.
+  header: "{theme}\nОсталось карточек: {remaining_count}"
   # A levelled deck's title carries no card count. It lived as an f-string in
   # callback_handlers.py, which is how it drifted onto a plain hyphen while the
   # line above it moved on; it is a string like any other and belongs here.
