@@ -8,7 +8,8 @@ VECHNOST is a Telegram card game for couples. Two front-ends share one
 content set and one payment/access model:
 
 1. **Bot** (`python-telegram-bot`, long polling) — inline keyboards; each
-   card is a rendered PNG (Pillow).
+   card is a rendered PNG (Pillow). `/start` opens straight on the welcome
+   screen (logo photo, then the greeting) — there is no language chooser.
 2. **Mini App** (`webapp/index.html`, served by FastAPI at `/app`) — a
    swipeable card deck; content comes from `GET /api/questions`.
 
@@ -34,15 +35,19 @@ pytest tests/test_freemium.py -q         # run one suite
 
 ## Architecture notes
 
-- **Content** lives in `data/questions*.yaml` (one file per language) and
-  `data/translations_*.yaml`. `logic.py` / `i18n.py` load and localize it.
+- **Content** is Russian only: one deck file `data/questions.yaml` and one
+  UI file `data/translations_ru.yaml`, loaded by `logic.py` / `i18n.py`.
   Themes and levels are defined by `models.py` (`Theme`, `ContentType`).
+  English and Czech are retired — `questions_en/cs.yaml`,
+  `translations_en/cs.yaml` and `language_keyboards.py` are deleted and live
+  in git history, one revert away. `i18n.Language` has a single member; use
+  `Language.coerce(code)` to read a stored or client-supplied `en`/`cs`,
+  which comes back as Russian instead of raising.
 - **Library content** lives in `data/library/` — one YAML per module
   (`dates`, `fall_in_love`, `practices_self`, `practices_couples`,
   `reflection`). `library.py` loads it and deliberately imports neither
   FastAPI nor python-telegram-bot, so the bot, the API and the tests can all
-  use it. Content is Russian-only for now; other languages fall back to the
-  `_ru` file.
+  use it. The files carry the `_ru` suffix and are the only ones there is.
 - **Freemium is one shared rule, in two constants.** `freemium.py` holds
   `FREE_CARDS_PER_DECK = 5` for the four game decks (used by
   `callback_handlers.py`, `payments/web.py`, and `payments/rooms.py`) and
@@ -91,9 +96,22 @@ pytest tests/test_freemium.py -q         # run one suite
   completes, since the second partner often finishes hours later and would
   otherwise never come back to read it.
 - **Card rendering** (`renderer.py`) auto-picks a font that covers the
-  text's alphabet. The bundled **Montserrat** is the brand font and now
-  includes Cyrillic; DejaVu is the fallback. If you touch fonts, keep the
-  Cyrillic coverage — Russian is the primary audience.
+  text's alphabet. The brand three ship in `assets/fonts/`: **Inter** for
+  every card and UI text, **Lora** for the `VECHNOST` wordmark, **Forum**
+  for the `V`/`Λ` letters and the `2`/`3` ranks — all with Cyrillic. DejaVu
+  stays as the last-resort fallback. If you touch fonts, keep the Cyrillic
+  coverage — Russian is the only audience. Note Forum has no Greek capital
+  lambda glyph, so the `Λ` mark is a `V` rotated 180°.
+- **Both front-ends print the same cards.** The Mini App does not draw a CSS
+  likeness — it loads the very PNGs the bot composites onto, through a
+  read-only `/assets` mount in `payments/web.py` (`CARD_ART` / `LIBRARY_ART`
+  in `webapp/index.html`). Two of those faces are generated rather than
+  drawn by hand: `assets/backgrounds/library.png` (the Library and the daily
+  prompt) and `assets/backgrounds/card_back.png` (the shared dark back) come
+  from `scripts/generate_card_assets.py`, which crops the suit emblems out
+  of the existing deck art and is deterministic — re-running it reproduces
+  the committed bytes. Regenerate and commit the PNGs; don't hand-edit them.
+  The suits are Acquaintance ♥, For Couples ♠, Sex ♣, Provocation ♦.
 - **DB schema.** SQLAlchemy models in `payments/models.py`, Alembic
   revisions in `alembic/`. Deploys run `create_all`, which never alters
   existing tables, so new columns are **also** added idempotently at
@@ -104,8 +122,23 @@ pytest tests/test_freemium.py -q         # run one suite
 
 - The Mini App is a single self-contained `webapp/index.html` (inline CSS +
   JS, `I18N` object for strings). Its UI strings are separate from the bot's
-  YAML translations — update **both** when changing shared copy.
-- New user-facing text goes in all three languages (ru/en/cs).
+  YAML translations — update **both** when changing shared copy. `I18N` is
+  one flat dictionary now, not a per-language map, and there is no language
+  chip row.
+- New user-facing text is Russian. There is no second language to fill in.
+- **No em dash in card content.** `data/questions.yaml` and
+  `data/library/*.yaml` hold zero long dashes; use an en dash `–` or rewrite
+  the sentence. `tests/test_no_em_dash.py` guards eight codepoints over
+  those files. Interface strings (`data/translations_ru.yaml`,
+  `webapp/index.html`) are deliberately outside that rule and still use `—`.
+- **One swipe engine, one stage builder.** The game deck and the Library
+  deck share `buildStage` and the same drag handler in
+  `webapp/index.html`; the Library plugs in through `drag.onAdvance` /
+  `drag.onBack` rather than owning a second copy. The gesture splits by axis
+  at 8px of travel — vertical scrolls the card text inside its fixed band
+  (with a fade at whichever edge is hiding something; long text scrolls, it
+  no longer shrinks through size steps), horizontal swipes the card. Extend
+  those, don't fork them.
 - Prefer adding tests next to the feature (`tests/test_<feature>.py`); the
   suite runs offline (no network, Tribute mocked).
 - Brand: dark aubergine background, pink gradient accents, playing-card
@@ -114,9 +147,10 @@ pytest tests/test_freemium.py -q         # run one suite
 ## Gotchas
 
 - Editing content can silently break things that reference it by position,
-  not just by text match. `payments/rooms.py` indexes into
-  `localized_game_data` by list position, so all three language decks must
-  stay the same length. `library.question_of_the_day` maps day-of-year to a
+  not just by text match. `payments/rooms.py` stores a `card_order` of list
+  positions and indexes into `localized_game_data` with it, so inserting or
+  removing a question mid-deck changes what every live room (24-hour TTL) is
+  showing. `library.question_of_the_day` maps day-of-year to a
   flat index across `data/library/reflection_ru.yaml`'s blocks — keep the
   block sizes at 31/30×10/34 (`tests/test_library.py` enforces them). The
   daily push no longer draws from the decks and there is no curated

@@ -11,16 +11,17 @@ inside a polished Telegram Mini App.
 
 - **Two ways to play.** A classic bot (inline keyboards + rendered card
   images) and a Telegram **Mini App** at `/app` (swipeable card deck,
-  animations, haptics).
-- **Four decks.** Acquaintance, For Couples, Sex (18+), Provocation —
-  310 questions/tasks per language, with 3 progressive levels on the
-  couple-facing decks.
-- **Library.** A second section beside the game: 150 date ideas in 8
-  categories, the 36 questions to fall in love, 25 practices for couples and
-  25 for yourself, and a year of self-reflection prompts. Library content is
-  Russian-only for now; other languages fall back to Russian.
-- **Three languages.** Russian, English, Czech — both UI and content of the
-  four decks.
+  animations, haptics). Both print the same cards: the Mini App loads the
+  very PNGs the bot composites onto, served from `/assets`.
+- **Four decks.** Acquaintance ♥, For Couples ♠, Sex ♣ (18+), Provocation ♦ —
+  310 questions/tasks, with 3 progressive levels on the couple-facing decks.
+- **Library.** A second section beside the game, read as a deck of cards
+  like the game itself: 150 date ideas in 8 categories, the 36 questions to
+  fall in love, 25 practices for couples and 25 for yourself, and a year of
+  self-reflection prompts.
+- **Russian.** UI and content are Russian throughout, in both front-ends.
+  English and Czech were shipped once and have been retired; they are in git
+  history, not in the app.
 - **Freemium.** The first 5 cards of every deck are free, and the first 3
   items of every Library list; full access unlocks the rest via a one-time
   Tribute payment.
@@ -44,7 +45,7 @@ inside a polished Telegram Mini App.
 | Web / Mini App API | FastAPI + Uvicorn |
 | Data | SQLAlchemy 2 (async) — SQLite locally, PostgreSQL in production; Alembic migrations |
 | Sessions / cache | Redis (with in-memory fallback) |
-| Card rendering | Pillow (Montserrat, Cyrillic-aware font fallback) |
+| Card rendering | Pillow (Inter / Lora / Forum, Cyrillic-aware font fallback) |
 | Payments | [Tribute](https://tribute.to) webhooks |
 | Config | pydantic-settings |
 | Hosting | Railway (Nixpacks) |
@@ -76,9 +77,11 @@ vechnost/
 │       ├── gifts.py       # Gift certificates
 │       └── middleware.py, signature.py, tribute_client.py
 ├── webapp/                # Mini App (single-file index.html + fonts)
-├── data/                  # questions*.yaml, translations_*.yaml
+├── data/                  # questions.yaml, translations_ru.yaml
 │   └── library/           # Library content, one YAML per module
-├── assets/                # Card backgrounds + fonts
+├── assets/                # Card backgrounds + fonts (Inter, Lora, Forum)
+│                          #   library.png and card_back.png are generated
+│                          #   by scripts/generate_card_assets.py
 ├── alembic/               # Database migrations
 ├── tests/                 # pytest suite
 └── docs/                  # Detailed setup/ops guides
@@ -154,13 +157,15 @@ startup so a fresh deploy works without a manual migration step. See
 ## Roadmap
 
 Recently shipped: freemium funnel, branded card sharing, gift certificates,
-full-Cyrillic brand font, Mini App content-API protection, couple mode
-(`payments/rooms.py`), the Library — date ideas, the 36 questions,
-practices, and a daily self-reflection question that replaced the old
-"card of the day" push — and the compatibility test (`compat.py`,
-`payments/compat_api.py`): 40 questions across 8 areas, answered separately
-by both partners, compared, and pushed to both the moment the result is
-ready.
+Mini App content-API protection, couple mode (`payments/rooms.py`), the
+Library — date ideas, the 36 questions, practices, and a daily
+self-reflection question that replaced the old "card of the day" push — the
+compatibility test (`compat.py`, `payments/compat_api.py`): 40 questions
+across 8 areas, answered separately by both partners, compared, and pushed
+to both the moment the result is ready — and a single card identity: one
+Cyrillic type family (Inter, Lora, Forum), the same printed card art in the
+bot and the Mini App, the Library read as a deck, and Russian as the only
+language.
 
 Not started: the "Territory of Temptation" 18+ board game (69 steps, dice,
 spoilers), and a nude-photography masterclass (blocked on pose illustrations
