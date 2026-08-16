@@ -1102,11 +1102,7 @@ class LanguageHandler(CallbackHandler):
 
     async def handle(self, query: Any, callback_data: LanguageCallbackData, session: SessionState) -> None:
         """Handle language selection."""
-        try:
-            language = Language(callback_data.language_code)
-        except ValueError:
-            await query.edit_message_text(get_text('errors.unknown_callback', session.language))
-            return
+        language = Language.coerce(callback_data.language_code)
 
         # Update session language
         session.language = language
@@ -1184,11 +1180,7 @@ class LanguageConfirmHandler(CallbackHandler):
 
     async def handle(self, query: Any, callback_data: LanguageConfirmCallbackData, session: SessionState) -> None:
         """Handle language confirmation."""
-        try:
-            language = Language(callback_data.language_code)
-        except ValueError:
-            await query.edit_message_text(get_text('errors.unknown_callback', session.language))
-            return
+        language = Language.coerce(callback_data.language_code)
 
         # Update session language
         session.language = language

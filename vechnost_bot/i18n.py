@@ -13,10 +13,23 @@ logger = logging.getLogger(__name__)
 
 
 class Language(str, Enum):
-    """Supported languages."""
+    """The languages the product ships. English and Czech are retired: the
+    content behind them is in git history, one revert away, but nothing at
+    runtime branches on language any more."""
     RUSSIAN = "ru"
-    ENGLISH = "en"
-    CZECH = "cs"
+
+    @classmethod
+    def coerce(cls, code: str | None) -> "Language":
+        """A stored or client-supplied code, read as a supported language.
+
+        Users predating this change carry `en`/`cs` in the database and in
+        Mini App query strings; `Language(code)` would raise on those, and
+        it is called on paths that render outside a try block.
+        """
+        try:
+            return cls(str(code).lower())
+        except (ValueError, AttributeError):
+            return cls.RUSSIAN
 
 
 class I18nManager:
@@ -145,23 +158,16 @@ class I18nManager:
             return str(number)
 
     def get_language_name(self, language: Language, target_language: Language = Language.RUSSIAN) -> str:
-        """Get the display name of a language in the target language."""
+        """Get the display name of a language in the target language.
+
+        Only Russian is supported now, so this collapses to a single entry;
+        kept (rather than deleted) because the language-selection keyboard
+        that was its main consumer is still removed in a later task.
+        """
         language_names = {
             Language.RUSSIAN: {
                 Language.RUSSIAN: "Русский",
-                Language.ENGLISH: "Russian",
-                Language.CZECH: "Ruština"
             },
-            Language.ENGLISH: {
-                Language.RUSSIAN: "Английский",
-                Language.ENGLISH: "English",
-                Language.CZECH: "Angličtina"
-            },
-            Language.CZECH: {
-                Language.RUSSIAN: "Чешский",
-                Language.ENGLISH: "Czech",
-                Language.CZECH: "Čeština"
-            }
         }
 
         return language_names.get(language, {}).get(target_language, language.value)
@@ -199,20 +205,13 @@ def get_language_name(language: Language, target_language: Language = Language.R
 
 # Language detection utilities
 def detect_language_from_text(text: str) -> Language:
-    """Simple language detection based on text content."""
-    text_lower = text.lower()
+    """Language detection based on text content.
 
-    # Czech indicators
-    czech_indicators = ['č', 'ř', 'ž', 'š', 'ď', 'ť', 'ň', 'ů', 'ý', 'á', 'í', 'é', 'ó', 'ú']
-    if any(char in text_lower for char in czech_indicators):
-        return Language.CZECH
-
-    # English indicators (common English words)
-    english_indicators = ['the', 'and', 'or', 'but', 'in', 'on', 'at', 'to', 'for', 'of', 'with', 'by']
-    if any(word in text_lower for word in english_indicators):
-        return Language.ENGLISH
-
-    # Default to Russian
+    Previously distinguished Russian/English/Czech by script and word
+    indicators; with only Russian left to detect, there is nothing left to
+    distinguish. Kept for callers that still call it (handlers.py's welcome
+    flow) rather than deleted here — that flow is a later task's to remove.
+    """
     return Language.RUSSIAN
 
 

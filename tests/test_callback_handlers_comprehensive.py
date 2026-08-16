@@ -59,7 +59,7 @@ class TestCallbackHandlerRegistry:
     def mock_session(self):
         """Create mock session."""
         session = MagicMock(spec=SessionState)
-        session.language = Language.ENGLISH
+        session.language = Language.RUSSIAN
         session.theme = Theme.ACQUAINTANCE
         session.level = 1
         session.content_type = ContentType.QUESTIONS
@@ -88,7 +88,7 @@ class TestCallbackHandlerRegistry:
              patch('vechnost_bot.callback_handlers.get_text') as mock_get_text:
 
             mock_session = MagicMock(spec=SessionState)
-            mock_session.language = Language.ENGLISH
+            mock_session.language = Language.RUSSIAN
             mock_get_session.return_value = mock_session
             mock_parse.side_effect = ValueError("Invalid data")
             mock_get_text.return_value = "Unknown command"
@@ -134,7 +134,7 @@ class TestThemeHandler:
     def mock_session(self):
         """Create mock session."""
         session = MagicMock(spec=SessionState)
-        session.language = Language.ENGLISH
+        session.language = Language.RUSSIAN
         return session
 
     @pytest.mark.asyncio
@@ -185,7 +185,7 @@ class TestLevelHandler:
     def mock_session(self):
         """Create mock session."""
         session = MagicMock(spec=SessionState)
-        session.language = Language.ENGLISH
+        session.language = Language.RUSSIAN
         session.theme = Theme.ACQUAINTANCE
         return session
 
@@ -224,7 +224,7 @@ class TestCalendarHandler:
     def mock_session(self):
         """Create mock session."""
         session = MagicMock(spec=SessionState)
-        session.language = Language.ENGLISH
+        session.language = Language.RUSSIAN
         session.theme = Theme.ACQUAINTANCE
         session.level = 1
         session.content_type = ContentType.QUESTIONS
@@ -267,7 +267,7 @@ class TestQuestionHandler:
     def mock_session(self):
         """Create mock session."""
         session = MagicMock(spec=SessionState)
-        session.language = Language.ENGLISH
+        session.language = Language.RUSSIAN
         session.theme = Theme.ACQUAINTANCE
         session.level = 1
         session.content_type = ContentType.QUESTIONS
@@ -309,7 +309,7 @@ class TestNavigationHandler:
     def mock_session(self):
         """Create mock session."""
         session = MagicMock(spec=SessionState)
-        session.language = Language.ENGLISH
+        session.language = Language.RUSSIAN
         session.theme = Theme.ACQUAINTANCE
         session.level = 1
         session.content_type = ContentType.QUESTIONS
@@ -351,7 +351,7 @@ class TestToggleHandler:
     def mock_session(self):
         """Create mock session."""
         session = MagicMock(spec=SessionState)
-        session.language = Language.ENGLISH
+        session.language = Language.RUSSIAN
         session.theme = Theme.SEX
         session.level = 0
         session.content_type = ContentType.QUESTIONS
@@ -394,7 +394,7 @@ class TestBackHandler:
     def mock_session(self):
         """Create mock session."""
         session = MagicMock(spec=SessionState)
-        session.language = Language.ENGLISH
+        session.language = Language.RUSSIAN
         session.theme = Theme.ACQUAINTANCE
         session.level = 1
         return session
@@ -467,7 +467,7 @@ class TestLanguageHandler:
 
             await handler.handle(mock_query, callback_data, mock_session)
 
-            assert mock_session.language == Language.ENGLISH
+            assert mock_session.language == Language.RUSSIAN
             mock_query.edit_message_text.assert_called_once()
 
 
@@ -520,7 +520,7 @@ class TestSimpleActionHandler:
     def mock_session(self):
         """Create mock session."""
         session = MagicMock(spec=SessionState)
-        session.language = Language.ENGLISH
+        session.language = Language.RUSSIAN
         return session
 
     @pytest.mark.asyncio

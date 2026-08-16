@@ -30,7 +30,7 @@ class TestStorage:
     async def test_get_session_existing(self):
         """Test getting an existing session."""
         chat_id = 12345
-        existing_session = SessionState(chat_id=chat_id, language=Language.ENGLISH)
+        existing_session = SessionState(chat_id=chat_id, language=Language.RUSSIAN)
 
         with patch('vechnost_bot.storage.get_redis_storage') as mock_get_storage:
             mock_storage = AsyncMock()
@@ -40,13 +40,13 @@ class TestStorage:
             session = await get_session(chat_id)
 
             assert session is existing_session
-            assert session.language == Language.ENGLISH
+            assert session.language == Language.RUSSIAN
 
     @pytest.mark.asyncio
     async def test_reset_session_existing(self):
         """Test resetting an existing session."""
         chat_id = 12345
-        existing_session = SessionState(chat_id=chat_id, language=Language.ENGLISH)
+        existing_session = SessionState(chat_id=chat_id, language=Language.RUSSIAN)
 
         with patch('vechnost_bot.storage.get_redis_storage') as mock_get_storage:
             mock_storage = AsyncMock()

@@ -7,7 +7,7 @@ import pytest
 import yaml
 
 DATA = Path(__file__).parent.parent / "data"
-FILES = ["questions.yaml", "questions_en.yaml", "questions_cs.yaml"]
+FILES = ["questions.yaml"]  # English and Czech decks are retired; see i18n.Language.
 
 EXPECTED_SIZES = {
     ("Acquaintance", 1, "questions"): 30,

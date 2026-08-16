@@ -17,7 +17,7 @@ from vechnost_bot.i18n import Language, get_text
 REPO_ROOT = Path(__file__).parent.parent
 DATA_DIR = REPO_ROOT / "data"
 SOURCE_DIR = REPO_ROOT / "vechnost_bot"
-LANGUAGES = [Language.RUSSIAN, Language.ENGLISH, Language.CZECH]
+LANGUAGES = [Language.RUSSIAN]
 
 # Matches `get_text('some.key', ...)` / `get_text("some.key", ...)` — a
 # literal first argument. Dynamic keys (e.g. `get_text(f'themes.{x}', ...)`)

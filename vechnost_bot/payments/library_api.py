@@ -32,10 +32,7 @@ router = APIRouter(prefix="/api/library", tags=["library"])
 
 
 def _language(lang: str) -> Language:
-    try:
-        return Language(lang)
-    except ValueError:
-        return Language.RUSSIAN
+    return Language.coerce(lang)
 
 
 def _visible_categories(

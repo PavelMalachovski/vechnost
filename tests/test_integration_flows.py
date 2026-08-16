@@ -57,7 +57,7 @@ class TestCompleteUserFlows:
              patch('vechnost_bot.handlers.open') as mock_open, \
              patch('vechnost_bot.handlers.set_user_context') as mock_set_context:
 
-            mock_detect.return_value = Language.ENGLISH
+            mock_detect.return_value = Language.RUSSIAN
             mock_keyboard.return_value = MagicMock()
             mock_open.return_value.__enter__.return_value = MagicMock()
             mock_update.message.reply_photo = AsyncMock()
@@ -137,7 +137,7 @@ class TestCompleteUserFlows:
              patch('vechnost_bot.handlers.open') as mock_open, \
              patch('vechnost_bot.handlers.set_user_context') as mock_set_context:
 
-            mock_detect.return_value = Language.ENGLISH
+            mock_detect.return_value = Language.RUSSIAN
             mock_keyboard.return_value = MagicMock()
             mock_open.return_value.__enter__.return_value = MagicMock()
             mock_update.message.reply_photo = AsyncMock()
@@ -201,7 +201,7 @@ class TestCompleteUserFlows:
              patch('vechnost_bot.handlers.open') as mock_open, \
              patch('vechnost_bot.handlers.set_user_context') as mock_set_context:
 
-            mock_detect.return_value = Language.ENGLISH
+            mock_detect.return_value = Language.RUSSIAN
             mock_keyboard.return_value = MagicMock()
             mock_open.return_value.__enter__.return_value = MagicMock()
             mock_update.message.reply_photo = AsyncMock()
@@ -241,7 +241,7 @@ class TestCompleteUserFlows:
              patch('vechnost_bot.handlers.open') as mock_open, \
              patch('vechnost_bot.handlers.set_user_context') as mock_set_context:
 
-            mock_detect.return_value = Language.ENGLISH
+            mock_detect.return_value = Language.RUSSIAN
             mock_keyboard.return_value = MagicMock()
             mock_open.return_value.__enter__.return_value = MagicMock()
             mock_update.message.reply_photo = AsyncMock()
@@ -305,7 +305,7 @@ class TestCompleteUserFlows:
              patch('vechnost_bot.handlers.open') as mock_open, \
              patch('vechnost_bot.handlers.set_user_context') as mock_set_context:
 
-            mock_detect.return_value = Language.ENGLISH
+            mock_detect.return_value = Language.RUSSIAN
             mock_keyboard.return_value = MagicMock()
             mock_open.return_value.__enter__.return_value = MagicMock()
             mock_update.message.reply_photo = AsyncMock()

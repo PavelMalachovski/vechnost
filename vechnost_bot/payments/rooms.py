@@ -131,10 +131,7 @@ async def _load_room(session, code: str, user_id: int):
 
 
 def _language(lang: str) -> Language:
-    try:
-        return Language(lang)
-    except ValueError:
-        return Language.RUSSIAN
+    return Language.coerce(lang)
 
 
 @router.post("")

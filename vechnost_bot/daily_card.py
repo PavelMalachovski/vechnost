@@ -26,10 +26,7 @@ _BACKGROUND = str(
 
 
 def _user_language(code: str | None) -> Language:
-    try:
-        return Language(code)
-    except ValueError:
-        return Language.RUSSIAN
+    return Language.coerce(code)
 
 
 def _daily_keyboard(language: Language) -> InlineKeyboardMarkup:

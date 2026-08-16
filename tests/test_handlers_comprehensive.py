@@ -48,7 +48,7 @@ class TestCommandHandlers:
              patch('vechnost_bot.handlers.open') as mock_open, \
              patch('vechnost_bot.handlers.set_user_context') as mock_set_context:
 
-            mock_detect.return_value = Language.ENGLISH
+            mock_detect.return_value = Language.RUSSIAN
             mock_keyboard.return_value = MagicMock()
             mock_open.return_value.__enter__.return_value = MagicMock()
             mock_update.message.reply_photo = AsyncMock()
@@ -83,7 +83,7 @@ class TestCommandHandlers:
              patch('vechnost_bot.handlers.get_reset_keyboard') as mock_keyboard:
 
             mock_session = MagicMock(spec=SessionState)
-            mock_session.language = Language.ENGLISH
+            mock_session.language = Language.RUSSIAN
             mock_get_session.return_value = mock_session
             mock_keyboard.return_value = MagicMock()
             mock_update.message.reply_text = AsyncMock()
@@ -149,17 +149,18 @@ class TestUtilityFunctions:
         result = detect_language_from_text(text)
         assert result == Language.RUSSIAN
 
-    def test_detect_language_from_text_english(self):
-        """Test English language detection."""
+    def test_detect_language_from_text_english_input_is_still_russian(self):
+        """`detect_language_from_text` no longer distinguishes scripts —
+        Russian is the only language left to return."""
         text = "Hello, how are you?"
         result = detect_language_from_text(text)
-        assert result == Language.ENGLISH
+        assert result == Language.RUSSIAN
 
-    def test_detect_language_from_text_czech(self):
-        """Test Czech language detection."""
+    def test_detect_language_from_text_czech_input_is_still_russian(self):
+        """Same as above for Czech-accented input."""
         text = "Ahoj, jak se máš?"
         result = detect_language_from_text(text)
-        assert result == Language.CZECH
+        assert result == Language.RUSSIAN
 
     def test_detect_language_from_text_default(self):
         """Test default language detection."""
@@ -172,7 +173,7 @@ class TestUtilityFunctions:
         """Test welcome image generation."""
         mock_generate_logo.return_value = MagicMock()
 
-        result = generate_welcome_image_with_logo(Language.ENGLISH)
+        result = generate_welcome_image_with_logo(Language.RUSSIAN)
 
         mock_generate_logo.assert_called_once()
         assert result is not None

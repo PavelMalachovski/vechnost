@@ -6,8 +6,6 @@ from datetime import date
 from pathlib import Path
 from unittest.mock import AsyncMock, MagicMock, patch
 
-import pytest
-
 os.environ.setdefault("TELEGRAM_BOT_TOKEN", "1234567890:TEST_TOKEN_FOR_UNIT_TESTS")
 
 from vechnost_bot.daily_card import render_daily_card, send_daily_cards
@@ -44,9 +42,8 @@ def test_leap_day_renders_without_raising():
     assert image.getvalue()
 
 
-@pytest.mark.parametrize("language", list(Language))
-def test_renders_in_every_language(language):
-    image, caption = render_daily_card(date(2026, 3, 3), language)
+def test_renders_in_russian():
+    image, caption = render_daily_card(date(2026, 3, 3), Language.RUSSIAN)
     assert image.getvalue()
     assert caption.strip()
 

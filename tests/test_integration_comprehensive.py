@@ -33,7 +33,7 @@ class TestCompleteUserFlows:
                  patch('vechnost_bot.handlers.open') as mock_open, \
                  patch('vechnost_bot.handlers.set_user_context') as mock_set_context:
 
-                mock_detect.return_value = Language.ENGLISH
+                mock_detect.return_value = Language.RUSSIAN
                 mock_keyboard.return_value = MagicMock()
                 mock_open.return_value.__enter__.return_value = MagicMock()
                 mock_update.message.reply_photo = AsyncMock()
@@ -52,9 +52,9 @@ class TestCompleteUserFlows:
 
             await handle_callback_query(mock_update, mock_context)
 
-            # Verify session was created with English language
+            # Verify session was created (language coerces to Russian)
             session = await get_session(12345)
-            assert session.language == Language.ENGLISH
+            assert session.language == Language.RUSSIAN
 
             # Step 3: Theme selection
             mock_update.callback_query.data = "theme_Acquaintance"
@@ -173,7 +173,7 @@ class TestCompleteUserFlows:
             session = await get_session(12345)
             assert session.theme is None
             assert session.level is None
-            assert session.language == Language.ENGLISH  # Language should be preserved
+            assert session.language == Language.RUSSIAN  # Language should be preserved
 
     @pytest.mark.integration
     @pytest.mark.asyncio
@@ -236,39 +236,40 @@ class TestCompleteUserFlows:
         mock_context,
         hybrid_storage_with_memory
     ):
-        """Test multilingual flow switching between languages."""
+        """A stored `en`/`cs` language callback coerces to Russian, the only
+        supported language, rather than raising or sticking."""
         with patch('vechnost_bot.storage.get_hybrid_storage', return_value=hybrid_storage_with_memory):
-            # Step 1: Start with English
+            # Step 1: "lang_en" is a pre-single-language callback; it coerces.
             mock_update.callback_query.data = "lang_en"
             await handle_callback_query(mock_update, mock_context)
 
             session = await get_session(12345)
-            assert session.language == Language.ENGLISH
+            assert session.language == Language.RUSSIAN
 
-            # Step 2: Switch to Russian
+            # Step 2: Switch to Russian explicitly
             mock_update.callback_query.data = "lang_ru"
             await handle_callback_query(mock_update, mock_context)
 
             session = await get_session(12345)
             assert session.language == Language.RUSSIAN
 
-            # Step 3: Switch to Czech
+            # Step 3: "lang_cs" also coerces to Russian
             mock_update.callback_query.data = "lang_cs"
             await handle_callback_query(mock_update, mock_context)
 
             session = await get_session(12345)
-            assert session.language == Language.CZECH
+            assert session.language == Language.RUSSIAN
 
-            # Step 4: Navigate through theme in Czech
+            # Step 4: Navigate through a theme afterwards
             mock_update.callback_query.data = "theme_Acquaintance"
             await handle_callback_query(mock_update, mock_context)
 
             mock_update.callback_query.data = "level_1"
             await handle_callback_query(mock_update, mock_context)
 
-            # Verify session maintains Czech language
+            # Verify session maintains Russian language
             session = await get_session(12345)
-            assert session.language == Language.CZECH
+            assert session.language == Language.RUSSIAN
             assert session.theme == Theme.ACQUAINTANCE
 
 
@@ -300,7 +301,7 @@ class TestErrorRecoveryScenarios:
 
             # Verify session is still intact
             session = await get_session(12345)
-            assert session.language == Language.ENGLISH
+            assert session.language == Language.RUSSIAN
 
     @pytest.mark.integration
     @pytest.mark.asyncio
@@ -368,7 +369,7 @@ class TestPerformanceScenarios:
         async def create_user_session(user_id: int):
             """Create a session for a user."""
             session = SessionState(
-                language=Language.ENGLISH,
+                language=Language.RUSSIAN,
                 theme=Theme.ACQUAINTANCE,
                 level=1
             )
@@ -385,7 +386,7 @@ class TestPerformanceScenarios:
         assert len(sessions) == 100
         for session in sessions:
             assert session is not None
-            assert session.language == Language.ENGLISH
+            assert session.language == Language.RUSSIAN
             assert session.theme == Theme.ACQUAINTANCE
 
         # Check performance
@@ -428,7 +429,7 @@ class TestPerformanceScenarios:
 
             # Verify final session state
             session = await get_session(12345)
-            assert session.language == Language.ENGLISH
+            assert session.language == Language.RUSSIAN
 
 
 class TestEdgeCases:
@@ -467,7 +468,7 @@ class TestEdgeCases:
         with patch('vechnost_bot.storage.get_hybrid_storage', return_value=hybrid_storage_with_memory):
             # Create a corrupted session
             corrupted_session = SessionState(
-                language=Language.ENGLISH,
+                language=Language.RUSSIAN,
                 theme=Theme.ACQUAINTANCE,
                 level=999  # Invalid level
             )
@@ -494,7 +495,7 @@ class TestEdgeCases:
         sessions = []
         for i in range(1000):
             session = SessionState(
-                language=Language.ENGLISH,
+                language=Language.RUSSIAN,
                 theme=Theme.ACQUAINTANCE,
                 level=1
             )
@@ -533,7 +534,7 @@ class TestDataIntegrity:
 
             # Step 2: Verify session state
             session1 = await get_session(12345)
-            assert session1.language == Language.ENGLISH
+            assert session1.language == Language.RUSSIAN
             assert session1.theme == Theme.ACQUAINTANCE
 
             # Step 3: Perform more operations
@@ -545,7 +546,7 @@ class TestDataIntegrity:
 
             # Step 4: Verify session state is still consistent
             session2 = await get_session(12345)
-            assert session2.language == Language.ENGLISH
+            assert session2.language == Language.RUSSIAN
             assert session2.theme == Theme.ACQUAINTANCE
             assert session2.level == 1
             assert session2.content_type == ContentType.QUESTIONS
@@ -568,7 +569,7 @@ class TestDataIntegrity:
                 session = SessionState()
 
             if operation == "set_language":
-                session.language = Language.ENGLISH
+                session.language = Language.RUSSIAN
             elif operation == "set_theme":
                 session.theme = Theme.ACQUAINTANCE
             elif operation == "set_level":
@@ -586,6 +587,6 @@ class TestDataIntegrity:
         # Verify final session state
         final_session = await hybrid_storage_with_memory.get_session(12345)
         assert final_session is not None
-        assert final_session.language == Language.ENGLISH
+        assert final_session.language == Language.RUSSIAN
         assert final_session.theme == Theme.ACQUAINTANCE
         assert final_session.level == 1

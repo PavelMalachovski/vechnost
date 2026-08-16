@@ -192,28 +192,16 @@ def empty_session():
 
 
 @pytest_asyncio.fixture
-def english_session():
-    """Session with English language."""
-    return SessionState(language=Language.ENGLISH)
-
-
-@pytest_asyncio.fixture
 def russian_session():
     """Session with Russian language."""
     return SessionState(language=Language.RUSSIAN)
 
 
 @pytest_asyncio.fixture
-def czech_session():
-    """Session with Czech language."""
-    return SessionState(language=Language.CZECH)
-
-
-@pytest_asyncio.fixture
 def acquaintance_session():
     """Session with Acquaintance theme."""
     return SessionState(
-        language=Language.ENGLISH,
+        language=Language.RUSSIAN,
         theme=Theme.ACQUAINTANCE,
         level=1,
         content_type=ContentType.QUESTIONS
@@ -224,7 +212,7 @@ def acquaintance_session():
 def couples_session():
     """Session with For Couples theme."""
     return SessionState(
-        language=Language.ENGLISH,
+        language=Language.RUSSIAN,
         theme=Theme.FOR_COUPLES,
         level=2,
         content_type=ContentType.QUESTIONS
@@ -235,7 +223,7 @@ def couples_session():
 def sex_session():
     """Session with Sex theme."""
     return SessionState(
-        language=Language.ENGLISH,
+        language=Language.RUSSIAN,
         theme=Theme.SEX,
         level=None,
         content_type=ContentType.QUESTIONS,
@@ -247,7 +235,7 @@ def sex_session():
 def provocation_session():
     """Session with Provocation theme."""
     return SessionState(
-        language=Language.ENGLISH,
+        language=Language.RUSSIAN,
         theme=Theme.PROVOCATION,
         level=None,
         content_type=ContentType.QUESTIONS

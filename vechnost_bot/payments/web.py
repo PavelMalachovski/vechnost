@@ -132,10 +132,7 @@ async def get_questions(
     """
     paid = await _request_is_paid(authorization)
 
-    try:
-        language = Language(lang)
-    except ValueError:
-        language = Language.RUSSIAN
+    language = Language.coerce(lang)
 
     game_data = localized_game_data.get_game_data(language)
 
@@ -191,10 +188,7 @@ async def get_card_image(
     except ValueError:
         raise HTTPException(status_code=404, detail="unknown deck")
 
-    try:
-        language = Language(lang)
-    except ValueError:
-        language = Language.RUSSIAN
+    language = Language.coerce(lang)
 
     items = localized_game_data.get_content(
         theme_enum, level or None, content_type, language
