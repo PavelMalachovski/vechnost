@@ -942,18 +942,18 @@ Expected: FAIL, `.q-text.tiny` ещё в файле (если Task 5 уже уд
 
 ```javascript
   function dragStart(e) {
-    if (S.busy) return;
+    if (deckDirty || !drag.card) return;
+    if (COOP.active && (!C.st || !C.st.your_turn)) return;
+    drag.active = true;
     const p = e.touches ? e.touches[0] : e;
-    drag.x0 = p.clientX; drag.y0 = p.clientY;
-    drag.dx = 0; drag.dy = 0; drag.active = true;
+    drag.x0 = p.clientX; drag.y0 = p.clientY; drag.dx = 0; drag.dy = 0;
     drag.axis = null;               // undecided until the gesture commits
+    drag.card.style.transition = 'none';
   }
-
   function dragMove(e) {
     if (!drag.active || !drag.card) return;
     const p = e.touches ? e.touches[0] : e;
-    drag.dx = p.clientX - drag.x0;
-    drag.dy = p.clientY - drag.y0;
+    drag.dx = p.clientX - drag.x0; drag.dy = p.clientY - drag.y0;
 
     // Decide once, at 8px of travel, whether this gesture belongs to the
     // card or to the text scrolling inside it. Without this, reading a long
@@ -964,13 +964,12 @@ Expected: FAIL, `.q-text.tiny` ещё в файле (если Task 5 уже уд
     }
     if (drag.axis === 'y') return;
 
-    drag.card.style.transition = 'none';
     drag.card.style.transform =
-      'translate(' + drag.dx + 'px,' + drag.dy * .3 + 'px) rotate(' + drag.dx / 26 + 'deg)';
+      'translate(' + drag.dx + 'px,' + (drag.dy * .35) + 'px) rotate(' + (drag.dx * .055) + 'deg)';
   }
 ```
 
-Сверить с текущим телом `dragStart`/`dragMove` перед заменой: если в них есть строки, которых здесь нет (например, работа с `S.busy` устроена иначе), сохранить их — меняется только логика осей.
+Guard-условия здесь — существующие (`deckDirty`, `COOP.active`/`C.st.your_turn`); менять их нельзя, добавляется только `drag.axis`.
 
 - [ ] **Step 5: Не завершать свайп по вертикальному жесту**
 
@@ -1034,9 +1033,14 @@ def test_the_library_has_a_deck_screen():
 
 def test_the_library_no_longer_renders_bare_lists():
     html = INDEX.read_text(encoding="utf-8")
-    assert "lib-card-line" not in html
     assert "<ol>" not in html
+    assert "lib-daily" not in html
+    assert "lib-question" not in html
 ```
+
+`.lib-card` / `.lib-card-line` **остаются**: их переиспользует экран
+результата теста совместимости (`renderCompatResult`, строки 1883-1930).
+Удалить их — снять оформление с чужого экрана.
 
 - [ ] **Step 2: Запустить и убедиться, что падает**
 
@@ -1075,7 +1079,7 @@ Expected: FAIL, `assert 'id="libDeck"' in html`
   #stage, #libStage { flex: 1; position: relative; perspective: 1300px; margin: 4px 0 10px; touch-action: none; }
 ```
 
-Удалить правила `.lib-card`, `.lib-card-title`, `.lib-card-line`, `.lib-cat ol`, `.lib-daily`, `.lib-day`, `.lib-question` (строки 195-205) — их заменяют карты. Оставить `.lib-cat`, `.lib-cat summary`, `.lib-cat-nsfw` (экран категорий остаётся) и `.lib-locked`.
+Удалить правила `.lib-cat ol`, `.lib-daily`, `.lib-day`, `.lib-question` — их заменяют карты. **Оставить** `.lib-card`, `.lib-card-title`, `.lib-card-line`: их переиспользует экран результата теста совместимости. Оставить также `.lib-cat`, `.lib-cat summary`, `.lib-cat-nsfw` (экран категорий остаётся) и `.lib-locked`.
 
 - [ ] **Step 5: Написать движок колоды библиотеки**
 
@@ -1223,13 +1227,30 @@ Expected: FAIL, `assert 'id="libDeck"' in html`
 
 - [ ] **Step 7: Пробросить колбэки в свайп**
 
-`dragEnd` сейчас жёстко зовёт игровые `next`/`prev` через `flyOut`. Найти в `flyOut` (строка 1164) вызовы перехода и заменить на:
+Две точки, а не одна. Первая — `dragEnd` (строка 1146) решает направление по игровому состоянию: `drag.dx < -84 && !COOP.active && S.idx > 0`. Для библиотеки условие «есть куда назад» — это `LS.idx > 0`. Заменить обе ветки на общую проверку:
 
 ```javascript
-      if (drag.onAdvance) { drag.onAdvance(); return; }
+    const canGoBack = drag.onBack ? LS.idx > 0 : (!COOP.active && S.idx > 0);
+    if (drag.dx > 84) {
+      flyOut(drag.card, 1);
+    } else if (drag.dx < -84 && canGoBack) {
+      flyOut(drag.card, -1);
+    } else {
 ```
 
-перед существующей игровой веткой, чтобы игра работала как раньше (когда `drag.onAdvance === null`), а библиотека перехватывала. В `enterDeck` и `enterCoopDeck` первой строкой сбросить: `drag.onAdvance = null; drag.onBack = null;` — иначе выход из библиотеки в игру оставит чужие колбэки.
+Вторая — `flyOut` (строка 1164) после анимации зовёт игровой переход. Добавить перед веткой `COOP.active`:
+
+```javascript
+      if (drag.onAdvance) {
+        deckDirty = false;
+        (dir > 0 ? drag.onAdvance : drag.onBack)();
+        return;
+      }
+```
+
+`deckDirty` сбрасывается здесь, потому что его снимает `renderStage`, которого в библиотечной ветке не будет; без сброса второй свайп не сработает.
+
+В `enterDeck` и `enterCoopDeck` первой строкой сбросить `drag.onAdvance = null; drag.onBack = null;` — иначе выход из библиотеки в игру оставит чужие колбэки.
 
 - [ ] **Step 8: Запустить тест**
 
