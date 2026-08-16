@@ -99,3 +99,13 @@ def test_couple_mode_sets_the_state_the_card_art_is_chosen_from():
     assert "S.theme = C.st.theme" in body
     assert "S.level = C.st.level" in body
     assert "S.type = C.st.type" in body
+
+
+def test_the_home_screen_shows_decks_not_typographic_suits():
+    """The first thing the Mini App shows should be the game, not ♥♠♦♣."""
+    html = INDEX.read_text(encoding="utf-8")
+    assert 'class="suits"' not in html
+    assert 'class="deck-fan"' in html
+    for card in ("acq/acq_1.png", "couples/couples_1.png",
+                 "sex/questions.png", "prov/prov.png"):
+        assert card in html

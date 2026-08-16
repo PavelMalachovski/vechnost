@@ -100,12 +100,20 @@
   .logo .heart { color: #E86BB5; -webkit-text-fill-color: #E86BB5; }
   .tagline { font-size: 15px; color: var(--muted-on-dark); max-width: 260px; line-height: 1.45; }
 
-  .suits { display: flex; gap: 18px; font-size: 22px; margin: 18px 0 6px; opacity: .9; }
-  .suits span { animation: float 3.2s ease-in-out infinite; }
-  .suits span:nth-child(2) { animation-delay: .4s; }
-  .suits span:nth-child(3) { animation-delay: .8s; }
-  .suits span:nth-child(4) { animation-delay: 1.2s; }
-  @keyframes float { 0%,100% { transform: translateY(0); } 50% { transform: translateY(-7px); } }
+  /* Four real decks, overlapped like a hand of cards. Each keeps the 2:3 of
+     the printed card so nothing is squashed. */
+  .deck-fan { display: flex; justify-content: center; margin: 20px 0 4px; height: 108px; }
+  .deck-fan i {
+    display: block; width: 72px; height: 108px; margin: 0 -14px;
+    border-radius: 8px; background-size: cover; background-position: center;
+    box-shadow: 0 8px 20px rgba(0,0,0,.45);
+    animation: fan-float 3.2s ease-in-out infinite;
+  }
+  .deck-fan i:nth-child(1) { transform: rotate(-12deg); }
+  .deck-fan i:nth-child(2) { transform: rotate(-4deg);  animation-delay: .4s; }
+  .deck-fan i:nth-child(3) { transform: rotate(4deg);   animation-delay: .8s; }
+  .deck-fan i:nth-child(4) { transform: rotate(12deg);  animation-delay: 1.2s; }
+  @keyframes fan-float { 0%,100% { translate: 0 0; } 50% { translate: 0 -7px; } }
 
   .btn {
     border: 0; cursor: pointer; font: inherit;
@@ -388,7 +396,12 @@
   <section class="screen active" id="home">
     <div class="logo">Vechnost</div>
     <div class="tagline" data-i18n="tagline"></div>
-    <div class="suits"><span>♥</span><span>♠</span><span>♦</span><span>♣</span></div>
+    <div class="deck-fan">
+      <i style="background-image:url(/assets/backgrounds/acq/acq_1.png)"></i>
+      <i style="background-image:url(/assets/backgrounds/couples/couples_1.png)"></i>
+      <i style="background-image:url(/assets/backgrounds/sex/questions.png)"></i>
+      <i style="background-image:url(/assets/backgrounds/prov/prov.png)"></i>
+    </div>
     <button class="btn btn-play" id="btnPlay" data-i18n="play"></button>
     <button class="btn btn-second" id="btnCoop" data-i18n="coopBtn"></button>
     <button class="btn btn-second" id="btnLibrary" data-i18n="libraryBtn"></button>
