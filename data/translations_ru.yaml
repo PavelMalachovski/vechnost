@@ -162,8 +162,8 @@ about:
   feature_privacy: "🔒 Приватность"
   feature_privacy_desc: "Все данные хранятся только в вашем сеансе"
 
-  feature_languages: "🌍 3 языка"
-  feature_languages_desc: "Русский, English, Čeština"
+  feature_library: "📚 Библиотека"
+  feature_library_desc: "Идеи для свиданий, практики для пар и вопрос дня"
 
   how_it_works: "🎮 Как это работает:"
   step1: "1️⃣ Выберите тему разговора"

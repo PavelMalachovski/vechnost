@@ -5,12 +5,17 @@ but nothing in the running system may branch on language again without a
 deliberate change here.
 """
 
+import asyncio
+import json
 from enum import Enum
 from pathlib import Path
+from unittest.mock import AsyncMock
 
 import pytest
 
 from vechnost_bot.i18n import Language
+from vechnost_bot.models import ContentType, Theme
+from vechnost_bot.redis_storage import RedisStorage
 
 DATA = Path(__file__).parent.parent / "data"
 
@@ -42,6 +47,43 @@ def test_coerce_returns_a_typed_member_by_lookup_not_by_luck():
 
     assert Language.coerce(Language.RUSSIAN) is Language.RUSSIAN
     assert TwoLanguages.coerce(TwoLanguages.ENGLISH) is TwoLanguages.ENGLISH
+
+
+def test_a_session_stored_in_a_retired_language_survives_the_round_trip():
+    """`redis_storage.get_session` rebuilds `SessionState` from a JSON dict —
+    the one deserialization path in the repo, and the one that was still
+    handing pydantic a raw `language` string.
+
+    A session written before the product went Russian-only carries `en`.
+    Without `Language.coerce` the constructor raises, `get_session`'s `except`
+    swallows the `ValidationError` and returns `None`, and the caller builds a
+    fresh session: theme, level, drawn cards and the 18+ confirmation are gone,
+    mid-game, on every read until the 1-hour TTL expires.
+
+    Synchronous on purpose: `tests/conftest.py`'s session-scoped `event_loop`
+    fixture makes every `async def test_` in this suite error out at setup, so
+    the round trip is driven through `asyncio.run` instead of pytest-asyncio.
+    """
+    storage = RedisStorage()
+    storage._redis = AsyncMock()
+    storage._redis.get = AsyncMock(return_value=json.dumps({
+        "theme": "Acquaintance",
+        "level": 2,
+        "content_type": "questions",
+        "drawn_cards": ["уже вытянутая карта", "и вторая"],
+        "is_nsfw_confirmed": True,
+        "language": "en",
+    }))
+
+    session = asyncio.run(storage.get_session(4242))
+
+    assert session is not None, "the stored session was discarded"
+    assert session.language is Language.RUSSIAN
+    assert session.theme is Theme.ACQUAINTANCE
+    assert session.level == 2
+    assert session.content_type is ContentType.QUESTIONS
+    assert session.drawn_cards == {"уже вытянутая карта", "и вторая"}
+    assert session.is_nsfw_confirmed is True
 
 
 @pytest.mark.parametrize("name", [

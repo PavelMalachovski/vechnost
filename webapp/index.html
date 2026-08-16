@@ -279,10 +279,20 @@
      is what protects the card swipe — but it also cancels the vertical pan
      that scrolls a long question inside .q-zone. Chromium stops intersecting
      touch-action at the nested scroller, so .q-zone's own pan-y would win
-     there; WebKit is not worth betting the iOS build on. Nothing above the
-     stage scrolls vertically anyway (html/body are overflow:hidden) and
-     Telegram's own vertical swipe is off (disableVerticalSwipes below), so
-     allowing pan-y here costs nothing. */
+     there; WebKit is not worth betting the iOS build on.
+
+     What pan-y costs is version-gated, so do not read this as "it costs
+     nothing". Nothing above the stage scrolls vertically (html/body are
+     overflow:hidden), but the other half of the protection —
+     tg.disableVerticalSwipes() below — is a no-op before Bot API 7.7, and
+     Telegram logs exactly that ("Changing swipes behavior is not supported in
+     version 6.0") on the clients we actually see. On such a client a vertical
+     drag on a long card can still reach Telegram's own swipe-to-collapse and
+     pull the Mini App down instead of scrolling the question. That is the
+     trade pan-y buys, deliberately: unreadable long cards on every client
+     against a collapse gesture on old ones. Widening touch-action further
+     would give back the horizontal block that protects the card swipe, and
+     the Telegram-side guarantee is not there to catch it. */
   #stage { flex: 1; position: relative; perspective: 1300px; margin: 4px 0 10px; touch-action: pan-y; }
   /* The Library deck stands on the same stage — identical declarations, kept
      as its own rule rather than a comma group because the tests read the
@@ -792,6 +802,16 @@
     order: [], idx: 0, shuffled: false
   };
   let deckDirty = false;    // guards double-swipes during animation
+  // Which deck is on the stage, as a number that only ever goes up. flyOut's
+  // 300ms timer belongs to the deck that launched it, and the "did they leave?"
+  // check inside it asks the *screen element* — which cannot tell two decks
+  // apart when they share one: every Library deck is #libDeck, and solo and
+  // couple mode are both #deck. Leaving one Library deck for another inside the
+  // animation stepped the new deck by one; coop → home → a solo deck inside it
+  // ran coopAdvanceAfterFly against a room that no longer existed and left a
+  // blank stage with deckDirty stuck on. Every entry point stamps a new
+  // generation; the timer stands down if it has moved.
+  let deckGen = 0;
 
   const $ = (id) => document.getElementById(id);
   const T = () => I18N;
@@ -1025,6 +1045,7 @@
   }
 
   function enterDeck(forceReset) {
+    deckGen++;                                   // a new deck owns the stage
     drag.onAdvance = null; drag.onBack = null;   // the Library's, if we came from it
     COOP.active = false;
     $('turnChip').style.display = 'none';
@@ -1243,10 +1264,15 @@
     const onAdvance = drag.onAdvance, onBack = drag.onBack;
     const wasCoop = COOP.active;
     const screen = document.querySelector('.screen.active');
+    const gen = deckGen;
     card.style.transition = 'transform .38s cubic-bezier(.5,.05,.9,.4), opacity .38s';
     card.style.transform = 'translate(' + (dir * (window.innerWidth * 1.1)) + 'px,' + (-40 + Math.random() * 120) + 'px) rotate(' + dir * 24 + 'deg)';
     card.style.opacity = '0';
     setTimeout(() => {
+      // A different deck took the stage while this card was in the air. It
+      // has its own position and has already cleared deckDirty for its own
+      // card, so touch nothing at all — not even the guard.
+      if (gen !== deckGen) return;
       // Left the deck mid-flight: nobody is looking at that stage any more,
       // and stepping a deck now would step whichever one they left for.
       if (!screen || !screen.classList.contains('active')) { deckDirty = false; return; }
@@ -1517,6 +1543,7 @@
   }
 
   function enterCoopDeck() {
+    deckGen++;                                   // a new deck owns the stage
     drag.onAdvance = null; drag.onBack = null;   // the Library's, if we came from it
     COOP.active = true;
     // cardHTML picks the printed face from all three of these, and the room
@@ -1848,6 +1875,7 @@
   function libPrev() { if (LS.idx > 0) { LS.idx--; renderLibStage(true); } }
 
   function libDeckOpen(items, title, back) {
+    deckGen++;                // a new deck owns the stage, same #libDeck or not
     LS.items = items;
     LS.idx = 0;
     LS.count = items.filter(i => !i.lock).length;

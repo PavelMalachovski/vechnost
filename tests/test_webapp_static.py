@@ -232,6 +232,26 @@ def test_a_card_that_flies_out_lands_in_the_deck_that_launched_it():
     assert "classList.contains('active')" in after
 
 
+def test_a_second_deck_on_the_same_screen_does_not_inherit_the_first_ones_timer():
+    """The screen check above cannot tell two decks apart when they share an
+    element: every Library deck is #libDeck, and solo and couple mode are both
+    #deck. Leaving one Library deck for another inside the 300ms animation
+    stepped the new deck by one; coop -> home -> a solo deck inside it ran
+    coopAdvanceAfterFly with no room and left a blank stage that no longer
+    responded. A generation counter is what distinguishes them."""
+    html = INDEX.read_text(encoding="utf-8")
+    # Every way onto a stage stamps a new generation...
+    for fn in ("function enterDeck(", "function enterCoopDeck(", "function libDeckOpen("):
+        assert "deckGen++" in html.split(fn)[1].split("\n  }")[0], fn
+    fly = html.split("function flyOut(")[1].split("\n  }")[0]
+    before, after = fly.split("setTimeout(", 1)
+    # ...flyOut captures it with the rest of what it owns...
+    assert "= deckGen" in before
+    # ...and the landing stands down if it has moved, before anything else.
+    assert "deckGen" in after
+    assert after.index("deckGen") < after.index("classList.contains('active')")
+
+
 def test_the_mini_app_ships_one_language():
     html = INDEX.read_text(encoding="utf-8")
     assert 'class="lang-row"' not in html
