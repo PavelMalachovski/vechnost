@@ -46,8 +46,21 @@ def verify_tribute_signature(
         secret = settings.webhook_secret
 
     if not secret:
+        # Fail closed whenever the signature actually guards something. A
+        # Tribute webhook grants lifetime access, so an unsigned one that we
+        # accept is a complete paywall bypass: anyone who can reach the
+        # endpoint POSTs their own telegram_user_id and is a paying customer.
+        # Skipping is only ever safe with payments off, where access is
+        # unconditional and there is nothing left to forge.
+        if settings.enable_payment:
+            logger.error(
+                "WEBHOOK_SECRET is not configured while ENABLE_PAYMENT is on: "
+                "rejecting the webhook rather than granting access on an "
+                "unverifiable payload"
+            )
+            return False
         logger.warning("Webhook secret not configured, skipping signature verification")
-        return True  # Skip verification if no secret configured
+        return True
 
     # Get signature from headers
     # Adjust header name based on Tribute documentation

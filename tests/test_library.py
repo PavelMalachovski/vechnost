@@ -80,16 +80,38 @@ def test_fall_in_love_is_one_category_of_36():
 
 
 def test_every_category_item_is_non_empty():
-    for module_id in ("dates", "fall_in_love"):
+    for module_id in ("dates", "fall_in_love", "nude_guide"):
         for category in load_categories(module_id, Language.RUSSIAN):
             assert isinstance(category, LibraryCategory)
             assert all(item.strip() for item in category.items)
 
 
 def test_module_counts_match_loaded_categories():
-    for module_id in ("dates", "fall_in_love"):
+    for module_id in ("dates", "fall_in_love", "nude_guide"):
         loaded = sum(len(c.items) for c in load_categories(module_id, Language.RUSSIAN))
         assert MODULES[module_id].count == loaded
+
+
+def test_the_nude_guide_holds_craft_and_poses():
+    categories = load_categories("nude_guide", Language.RUSSIAN)
+    assert {c.id: len(c.items) for c in categories} == {
+        "light": 4, "camera": 3, "edit": 4, "her": 10, "him": 10, "safety": 3
+    }
+
+
+def test_only_the_pose_categories_of_the_nude_guide_are_nsfw():
+    """Light, camera, editing and safety are craft, not nudity: gating them
+    behind an age confirmation would hide the part that keeps people safe."""
+    categories = load_categories("nude_guide", Language.RUSSIAN)
+    assert [c.id for c in categories if c.nsfw] == ["her", "him"]
+
+
+def test_the_nude_guide_says_something_about_safety():
+    """The guide asks people to photograph themselves undressed. It does not
+    get to skip the part about what happens to the pictures afterwards."""
+    safety = next(c for c in load_categories("nude_guide", Language.RUSSIAN)
+                  if c.id == "safety")
+    assert len(safety.items) >= 3
 
 
 def test_no_duplicate_ideas_within_a_category():

@@ -98,6 +98,16 @@ class Settings(BaseSettings):
         description="Webhook signature secret"
     )
 
+    admin_token: str | None = Field(
+        default=None,
+        validation_alias="ADMIN_TOKEN",
+        description="Bearer token for the /admin endpoints. Falls back to "
+                    "TRIBUTE_API_KEY so existing deployments keep working, "
+                    "but set it: TRIBUTE_API_KEY is an outbound credential "
+                    "and reusing it as an inbound password means one leak "
+                    "costs both."
+    )
+
     # Database Configuration
     database_url: str = Field(
         default="sqlite:///./vechnost.db",
@@ -152,12 +162,26 @@ class Settings(BaseSettings):
     )
 
     @property
-    def webapp_library_url(self) -> str | None:
-        """The Mini App URL that opens straight on the Library screen."""
+    def admin_secret(self) -> str | None:
+        """The secret /admin authenticates against, or None when unset."""
+        return self.admin_token or self.tribute_api_key
+
+    def _webapp_screen_url(self, screen: str) -> str | None:
+        """The Mini App URL that opens straight on one screen."""
         if not self.webapp_url:
             return None
         separator = "&" if "?" in self.webapp_url else "?"
-        return f"{self.webapp_url}{separator}screen=library"
+        return f"{self.webapp_url}{separator}screen={screen}"
+
+    @property
+    def webapp_library_url(self) -> str | None:
+        """The Mini App URL that opens straight on the Library screen."""
+        return self._webapp_screen_url("library")
+
+    @property
+    def webapp_steps69_url(self) -> str | None:
+        """The Mini App URL that opens straight on the 69 Steps board."""
+        return self._webapp_screen_url("steps69")
 
 
 # Global settings instance

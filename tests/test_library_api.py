@@ -12,7 +12,7 @@ from vechnost_bot.payments.web import app
 client = TestClient(app)
 
 
-def test_index_lists_all_five_modules():
+def test_index_lists_every_module_in_order():
     body = client.get("/api/library").json()
     ids = [m["id"] for m in body["modules"]]
     assert ids == [
@@ -20,6 +20,7 @@ def test_index_lists_all_five_modules():
         "fall_in_love",
         "practices_self",
         "practices_couples",
+        "nude_guide",
         "reflection",
     ]
 

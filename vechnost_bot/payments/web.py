@@ -1,5 +1,6 @@
 """FastAPI web server for handling Tribute webhooks and the Mini App."""
 
+import hmac
 import logging
 from contextlib import asynccontextmanager
 from pathlib import Path
@@ -26,6 +27,8 @@ from .services import (
     sync_products_from_tribute,
     user_has_access,
 )
+from .steps69_api import router as steps69_router
+from .throttle import throttle
 from .webapp_auth import InitDataError, validate_init_data
 
 logger = logging.getLogger(__name__)
@@ -60,6 +63,7 @@ app = FastAPI(
 app.include_router(rooms_router)
 app.include_router(library_router)
 app.include_router(compat_router)
+app.include_router(steps69_router)
 
 
 @app.get("/health")
@@ -167,7 +171,7 @@ async def get_questions(
     )
 
 
-@app.get("/api/card")
+@app.get("/api/card", dependencies=[Depends(throttle("render"))])
 async def get_card_image(
     theme: str,
     idx: int,
@@ -287,32 +291,41 @@ async def tribute_webhook(request: Request) -> JSONResponse:
     except HTTPException:
         raise
     except Exception as e:
+        # The detail goes to whoever sent the request, and an unhandled
+        # exception here carries SQL, driver and path fragments. Log it in
+        # full, tell the caller only that it failed.
         logger.error(f"Unexpected error processing webhook: {e}", exc_info=True)
-        raise HTTPException(
-            status_code=500, detail=f"Internal server error: {str(e)}"
-        )
+        raise HTTPException(status_code=500, detail="internal error")
 
 
 def verify_admin_token(authorization: str = Header(None)) -> bool:
-    """Verify admin token for protected endpoints."""
+    """Verify the bearer token guarding the /admin endpoints.
+
+    Compared with `compare_digest`, not `!=`: a plain comparison returns as
+    soon as two bytes differ, which leaks the length of the shared prefix and
+    turns guessing the token into guessing one character at a time.
+    """
+    secret = settings.admin_secret
+    if not secret:
+        # No secret configured means no way to authenticate, which must read
+        # as "closed", not as "everyone is an admin".
+        logger.error("Neither ADMIN_TOKEN nor TRIBUTE_API_KEY is set: /admin is closed")
+        raise HTTPException(status_code=503, detail="admin endpoints are not configured")
+
     if not authorization:
         raise HTTPException(status_code=401, detail="Authorization header required")
 
-    # Extract token
-    parts = authorization.split()
-    if len(parts) != 2 or parts[0].lower() != "bearer":
+    scheme, _, token = authorization.partition(" ")
+    if scheme.lower() != "bearer" or not token:
         raise HTTPException(status_code=401, detail="Invalid authorization header")
 
-    token = parts[1]
-
-    # Verify token against TRIBUTE_API_KEY (simple auth)
-    if token != settings.tribute_api_key:
+    if not hmac.compare_digest(token, secret):
         raise HTTPException(status_code=401, detail="Invalid token")
 
     return True
 
 
-@app.post("/admin/sync-products")
+@app.post("/admin/sync-products", dependencies=[Depends(throttle("admin"))])
 async def admin_sync_products(
     authorized: bool = Depends(verify_admin_token),
 ) -> dict[str, Any]:
@@ -330,7 +343,7 @@ async def admin_sync_products(
         }
     except Exception as e:
         logger.error(f"Error syncing products: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail=f"Failed to sync products: {e}")
+        raise HTTPException(status_code=500, detail="failed to sync products")
 
 
 @app.get("/")

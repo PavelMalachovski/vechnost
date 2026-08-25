@@ -24,7 +24,11 @@ import pytest
 
 ROOT = Path(__file__).parent.parent
 CONTENT = sorted(
-    [ROOT / "data" / "questions.yaml", ROOT / "data" / "translations_ru.yaml"]
+    [
+        ROOT / "data" / "questions.yaml",
+        ROOT / "data" / "translations_ru.yaml",
+        ROOT / "data" / "steps69_ru.yaml",
+    ]
     + list((ROOT / "data" / "library").glob("*.yaml"))
 )
 INDEX = ROOT / "webapp" / "index.html"

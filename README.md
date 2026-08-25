@@ -17,19 +17,28 @@ inside a polished Telegram Mini App.
   310 questions/tasks, with 3 progressive levels on the couple-facing decks.
 - **Library.** A second section beside the game, read as a deck of cards
   like the game itself: 150 date ideas in 8 categories, the 36 questions to
-  fall in love, 25 practices for couples and 25 for yourself, and a year of
-  self-reflection prompts.
+  fall in love, 25 practices for couples and 25 for yourself, a nude
+  photography masterclass (light, camera, poses, and what to do with the
+  pictures afterwards), and a year of self-reflection prompts.
 - **Russian.** UI and content are Russian throughout, in both front-ends.
   English and Czech were shipped once and have been retired; they are in git
   history, not in the app.
 - **Freemium.** The first 5 cards of every deck are free, and the first 3
   items of every Library list; full access unlocks the rest via a one-time
-  Tribute payment.
+  Tribute payment. «69 ступеней» has no free prefix and is paid outright.
 - **Growth features.** Branded shareable card images, a daily
   self-reflection question, and gift certificates you can buy for another
   couple.
 - **Couple mode.** Two phones, one shared deck, taking turns — one payment
   covers both partners.
+- **69 Steps (18+).** A board game of temptation: 69 cells, four ladders that
+  throw the pair upward and three snakes that pull them back to tenderness,
+  three Joker cells that deal a task chosen by how far along and how fast the
+  pair are moving, and a final cell that blocks the dice and offers two ways
+  to finish. Playable on two phones (the dice locks for whoever is not on
+  turn, emoji reactions cross between them) or on one, passed back and forth.
+  Behind the paywall in full. A secret cell's instruction reaches only the
+  partner who rolled onto it; the other gets their own line.
 - **Compatibility test.** Forty questions across eight areas, taken separately
   by both partners and compared. The result names the areas where they are a
   team, the two worth talking about, and the exact questions they answered
@@ -55,7 +64,7 @@ inside a polished Telegram Mini App.
 ```
 vechnost/
 ├── vechnost_bot/          # Bot + web server
-│   ├── bot.py             # Application wiring, JobQueue (daily card)
+│   ├── bot.py             # Application wiring, JobQueue (daily card, 69-steps nudge)
 │   ├── handlers.py        # /start /help /about /reset /activate
 │   ├── callback_handlers.py  # Inline-keyboard game flow
 │   ├── keyboards.py, callback_models.py
@@ -66,18 +75,22 @@ vechnost/
 │   ├── daily_card.py      # Daily self-reflection push
 │   ├── compat.py          # Compatibility test: scoring, result assembly
 │   ├── compat_notify.py   # "Your result is ready" push to both partners
+│   ├── steps69.py         # 69 Steps: board, portals, dice, the Joker
+│   ├── steps69_notify.py  # "Your piece is waiting on cell 45" nudge
 │   ├── storage.py, redis_storage.py, hybrid_storage.py
 │   └── payments/          # Tribute integration + Mini App API
 │       ├── web.py         # FastAPI app: /app, /api/questions, /api/card, webhooks
 │       ├── library_api.py # /api/library
 │       ├── rooms.py       # Couple mode: /api/rooms
 │       ├── compat_api.py  # Compatibility test: /api/compat
+│       ├── steps69_api.py # 69 Steps: /api/steps69
+│       ├── throttle.py    # Rate limiting for the public HTTP surface
 │       ├── services.py, repositories.py, models.py, database.py
 │       ├── webapp_auth.py # Telegram initData validation
 │       ├── gifts.py       # Gift certificates
 │       └── middleware.py, signature.py, tribute_client.py
 ├── webapp/                # Mini App (single-file index.html + fonts)
-├── data/                  # questions.yaml, translations_ru.yaml
+├── data/                  # questions.yaml, translations_ru.yaml, steps69_ru.yaml
 │   └── library/           # Library content, one YAML per module
 ├── assets/                # Card backgrounds + fonts (Inter, Lora, Forum)
 │                          #   library.png and card_back.png are generated
@@ -126,6 +139,7 @@ All settings are read from environment variables (or `.env`). See
 | `WEBAPP_URL` | HTTPS URL of the Mini App (`…/app/`); enables the "Play in app" button |
 | `ENABLE_PAYMENT` | `TRUE`/`FALSE` — gate paid content behind Tribute |
 | `TRIBUTE_API_KEY`, `TRIBUTE_PAYMENT_URL`, `WEBHOOK_SECRET` | Tribute payment integration |
+| `ADMIN_TOKEN` | Bearer token for `/admin/*`. Falls back to `TRIBUTE_API_KEY`; set it separately so an outbound credential is not also an inbound password |
 | `GIFT_PRODUCT_ID`, `GIFT_PAYMENT_URL` | Gift-certificate product (optional) |
 | `DAILY_CARD_ENABLED`, `DAILY_CARD_HOUR_UTC` | Daily self-reflection push (default on, 17:00 UTC ≈ 19:00 Prague) |
 | `DATABASE_URL` | SQLite locally, PostgreSQL in production |
@@ -133,6 +147,12 @@ All settings are read from environment variables (or `.env`). See
 
 When `ENABLE_PAYMENT=FALSE` (the default for local dev) everything is
 unlocked and no Tribute setup is needed.
+
+**`WEBHOOK_SECRET` is required in production.** A Tribute webhook grants
+lifetime access, so with `ENABLE_PAYMENT=TRUE` and no secret configured the
+endpoint rejects every delivery rather than granting access on a payload it
+cannot verify. Without that, anyone who can reach `/webhooks/tribute` could
+POST their own `telegram_user_id` and become a paying customer.
 
 ## Testing
 

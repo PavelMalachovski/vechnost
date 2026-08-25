@@ -1047,6 +1047,10 @@ def welcome_screen(language: Language) -> tuple[str, InlineKeyboardMarkup]:
             get_text('welcome.button_library', language),
             web_app=WebAppInfo(url=settings.webapp_library_url)
         )])
+        rows.append([InlineKeyboardButton(
+            get_text('welcome.button_steps69', language),
+            web_app=WebAppInfo(url=settings.webapp_steps69_url)
+        )])
     rows.extend([
         [InlineKeyboardButton(get_text('welcome.button_inside', language),
                               callback_data="show_inside")],
