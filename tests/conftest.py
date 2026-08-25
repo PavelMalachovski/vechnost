@@ -16,6 +16,25 @@ from telegram.ext import ContextTypes
 from vechnost_bot.models import SessionState, Language, Theme, ContentType
 from vechnost_bot.exceptions import VechnostBotError, ErrorCodes
 from vechnost_bot.hybrid_storage import HybridStorage, InMemoryStorage
+from vechnost_bot.payments import throttle as _throttle
+
+
+# ============================================================================
+# Autouse fixtures
+# ============================================================================
+
+@pytest.fixture(autouse=True)
+def _reset_request_throttle():
+    """Give every test a fresh rate-limit budget.
+
+    The throttle's windows are process-global by design, so without this a
+    suite that creates more rooms than the hourly budget starts 429ing
+    somewhere in the middle and the failure lands on whichever test happened
+    to be running. Tests must not inherit each other's counters.
+    """
+    _throttle.reset()
+    yield
+    _throttle.reset()
 
 
 # ============================================================================

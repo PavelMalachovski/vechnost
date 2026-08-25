@@ -45,7 +45,7 @@ pytest tests/test_freemium.py -q         # run one suite
   which comes back as Russian instead of raising.
 - **Library content** lives in `data/library/` — one YAML per module
   (`dates`, `fall_in_love`, `practices_self`, `practices_couples`,
-  `reflection`). `library.py` loads it and deliberately imports neither
+  `nude_guide`, `reflection`). `library.py` loads it and deliberately imports neither
   FastAPI nor python-telegram-bot, so the bot, the API and the tests can all
   use it. The files carry the `_ru` suffix and are the only ones there is.
 - **Freemium is one shared rule, in two constants.** `freemium.py` holds
@@ -95,6 +95,55 @@ pytest tests/test_freemium.py -q         # run one suite
   `compat_notify.py` sends both partners a push the moment the test
   completes, since the second partner often finishes hours later and would
   otherwise never come back to read it.
+- **«69 ступеней» is the third two-partner feature** and follows the same
+  shape again: `steps69.py` is the domain layer (board, portals, dice, the
+  Joker – no FastAPI or python-telegram-bot imports, like `library.py` and
+  `compat.py`), `payments/steps69_api.py` serves it at `/api/steps69`, and
+  `steps69_games` stores it. Three things differ from `rooms.py` and are
+  deliberate:
+  - **Paid outright.** No free prefix, so `create` and `board` refuse an
+    unpaid caller rather than trimming a payload. A guest joining a paid
+    creator's game plays free, exactly as in a room.
+  - **No TTL.** A pair who stop at cell 45 come back to cell 45.
+    `steps69_notify.py` nudges them about it once, ~20 hours later, and
+    gives up after a week; rolling again clears the flag.
+  - **The dice are the server's.** The client asks to roll and is told what
+    happened. Both phones have to agree on the number anyway, and a client
+    that rolled its own could roll sixty-nine sixes.
+  Content lives in `data/steps69_ru.yaml`. Portals are declared *on the
+  cells* (`kind: ladder` + `to:`), never in a separate table, so a rewritten
+  cell cannot lose its link. Ladders are 4→18, 22→40, 42→60, 65→68; snakes
+  are 13→2, 35→20, 55→38; Jokers sit on 9, 29 and 50. Overshooting 69 lands
+  on 69 rather than bouncing back, and no portal target is itself a portal
+  (`test_steps69.py` holds both).
+- **A secret cell's text reaches exactly one player.** `steps69.cell_view`
+  takes an `audience` – `"mover"` gets the instruction, `"partner"` gets
+  their own line, and `"shared"` (the one-phone game) gets both because
+  there is no second device to withhold anything from. The board payload
+  (`board_view`) carries titles and portal arrows only: a cell's instruction
+  arrives when the piece is standing on it, so the deck cannot be read ahead
+  through the network tab.
+- **The Joker reads tempo before stage.** `pick_joker` normally draws from
+  the third of the board the pair are standing on, but a pair covering more
+  than `RUSH_CELLS_PER_TURN` cells per roll get a tender task wherever they
+  are: reaching the last third in six rolls means skipping everything that
+  makes an ecstatic task land. Tasks already dealt this game are skipped.
+- **Rate limiting lives in `payments/throttle.py`**, as FastAPI
+  dependencies: `throttle("join")` on anything that takes a six-character
+  code, `throttle("render")` on `/api/card`, `throttle("admin")` on the
+  admin routes, `throttle("write")` on in-game writes. Windows are
+  in-process (bot and web run in one process), and the `join` bucket also
+  has a **global** ceiling because `X-Forwarded-For` is client-settable and
+  a per-client budget alone would not bound a code sweep. `tests/conftest.py`
+  resets it between tests; without that a suite creating more rooms than the
+  hourly budget starts 429ing halfway through.
+- **An unsigned Tribute webhook is refused, not trusted.** A webhook grants
+  lifetime access, so `signature.py` fails closed whenever
+  `ENABLE_PAYMENT` is on and `WEBHOOK_SECRET` is unset. It still skips
+  verification with payments off, where there is no paywall to bypass.
+  `/admin/*` authenticates against `settings.admin_secret` (`ADMIN_TOKEN`,
+  falling back to `TRIBUTE_API_KEY`) with `compare_digest`, and returns 503
+  rather than 401 when neither is configured.
 - **Card rendering** (`renderer.py`) draws only the question text, and
   auto-picks between **Inter** (the card and UI face) and **DejaVu** (the
   last-resort fallback) per string, so a text in an alphabet Inter lacks
@@ -130,11 +179,24 @@ pytest tests/test_freemium.py -q         # run one suite
   one flat dictionary now, not a per-language map, and there is no language
   chip row.
 - New user-facing text is Russian. There is no second language to fill in.
-- **No em dash in card content.** `data/questions.yaml` and
-  `data/library/*.yaml` hold zero long dashes; use an en dash `–` or rewrite
-  the sentence. `tests/test_no_em_dash.py` guards eight codepoints over
-  those files. Interface strings (`data/translations_ru.yaml`,
-  `webapp/index.html`) are deliberately outside that rule and still use `—`.
+- **No em dash in user-facing text.** `data/questions.yaml`,
+  `data/steps69_ru.yaml` and `data/library/*.yaml` hold zero long dashes;
+  use an en dash `–` or rewrite the sentence. `tests/test_no_em_dash.py`
+  guards eight codepoints over those files **and over the interface copy**:
+  `data/translations_ru.yaml` outright, and `webapp/index.html` across the
+  two surfaces a user reads (its `<title>` and the `I18N` literal). Only the
+  Mini App's English code comments may carry `—`, where it is correct English
+  punctuation. Add a new content YAML to that test's `CONTENT` list, or it
+  is simply never checked.
+- **The board is not a deck.** «69 ступеней» has its own screens and its own
+  state (`G`) in `webapp/index.html`, and reuses `coopFetch` for auth rather
+  than the swipe engine for movement: there is nothing to swipe. The map is a
+  serpentine running *downward* (cells 1-6 left to right, 7-12 right to
+  left), capped at `30vh` and scrolling inside itself, because twelve rows of
+  six otherwise push the dice — the only button that has to be pressable —
+  off the bottom of the screen. The music presets are synthesised WebAudio
+  beds, not files; swap them for licensed stems when there are any and keep
+  the control surface.
 - **One swipe engine, one stage builder.** The game deck and the Library
   deck share `buildStage` and the same drag handler in
   `webapp/index.html`; the Library plugs in through `drag.onAdvance` /
@@ -159,6 +221,10 @@ pytest tests/test_freemium.py -q         # run one suite
   block sizes at 31/30×10/34 (`tests/test_library.py` enforces them). The
   daily push no longer draws from the decks and there is no curated
   exclude-list file to keep in sync anymore.
+- «69 ступеней» is 18+ and paid, and its age gate is the same client-asserted
+  one the Library uses: it prevents accidental display, not deliberate
+  access. The paywall behind it is not client-asserted and is enforced in
+  `steps69_api.py`.
 - The Library's 18+ gate (`nsfw=1` on `GET /api/library` and
   `GET /api/library/{module_id}`) is client-asserted: the client sends the
   flag, the server keeps no record that anyone confirmed their age. It

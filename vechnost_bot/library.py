@@ -51,6 +51,8 @@ MODULES: dict[str, LibraryModule] = {
                       type="practice", paid=False, count=25),
         LibraryModule(id="practices_couples", title="Практики для пар", emoji="💞",
                       type="practice", paid=True, count=25),
+        LibraryModule(id="nude_guide", title="Мастер-класс по ню", emoji="📸",
+                      type="list", paid=True, count=34),
         LibraryModule(id="reflection", title="Вопрос дня", emoji="🌙",
                       type="daily", paid=False, count=365),
     ]

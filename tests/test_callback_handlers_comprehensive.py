@@ -508,6 +508,7 @@ class TestWelcomeScreen:
         configured = MagicMock()
         configured.webapp_url = "https://example.test/app"
         configured.webapp_library_url = "https://example.test/app?tab=library"
+        configured.webapp_steps69_url = "https://example.test/app?tab=steps69"
         configured.gift_product_id = "gift-1"
 
         with patch('vechnost_bot.callback_handlers.settings', configured):
@@ -524,7 +525,9 @@ class TestWelcomeScreen:
             if button.web_app
         ]
         assert web_app_urls == [
-            "https://example.test/app", "https://example.test/app?tab=library"
+            "https://example.test/app",
+            "https://example.test/app?tab=library",
+            "https://example.test/app?tab=steps69",
         ]
 
     @pytest.mark.parametrize("language", list(Language))

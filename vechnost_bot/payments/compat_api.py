@@ -13,7 +13,7 @@ import secrets
 from datetime import datetime
 from typing import Any
 
-from fastapi import APIRouter, Header, HTTPException
+from fastapi import APIRouter, Depends, Header, HTTPException
 from pydantic import BaseModel, Field
 
 from ..compat import TOTAL_QUESTIONS, build_result, load_spheres, scale_labels
@@ -23,6 +23,7 @@ from ..i18n import Language
 from .database import get_db
 from .repositories import CompatTestRepository
 from .services import user_has_access
+from .throttle import throttle
 from .webapp_auth import InitDataError, validate_init_data
 
 logger = logging.getLogger(__name__)
@@ -124,7 +125,7 @@ async def questions(lang: str = "ru") -> dict[str, Any]:
     }
 
 
-@router.post("")
+@router.post("", dependencies=[Depends(throttle("create"))])
 async def create(
     lang: str = "ru",
     authorization: str | None = Header(default=None),
@@ -147,7 +148,7 @@ async def create(
         return _state(test, user_id)
 
 
-@router.post("/{code}/join")
+@router.post("/{code}/join", dependencies=[Depends(throttle("join"))])
 async def join(
     code: str,
     lang: str = "ru",
@@ -204,7 +205,7 @@ async def state(
         return _state(await _load(session, code, user_id), user_id)
 
 
-@router.post("/{code}/answer")
+@router.post("/{code}/answer", dependencies=[Depends(throttle("write"))])
 async def answer(
     code: str,
     body: AnswerRequest,

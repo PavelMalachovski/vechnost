@@ -13,6 +13,7 @@ from .models import (
     Payment,
     Product,
     Room,
+    Steps69Game,
     Subscription,
     User,
     WebhookEvent,
@@ -450,6 +451,99 @@ class RoomRepository:
         await session.flush()
         logger.info(f"Created room {code} by {creator_telegram_user_id}")
         return room
+
+
+class Steps69Repository:
+    """Repository for «69 ступеней» games."""
+
+    @staticmethod
+    async def get_by_code(
+        session: AsyncSession, code: str, for_update: bool = False
+    ) -> Steps69Game | None:
+        """Get a game by its invite code.
+
+        `for_update` takes a row lock, which rolling the dice needs: a roll
+        is a read-modify-write of position, turn count and the spent-joker
+        list, and both partners' clients poll the same row. Without it, two
+        rolls landing together on READ COMMITTED would each read the same
+        starting square and the second would overwrite the first, losing a
+        move. SQLite ignores the clause; it has no concurrent writers.
+        """
+        stmt = select(Steps69Game).where(Steps69Game.code == code)
+        if for_update:
+            stmt = stmt.with_for_update()
+        result = await session.execute(stmt)
+        return result.scalar_one_or_none()
+
+    @staticmethod
+    async def create(
+        session: AsyncSession,
+        code: str,
+        creator_telegram_user_id: int,
+        creator_name: str | None,
+        mode: str,
+    ) -> Steps69Game:
+        """Start a game with the piece on cell 1 and nothing spent yet."""
+        game = Steps69Game(
+            code=code,
+            mode=mode,
+            creator_telegram_user_id=creator_telegram_user_id,
+            creator_name=creator_name,
+            used_jokers=[],
+            reactions=[],
+        )
+        session.add(game)
+        await session.flush()
+        logger.info(f"Created steps69 game {code} ({mode}) by {creator_telegram_user_id}")
+        return game
+
+    @staticmethod
+    async def delete(session: AsyncSession, game_id: int) -> None:
+        """Delete one game outright."""
+        await session.execute(delete(Steps69Game).where(Steps69Game.id == game_id))
+        await session.flush()
+
+    @staticmethod
+    async def latest_unfinished_for(
+        session: AsyncSession, telegram_user_id: int
+    ) -> Steps69Game | None:
+        """The caller's most recently touched game that is still in play."""
+        result = await session.execute(
+            select(Steps69Game)
+            .where(
+                or_(
+                    Steps69Game.creator_telegram_user_id == telegram_user_id,
+                    Steps69Game.guest_telegram_user_id == telegram_user_id,
+                ),
+                Steps69Game.finished.is_(False),
+            )
+            .order_by(Steps69Game.updated_at.desc())
+            .limit(1)
+        )
+        return result.scalar_one_or_none()
+
+    @staticmethod
+    async def stalled(
+        session: AsyncSession, idle_since: datetime, give_up_before: datetime
+    ) -> list[Steps69Game]:
+        """Games abandoned mid-board and not yet nudged about.
+
+        Bounded on both sides on purpose: `idle_since` keeps the push off a
+        pair who are playing right now, and `give_up_before` stops the job
+        from resurrecting a game from two months ago that nobody meant to
+        finish. A game that has never been rolled is not stalled, it was
+        never started.
+        """
+        result = await session.execute(
+            select(Steps69Game).where(
+                Steps69Game.finished.is_(False),
+                Steps69Game.turns > 0,
+                Steps69Game.resume_notified_at.is_(None),
+                Steps69Game.updated_at < idle_since,
+                Steps69Game.updated_at > give_up_before,
+            )
+        )
+        return list(result.scalars().all())
 
 
 class CompatTestRepository:

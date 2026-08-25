@@ -86,6 +86,22 @@ def create_application() -> Application:
             )
             logger.info(f"- Daily card scheduled at {settings.daily_card_hour_utc}:00 UTC")
 
+            # An hour after the daily card, so a pair who are due both do not
+            # get them in the same second.
+            from .steps69_notify import steps69_nudge_job
+
+            application.job_queue.run_daily(
+                steps69_nudge_job,
+                time=time(
+                    hour=(settings.daily_card_hour_utc + 1) % 24, tzinfo=timezone.utc
+                ),
+                name="steps69_nudge",
+            )
+            logger.info(
+                f"- 69 steps nudge scheduled at "
+                f"{(settings.daily_card_hour_utc + 1) % 24}:00 UTC"
+            )
+
     return application
 
 

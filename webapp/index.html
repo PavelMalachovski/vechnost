@@ -441,6 +441,124 @@
     to { transform: translateY(110vh) rotate(720deg); opacity: .7; }
   }
 
+  /* ---- 69 ступеней ---- */
+  /* The board is a serpentine: cells run left to right, then right to left,
+     the way a physical snakes-and-ladders board does, so a ladder that
+     spans rows reads as a jump rather than as an arbitrary renumbering. */
+  #s69Board { padding-left: 12px; padding-right: 12px; }
+  .s69-intro { font-size: 14px; color: var(--muted-on-dark); line-height: 1.55; text-align: center; }
+  .s69-age { font-size: 12.5px; color: rgba(255,150,190,.85); text-align: center; margin-top: 10px; }
+  /* Twelve rows of six do not fit above the dice on a phone, and the dice
+     is the only thing on this screen you have to be able to press. So the
+     map is capped and scrolls inside itself, with `scrollIntoView` keeping
+     the piece in frame; the 🗺 button folds it away for more card. */
+  .s69-map {
+    display: grid; grid-template-columns: repeat(6, 1fr); gap: 5px;
+    margin: 4px 0 10px; flex: 0 0 auto;
+    max-height: 30vh; overflow-y: auto; -webkit-overflow-scrolling: touch;
+    padding: 3px;
+  }
+  .s69-map::-webkit-scrollbar { display: none; }
+  .s69-map.folded { display: none; }
+  .s69-cell {
+    position: relative; aspect-ratio: 1; border-radius: 9px;
+    background: rgba(255,255,255,.06); border: 1px solid rgba(255,255,255,.09);
+    display: grid; place-items: center; font-size: 10px; font-weight: 700;
+    color: rgba(251,233,244,.55); transition: background .25s ease, transform .25s ease;
+  }
+  .s69-cell.k-ladder { background: rgba(120,220,160,.18); border-color: rgba(120,220,160,.45); color: #BFF2D6; }
+  .s69-cell.k-snake  { background: rgba(255,110,140,.18); border-color: rgba(255,110,140,.45); color: #FFC3D0; }
+  .s69-cell.k-joker  { background: rgba(232,107,181,.22); border-color: rgba(232,107,181,.55); color: #FFD9EE; }
+  .s69-cell.k-secret { background: rgba(140,120,245,.18); border-color: rgba(140,120,245,.45); color: #DCD6FF; }
+  .s69-cell.k-final  { background: linear-gradient(135deg,#7F2BFF,#E100C7); color: #fff; border-color: transparent; }
+  .s69-cell.milestone::after {
+    content: ''; position: absolute; bottom: 3px; width: 3px; height: 3px;
+    border-radius: 50%; background: rgba(255,255,255,.5);
+  }
+  .s69-cell.passed { opacity: .45; }
+  .s69-cell .mark { position: absolute; top: 2px; right: 3px; font-size: 8px; opacity: .8; }
+  /* The piece sits on top of a cell rather than inside it, so moving it is
+     one transform between two grid positions and the animation is free. */
+  .s69-cell.here {
+    background: #FDEBF7; color: var(--ink); border-color: #fff;
+    transform: scale(1.14); z-index: 2; box-shadow: 0 0 0 3px rgba(232,107,181,.55);
+  }
+  .s69-cell.flying { animation: s69-fly .6s cubic-bezier(.3,.9,.3,1); }
+  @keyframes s69-fly {
+    0%   { transform: scale(1.14); }
+    45%  { transform: scale(1.5) rotate(8deg); }
+    100% { transform: scale(1.14); }
+  }
+
+  .s69-card {
+    background: var(--card-bg); color: var(--ink); border-radius: var(--radius-card);
+    padding: 18px 18px 16px;
+    /* flex-basis 0 with min-height 0, so the card shrinks to whatever is
+       left rather than pushing the dice off the bottom of the screen. */
+    flex: 1 1 0; min-height: 96px; overflow-y: auto; -webkit-overflow-scrolling: touch;
+    display: flex; flex-direction: column; gap: 10px;
+  }
+  .s69-card::-webkit-scrollbar { display: none; }
+  .s69-kind { font-size: 11px; font-weight: 800; letter-spacing: .1em; text-transform: uppercase; opacity: .5; }
+  .s69-title { font-size: 22px; font-weight: 800; line-height: 1.2; }
+  .s69-text { font-size: 15.5px; line-height: 1.55; }
+  .s69-note {
+    margin-top: 4px; padding: 10px 12px; border-radius: 12px; font-size: 13.5px;
+    line-height: 1.45; background: rgba(53,0,39,.07);
+  }
+  .s69-note.up   { background: rgba(60,170,110,.14); }
+  .s69-note.down { background: rgba(220,60,100,.12); }
+
+  /* «Скрытое пламя»: the spoiler. Blurred until held, then eased in. */
+  .s69-spoiler { position: relative; margin-top: 4px; }
+  .s69-spoiler .veil {
+    filter: blur(9px); transition: filter .35s ease; font-size: 15.5px; line-height: 1.55;
+    user-select: none; -webkit-user-select: none;
+  }
+  .s69-spoiler.open .veil { filter: blur(0); }
+  .s69-spoiler .hint {
+    display: block; text-align: center; font-size: 12px; opacity: .55;
+    margin-top: 8px; color: var(--ink);
+  }
+
+  .s69-turn { display: flex; justify-content: center; margin-bottom: 8px; flex: 0 0 auto; }
+  .s69-dice, .s69-reacts, .s69-music { flex: 0 0 auto; }
+  .s69-dice {
+    width: 100%; margin-top: 10px; border: 0; border-radius: 18px; padding: 16px;
+    font: inherit; font-size: 17px; font-weight: 800; color: #fff; cursor: pointer;
+    background: linear-gradient(135deg, #7F2BFF 0%, #E100C7 100%);
+    display: flex; align-items: center; justify-content: center; gap: 10px;
+  }
+  .s69-dice:active { transform: scale(.97); }
+  .s69-dice[disabled] { opacity: .3; pointer-events: none; }
+  .s69-dice .pip { font-size: 22px; }
+  .s69-dice.rolling .pip { animation: s69-tumble .5s linear infinite; display: inline-block; }
+  @keyframes s69-tumble { to { transform: rotate(360deg); } }
+
+  .s69-reacts { display: flex; justify-content: center; gap: 6px; margin-top: 8px; }
+  .s69-react {
+    border: 1px solid rgba(255,255,255,.14); background: rgba(255,255,255,.06);
+    border-radius: 999px; width: 42px; height: 38px; font-size: 18px; cursor: pointer;
+  }
+  .s69-react:active { transform: scale(.88); }
+  /* An incoming reaction floats up the middle of the screen and is gone. */
+  .s69-float {
+    position: absolute; left: 50%; bottom: 22%; font-size: 40px; z-index: 40;
+    pointer-events: none; animation: s69-rise 1.5s ease-out forwards;
+  }
+  @keyframes s69-rise {
+    0%   { opacity: 0; transform: translate(-50%, 0) scale(.5); }
+    25%  { opacity: 1; transform: translate(-50%, -30px) scale(1.15); }
+    100% { opacity: 0; transform: translate(-50%, -160px) scale(1); }
+  }
+
+  .s69-music { display: flex; justify-content: center; gap: 6px; flex-wrap: wrap; margin-top: 10px; }
+  .s69-music .chip { font-size: 11.5px; padding: 6px 11px; }
+
+  .s69-finale { display: flex; flex-direction: column; gap: 12px; width: 100%; max-width: 320px; }
+  .s69-finale .btn { margin-top: 0; }
+  .s69-choice-text { font-size: 14px; line-height: 1.55; color: var(--muted-on-dark); margin-bottom: 18px; }
+
   #toast {
     position: absolute; left: 50%; bottom: calc(var(--safe-bottom) + 110px); transform: translateX(-50%) translateY(16px);
     background: rgba(255,255,255,.12); backdrop-filter: blur(10px);
@@ -473,6 +591,7 @@
     <button class="btn btn-second" id="btnCoop" data-i18n="coopBtn"></button>
     <button class="btn btn-second" id="btnLibrary" data-i18n="libraryBtn"></button>
     <button class="btn btn-second" id="btnCompat" data-i18n="compatBtn"></button>
+    <button class="btn btn-second" id="btnS69" data-i18n="s69Btn"></button>
   </section>
 
   <!-- COOP entry -->
@@ -584,6 +703,55 @@
     <div id="compatResultBody"></div>
   </section>
 
+  <!-- 69 ступеней: entry -->
+  <section class="screen" id="s69">
+    <div class="top">
+      <button class="icon-btn" id="s69Back">←</button>
+      <div class="title" data-i18n="s69Title"></div>
+      <span style="width:38px"></span>
+    </div>
+    <div class="coop-box">
+      <p class="s69-intro" data-i18n="s69Intro"></p>
+      <button class="btn btn-play" id="btnS69Resume" style="margin-top:0;display:none"></button>
+      <button class="btn btn-play" id="btnS69Duo" data-i18n="s69Duo" style="margin-top:0"></button>
+      <button class="btn btn-second" id="btnS69Solo" data-i18n="s69Solo" style="margin-top:0"></button>
+      <p data-i18n="s69Or"></p>
+      <input class="coop-input" id="s69CodeInput" maxlength="6" autocomplete="off" spellcheck="false">
+      <button class="btn btn-second" id="btnS69Join" data-i18n="coopJoinBtn" style="margin-top:0"></button>
+      <p class="s69-age" data-i18n="s69Age"></p>
+    </div>
+  </section>
+
+  <!-- 69 ступеней: invite / waiting -->
+  <section class="screen" id="s69Invite">
+    <div class="top">
+      <button class="icon-btn" id="s69InviteBack">←</button>
+      <div class="title" data-i18n="inviteTitle"></div>
+      <span style="width:38px"></span>
+    </div>
+    <div class="coop-box">
+      <p data-i18n="s69InviteHint"></p>
+      <div class="code-display" id="s69Code"></div>
+      <button class="btn btn-play" id="btnS69Share" data-i18n="inviteShare" style="margin-top:0"></button>
+      <p class="waiting-dots" id="s69Waiting"></p>
+    </div>
+  </section>
+
+  <!-- 69 ступеней: the board -->
+  <section class="screen" id="s69Board">
+    <div class="top">
+      <button class="icon-btn" id="s69BoardBack">←</button>
+      <div class="title" id="s69BoardTitle"></div>
+      <button class="icon-btn" id="s69MapToggle" title="map">🗺</button>
+    </div>
+    <div class="s69-map" id="s69Map"></div>
+    <div class="s69-turn"><span class="chip" id="s69TurnChip"></span></div>
+    <div class="s69-card" id="s69Cell"></div>
+    <button class="s69-dice" id="s69Dice"></button>
+    <div class="s69-reacts" id="s69Reacts"></div>
+    <div class="s69-music" id="s69MusicRow"></div>
+  </section>
+
   <!-- COOP invite / waiting -->
   <section class="screen" id="invite">
     <div class="top">
@@ -654,6 +822,21 @@
   </div>
 
   <!-- PAYWALL overlay -->
+  <div class="overlay" id="s69Finale">
+    <div class="big-emoji">🔥</div>
+    <h2 id="s69FinaleTitle"></h2>
+    <p id="s69FinaleIntro"></p>
+    <div class="s69-finale" id="s69FinaleChoices"></div>
+  </div>
+
+  <div class="overlay" id="s69Done">
+    <div class="big-emoji">🎆</div>
+    <h2 id="s69DoneTitle"></h2>
+    <p id="s69DoneText"></p>
+    <button class="btn btn-play" id="s69DoneAgain"></button>
+    <button class="btn btn-ghost" id="s69DoneHome"></button>
+  </div>
+
   <div class="overlay" id="paywall">
     <div class="big-emoji">🔒</div>
     <h2 data-i18n="paywallTitle"></h2>
@@ -754,6 +937,52 @@
       compatDelete: 'Удалить результат и ответы',
       compatDeleteConfirm: 'Удалить тест? Ваши ответы и ответы партнёра будут стёрты навсегда.',
       compatDeleted: 'Тест удалён',
+      s69Btn: '🎲 69 ступеней 18+', s69Title: '69 ступеней',
+      s69Tagline: 'Территория искушения',
+      s69Intro: 'Игровое поле на 69 клеток. Змеи искушения тянут вниз, к нежности. Стрелы любви бросают вверх, к пику. Дойти нужно до 69-й: она не отпустит, пока обоим не будет хорошо.',
+      s69Age: 'Только 18+. Играйте, когда вас двое и никто не помешает.',
+      s69Duo: 'Играть на двух телефонах',
+      s69Solo: 'Один телефон на двоих',
+      s69Or: 'или введи код, который прислал партнёр',
+      s69Resume: 'Продолжить игру',
+      s69ResumeHint: 'Ваша фишка ждёт на {n}-й клетке',
+      s69InviteHint: 'Отправь этот код партнёру. Кубик оживёт, как только он войдёт.',
+      s69InviteMsg: 'Пройдём «69 ступеней» в VECHNOST? 🔥 Открой {bot} → «69 ступеней» → введи код: {code}',
+      s69Waiting: 'Ждём партнёра…',
+      s69Joined: '{name} в игре. Бросай.',
+      s69Roll: 'Бросить кубик',
+      s69Rolling: 'Кубик летит…',
+      s69YourTurn: '✨ Твой ход',
+      s69PartnerTurn: 'Ходит {name}. Смотри.',
+      s69NotYourTurn: 'Сейчас ход партнёра',
+      s69Cell: 'Клетка {n} из 69',
+      s69Ladder: 'Стрела любви',
+      s69Snake: 'Змея искушения',
+      s69Joker: 'Джокер',
+      s69Reveal: 'Нажми, чтобы открыть',
+      s69Revealed: 'Нажми, чтобы скрыть',
+      s69PartnerSecret: 'У партнёра задание для тебя',
+      s69Milestone: 'Каждая десятая',
+      s69Map: 'Карта',
+      s69Close: 'Закрыть',
+      s69FinaleTitle: 'Клетка 69',
+      s69FinaleWait: 'Партнёр выбирает финал…',
+      s69Done: 'Вы прошли этот путь',
+      s69Again: 'Повторим?',
+      s69ToHome: 'На главную',
+      s69Delete: 'Удалить игру',
+      s69DeleteConfirm: 'Удалить игру? Фишка и весь прогресс пропадут.',
+      s69Deleted: 'Игра удалена',
+      s69Gone: 'Игра не найдена',
+      s69Full: 'В этой игре уже двое',
+      s69SoloJoin: 'Эта игра идёт на одном телефоне',
+      s69Paywall: '«69 ступеней» входят в полный доступ',
+      s69Music: 'Музыка',
+      s69MusicOff: 'Тишина',
+      s69MusicRomantic: 'Romantic',
+      s69MusicHouse: 'Deep House',
+      s69MusicTechno: 'Dark Techno',
+      s69Seat: { creator: 'Партнёр 1', guest: 'Партнёр 2' },
       themes: {
         'Acquaintance': { name: 'Знакомство', desc: 'Узнать друг друга по-настоящему', emoji: '✨', grad: 'g-acq' },
         'For Couples':  { name: 'Для пар', desc: 'Стать ближе, чем когда-либо', emoji: '💞', grad: 'g-couples' },
@@ -859,6 +1088,9 @@
         else if ($('compatQuiz').classList.contains('active')) { stopCompatPoll(); show('compat'); }
         else if ($('compatInvite').classList.contains('active')) { stopCompatPoll(); CT.code = null; show('compat'); }
         else if ($('compat').classList.contains('active')) show('home');
+        else if ($('s69Board').classList.contains('active')) leaveS69();
+        else if ($('s69Invite').classList.contains('active')) $('s69InviteBack').click();
+        else if ($('s69').classList.contains('active')) show('home');
       });
     } catch (e) {}
   }
@@ -2233,6 +2465,552 @@
     } catch (e) { toast(T().shareError); }
   };
 
+  /* ---------------- 69 ступеней ---------------- */
+  // Reuses coopFetch: the same auth headers, the same guest-id fallback, the
+  // same error shape. Its own state, because a board is not a deck.
+  const G = {
+    code: null,      // the game being played
+    st: null,        // last state from the server
+    board: null,     // the map, fetched once per game
+    timer: null,     // poll handle
+    seen: 0,         // highest reaction seq already animated
+    rolling: false,  // guards a double tap on the dice
+    settling: null   // portal animation timer
+  };
+
+  const S69_REACTIONS = ['🔥', '❤️', '💦', '😈', '👏'];
+  const S69_COLS = 6;
+
+  function s69Error(e) {
+    if (e.status === 402) { showS69Paywall(); return; }
+    if (e.status === 409) { toast(T().s69Full); return; }
+    if (e.status === 404 || e.status === 410) { toast(T().s69Gone); return; }
+    if (e.status === 403) { toast(T().s69NotYourTurn); return; }
+    toast(T().loadError);
+  }
+
+  function showS69Paywall() {
+    $('paywallText').textContent = T().s69Paywall;
+    $('paywallBuy').textContent = T().paywallBuy + (ACCESS.price ? ' – ' + ACCESS.price : '');
+    $('paywallBuy').style.display = ACCESS.payment_url ? '' : 'none';
+    $('paywall').classList.add('show');
+  }
+
+  // The brief asks for a happy buzz on a ladder and a sad double one on a
+  // snake, and for a buzz when a secret turns up.
+  function s69Haptic(kind) {
+    if (kind === 'ladder') { haptic('ok'); return; }
+    if (kind === 'snake') { haptic('heavy'); setTimeout(() => haptic('heavy'), 150); return; }
+    if (kind === 'secret' || kind === 'joker') haptic('medium');
+  }
+
+  /* ---- entry ---- */
+
+  async function openS69() {
+    haptic('light');
+    const saved = store.get('s69Code', null);
+    if (saved && !$('s69CodeInput').value) $('s69CodeInput').value = saved;
+    show('s69');
+    // Offer the game in play back, so a pair who stopped on cell 45 are one
+    // tap from cell 45 rather than from cell 1.
+    $('btnS69Resume').style.display = 'none';
+    try {
+      const st = await coopFetch('/api/steps69/mine');
+      $('btnS69Resume').textContent =
+        T().s69Resume + ' · ' + fmt(T().s69ResumeHint, { n: st.position });
+      $('btnS69Resume').style.display = '';
+      $('btnS69Resume').onclick = () => { G.code = st.code; enterS69(); };
+    } catch (e) { /* no game in play, which is the common case */ }
+  }
+
+  async function s69Create(mode) {
+    haptic('light');
+    $('loader').classList.add('show');
+    try {
+      const st = await coopFetch('/api/steps69', { method: 'POST', json: { mode: mode } });
+      G.code = st.code; G.st = st;
+      store.set('s69Code', st.code);
+      if (mode === 'solo') { enterS69(); return; }
+      $('s69Code').textContent = st.code;
+      $('s69Waiting').textContent = T().s69Waiting;
+      show('s69Invite');
+      startS69Poll(st2 => {
+        if (!st2.started) return;
+        stopS69Poll();
+        haptic('ok');
+        toast(fmt(T().s69Joined, { name: st2.players.guest || '' }));
+        enterS69();
+      });
+    } catch (e) { s69Error(e); } finally { $('loader').classList.remove('show'); }
+  }
+
+  async function s69Join(code) {
+    haptic('light');
+    $('loader').classList.add('show');
+    try {
+      const st = await coopFetch('/api/steps69/' + code + '/join', { method: 'POST' });
+      G.code = st.code; G.st = st;
+      store.set('s69Code', st.code);
+      enterS69();
+    } catch (e) {
+      if (e.status === 409) toast(T().s69SoloJoin);
+      else s69Error(e);
+    } finally { $('loader').classList.remove('show'); }
+  }
+
+  /* ---- the board ---- */
+
+  async function enterS69() {
+    $('loader').classList.add('show');
+    try {
+      G.board = await coopFetch('/api/steps69/' + G.code + '/board');
+      G.st = await coopFetch('/api/steps69/' + G.code);
+      G.seen = (G.st.reactions || []).reduce((m, r) => Math.max(m, r.seq), 0);
+      $('s69BoardTitle').textContent = T().s69Title;
+      buildS69Map();
+      renderS69Reactions();
+      renderS69Music();
+      renderS69(G.st, true);
+      show('s69Board');
+      startS69Poll(onS69State);
+    } catch (e) { s69Error(e); show('s69'); } finally { $('loader').classList.remove('show'); }
+  }
+
+  function leaveS69() {
+    stopS69Poll();
+    if (G.settling) { clearTimeout(G.settling); G.settling = null; }
+    musicStop();
+    G.code = null; G.st = null; G.board = null;
+    $('s69Finale').classList.remove('show');
+    $('s69Done').classList.remove('show');
+    show('home');
+  }
+
+  function stopS69Poll() { if (G.timer) { clearInterval(G.timer); G.timer = null; } }
+
+  function startS69Poll(onState) {
+    stopS69Poll();
+    G.timer = setInterval(async () => {
+      if (!G.code) return;
+      try { onState(await coopFetch('/api/steps69/' + G.code)); }
+      catch (e) {
+        if (e.status === 404 || e.status === 410) { stopS69Poll(); toast(T().s69Gone); leaveS69(); }
+      }
+    }, 2200);
+  }
+
+  function onS69State(st) {
+    // A poll must not stomp on the portal animation the roll started: the
+    // server already reports the final square, so repainting here would
+    // teleport the piece past the flight the partner is watching.
+    if (G.settling) { G.st = st; return; }
+    const moved = !G.st || st.turns !== G.st.turns;
+    renderS69(st, moved);
+  }
+
+  function renderS69(st, animate) {
+    const prev = G.st;
+    G.st = st;
+    playS69Reactions(st);
+
+    if (animate && st.last && st.last.event) flyS69Piece(st.last, st.position);
+    else paintS69Map(st.position);
+
+    renderS69Turn(st);
+    renderS69Cell(st);
+
+    if (animate && st.cell && (st.cell.kind === 'secret' || st.cell.kind === 'joker')) {
+      s69Haptic(st.cell.kind);
+    }
+    if (st.position >= 69 && !st.finished) showS69Finale(st);
+    if (st.finished && (!prev || !prev.finished)) showS69Done(st);
+  }
+
+  /* ---- the map ---- */
+
+  // A serpentine, running downward: cells 1-6 left to right, 7-12 right to
+  // left, and so on. Downward rather than upward on purpose, both because a
+  // phone scrolls that way and because the board's own line is «Искушение
+  // ведёт вас глубже».
+  function s69Slots() {
+    const slots = [];
+    for (let r = 0; r * S69_COLS < G.board.size; r++) {
+      const row = [];
+      for (let c = 0; c < S69_COLS; c++) {
+        const id = r * S69_COLS + c + 1;
+        row.push(id <= G.board.size ? id : null);
+      }
+      if (r % 2 === 1) row.reverse();
+      slots.push.apply(slots, row);
+    }
+    return slots;
+  }
+
+  const S69_MARK = { ladder: '↑', snake: '↓', joker: '?', secret: '✦', final: '69' };
+
+  function buildS69Map() {
+    const box = $('s69Map');
+    box.innerHTML = '';
+    const byId = {};
+    G.board.cells.forEach(c => { byId[c.id] = c; });
+
+    s69Slots().forEach(id => {
+      const el = document.createElement('div');
+      if (id === null) { el.style.visibility = 'hidden'; box.appendChild(el); return; }
+      const c = byId[id];
+      el.className = 's69-cell k-' + c.kind + (c.milestone ? ' milestone' : '');
+      el.dataset.id = String(id);
+      el.textContent = c.kind === 'final' ? '' : String(id);
+      const mark = S69_MARK[c.kind];
+      if (mark) {
+        const m = document.createElement('span');
+        m.className = 'mark';
+        m.textContent = mark;
+        el.appendChild(m);
+      }
+      el.title = c.title;
+      box.appendChild(el);
+    });
+  }
+
+  function s69MapCell(id) { return $('s69Map').querySelector('[data-id="' + id + '"]'); }
+
+  function paintS69Map(position) {
+    $('s69Map').querySelectorAll('.s69-cell').forEach(el => {
+      const id = Number(el.dataset.id);
+      el.classList.toggle('here', id === position);
+      el.classList.toggle('passed', id < position);
+      el.classList.remove('flying');
+    });
+    const here = s69MapCell(position);
+    if (here && here.scrollIntoView) {
+      try { here.scrollIntoView({ block: 'nearest', behavior: 'smooth' }); } catch (e) {}
+    }
+  }
+
+  // The brief: a portal fires with a visible flight and a system line, never
+  // as a piece that was simply somewhere else the next time you looked.
+  function flyS69Piece(last, finalPosition) {
+    paintS69Map(last.landed);
+    const el = s69MapCell(last.landed);
+    if (el) el.classList.add('flying');
+    s69Haptic(last.event);
+    toast((last.event === 'ladder' ? '🏹 ' : '🐍 ') +
+          (G.board.system[last.event] || last.message || ''));
+    if (G.settling) clearTimeout(G.settling);
+    G.settling = setTimeout(() => {
+      G.settling = null;
+      paintS69Map(finalPosition);
+    }, 620);
+  }
+
+  /* ---- the current cell ---- */
+
+  function renderS69Turn(st) {
+    // The dice is settled first and unconditionally. It used to be set at
+    // the bottom, after three early returns, so a solo game (which takes the
+    // second one) never re-enabled the button after its first roll and the
+    // whole game locked up on cell 2.
+    $('s69Dice').disabled = !st.your_turn || G.rolling;
+
+    const chip = $('s69TurnChip');
+    if (st.finished) { chip.textContent = T().s69Done; chip.className = 'chip'; return; }
+    if (st.mode === 'solo') {
+      // One phone: nobody is waiting on anybody, so the chip says whose go
+      // it is rather than whether you may press anything.
+      chip.textContent = '🎲 ' + T().s69Seat[st.turn === 0 ? 'creator' : 'guest'];
+      chip.className = 'chip on';
+      return;
+    }
+    if (!st.started) { chip.textContent = T().s69Waiting; chip.className = 'chip'; return; }
+    chip.textContent = st.your_turn
+      ? T().s69YourTurn
+      : fmt(T().s69PartnerTurn, { name: st.turn_name || '' });
+    chip.className = 'chip' + (st.your_turn ? ' on' : '');
+  }
+
+  function renderS69Cell(st) {
+    const c = st.cell || {};
+    const parts = [
+      '<div class="s69-kind">' + escapeHTML(fmt(T().s69Cell, { n: st.position })) + '</div>',
+      '<div class="s69-title">' + escapeHTML(c.title || '') + '</div>'
+    ];
+    if (c.text) parts.push('<div class="s69-text">' + escapeHTML(c.text) + '</div>');
+
+    if (c.kind === 'joker' && c.joker) {
+      parts.push('<div class="s69-note"><b>' + escapeHTML(c.joker.title) + '</b><br>' +
+                 escapeHTML(c.joker.text) + '</div>');
+    }
+
+    // «Скрытое пламя»: blurred until tapped. The server sends exactly one of
+    // these two, so whichever arrived is the one this phone may read.
+    const hidden = c.secret || c.partner;
+    if (c.kind === 'secret' && hidden) {
+      parts.push(
+        '<div class="s69-spoiler" id="s69Spoiler">' +
+          (c.partner ? '<div class="s69-kind">' + escapeHTML(T().s69PartnerSecret) + '</div>' : '') +
+          '<div class="veil">' + escapeHTML(hidden) + '</div>' +
+          '<span class="hint">' + escapeHTML(T().s69Reveal) + '</span>' +
+        '</div>');
+    }
+
+    if (c.milestone && c.milestone_text) {
+      parts.push('<div class="s69-note"><b>' + escapeHTML(T().s69Milestone) + '</b><br>' +
+                 escapeHTML(c.milestone_text) + '</div>');
+    }
+
+    if (st.last && st.last.event) {
+      parts.push('<div class="s69-note ' + (st.last.event === 'ladder' ? 'up' : 'down') + '">' +
+                 escapeHTML(st.last.event === 'ladder' ? T().s69Ladder : T().s69Snake) +
+                 ': ' + escapeHTML(st.last.message || '') + '</div>');
+    }
+
+    $('s69Cell').innerHTML = parts.join('');
+
+    const spoiler = $('s69Spoiler');
+    if (spoiler) {
+      spoiler.onclick = () => {
+        const open = spoiler.classList.toggle('open');
+        spoiler.querySelector('.hint').textContent = open ? T().s69Revealed : T().s69Reveal;
+        haptic('light');
+      };
+    }
+
+    const dice = $('s69Dice');
+    dice.innerHTML = '<span class="pip">🎲</span><span>' + escapeHTML(T().s69Roll) + '</span>';
+    dice.style.display = st.position >= 69 ? 'none' : '';
+  }
+
+  /* ---- rolling ---- */
+
+  async function s69Roll() {
+    if (G.rolling || !G.st) return;
+    if (!G.st.your_turn) { haptic('light'); toast(T().s69NotYourTurn); return; }
+    G.rolling = true;
+    const dice = $('s69Dice');
+    dice.classList.add('rolling');
+    dice.disabled = true;
+    haptic('medium');
+    try {
+      const st = await coopFetch('/api/steps69/' + G.code + '/roll', { method: 'POST' });
+      renderS69(st, true);
+    } catch (e) { s69Error(e); } finally {
+      G.rolling = false;
+      dice.classList.remove('rolling');
+      if (G.st) renderS69Turn(G.st);
+    }
+  }
+
+  /* ---- reactions ---- */
+
+  function renderS69Reactions() {
+    const box = $('s69Reacts');
+    box.innerHTML = '';
+    S69_REACTIONS.forEach(emoji => {
+      const b = document.createElement('button');
+      b.className = 's69-react';
+      b.textContent = emoji;
+      b.onclick = () => s69React(emoji);
+      box.appendChild(b);
+    });
+  }
+
+  async function s69React(emoji) {
+    if (!G.code) return;
+    haptic('light');
+    floatS69(emoji);
+    try {
+      const st = await coopFetch('/api/steps69/' + G.code + '/react', {
+        method: 'POST', json: { emoji: emoji }
+      });
+      // Our own reaction is already on screen; record it as seen so the next
+      // poll does not play it back at us.
+      G.seen = (st.reactions || []).reduce((m, r) => Math.max(m, r.seq), G.seen);
+      G.st = st;
+    } catch (e) { /* a lost emoji is not worth a toast */ }
+  }
+
+  function playS69Reactions(st) {
+    const mine = st.your_role;
+    (st.reactions || []).forEach(r => {
+      if (r.seq <= G.seen) return;
+      G.seen = r.seq;
+      if (r.by === mine) return;   // already shown when it was sent
+      floatS69(r.emoji);
+      haptic('light');
+    });
+  }
+
+  function floatS69(emoji) {
+    const el = document.createElement('div');
+    el.className = 's69-float';
+    el.textContent = emoji;
+    $('shell').appendChild(el);
+    setTimeout(() => el.remove(), 1600);
+  }
+
+  /* ---- the finale ---- */
+
+  function showS69Finale(st) {
+    const f = st.cell && st.cell.finale;
+    if (!f) return;
+    $('s69FinaleTitle').textContent = f.title;
+    $('s69FinaleIntro').textContent = f.intro;
+    const box = $('s69FinaleChoices');
+    box.innerHTML = '';
+    f.choices.forEach(choice => {
+      const wrap = document.createElement('div');
+      const b = document.createElement('button');
+      b.className = 'btn btn-play';
+      b.textContent = choice.title;
+      b.onclick = () => s69ChooseFinale(choice.id);
+      wrap.appendChild(b);
+      const p = document.createElement('p');
+      p.className = 's69-choice-text';
+      p.textContent = choice.text;
+      wrap.appendChild(p);
+      box.appendChild(wrap);
+    });
+    $('s69Finale').classList.add('show');
+  }
+
+  async function s69ChooseFinale(id) {
+    haptic('ok');
+    try {
+      const st = await coopFetch('/api/steps69/' + G.code + '/finale', {
+        method: 'POST', json: { choice: id }
+      });
+      $('s69Finale').classList.remove('show');
+      renderS69(st, false);
+    } catch (e) {
+      if (e.status === 409) { toast(T().s69FinaleWait); $('s69Finale').classList.remove('show'); }
+      else s69Error(e);
+    }
+  }
+
+  function showS69Done(st) {
+    stopS69Poll();
+    $('s69Finale').classList.remove('show');
+    const choice = ((st.cell && st.cell.finale && st.cell.finale.choices) || [])
+      .filter(c => c.id === st.finale_choice)[0];
+    $('s69DoneTitle').textContent = T().s69Done;
+    $('s69DoneText').textContent = (choice ? choice.text + '\n\n' : '') +
+      ((st.cell && st.cell.finale && st.cell.finale.outro) || T().s69Again);
+    $('s69DoneAgain').textContent = T().s69Again;
+    $('s69DoneHome').textContent = T().s69ToHome;
+    $('s69Done').classList.add('show');
+    confetti();
+    haptic('ok');
+  }
+
+  /* ---- music ----
+     Synthesised beds, not tracks: the app ships no audio files, and a
+     WebAudio drone costs nothing, works offline and cannot 404. Swap these
+     for licensed stems when there are any; the control surface stays. */
+  const MUSIC = {
+    ctx: null, nodes: [], timer: null, preset: null,
+    presets: {
+      romantic: { root: 110, tempo: 0,   cutoff: 720, gain: .045 },
+      house:    { root: 82,  tempo: 122, cutoff: 900, gain: .045 },
+      techno:   { root: 65,  tempo: 132, cutoff: 520, gain: .05  }
+    }
+  };
+
+  function musicStop() {
+    if (MUSIC.timer) { clearInterval(MUSIC.timer); MUSIC.timer = null; }
+    MUSIC.nodes.forEach(n => { try { if (n.stop) n.stop(); n.disconnect(); } catch (e) {} });
+    MUSIC.nodes = [];
+    MUSIC.preset = null;
+    renderS69Music();
+  }
+
+  function musicPlay(name) {
+    musicStop();
+    const p = MUSIC.presets[name];
+    if (!p) return;
+    try {
+      MUSIC.ctx = MUSIC.ctx || new (window.AudioContext || window.webkitAudioContext)();
+      const ctx = MUSIC.ctx;
+      if (ctx.state === 'suspended') ctx.resume();
+
+      const out = ctx.createGain(); out.gain.value = p.gain; out.connect(ctx.destination);
+      const filter = ctx.createBiquadFilter();
+      filter.type = 'lowpass'; filter.frequency.value = p.cutoff; filter.connect(out);
+      [[p.root, 'sawtooth', -6], [p.root * 1.5, 'triangle', 5]].forEach(spec => {
+        const o = ctx.createOscillator();
+        o.type = spec[1]; o.frequency.value = spec[0]; o.detune.value = spec[2];
+        o.connect(filter); o.start();
+        MUSIC.nodes.push(o);
+      });
+      MUSIC.nodes.push(filter, out);
+
+      if (p.tempo) {
+        MUSIC.timer = setInterval(() => {
+          const t = ctx.currentTime;
+          const kick = ctx.createOscillator(), g = ctx.createGain();
+          kick.frequency.setValueAtTime(115, t);
+          kick.frequency.exponentialRampToValueAtTime(45, t + .12);
+          g.gain.setValueAtTime(p.gain * 2.5, t);
+          g.gain.exponentialRampToValueAtTime(.0001, t + .2);
+          kick.connect(g); g.connect(ctx.destination);
+          kick.start(t); kick.stop(t + .22);
+        }, 60000 / p.tempo);
+      }
+      MUSIC.preset = name;
+    } catch (e) { MUSIC.preset = null; }
+    store.set('s69Music', MUSIC.preset);
+    renderS69Music();
+  }
+
+  function renderS69Music() {
+    const box = $('s69MusicRow');
+    if (!box) return;
+    const options = [
+      ['', T().s69MusicOff],
+      ['romantic', T().s69MusicRomantic],
+      ['house', T().s69MusicHouse],
+      ['techno', T().s69MusicTechno]
+    ];
+    box.innerHTML = '';
+    options.forEach(opt => {
+      const b = document.createElement('button');
+      b.className = 'chip' + ((MUSIC.preset || '') === opt[0] ? ' on' : '');
+      b.textContent = opt[1];
+      b.onclick = () => { haptic('light'); opt[0] ? musicPlay(opt[0]) : musicStop(); };
+      box.appendChild(b);
+    });
+  }
+
+  /* ---- wiring ---- */
+
+  $('btnS69').onclick = openS69;
+  $('s69Back').onclick = () => show('home');
+  $('s69InviteBack').onclick = () => { stopS69Poll(); G.code = null; show('s69'); };
+  $('s69BoardBack').onclick = leaveS69;
+  $('btnS69Duo').onclick = () => s69Create('duo');
+  $('btnS69Solo').onclick = () => s69Create('solo');
+  $('btnS69Join').onclick = () => {
+    const code = ($('s69CodeInput').value || '').trim().toUpperCase();
+    if (code.length === 6) s69Join(code);
+  };
+  $('s69CodeInput').addEventListener('keydown', e => {
+    if (e.key === 'Enter') $('btnS69Join').click();
+  });
+  $('s69Dice').onclick = s69Roll;
+  $('s69MapToggle').onclick = () => { haptic('light'); $('s69Map').classList.toggle('folded'); };
+  $('btnS69Share').onclick = () => {
+    // Its own message: all three features draw six-character codes from one
+    // alphabet, so a code entered at the wrong door fails confusingly.
+    const msg = fmt(T().s69InviteMsg, { bot: BOT_URL || 'VECHNOST', code: G.code });
+    try {
+      if (tg) tg.openTelegramLink('https://t.me/share/url?url=' + encodeURIComponent(msg));
+      else navigator.clipboard.writeText(msg);
+      haptic('light');
+    } catch (e) { toast(T().shareError); }
+  };
+  $('s69DoneAgain').onclick = () => { $('s69Done').classList.remove('show'); leaveS69(); openS69(); };
+  $('s69DoneHome').onclick = leaveS69;
+
   /* ---------------- boot ---------------- */
   $('btnPlay').onclick = async () => {
     haptic('light');
@@ -2249,7 +3027,9 @@
   loadData();
   // The bot's "Библиотека" button opens the app at ?screen=library.
   try {
-    if (new URLSearchParams(location.search).get('screen') === 'library') openLibrary();
+    const screen = new URLSearchParams(location.search).get('screen');
+    if (screen === 'library') openLibrary();
+    else if (screen === 'steps69') openS69();
   } catch (e) {}
 })();
 </script>

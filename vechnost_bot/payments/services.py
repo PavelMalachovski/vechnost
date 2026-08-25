@@ -182,6 +182,31 @@ async def apply_webhook_event(
                 or webhook_payload.get("telegram_user_id")  # Tribute format
             )
 
+            # The id arrives as whatever the payload said it was. Coerce it
+            # here, where a bad value is a 400 the sender can act on, rather
+            # than letting `int()` raise three lines down and turn a real
+            # payment into a generic 500 that Tribute retries forever.
+            if telegram_user_id is not None:
+                try:
+                    telegram_user_id = int(telegram_user_id)
+                except (TypeError, ValueError):
+                    logger.error(
+                        f"Non-numeric telegram_user_id in payload: {telegram_user_id!r}"
+                    )
+                    await WebhookEventRepository.create(
+                        session,
+                        name=event_name,
+                        sent_at=datetime.utcnow(),
+                        body_sha256=body_sha256,
+                        status_code=400,
+                        error="telegram_user_id is not a number",
+                    )
+                    return {
+                        "status": "error",
+                        "message": "telegram_user_id is not a number",
+                        "code": 400,
+                    }
+
             if not telegram_user_id:
                 error_msg = "Missing telegram_user_id in payload"
                 logger.error(error_msg)
@@ -202,7 +227,7 @@ async def apply_webhook_event(
             customer = data.get("customer", {}) or payload.get("customer", {})
             user = await UserRepository.create_or_update(
                 session,
-                telegram_user_id=int(telegram_user_id),
+                telegram_user_id=telegram_user_id,
                 username=customer.get("username") or payload.get("username"),
                 first_name=customer.get("first_name") or payload.get("first_name"),
                 last_name=customer.get("last_name") or payload.get("last_name"),
@@ -267,7 +292,7 @@ async def apply_webhook_event(
                 )
                 try:
                     await deliver_gift_certificate(
-                        int(telegram_user_id),
+                        telegram_user_id,
                         gift_code,
                         gift_language(user.language),
                     )
@@ -359,7 +384,7 @@ async def apply_webhook_event(
         logger.error(f"Error processing webhook: {e}", exc_info=True)
         return {
             "status": "error",
-            "message": f"Internal error: {str(e)}",
+            "message": "internal error",
             "code": 500,
         }
 
@@ -549,7 +574,7 @@ async def activate_certificate(
         logger.error(f"Error activating certificate: {e}", exc_info=True)
         return {
             "status": "error",
-            "message": f"Internal error: {str(e)}",
+            "message": "internal error",
             "code": 500,
         }
 

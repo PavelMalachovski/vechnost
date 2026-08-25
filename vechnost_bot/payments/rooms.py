@@ -13,7 +13,7 @@ import secrets
 from datetime import datetime, timedelta
 from typing import Any, Optional
 
-from fastapi import APIRouter, Header, HTTPException
+from fastapi import APIRouter, Depends, Header, HTTPException
 from pydantic import BaseModel, Field
 
 from ..config import settings
@@ -24,6 +24,7 @@ from ..models import ContentType, Theme
 from .database import get_db
 from .repositories import RoomRepository
 from .services import user_has_access
+from .throttle import throttle
 from .webapp_auth import InitDataError, validate_init_data
 
 logger = logging.getLogger(__name__)
@@ -121,7 +122,12 @@ def _room_state(room, user_id: int, language: Language) -> dict[str, Any]:
     }
 
 
-async def _load_room(session, code: str, user_id: int):
+async def _load_room(session, code: str):
+    """The room behind a code, or 404/410. Says nothing about membership.
+
+    Took a `user_id` it never looked at, which read like an access check and
+    was not one; every caller does its own membership check right after.
+    """
     room = await RoomRepository.get_by_code(session, code.strip().upper())
     if not room:
         raise HTTPException(status_code=404, detail="room not found")
@@ -134,7 +140,7 @@ def _language(lang: str) -> Language:
     return Language.coerce(lang)
 
 
-@router.post("")
+@router.post("", dependencies=[Depends(throttle("create"))])
 async def create_room(
     body: CreateRoomRequest,
     lang: str = "ru",
@@ -180,7 +186,7 @@ async def create_room(
         return _room_state(room, user_id, language)
 
 
-@router.post("/{code}/join")
+@router.post("/{code}/join", dependencies=[Depends(throttle("join"))])
 async def join_room(
     code: str,
     lang: str = "ru",
@@ -191,7 +197,7 @@ async def join_room(
     language = _language(lang)
 
     async with get_db() as session:
-        room = await _load_room(session, code, user_id)
+        room = await _load_room(session, code)
         if room.creator_telegram_user_id == user_id:
             pass  # creator re-opening their own room
         elif room.guest_telegram_user_id is None:
@@ -215,13 +221,13 @@ async def get_room(
     language = _language(lang)
 
     async with get_db() as session:
-        room = await _load_room(session, code, user_id)
+        room = await _load_room(session, code)
         if user_id not in (room.creator_telegram_user_id, room.guest_telegram_user_id):
             raise HTTPException(status_code=403, detail="not a player in this room")
         return _room_state(room, user_id, language)
 
 
-@router.post("/{code}/advance")
+@router.post("/{code}/advance", dependencies=[Depends(throttle("write"))])
 async def advance_room(
     code: str,
     lang: str = "ru",
@@ -232,7 +238,7 @@ async def advance_room(
     language = _language(lang)
 
     async with get_db() as session:
-        room = await _load_room(session, code, user_id)
+        room = await _load_room(session, code)
         if user_id not in (room.creator_telegram_user_id, room.guest_telegram_user_id):
             raise HTTPException(status_code=403, detail="not a player in this room")
         if room.guest_telegram_user_id is None:
