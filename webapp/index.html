@@ -88,8 +88,39 @@
   }
   .screen.active { opacity: 1; pointer-events: auto; transform: none; }
 
+  /* ---------- panes that scroll ---------- */
+  /* Everything here is a list that can outgrow the phone: the menu, the deck
+     and level lists, and the panels behind the two-partner codes. Two things
+     went wrong without this rule. There was nowhere to scroll to, so the tail
+     of a long list was simply unreachable; and `justify-content: center`,
+     which is how these were centred, distributes negative free space as well
+     as positive, so the head of the list was pushed above the scroll origin
+     where not even a scrollbar could reach it. Auto margins on the ends
+     centre a short list exactly the same way and collapse to 0 the moment
+     the free space goes negative, which is what a scroller needs.
+
+     overflow-x is named on purpose: leaving it `visible` next to a scrolling
+     y axis makes it compute to `auto`, and a menu that pans sideways by the
+     odd sub-pixel is worse than one that clips it.
+
+     overscroll-behavior keeps the rubber band off Telegram's own sheet;
+     tg.disableVerticalSwipes() below is the other half of that. */
+  #home, #themeList, #levelList, .coop-box {
+    flex: 1 1 auto; min-height: 0;
+    overflow-y: auto; overflow-x: hidden; overscroll-behavior: contain;
+    -webkit-overflow-scrolling: touch; touch-action: pan-y;
+    scrollbar-width: none;
+  }
+  #home::-webkit-scrollbar, #themeList::-webkit-scrollbar,
+  #levelList::-webkit-scrollbar, .coop-box::-webkit-scrollbar { display: none; }
+  #home > *, #themeList > *, #levelList > *, .coop-box > * { flex-shrink: 0; }
+  #home > :first-child, #themeList > :first-child,
+  #levelList > :first-child, .coop-box > :first-child { margin-top: auto; }
+  #home > :last-child, #themeList > :last-child,
+  #levelList > :last-child, .coop-box > :last-child { margin-bottom: auto; }
+
   /* ---------- home ---------- */
-  #home { align-items: center; justify-content: center; text-align: center; gap: 10px; }
+  #home { align-items: center; text-align: center; gap: 10px; }
   .logo {
     font-family: var(--font-logo);
     font-size: 52px; letter-spacing: .14em; font-weight: 400;
@@ -138,7 +169,7 @@
   }
 
   /* ---------- coop ---------- */
-  .coop-box { display: flex; flex-direction: column; gap: 12px; margin: auto 0; }
+  .coop-box { display: flex; flex-direction: column; gap: 12px; }
   .coop-box p { font-size: 14px; color: var(--muted-on-dark); text-align: center; line-height: 1.5; }
   .coop-input {
     width: 100%; padding: 14px 16px; border-radius: 14px;
@@ -183,7 +214,7 @@
   .icon-btn[disabled] { opacity: .35; pointer-events: none; }
 
   /* ---------- themes ---------- */
-  #themeList { display: flex; flex-direction: column; gap: 14px; flex: 1; justify-content: center; }
+  #themeList { display: flex; flex-direction: column; gap: 14px; }
   .theme-card {
     position: relative; overflow: hidden;
     border-radius: 22px; padding: 20px 22px; min-height: 96px;
@@ -208,7 +239,7 @@
   .g-prov    { background: linear-gradient(135deg, #7F2BFF 0%, #E100C7 100%); }
 
   /* ---------- levels ---------- */
-  #levelList { display: flex; flex-direction: column; gap: 14px; flex: 1; justify-content: center; }
+  #levelList { display: flex; flex-direction: column; gap: 14px; }
   .level-card {
     border-radius: 22px; padding: 22px; border: 0; cursor: pointer; font: inherit; color: #fff;
     display: flex; align-items: center; gap: 16px; text-align: left;
