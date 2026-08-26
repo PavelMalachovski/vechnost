@@ -1035,9 +1035,13 @@ def welcome_screen(language: Language) -> tuple[str, InlineKeyboardMarkup]:
         f"━━━━━━━━━━━━━━━━━━━━"
     )
 
-    rows = [[InlineKeyboardButton(
-        get_text('welcome.button_start', language), callback_data="start_game"
-    )]]
+    # The game is played in the Mini App, not in the chat, so a configured
+    # deployment offers no in-chat entry point here. `StartGameHandler` is not
+    # stranded by that: the daily push still carries `start_game`, as do the
+    # buttons already sitting in users' chat histories, and the `else` below
+    # still renders it where there is no WEBAPP_URL to send anyone to, which
+    # would otherwise leave that welcome screen with no way to play at all.
+    rows = []
     if settings.webapp_url:
         rows.append([InlineKeyboardButton(
             get_text('welcome.button_webapp', language),
@@ -1050,6 +1054,10 @@ def welcome_screen(language: Language) -> tuple[str, InlineKeyboardMarkup]:
         rows.append([InlineKeyboardButton(
             get_text('welcome.button_steps69', language),
             web_app=WebAppInfo(url=settings.webapp_steps69_url)
+        )])
+    else:
+        rows.append([InlineKeyboardButton(
+            get_text('welcome.button_start', language), callback_data="start_game"
         )])
     rows.extend([
         [InlineKeyboardButton(get_text('welcome.button_inside', language),
