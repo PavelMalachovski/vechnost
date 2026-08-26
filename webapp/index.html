@@ -123,7 +123,11 @@
   #home { align-items: center; text-align: center; gap: 10px; }
   .logo {
     font-family: var(--font-logo);
-    font-size: 52px; letter-spacing: .14em; font-weight: 400;
+    /* 52px is the wordmark's size, but at .14em of tracking it sets 345px
+       wide, which is more than a 375px phone has left after the screen's
+       padding: the final T was being cut off. Below a ~400px viewport the
+       size follows the width instead; above it nothing moves. */
+    font-size: min(52px, 13vw); letter-spacing: .14em; font-weight: 400;
     background: linear-gradient(180deg, #FFD9EF 20%, #E86BB5 90%);
     -webkit-background-clip: text; background-clip: text; color: transparent;
     text-transform: uppercase;
