@@ -504,6 +504,10 @@ class TestWelcomeScreen:
         The web-app and gift rows are settings-gated, so they are configured
         here explicitly — otherwise this passes vacuously in any environment
         that happens to leave them unset.
+
+        `start_game` is absent on purpose: with the Mini App configured the
+        game is played there, so the welcome screen carries no in-chat route
+        into a deck. The three web_app rows below are that route.
         """
         configured = MagicMock()
         configured.webapp_url = "https://example.test/app"
@@ -515,9 +519,7 @@ class TestWelcomeScreen:
             _, keyboard = welcome_screen(language)
 
         # show_gift is only ever rendered here; losing it strands ShowGiftHandler.
-        assert self._targets(keyboard) == [
-            "start_game", "show_inside", "show_why", "show_gift"
-        ]
+        assert self._targets(keyboard) == ["show_inside", "show_why", "show_gift"]
         web_app_urls = [
             button.web_app.url
             for row in keyboard.inline_keyboard
@@ -532,7 +534,13 @@ class TestWelcomeScreen:
 
     @pytest.mark.parametrize("language", list(Language))
     def test_welcome_screen_without_optional_features(self, language):
-        """Unconfigured web app and gift: the core routes still render."""
+        """Unconfigured web app and gift: the core routes still render.
+
+        With no WEBAPP_URL there is no Mini App to send anyone to, so this is
+        the one case that still offers the in-chat game. Without it a
+        deployment that forgot the variable would greet its users with a
+        welcome screen they cannot play from at all.
+        """
         bare = MagicMock()
         bare.webapp_url = ""
         bare.gift_product_id = ""
