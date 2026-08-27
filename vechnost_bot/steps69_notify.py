@@ -69,16 +69,20 @@ async def nudge_stalled_games(bot: Bot) -> int:
         # Read what the messages need before leaving the session: the sends
         # happen outside it, so a lazy load afterwards would have no session
         # to load from.
+        #
+        # Each partner hears about their own piece. They walk the board
+        # separately now, so one shared cell number would be wrong for at
+        # least one of them, and telling someone their piece waits on a cell
+        # it has never stood on is worse than saying nothing.
         pending = [
-            (
-                game.position,
-                [
-                    user_id for user_id in (
-                        game.creator_telegram_user_id,
-                        game.guest_telegram_user_id,
-                    ) if user_id
-                ],
-            )
+            [
+                (user_id, position)
+                for user_id, position in (
+                    (game.creator_telegram_user_id, game.creator_position),
+                    (game.guest_telegram_user_id, game.guest_position),
+                )
+                if user_id
+            ]
             for game in games
         ]
         for game in games:
@@ -90,8 +94,8 @@ async def nudge_stalled_games(bot: Bot) -> int:
     languages: dict[int, Language] = {}
     try:
         async with get_db() as session:
-            for _, recipients in pending:
-                for user_id in recipients:
+            for recipients in pending:
+                for user_id, _ in recipients:
                     user = await UserRepository.get_by_telegram_id(session, user_id)
                     languages[user_id] = Language.coerce(user.language if user else None)
     except Exception as e:
@@ -99,9 +103,9 @@ async def nudge_stalled_games(bot: Bot) -> int:
         logger.warning(f"Steps69 nudge: language lookup failed: {e}")
 
     nudged = 0
-    for position, recipients in pending:
+    for recipients in pending:
         reached = False
-        for user_id in recipients:
+        for user_id, position in recipients:
             language = languages.get(user_id, Language.RUSSIAN)
             try:
                 await bot.send_message(

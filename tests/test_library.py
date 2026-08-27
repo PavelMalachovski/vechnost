@@ -8,7 +8,9 @@ from vechnost_bot.library import (
     REFLECTION_TOTAL,
     LibraryCategory,
     Practice,
+    guide_intro,
     load_categories,
+    load_guide,
     load_practices,
     load_reflection,
     question_of_the_day,
@@ -80,38 +82,70 @@ def test_fall_in_love_is_one_category_of_36():
 
 
 def test_every_category_item_is_non_empty():
-    for module_id in ("dates", "fall_in_love", "nude_guide"):
+    for module_id in ("dates", "fall_in_love"):
         for category in load_categories(module_id, Language.RUSSIAN):
             assert isinstance(category, LibraryCategory)
             assert all(item.strip() for item in category.items)
 
 
 def test_module_counts_match_loaded_categories():
-    for module_id in ("dates", "fall_in_love", "nude_guide"):
+    for module_id in ("dates", "fall_in_love"):
         loaded = sum(len(c.items) for c in load_categories(module_id, Language.RUSSIAN))
         assert MODULES[module_id].count == loaded
 
 
-def test_the_nude_guide_holds_craft_and_poses():
-    categories = load_categories("nude_guide", Language.RUSSIAN)
-    assert {c.id: len(c.items) for c in categories} == {
-        "light": 4, "camera": 3, "edit": 4, "her": 10, "him": 10, "safety": 3
+def test_the_nude_guide_is_five_numbered_steps():
+    """Numbered so a reader knows where they are and what comes next, rather
+    than a flat list they have to sequence themselves."""
+    steps = load_guide("nude_guide", Language.RUSSIAN)
+    assert [s.number for s in steps] == [1, 2, 3, 4, 5]
+    assert [s.id for s in steps] == ["light", "camera", "her", "him", "edit"]
+    assert {s.id: len(s.items) for s in steps} == {
+        "light": 4, "camera": 3, "her": 10, "him": 10, "edit": 2
     }
 
 
-def test_only_the_pose_categories_of_the_nude_guide_are_nsfw():
+def test_only_the_pose_steps_of_the_nude_guide_are_nsfw():
     """Light, camera, editing and safety are craft, not nudity: gating them
     behind an age confirmation would hide the part that keeps people safe."""
-    categories = load_categories("nude_guide", Language.RUSSIAN)
-    assert [c.id for c in categories if c.nsfw] == ["her", "him"]
+    steps = load_guide("nude_guide", Language.RUSSIAN)
+    assert [s.id for s in steps if s.nsfw] == ["her", "him"]
+
+
+def test_every_guide_item_carries_a_drawing():
+    """The Mini App renders `art` as a schematic beside the words. A blank
+    key draws nothing and reads as a layout fault, so none may be blank."""
+    for step in load_guide("nude_guide", Language.RUSSIAN):
+        for item in step.items:
+            assert item.art.strip(), f"{step.id}/{item.id} has no art key"
+            assert item.title.strip() and item.text.strip()
+
+
+def test_guide_art_keys_are_unique():
+    """Two items sharing a key would silently show the same picture."""
+    keys = [i.art for s in load_guide("nude_guide", Language.RUSSIAN) for i in s.items]
+    assert len(keys) == len(set(keys))
+
+
+def test_the_guide_opens_with_something_to_read():
+    assert guide_intro("nude_guide", Language.RUSSIAN).strip()
 
 
 def test_the_nude_guide_says_something_about_safety():
     """The guide asks people to photograph themselves undressed. It does not
     get to skip the part about what happens to the pictures afterwards."""
-    safety = next(c for c in load_categories("nude_guide", Language.RUSSIAN)
-                  if c.id == "safety")
-    assert len(safety.items) >= 3
+    steps = load_guide("nude_guide", Language.RUSSIAN)
+    last = next(s for s in steps if s.id == "edit")
+    privacy = next(i for i in last.items if i.id == "privacy")
+    assert privacy.text.strip() and len(privacy.tips) >= 2
+    assert not last.nsfw, "the safety advice must sit in front of the age gate"
+
+
+def test_the_module_count_matches_the_guide():
+    assert MODULES["nude_guide"].count == sum(
+        len(s.items) for s in load_guide("nude_guide", Language.RUSSIAN)
+    )
+    assert MODULES["nude_guide"].type == "guide"
 
 
 def test_no_duplicate_ideas_within_a_category():

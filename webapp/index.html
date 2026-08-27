@@ -173,6 +173,11 @@
   }
 
   /* ---------- coop ---------- */
+  /* The Library modules on the home screen: the same button as the ones
+     above them, so the menu reads as one list rather than two. */
+  #homeModules { display: flex; flex-direction: column; width: 100%; }
+  #homeModules .home-mod { margin-top: 12px; }
+
   .coop-box { display: flex; flex-direction: column; gap: 12px; }
   .coop-box p { font-size: 14px; color: var(--muted-on-dark); text-align: center; line-height: 1.5; }
   .coop-input {
@@ -228,8 +233,11 @@
     transition: transform .14s ease;
   }
   .theme-card:active { transform: scale(.97); }
-  .theme-card .t-name { font-size: 20px; font-weight: 800; letter-spacing: .01em; }
-  .theme-card .t-desc { font-size: 13px; opacity: .85; line-height: 1.35; }
+  /* The emoji is positioned out of flow against the right edge, so the text
+     has to reserve room for it by hand: 16px of offset plus its ~48px box.
+     Without this, "36 вопросов, чтобы влюбиться" wraps straight under it. */
+  .theme-card .t-name { font-size: 20px; font-weight: 800; letter-spacing: .01em; padding-right: 56px; }
+  .theme-card .t-desc { font-size: 13px; opacity: .85; line-height: 1.35; padding-right: 56px; }
   .theme-card .t-emoji {
     position: absolute; right: 16px; top: 50%; transform: translateY(-50%);
     font-size: 40px; filter: drop-shadow(0 4px 10px rgba(0,0,0,.3));
@@ -395,25 +403,42 @@
      it doesn't, which leaves the first line at scrollTop 0 instead of
      stranded above it the way align-items:center on a flex box would.
 
-     The mask fades a cut edge so a clipped line reads as "there's more"
-     rather than as a rendering bug — but only an edge that really hides
+     A cut edge is faded so a clipped line reads as "there's more" rather
+     than as a rendering fault — but only an edge that really hides
      something. A permanent fade dims the first line of an unscrolled card
-     and the last line at the end of the scroll, which is the rendering bug
-     it was meant to prevent. markZoneEdges() sets cut-top/cut-bottom. */
+     and the last line at the end of the scroll, which is the fault it was
+     meant to prevent. markZoneEdges() sets cut-top/cut-bottom.
+
+     The fade is painted on the face, not masked onto the scroller. It used
+     to be a mask-image on .q-zone, and a mask makes its element invisible to
+     hit testing: elementFromPoint in the middle of a card returned .front,
+     so a finger drag found no scrollable ancestor and scrolled nothing. The
+     text was reachable by script and unreadable by hand, on every card long
+     enough to need it. An overlay with pointer-events:none cannot do that. */
   .q-zone {
     flex: 1; display: grid; place-items: center;
     overflow-y: auto; overscroll-behavior: contain;
     -webkit-overflow-scrolling: touch; touch-action: pan-y;
     scrollbar-width: none;
-    --cut-top: 0px; --cut-bottom: 0px;
-    -webkit-mask-image: linear-gradient(180deg, transparent 0, #000 var(--cut-top),
-                        #000 calc(100% - var(--cut-bottom)), transparent 100%);
-            mask-image: linear-gradient(180deg, transparent 0, #000 var(--cut-top),
-                        #000 calc(100% - var(--cut-bottom)), transparent 100%);
   }
-  .q-zone.cut-top { --cut-top: 18px; }
-  .q-zone.cut-bottom { --cut-bottom: 18px; }
   .q-zone::-webkit-scrollbar { display: none; }
+  /* Inset to the text band .front already reserves, so the fade sits exactly
+     over the scroller without covering the printed corner marks. */
+  .card .front::before,
+  .card .front::after {
+    content: ''; position: absolute; left: 41px; right: 41px; height: 18px;
+    pointer-events: none; opacity: 0; transition: opacity .16s ease; z-index: 2;
+  }
+  .card .front::before {
+    top: 103px;
+    background: linear-gradient(to bottom, var(--card-bg), rgba(253,235,247,0));
+  }
+  .card .front::after {
+    bottom: 103px;
+    background: linear-gradient(to top, var(--card-bg), rgba(253,235,247,0));
+  }
+  .card .front.cut-top::before { opacity: 1; }
+  .card .front.cut-bottom::after { opacity: 1; }
   .q-text {
     color: var(--ink); text-align: center; font-weight: 600;
     font-size: 22px; line-height: 1.42; letter-spacing: .002em;
@@ -476,65 +501,172 @@
     to { transform: translateY(110vh) rotate(720deg); opacity: .7; }
   }
 
+  /* ---- guide (мастер-класс) ---- */
+  /* A document, not a deck. The whole thing is read top to bottom with the
+     drawing beside the words it describes, because a reader who has to swipe
+     to compare step 2 with step 3 loses the thread of what to do next. */
+  #guideBody { flex: 1; overflow-y: auto; -webkit-overflow-scrolling: touch; padding-bottom: 28px; }
+  #guideBody::-webkit-scrollbar { display: none; }
+  .guide-intro { font-size: 14.5px; line-height: 1.6; color: var(--muted-on-dark); margin-bottom: 22px; }
+  .guide-step { margin-bottom: 26px; }
+  .guide-step-head { display: flex; align-items: baseline; gap: 10px; margin-bottom: 6px; }
+  .guide-num {
+    flex: 0 0 auto; width: 26px; height: 26px; border-radius: 50%;
+    background: linear-gradient(135deg,#7F2BFF,#E100C7); color: #fff;
+    font-size: 13px; font-weight: 800; display: grid; place-items: center;
+    align-self: center;
+  }
+  .guide-step-title { font-size: 19px; font-weight: 800; }
+  .guide-lead { font-size: 13.5px; line-height: 1.55; color: var(--muted-on-dark); margin: 0 0 12px 36px; }
+
+  .guide-item {
+    display: grid; grid-template-columns: 108px 1fr; gap: 12px;
+    background: rgba(255,255,255,.05); border-radius: 16px;
+    padding: 14px; margin-bottom: 10px;
+  }
+  .guide-art {
+    width: 100%; height: auto; grid-row: span 1;
+    color: var(--text-on-dark); align-self: start;
+  }
+  .art-body, .art-lamp, .art-cam, .art-focus {
+    fill: none; stroke: currentColor; stroke-width: 3.2;
+    stroke-linecap: round; stroke-linejoin: round;
+  }
+  .art-lamp { stroke: #FFD96E; stroke-width: 1.8; }
+  .art-cam  { stroke: #9FEFC4; stroke-width: 1.8; }
+  .art-focus { stroke: #9FEFC4; stroke-width: 1.6; stroke-dasharray: 3 3; }
+  .art-ray  { stroke: #FFD96E; stroke-width: 1.4; stroke-dasharray: 4 4; fill: none; }
+  .art-prop { stroke: currentColor; stroke-width: 1.4; opacity: .35; fill: none; }
+  .art-crop { stroke: #9FEFC4; stroke-width: 1.6; stroke-dasharray: 5 4; fill: none; opacity: .8; }
+  .art-shade { fill: currentColor; opacity: .18; stroke: none; }
+  .art-diffuse { fill: #FFD96E; opacity: .12; stroke: none; }
+  .art-note { fill: currentColor; opacity: .55; font-size: 9px; font-weight: 600; }
+
+  .guide-item-title { font-size: 16px; font-weight: 700; margin-bottom: 5px; }
+  .guide-item-text { font-size: 14px; line-height: 1.5; }
+  /* The tips run under both columns: they are how to pull the pose off, and
+     belong to the picture and the words together. */
+  .guide-tips { grid-column: 1 / -1; margin: 4px 0 0; padding-left: 18px; }
+  .guide-tips li { font-size: 13px; line-height: 1.5; color: var(--muted-on-dark); margin-top: 4px; }
+  .guide-locked, .guide-nsfw {
+    text-align: center; padding: 18px; border-radius: 16px; margin-bottom: 10px;
+    background: rgba(255,255,255,.05); font-size: 14px; line-height: 1.5;
+  }
+  .guide-nsfw { border: 1px dashed rgba(255,255,255,.2); }
+
   /* ---- 69 ступеней ---- */
-  /* The board is a serpentine: cells run left to right, then right to left,
-     the way a physical snakes-and-ladders board does, so a ladder that
-     spans rows reads as a jump rather than as an arbitrary renumbering. */
+  /* The board is a serpentine running downward: cells 1-6 left to right,
+     7-12 right to left, the way a physical snakes-and-ladders board does, so
+     a ladder that spans rows reads as a jump rather than as a renumbering.
+     Downward because a phone scrolls that way, and because the board's own
+     line is «Искушение ведёт вас глубже».
+
+     No emoji anywhere on it. A cell says what it is with colour, a drawn
+     arrow and the suit of whoever is standing on it — the same four suits
+     the deck is printed with. */
   #s69Board { padding-left: 12px; padding-right: 12px; }
   .s69-intro { font-size: 14px; color: var(--muted-on-dark); line-height: 1.55; text-align: center; }
   .s69-age { font-size: 12.5px; color: rgba(255,150,190,.85); text-align: center; margin-top: 10px; }
-  /* Twelve rows of six do not fit above the dice on a phone, and the dice
-     is the only thing on this screen you have to be able to press. So the
-     map is capped and scrolls inside itself, with `scrollIntoView` keeping
-     the piece in frame; the 🗺 button folds it away for more card. */
+
+  /* Twelve rows of six do not fit above the dice on a phone, and the dice is
+     the one button that has to be pressable. So the map is capped and
+     scrolls inside itself, with scrollIntoView keeping the piece in frame. */
   .s69-map {
-    display: grid; grid-template-columns: repeat(6, 1fr); gap: 5px;
+    display: grid; grid-template-columns: repeat(6, 1fr); gap: 4px;
     margin: 4px 0 10px; flex: 0 0 auto;
     max-height: 30vh; overflow-y: auto; -webkit-overflow-scrolling: touch;
-    padding: 3px;
+    padding: 4px;
   }
   .s69-map::-webkit-scrollbar { display: none; }
   .s69-map.folded { display: none; }
+
   .s69-cell {
-    position: relative; aspect-ratio: 1; border-radius: 9px;
-    background: rgba(255,255,255,.06); border: 1px solid rgba(255,255,255,.09);
+    position: relative; aspect-ratio: 1; border-radius: 8px;
     display: grid; place-items: center; font-size: 10px; font-weight: 700;
-    color: rgba(251,233,244,.55); transition: background .25s ease, transform .25s ease;
+    color: rgba(251,233,244,.5); transition: transform .25s ease, box-shadow .25s ease;
+    border: 1px solid rgba(255,255,255,.08);
   }
-  .s69-cell.k-ladder { background: rgba(120,220,160,.18); border-color: rgba(120,220,160,.45); color: #BFF2D6; }
-  .s69-cell.k-snake  { background: rgba(255,110,140,.18); border-color: rgba(255,110,140,.45); color: #FFC3D0; }
-  .s69-cell.k-joker  { background: rgba(232,107,181,.22); border-color: rgba(232,107,181,.55); color: #FFD9EE; }
-  .s69-cell.k-secret { background: rgba(140,120,245,.18); border-color: rgba(140,120,245,.45); color: #DCD6FF; }
-  .s69-cell.k-final  { background: linear-gradient(135deg,#7F2BFF,#E100C7); color: #fff; border-color: transparent; }
+  /* Each block of the board has its own ground, so the four stages are
+     visible as bands before a single word is read. */
+  .s69-cell.b-awakening   { background: linear-gradient(150deg, rgba(142,124,243,.42), rgba(200,109,215,.26)); }
+  .s69-cell.b-exploration { background: linear-gradient(150deg, rgba(243,93,138,.36), rgba(249,141,104,.26)); }
+  .s69-cell.b-temptation  { background: linear-gradient(150deg, rgba(196,37,110,.46), rgba(110,16,64,.4)); }
+  .s69-cell.b-samadhi     { background: linear-gradient(150deg, rgba(127,43,255,.5), rgba(225,0,199,.36)); }
+  .s69-cell { color: rgba(255,255,255,.82); }
+
+  .s69-cell.k-ladder { border-color: rgba(120,220,160,.6); }
+  .s69-cell.k-snake  { border-color: rgba(255,110,140,.6); }
+  .s69-cell.k-joker  { border-color: rgba(255,214,110,.7); }
+  .s69-cell.k-secret { border-color: rgba(200,180,255,.55); }
+  .s69-cell.k-final {
+    background: linear-gradient(135deg,#7F2BFF,#E100C7);
+    border-color: transparent; color: #fff; font-size: 12px;
+  }
+  .s69-cell.passed { opacity: .5; }
+
+  /* The portal marks: a triangle pointing the way the piece will be thrown,
+     drawn rather than typed, and the destination beside it. */
+  .s69-mark {
+    position: absolute; top: 2px; right: 3px;
+    display: flex; align-items: center; gap: 1px;
+    font-size: 7.5px; font-weight: 800; letter-spacing: -.02em;
+  }
+  .s69-mark i {
+    width: 0; height: 0; display: block;
+    border-left: 3px solid transparent; border-right: 3px solid transparent;
+  }
+  .k-ladder .s69-mark { color: #9FEFC4; }
+  .k-ladder .s69-mark i { border-bottom: 5px solid #9FEFC4; }
+  .k-snake .s69-mark { color: #FFA8BC; }
+  .k-snake .s69-mark i { border-top: 5px solid #FFA8BC; }
+  .k-joker .s69-mark { color: #FFD96E; font-size: 10px; }
+  .k-secret .s69-mark { color: #CFC0FF; font-size: 9px; }
   .s69-cell.milestone::after {
-    content: ''; position: absolute; bottom: 3px; width: 3px; height: 3px;
-    border-radius: 50%; background: rgba(255,255,255,.5);
+    content: ''; position: absolute; bottom: 3px; left: 50%; translate: -50% 0;
+    width: 10px; height: 2px; border-radius: 2px; background: rgba(255,255,255,.4);
   }
-  .s69-cell.passed { opacity: .45; }
-  .s69-cell .mark { position: absolute; top: 2px; right: 3px; font-size: 8px; opacity: .8; }
-  /* The piece sits on top of a cell rather than inside it, so moving it is
-     one transform between two grid positions and the animation is free. */
-  .s69-cell.here {
-    background: #FDEBF7; color: var(--ink); border-color: #fff;
-    transform: scale(1.14); z-index: 2; box-shadow: 0 0 0 3px rgba(232,107,181,.55);
+
+  /* A piece is the suit its player chose. Two of them share a cell by
+     sitting on opposite corners rather than on top of each other. */
+  .s69-piece {
+    position: absolute; bottom: -3px; width: 17px; height: 17px;
+    border-radius: 50%; display: grid; place-items: center;
+    font-size: 11px; line-height: 1; font-weight: 700;
+    background: #FDEBF7; color: #350027;
+    box-shadow: 0 2px 6px rgba(0,0,0,.5); z-index: 3;
   }
+  .s69-piece.seat-0 { left: -3px; }
+  .s69-piece.seat-1 { right: -3px; }
+  .s69-piece.red { color: #C4256E; }
+  .s69-piece.mine { outline: 2px solid #E86BB5; }
+  .s69-cell.here { box-shadow: 0 0 0 2px rgba(232,107,181,.6); transform: scale(1.06); z-index: 2; }
   .s69-cell.flying { animation: s69-fly .6s cubic-bezier(.3,.9,.3,1); }
   @keyframes s69-fly {
-    0%   { transform: scale(1.14); }
-    45%  { transform: scale(1.5) rotate(8deg); }
-    100% { transform: scale(1.14); }
+    0%   { transform: scale(1.06); }
+    45%  { transform: scale(1.45) rotate(6deg); }
+    100% { transform: scale(1.06); }
   }
+
+  /* The suit picker at the start of a game. */
+  .s69-suits { display: flex; justify-content: center; gap: 10px; margin: 4px 0 2px; }
+  .s69-suit {
+    width: 54px; height: 54px; border-radius: 16px; font-size: 26px; line-height: 1;
+    background: rgba(255,255,255,.06); border: 1px solid rgba(255,255,255,.14);
+    color: var(--text-on-dark); cursor: pointer; display: grid; place-items: center;
+  }
+  .s69-suit.red { color: #FF89B8; }
+  .s69-suit.on { background: rgba(232,107,181,.28); border-color: rgba(232,107,181,.9); }
+  .s69-suit[disabled] { opacity: .25; pointer-events: none; }
 
   .s69-card {
     background: var(--card-bg); color: var(--ink); border-radius: var(--radius-card);
     padding: 18px 18px 16px;
-    /* flex-basis 0 with min-height 0, so the card shrinks to whatever is
-       left rather than pushing the dice off the bottom of the screen. */
+    /* flex-basis 0 with a floor, so the card shrinks to whatever is left
+       rather than pushing the dice off the bottom of the screen. */
     flex: 1 1 0; min-height: 96px; overflow-y: auto; -webkit-overflow-scrolling: touch;
     display: flex; flex-direction: column; gap: 10px;
   }
   .s69-card::-webkit-scrollbar { display: none; }
-  .s69-kind { font-size: 11px; font-weight: 800; letter-spacing: .1em; text-transform: uppercase; opacity: .5; }
   .s69-title { font-size: 22px; font-weight: 800; line-height: 1.2; }
   .s69-text { font-size: 15.5px; line-height: 1.55; }
   .s69-note {
@@ -543,21 +675,29 @@
   }
   .s69-note.up   { background: rgba(60,170,110,.14); }
   .s69-note.down { background: rgba(220,60,100,.12); }
+  .s69-note b { display: block; margin-bottom: 3px; }
+  /* Where the partner's piece is standing, under the player's own card. */
+  .s69-partner {
+    font-size: 13px; line-height: 1.5; color: rgba(53,0,39,.62);
+    border-top: 1px solid rgba(53,0,39,.12); padding-top: 10px; margin-top: 2px;
+  }
+  .s69-partner b { color: var(--ink); }
 
-  /* «Скрытое пламя»: the spoiler. Blurred until held, then eased in. */
-  .s69-spoiler { position: relative; margin-top: 4px; }
+  /* «Скрытое пламя»: blurred until tapped, and then it stays open. Closing
+     again mid-task would make a player re-open it with wet hands. */
+  .s69-spoiler { position: relative; margin-top: 4px; cursor: pointer; }
   .s69-spoiler .veil {
-    filter: blur(9px); transition: filter .35s ease; font-size: 15.5px; line-height: 1.55;
+    filter: blur(9px); transition: filter .45s ease; font-size: 15.5px; line-height: 1.55;
     user-select: none; -webkit-user-select: none;
   }
-  .s69-spoiler.open .veil { filter: blur(0); }
+  .s69-spoiler.open .veil { filter: blur(0); user-select: auto; -webkit-user-select: auto; }
   .s69-spoiler .hint {
-    display: block; text-align: center; font-size: 12px; opacity: .55;
-    margin-top: 8px; color: var(--ink);
+    display: block; text-align: center; font-size: 12px; opacity: .55; margin-top: 8px;
   }
+  .s69-spoiler.open .hint { display: none; }
 
   .s69-turn { display: flex; justify-content: center; margin-bottom: 8px; flex: 0 0 auto; }
-  .s69-dice, .s69-reacts, .s69-music { flex: 0 0 auto; }
+  .s69-dice { flex: 0 0 auto; }
   .s69-dice {
     width: 100%; margin-top: 10px; border: 0; border-radius: 18px; padding: 16px;
     font: inherit; font-size: 17px; font-weight: 800; color: #fff; cursor: pointer;
@@ -566,29 +706,14 @@
   }
   .s69-dice:active { transform: scale(.97); }
   .s69-dice[disabled] { opacity: .3; pointer-events: none; }
-  .s69-dice .pip { font-size: 22px; }
-  .s69-dice.rolling .pip { animation: s69-tumble .5s linear infinite; display: inline-block; }
+  /* The die face, drawn from the number the server rolled rather than an
+     emoji, so it can show what actually came up. */
+  .s69-die {
+    width: 26px; height: 26px; border-radius: 6px; background: #fff; color: #350027;
+    display: grid; place-items: center; font-size: 15px; font-weight: 800;
+  }
+  .s69-dice.rolling .s69-die { animation: s69-tumble .45s linear infinite; }
   @keyframes s69-tumble { to { transform: rotate(360deg); } }
-
-  .s69-reacts { display: flex; justify-content: center; gap: 6px; margin-top: 8px; }
-  .s69-react {
-    border: 1px solid rgba(255,255,255,.14); background: rgba(255,255,255,.06);
-    border-radius: 999px; width: 42px; height: 38px; font-size: 18px; cursor: pointer;
-  }
-  .s69-react:active { transform: scale(.88); }
-  /* An incoming reaction floats up the middle of the screen and is gone. */
-  .s69-float {
-    position: absolute; left: 50%; bottom: 22%; font-size: 40px; z-index: 40;
-    pointer-events: none; animation: s69-rise 1.5s ease-out forwards;
-  }
-  @keyframes s69-rise {
-    0%   { opacity: 0; transform: translate(-50%, 0) scale(.5); }
-    25%  { opacity: 1; transform: translate(-50%, -30px) scale(1.15); }
-    100% { opacity: 0; transform: translate(-50%, -160px) scale(1); }
-  }
-
-  .s69-music { display: flex; justify-content: center; gap: 6px; flex-wrap: wrap; margin-top: 10px; }
-  .s69-music .chip { font-size: 11.5px; padding: 6px 11px; }
 
   .s69-finale { display: flex; flex-direction: column; gap: 12px; width: 100%; max-width: 320px; }
   .s69-finale .btn { margin-top: 0; }
@@ -624,9 +749,13 @@
     </div>
     <button class="btn btn-play" id="btnPlay" data-i18n="play"></button>
     <button class="btn btn-second" id="btnCoop" data-i18n="coopBtn"></button>
-    <button class="btn btn-second" id="btnLibrary" data-i18n="libraryBtn"></button>
     <button class="btn btn-second" id="btnCompat" data-i18n="compatBtn"></button>
     <button class="btn btn-second" id="btnS69" data-i18n="s69Btn"></button>
+    <!-- The Library used to be one button hiding six things. Its modules are
+         listed here instead, filled in by renderHomeModules() once
+         /api/library answers, so a module added on the server appears here
+         without another button being written by hand. -->
+    <div id="homeModules"></div>
   </section>
 
   <!-- COOP entry -->
@@ -661,6 +790,16 @@
       <div style="width:40px"></div>
     </div>
     <div id="libDetailBody"></div>
+  </section>
+
+  <!-- GUIDE: a module read as a document rather than swiped as a deck. -->
+  <section class="screen" id="guide">
+    <div class="top">
+      <button class="icon-btn" id="guideBack">←</button>
+      <div class="title" id="guideTitle"></div>
+      <div style="width:40px"></div>
+    </div>
+    <div id="guideBody"></div>
   </section>
 
   <!-- LIBRARY DECK: the same stage, controls and swipe as the game deck,
@@ -748,6 +887,9 @@
     <div class="coop-box">
       <p class="s69-intro" data-i18n="s69Intro"></p>
       <button class="btn btn-play" id="btnS69Resume" style="margin-top:0;display:none"></button>
+      <button class="btn btn-ghost" id="btnS69Restart" style="margin-top:0;display:none"></button>
+      <p id="s69PickHint" data-i18n="s69Pick"></p>
+      <div class="s69-suits" id="s69Suits"></div>
       <button class="btn btn-play" id="btnS69Duo" data-i18n="s69Duo" style="margin-top:0"></button>
       <button class="btn btn-second" id="btnS69Solo" data-i18n="s69Solo" style="margin-top:0"></button>
       <p data-i18n="s69Or"></p>
@@ -783,8 +925,6 @@
     <div class="s69-turn"><span class="chip" id="s69TurnChip"></span></div>
     <div class="s69-card" id="s69Cell"></div>
     <button class="s69-dice" id="s69Dice"></button>
-    <div class="s69-reacts" id="s69Reacts"></div>
-    <div class="s69-music" id="s69MusicRow"></div>
   </section>
 
   <!-- COOP invite / waiting -->
@@ -916,7 +1056,7 @@
   // Russian is the only language the Mini App ships. The other two are in
   // git history alongside the bot's YAML, one revert away.
   const I18N = {
-      tagline: 'Карточная игра для пар и разговоров, которые сближают',
+      tagline: 'Интерактивный проект о любви «от больше никогда» до «навсегда»',
       play: 'Играть', chooseTheme: 'Выбери тему', level: 'Уровень',
       questions: 'Вопросы', tasks: 'Задания',
       hint: 'Свайпни карту или нажми →',
@@ -932,10 +1072,11 @@
       paywallTitle: 'Бесплатные карты закончились',
       paywallText: 'Вы прошли {free} бесплатных карт из {total}. Полный доступ откроет все колоды целиком: сотни вопросов, все уровни, навсегда.',
       paywallBuy: '💳 Открыть всё', paywallClose: 'Закрыть',
+      paywallReferral: 'Вас пригласили, поэтому цена со скидкой {percent}%.',
       freeCount: 'бесплатно {free} из {total}',
       shareText: 'Вопрос из VECHNOST, игры для пар',
       shareError: 'Не получилось поделиться',
-      coopBtn: '👥 Играть вдвоём', coopTitle: 'Игра вдвоём',
+      coopBtn: '👥 Пригласить партнёра', coopTitle: 'Игра вдвоём',
       coopCreate: 'Создать игру', coopOr: 'или введи код, который прислал партнёр',
       coopJoinBtn: 'Присоединиться',
       inviteTitle: 'Код для партнёра',
@@ -972,15 +1113,23 @@
       compatDelete: 'Удалить результат и ответы',
       compatDeleteConfirm: 'Удалить тест? Ваши ответы и ответы партнёра будут стёрты навсегда.',
       compatDeleted: 'Тест удалён',
-      s69Btn: '🎲 69 ступеней 18+', s69Title: '69 ступеней',
+      s69Btn: '🎲 Территория наслаждения 18+', s69Title: '69 ступеней',
       s69Tagline: 'Территория искушения',
-      s69Intro: 'Игровое поле на 69 клеток. Змеи искушения тянут вниз, к нежности. Стрелы любви бросают вверх, к пику. Дойти нужно до 69-й: она не отпустит, пока обоим не будет хорошо.',
+      s69Intro: 'Поле на 69 клеток и две фишки. Змеи искушения тянут вниз, к нежности, стрелы любви бросают вверх, к пику. Игра не кончится, пока оба не дойдут до 69-й.',
       s69Age: 'Только 18+. Играйте, когда вас двое и никто не помешает.',
       s69Duo: 'Играть на двух телефонах',
       s69Solo: 'Один телефон на двоих',
       s69Or: 'или введи код, который прислал партнёр',
       s69Resume: 'Продолжить игру',
-      s69ResumeHint: 'Ваша фишка ждёт на {n}-й клетке',
+      s69ResumeHint: 'ваша фишка ждёт на {n}-й клетке',
+      s69Restart: 'Начать заново',
+      s69RestartConfirm: 'Начать заново? Текущая игра и обе фишки будут стёрты.',
+      s69Pick: 'Выбери свою фишку',
+      s69Suit: { hearts: 'Черви', spades: 'Пики', clubs: 'Трефы', diamonds: 'Бубны' },
+      s69PieceTaken: 'Эту фишку уже взял партнёр. Выбери другую.',
+      s69OnCell: 'клетка {n}',
+      s69YouAreHome: 'Ты на 69-й. Ждём партнёра.',
+      s69BothHome: 'Оба на вершине',
       s69InviteHint: 'Отправь этот код партнёру. Кубик оживёт, как только он войдёт.',
       s69InviteMsg: 'Пройдём «69 ступеней» в VECHNOST? 🔥 Открой {bot} → «69 ступеней» → введи код: {code}',
       s69Waiting: 'Ждём партнёра…',
@@ -990,16 +1139,11 @@
       s69YourTurn: '✨ Твой ход',
       s69PartnerTurn: 'Ходит {name}. Смотри.',
       s69NotYourTurn: 'Сейчас ход партнёра',
-      s69Cell: 'Клетка {n} из 69',
       s69Ladder: 'Стрела любви',
       s69Snake: 'Змея искушения',
-      s69Joker: 'Джокер',
       s69Reveal: 'Нажми, чтобы открыть',
-      s69Revealed: 'Нажми, чтобы скрыть',
-      s69PartnerSecret: 'У партнёра задание для тебя',
+
       s69Milestone: 'Каждая десятая',
-      s69Map: 'Карта',
-      s69Close: 'Закрыть',
       s69FinaleTitle: 'Клетка 69',
       s69FinaleWait: 'Партнёр выбирает финал…',
       s69Done: 'Вы прошли этот путь',
@@ -1012,11 +1156,6 @@
       s69Full: 'В этой игре уже двое',
       s69SoloJoin: 'Эта игра идёт на одном телефоне',
       s69Paywall: '«69 ступеней» входят в полный доступ',
-      s69Music: 'Музыка',
-      s69MusicOff: 'Тишина',
-      s69MusicRomantic: 'Romantic',
-      s69MusicHouse: 'Deep House',
-      s69MusicTechno: 'Dark Techno',
       s69Seat: { creator: 'Партнёр 1', guest: 'Партнёр 2' },
       themes: {
         'Acquaintance': { name: 'Знакомство', desc: 'Узнать друг друга по-настоящему', emoji: '✨', grad: 'g-acq' },
@@ -1117,7 +1256,8 @@
         else if ($('levels').classList.contains('active')) show('themes');
         else if ($('themes').classList.contains('active')) { COOP.creating = false; show('home'); }
         else if ($('libDeck').classList.contains('active')) libDeckLeave();
-        else if ($('libraryDetail').classList.contains('active')) show('library');
+        else if ($('guide').classList.contains('active')) $('guideBack').click();
+        else if ($('libraryDetail').classList.contains('active')) $('libBack').click();
         else if ($('library').classList.contains('active')) show('home');
         else if ($('compatResult').classList.contains('active')) show('compat');
         else if ($('compatQuiz').classList.contains('active')) { stopCompatPoll(); show('compat'); }
@@ -1145,7 +1285,8 @@
   const fmt = (tpl, vars) => tpl.replace(/\{(\w+)\}/g, (_, k) => vars[k] != null ? vars[k] : '');
 
   function showPaywall(freeCount, totalCount) {
-    $('paywallText').textContent = fmt(T().paywallText, { free: freeCount, total: totalCount });
+    $('paywallText').textContent = fmt(T().paywallText, { free: freeCount, total: totalCount }) +
+      (ACCESS.discount_percent ? '\n\n' + fmt(T().paywallReferral, { percent: ACCESS.discount_percent }) : '');
     $('paywallBuy').textContent = T().paywallBuy + (ACCESS.price ? ' – ' + ACCESS.price : '');
     $('paywallBuy').style.display = ACCESS.payment_url ? '' : 'none';
     $('paywall').classList.add('show');
@@ -1387,8 +1528,12 @@
   // anything else built from cardHTML all get it without knowing about it.
   function markZoneEdges(z) {
     const slack = z.scrollHeight - z.clientHeight;
-    z.classList.toggle('cut-top', z.scrollTop > 1);
-    z.classList.toggle('cut-bottom', slack > 1 && z.scrollTop < slack - 1);
+    // The flags go on the face, not on the zone: the fade is painted there
+    // precisely so the scroller stays hit-testable. See the CSS note.
+    const face = z.parentElement;
+    if (!face) return;
+    face.classList.toggle('cut-top', z.scrollTop > 1);
+    face.classList.toggle('cut-bottom', slack > 1 && z.scrollTop < slack - 1);
   }
   function refreshZoneEdges() { document.querySelectorAll('.q-zone').forEach(markZoneEdges); }
   // scroll doesn't bubble, so listen in the capture phase.
@@ -1954,6 +2099,11 @@
 
   /* ---------------- library ---------------- */
   let LIB_NSFW_PENDING = null;   // {module, category} to open after the 18+ overlay
+  // Where a module's back button goes. The modules are listed on the home
+  // screen now, but the Library screen still exists and is still where the
+  // daily push's deep link (?screen=library) lands, so a module can be
+  // reached from either and has to return to the one it came from.
+  let LIB_BACK_TO = 'home';
 
   // The 18+ flag is device-scoped and shared with the Sex deck, so it is only
   // ever sent — and only ever asked for — when the user reaches for something
@@ -1966,6 +2116,28 @@
     const res = await fetch(path, { cache: 'no-cache', headers });
     if (!res.ok) throw new Error('http ' + res.status);
     return res.json();
+  }
+
+  // The home screen's own copy of the module list. Same payload as the
+  // Library screen, same tap target — the Library screen stays as the place
+  // a module's back button returns to, so nothing below it had to change.
+  async function renderHomeModules() {
+    const box = $('homeModules');
+    if (!box) return;
+    try {
+      const data = await libFetch('/api/library?lang=' + lang + libNsfwParam());
+      box.innerHTML = data.modules.map(m => `
+        <button class="btn btn-second home-mod" data-module="${m.id}">
+          ${escapeHTML(m.title)}${m.locked ? ' 🔒' : ''}
+        </button>`).join('');
+      box.querySelectorAll('[data-module]').forEach(btn => {
+        btn.onclick = () => { haptic('light'); LIB_BACK_TO = 'home'; openLibModule(btn.dataset.module); };
+      });
+    } catch (e) {
+      // The rest of the home screen still works; a missing row is not worth
+      // a toast on the first screen a user ever sees.
+      box.innerHTML = '';
+    }
   }
 
   async function openLibrary() {
@@ -1981,7 +2153,7 @@
           <span class="t-desc">${m.count}${m.locked ? ' · 🔒' : ''}</span>
         </button>`).join('');
       box.querySelectorAll('[data-module]').forEach(btn => {
-        btn.onclick = () => openLibModule(btn.dataset.module);
+        btn.onclick = () => { LIB_BACK_TO = 'library'; openLibModule(btn.dataset.module); };
       });
     } catch (e) {
       toast(T().libLoadError);
@@ -1995,6 +2167,10 @@
     try {
       const data = await libFetch(`/api/library/${id}?lang=${lang}${libNsfwParam()}`);
       const title = data.emoji + ' ' + data.title;
+
+      // A guide is a document: it opens on its own screen and is read, not
+      // swiped. Step by step, drawing beside the words, tips underneath.
+      if (data.type === 'guide') { openGuide(data, title, id); return; }
 
       // A daily or practice module is one deck and nothing else — no category
       // screen to stop at on the way in, or back out to.
@@ -2190,11 +2366,10 @@
   };
   $('libDeckBack').onclick = libDeckLeave;
 
-  $('btnLibrary').onclick = () => { haptic('light'); openLibrary(); };
   $('libBackHome').onclick = () => show('home');
   // Re-fetch rather than just show: an 18+ confirmation taken inside a module
   // changes the counts on the index, and the two screens must agree.
-  $('libBack').onclick = () => openLibrary();
+  $('libBack').onclick = () => (LIB_BACK_TO === 'library' ? openLibrary() : show('home'));
 
   /* ---------------- compatibility test ---------------- */
   // `pending` is an answer POST in flight; `resultCode` is the test whose
@@ -2500,20 +2675,362 @@
     } catch (e) { toast(T().shareError); }
   };
 
+  /* ---------------- guide document ---------------- */
+
+  function guideItemHTML(item) {
+    const tips = (item.tips || []).length
+      ? '<ul class="guide-tips">' +
+        item.tips.map(t => '<li>' + escapeHTML(t) + '</li>').join('') + '</ul>'
+      : '';
+    return '<div class="guide-item">' +
+             guideArt(item.art) +
+             '<div>' +
+               '<div class="guide-item-title">' + escapeHTML(item.title) + '</div>' +
+               '<div class="guide-item-text">' + escapeHTML(item.text) + '</div>' +
+             '</div>' +
+             tips +
+           '</div>';
+  }
+
+  function guideStepHTML(step) {
+    return '<section class="guide-step">' +
+             '<div class="guide-step-head">' +
+               '<span class="guide-num">' + step.number + '</span>' +
+               '<span class="guide-step-title">' + escapeHTML(step.title) + '</span>' +
+             '</div>' +
+             '<p class="guide-lead">' + escapeHTML(step.lead) + '</p>' +
+             step.items.map(guideItemHTML).join('') +
+           '</section>';
+  }
+
+  function openGuide(data, title, moduleId) {
+    $('guideTitle').textContent = title;
+    const parts = ['<p class="guide-intro">' + escapeHTML(data.intro || '') + '</p>'];
+    parts.push((data.steps || []).map(guideStepHTML).join(''));
+
+    // Steps held back for want of an 18+ confirmation are advertised by
+    // title and size only, never by content — the same rule the Library's
+    // categories follow, and the only way the confirmation is reachable.
+    (data.nsfw_withheld || []).forEach(w => {
+      parts.push('<button class="guide-nsfw" data-nsfw="' + escapeHTML(w.id) + '">' +
+        escapeHTML(w.title) + ' · ' + w.total + '<br>' + escapeHTML(T().nsfwTitle) + '</button>');
+    });
+
+    if (data.locked) {
+      parts.push('<div class="guide-locked">' +
+        escapeHTML(fmt(T().libFreeNote, { free: data.free_count, total: data.total })) +
+        (ACCESS.payment_url
+          ? '<button class="btn btn-play q-lock" id="guideBuy">' + escapeHTML(T().libLocked) + '</button>'
+          : '') +
+        '</div>');
+    }
+
+    $('guideBody').innerHTML = parts.join('');
+    $('guideBody').scrollTop = 0;
+    $('guideBody').querySelectorAll('[data-nsfw]').forEach(btn => {
+      btn.onclick = () => {
+        LIB_NSFW_PENDING = { module: moduleId, category: null };
+        showNsfw('lib');
+      };
+    });
+    const buy = $('guideBuy');
+    if (buy) buy.onclick = () => $('paywallBuy').click();
+    show('guide');
+  }
+
+  $('guideBack').onclick = () => (LIB_BACK_TO === 'library' ? openLibrary() : show('home'));
+
+  /* ---------------- guide art ---------------- */
+  // Schematic line drawings for the nude masterclass: a figure in the pose,
+  // a lamp where the light stands and a camera where the phone goes. Drawn
+  // from coordinates rather than authored as path data, so twenty-nine
+  // pictures stay consistent with each other and a pose can be nudged by
+  // moving one number.
+  //
+  // The frame is 120x130 with the floor at y=118. Everything uses
+  // currentColor, so the same drawing works on the pink card and on the dark
+  // shell without a second copy.
+
+  const ART_W = 120, ART_H = 130, ART_FLOOR = 118;
+
+  // Where a lamp sits, and which way it throws. `to` is the point it aims at.
+  const ART_LIGHTS = {
+    left:   [14, 46], right:  [106, 46],
+    back:   [60, 16], front:  [60, 122],
+    top:    [60, 12], topleft: [20, 18]
+  };
+
+  function artLamp(where, aimX, aimY) {
+    const at = ART_LIGHTS[where];
+    if (!at) return '';
+    const rays = [0, 60, 120, 180, 240, 300].map(deg => {
+      const r = deg * Math.PI / 180;
+      return `<line x1="${(at[0] + Math.cos(r) * 7).toFixed(1)}" y1="${(at[1] + Math.sin(r) * 7).toFixed(1)}"
+                    x2="${(at[0] + Math.cos(r) * 11).toFixed(1)}" y2="${(at[1] + Math.sin(r) * 11).toFixed(1)}"/>`;
+    }).join('');
+    return `<g class="art-lamp">
+        <circle cx="${at[0]}" cy="${at[1]}" r="5.5"/>${rays}
+        <line class="art-ray" x1="${at[0]}" y1="${at[1]}" x2="${aimX}" y2="${aimY}"/>
+      </g>`;
+  }
+
+  // The phone, with a mark for the height it is held at.
+  function artCamera(x, y) {
+    return `<g class="art-cam">
+        <rect x="${x - 7}" y="${y - 10}" width="14" height="20" rx="3"/>
+        <circle cx="${x}" cy="${y - 3}" r="3.2"/>
+      </g>`;
+  }
+
+  // A figure from named joints. The body gets real width: shoulders and hips
+  // are derived perpendicular to the spine rather than authored, so limbs
+  // leave the torso at its edges instead of fanning out of one point at the
+  // neck, and a symmetric pose no longer draws its left and right arms on
+  // top of each other. Missing limbs are simply not drawn, which is how a
+  // torso-only frame ("Текстура", "Прикосновение") is expressed.
+  const ART_SHOULDER = 8.5, ART_HIP = 6.5;
+
+  function artFigure(j) {
+    const line = (a, b) => (a && b) ? `<line x1="${a[0]}" y1="${a[1]}" x2="${b[0]}" y2="${b[1]}"/>` : '';
+    const head = j.head ? `<circle cx="${j.head[0]}" cy="${j.head[1]}" r="7"/>` : '';
+
+    // The unit vector across the spine. A degenerate spine (neck on hip)
+    // would divide by zero, so it falls back to plain horizontal.
+    let px = 1, py = 0;
+    if (j.neck && j.hip) {
+      const dx = j.hip[0] - j.neck[0], dy = j.hip[1] - j.neck[1];
+      const len = Math.hypot(dx, dy) || 1;
+      px = -dy / len; py = dx / len;
+    }
+    const off = (pt, w) => pt ? [pt[0] + px * w, pt[1] + py * w] : null;
+    const shL = off(j.neck, -ART_SHOULDER), shR = off(j.neck, ART_SHOULDER);
+    const hipL = off(j.hip, -ART_HIP), hipR = off(j.hip, ART_HIP);
+
+    const torso = (shL && hipR)
+      ? `<path d="M${shL[0].toFixed(1)} ${shL[1].toFixed(1)}
+                  L${shR[0].toFixed(1)} ${shR[1].toFixed(1)}
+                  L${hipR[0].toFixed(1)} ${hipR[1].toFixed(1)}
+                  L${hipL[0].toFixed(1)} ${hipL[1].toFixed(1)} Z"/>`
+      : '';
+
+    return `<g class="art-body">
+        ${head}
+        ${line(j.head && j.neck ? [j.head[0], j.head[1] + 7] : null, j.neck)}
+        ${torso}
+        ${line(shL, j.elbowL)}${line(j.elbowL, j.handL)}
+        ${line(shR, j.elbowR)}${line(j.elbowR, j.handR)}
+        ${line(hipL, j.kneeL)}${line(j.kneeL, j.footL)}
+        ${line(hipR, j.kneeR)}${line(j.kneeR, j.footR)}
+      </g>`;
+  }
+
+  // Pose coordinates. Read them as a side or back view of the body, with the
+  // floor at the bottom of the frame.
+  const ART_POSES = {
+    'her-1': { light: 'left', cam: [104, 92], prop: 'bed', j: {
+      head:[56,26], neck:[56,40], hip:[56,80],
+      elbowL:[42,58], handL:[38,74], elbowR:[46,60], handR:[44,76],
+      kneeL:[38,62], footL:[42,92], kneeR:[84,90], footR:[104,96] } },
+    'her-2': { light: 'back', cam: [60, 124], prop: 'floor', j: {
+      head:[28,54], neck:[40,62], hip:[84,80],
+      elbowL:[30,80], handL:[26,96], elbowR:[38,58], handR:[30,48],
+      kneeL:[104,68], footL:[86,58], kneeR:[108,90], footR:[112,104] } },
+    'her-3': { light: 'front', cam: [60, 124], prop: 'floor', j: {
+      head:[60,30], neck:[60,44], hip:[60,80],
+      elbowL:[42,32], handL:[52,20], elbowR:[78,32], handR:[68,20],
+      kneeL:[52,96], footL:[52,116], kneeR:[70,96], footR:[70,116] } },
+    'her-4': { light: 'topleft', cam: [104, 96], prop: 'floor', j: {
+      head:[56,40], neck:[56,54], hip:[56,86],
+      elbowL:[40,72], handL:[62,80], elbowR:[46,74], handR:[70,82],
+      kneeL:[76,68], footL:[80,96], kneeR:[82,74], footR:[86,100] } },
+    'her-5': { light: 'back', cam: [60, 124], prop: 'window', j: {
+      head:[60,28], neck:[60,42], hip:[60,80],
+      elbowL:[48,60], handL:[46,80], elbowR:[72,60], handR:[74,80],
+      kneeL:[50,98], footL:[46,116], kneeR:[72,98], footR:[78,112] } },
+    'her-6': { light: 'top', cam: [60, 124], prop: 'floor', j: {
+      head:[26,84], neck:[40,84], hip:[80,84],
+      elbowL:[26,68], handL:[12,72], elbowR:[26,98], handR:[12,94],
+      kneeL:[98,66], footL:[80,58], kneeR:[100,74], footR:[84,66] } },
+    'her-7': { light: 'left', cam: [104, 74], prop: 'crop', j: {
+      head:[60,12], neck:[60,32], hip:[60,100],
+      elbowL:[34,58], handL:[54,42], elbowR:[86,62], handR:[64,66] } },
+    'her-8': { light: 'back', cam: [60, 124], prop: 'floor', j: {
+      head:[60,38], neck:[60,54], hip:[60,94],
+      elbowL:[38,52], handL:[56,34], elbowR:[82,52], handR:[64,34],
+      kneeL:[34,102], footL:[66,112], kneeR:[86,102], footR:[54,112] } },
+    'her-9': { light: 'left', cam: [104, 92], prop: 'blinds', j: {
+      head:[60,28], neck:[60,42], hip:[60,80],
+      elbowL:[42,58], handL:[52,76], elbowR:[78,58], handR:[68,76],
+      kneeL:[52,98], footL:[52,116], kneeR:[70,98], footR:[70,116] } },
+    'her-10': { light: 'left', cam: [104, 88], prop: 'chair', j: {
+      head:[58,40], neck:[58,54], hip:[58,86],
+      elbowL:[44,58], handL:[46,44], elbowR:[74,58], handR:[72,44],
+      kneeL:[42,100], footL:[38,116], kneeR:[76,100], footR:[80,116] } },
+
+    'him-1': { light: 'left', cam: [60, 124], prop: 'floor', j: {
+      head:[60,28], neck:[60,44], hip:[60,84],
+      elbowL:[38,40], handL:[52,24], elbowR:[82,40], handR:[68,24],
+      kneeL:[46,100], footL:[42,116], kneeR:[74,100], footR:[78,116] } },
+    'him-2': { light: 'top', cam: [104, 92], prop: 'wall', j: {
+      head:[46,44], neck:[46,58], hip:[46,90],
+      elbowL:[62,72], handL:[52,54], elbowR:[40,76], handR:[36,92],
+      kneeL:[70,68], footL:[74,96], kneeR:[86,92], footR:[104,98] } },
+    'him-3': { light: 'right', cam: [60, 124], prop: 'floor', j: {
+      head:[60,28], neck:[60,44], hip:[60,84],
+      elbowL:[44,62], handL:[58,74], elbowR:[76,62], handR:[62,74],
+      kneeL:[50,100], footL:[48,116], kneeR:[70,100], footR:[72,116] } },
+    'him-4': { light: 'front', cam: [60, 124], prop: 'floor', j: {
+      head:[60,32], neck:[60,46], hip:[60,84],
+      elbowL:[44,30], handL:[40,14], elbowR:[76,30], handR:[80,14],
+      kneeL:[52,100], footL:[50,116], kneeR:[68,100], footR:[70,116] } },
+    'him-5': { light: 'back', cam: [60, 124], prop: 'floor', j: {
+      head:[58,28], neck:[58,44], hip:[58,84],
+      elbowL:[48,62], handL:[50,80], elbowR:[68,62], handR:[66,80],
+      kneeL:[50,100], footL:[46,116], kneeR:[68,100], footR:[72,116] } },
+    'him-6': { light: 'left', cam: [104, 84], prop: 'wall', j: {
+      head:[42,44], neck:[50,54], hip:[80,78],
+      elbowL:[36,40], handL:[26,28], elbowR:[40,50], handR:[28,34],
+      kneeL:[84,98], footL:[84,116], kneeR:[94,96], footR:[98,116] } },
+    'him-7': { light: 'topleft', cam: [104, 92], prop: 'bath', j: {
+      head:[56,42], neck:[56,56], hip:[56,86],
+      elbowL:[42,70], handL:[48,88], elbowR:[70,70], handR:[64,88],
+      kneeL:[42,92], footL:[40,116], kneeR:[70,92], footR:[72,116] } },
+    'him-8': { light: 'left', cam: [60, 124], prop: 'floor', j: {
+      head:[36,64], neck:[50,72], hip:[92,88],
+      elbowL:[42,90], handL:[38,72], elbowR:[52,92], handR:[48,74],
+      kneeL:[106,98], footL:[112,86], kneeR:[104,104], footR:[110,94] } },
+    'him-9': { light: 'right', cam: [60, 124], prop: 'chair', j: {
+      head:[52,36], neck:[52,50], hip:[52,84],
+      elbowL:[40,66], handL:[56,84], elbowR:[64,66], handR:[70,80],
+      kneeL:[76,80], footL:[70,104], kneeR:[80,88], footR:[92,108] } },
+    'him-10': { light: 'left', cam: [104, 70], prop: 'crop', j: {
+      head:[60,12], neck:[60,34], hip:[60,100],
+      elbowL:[32,56], handL:[74,64], elbowR:[88,56], handR:[46,68] } }
+  };
+
+  // The props that make a pose legible: the surface it happens on.
+  function artProp(kind) {
+    if (kind === 'floor') return `<line class="art-prop" x1="8" y1="${ART_FLOOR}" x2="112" y2="${ART_FLOOR}"/>`;
+    if (kind === 'bed') return `<path class="art-prop" d="M8 100 H84 V${ART_FLOOR} H8 Z"/>`;
+    if (kind === 'wall') return `<line class="art-prop" x1="18" y1="14" x2="18" y2="${ART_FLOOR}"/>
+                                 <line class="art-prop" x1="8" y1="${ART_FLOOR}" x2="112" y2="${ART_FLOOR}"/>`;
+    if (kind === 'chair') return `<path class="art-prop" d="M38 90 H84 M38 90 V${ART_FLOOR} M84 90 V${ART_FLOOR} M38 62 V90"/>`;
+    if (kind === 'bath') return `<path class="art-prop" d="M28 92 H96 V${ART_FLOOR} H28 Z"/>`;
+    if (kind === 'window') return `<path class="art-prop" d="M34 10 H86 V96 H34 Z M60 10 V96 M34 52 H86"/>`;
+    if (kind === 'blinds') return [20, 34, 48, 62, 76, 90].map(y =>
+      `<line class="art-prop" x1="24" y1="${y}" x2="96" y2="${y + 8}"/>`).join('');
+    // The frame edge of a close-up: without it a headless torso reads as an
+    // arrow rather than as "this much of the body is in shot".
+    if (kind === 'crop') return `<rect class="art-crop" x="14" y="30" width="92" height="86" rx="4"/>`;
+    return '';
+  }
+
+  function artSvg(inner) {
+    return `<svg class="guide-art" viewBox="0 0 ${ART_W} ${ART_H}" role="img" aria-hidden="true">${inner}</svg>`;
+  }
+
+  // The lighting schematics: seen from above, so "where the lamp stands
+  // relative to you and the phone" is a plan a reader can actually walk.
+  function artLightScheme(key) {
+    const you = `<circle class="art-body" cx="60" cy="64" r="13"/>
+                 <line class="art-body" x1="60" y1="51" x2="60" y2="46"/>`;
+    const shade = (d) => `<path class="art-shade" d="${d}"/>`;
+    if (key === 'light-side') {
+      return artSvg(you + shade('M60 51 A13 13 0 0 0 60 77 Z') +
+        artLamp('left', 48, 64) + artCamera(60, 112) + artProp('floor'));
+    }
+    if (key === 'light-rim') {
+      return artSvg(you + shade('M60 51 A13 13 0 0 0 60 77 A13 13 0 0 0 60 51 Z') +
+        artLamp('back', 60, 52) + artCamera(60, 112) + artProp('floor'));
+    }
+    if (key === 'light-soft') {
+      return artSvg(you + `<circle class="art-diffuse" cx="20" cy="18" r="17"/>` +
+        artLamp('topleft', 50, 56) + artCamera(60, 112) + artProp('floor'));
+    }
+    if (key === 'light-stripes') {
+      return artSvg(artProp('blinds') + you +
+        artLamp('left', 48, 64) + artCamera(60, 112));
+    }
+    return '';
+  }
+
+  function artCameraScheme(key) {
+    const stand = `<line class="art-body" x1="60" y1="34" x2="60" y2="74"/>
+                   <circle class="art-body" cx="60" cy="26" r="7.5"/>
+                   <line class="art-body" x1="60" y1="74" x2="52" y2="${ART_FLOOR}"/>
+                   <line class="art-body" x1="60" y1="74" x2="68" y2="${ART_FLOOR}"/>`;
+    if (key === 'camera-height') {
+      return artSvg(stand + artProp('floor') + artCamera(24, 74) +
+        `<line class="art-ray" x1="24" y1="74" x2="52" y2="74"/>
+         <text class="art-note" x="24" y="96">пупок</text>`);
+    }
+    if (key === 'camera-exposure') {
+      return artSvg(stand + artProp('floor') + artCamera(24, 60) +
+        `<circle class="art-lamp" cx="24" cy="30" r="6"/>
+         <path class="art-ray" d="M24 40 V50"/>
+         <text class="art-note" x="14" y="106">ярче → вниз</text>`);
+    }
+    if (key === 'camera-focus') {
+      return artSvg(stand + artProp('floor') + artCamera(24, 60) +
+        `<circle class="art-focus" cx="60" cy="46" r="9"/>
+         <line class="art-ray" x1="34" y1="58" x2="52" y2="48"/>`);
+    }
+    if (key === 'edit-bw') {
+      return artSvg(`<rect class="art-body" x="20" y="26" width="80" height="76" rx="6"/>
+        <path class="art-shade" d="M60 26 H100 V102 H60 Z"/>
+        <line class="art-body" x1="60" y1="26" x2="60" y2="102"/>`);
+    }
+    if (key === 'edit-privacy') {
+      return artSvg(`<rect class="art-body" x="20" y="26" width="80" height="76" rx="6"/>
+        <circle class="art-body" cx="60" cy="52" r="11"/>
+        <path class="art-shade" d="M44 40 H76 V64 H44 Z"/>
+        <line class="art-body" x1="40" y1="82" x2="80" y2="82"/>`);
+    }
+    return '';
+  }
+
+  // The one entry point: a key in, an SVG string out, '' when nothing matches
+  // so a new content key shows as a blank slot rather than breaking the page.
+  function guideArt(key) {
+    if (!key) return '';
+    const pose = ART_POSES[key];
+    if (pose) {
+      const aim = pose.j.hip || pose.j.neck || [60, 64];
+      return artSvg(artProp(pose.prop) + artFigure(pose.j) +
+                    artLamp(pose.light, aim[0], aim[1]) +
+                    artCamera(pose.cam[0], pose.cam[1]));
+    }
+    if (key.indexOf('light-') === 0) return artLightScheme(key);
+    return artCameraScheme(key);
+  }
+
   /* ---------------- 69 ступеней ---------------- */
   // Reuses coopFetch: the same auth headers, the same guest-id fallback, the
   // same error shape. Its own state, because a board is not a deck.
+  //
+  // Each partner has their own piece and walks their own board; the game
+  // ends when both are standing on 69. The server owns the dice and the
+  // positions, so this file only ever draws what it was told.
   const G = {
     code: null,      // the game being played
     st: null,        // last state from the server
     board: null,     // the map, fetched once per game
+    byId: null,      // cell metadata by number, for drawing
     timer: null,     // poll handle
-    seen: 0,         // highest reaction seq already animated
     rolling: false,  // guards a double tap on the dice
-    settling: null   // portal animation timer
+    settling: null,  // portal animation timer
+    piece: 'hearts', // the suit picked on the entry screen
+    opened: null     // the cell whose secret is already open, so it stays open
   };
 
-  const S69_REACTIONS = ['🔥', '❤️', '💦', '😈', '👏'];
+  // The four suits the deck is printed with. Characters, not emoji: the board
+  // is a card game, and an emoji picker on it looked like a chat.
+  const S69_SUITS = {
+    hearts:   { glyph: '♥', red: true },
+    spades:   { glyph: '♠', red: false },
+    clubs:    { glyph: '♣', red: false },
+    diamonds: { glyph: '♦', red: true }
+  };
   const S69_COLS = 6;
 
   function s69Error(e) {
@@ -2525,14 +3042,15 @@
   }
 
   function showS69Paywall() {
-    $('paywallText').textContent = T().s69Paywall;
+    $('paywallText').textContent = T().s69Paywall +
+      (ACCESS.discount_percent ? '\n\n' + fmt(T().paywallReferral, { percent: ACCESS.discount_percent }) : '');
     $('paywallBuy').textContent = T().paywallBuy + (ACCESS.price ? ' – ' + ACCESS.price : '');
     $('paywallBuy').style.display = ACCESS.payment_url ? '' : 'none';
     $('paywall').classList.add('show');
   }
 
-  // The brief asks for a happy buzz on a ladder and a sad double one on a
-  // snake, and for a buzz when a secret turns up.
+  // A happy buzz on a ladder, a sad double one on a snake, and a buzz when a
+  // secret or a Joker turns up.
   function s69Haptic(kind) {
     if (kind === 'ladder') { haptic('ok'); return; }
     if (kind === 'snake') { haptic('heavy'); setTimeout(() => haptic('heavy'), 150); return; }
@@ -2541,28 +3059,67 @@
 
   /* ---- entry ---- */
 
+  function renderS69Suits(taken) {
+    const box = $('s69Suits');
+    box.innerHTML = '';
+    Object.keys(S69_SUITS).forEach(id => {
+      const suit = S69_SUITS[id];
+      const b = document.createElement('button');
+      b.className = 's69-suit' + (suit.red ? ' red' : '') + (G.piece === id ? ' on' : '');
+      b.textContent = suit.glyph;
+      b.setAttribute('aria-label', T().s69Suit[id]);
+      if (taken && taken.indexOf(id) !== -1) b.disabled = true;
+      b.onclick = () => { haptic('light'); G.piece = id; renderS69Suits(taken); };
+      box.appendChild(b);
+    });
+  }
+
   async function openS69() {
     haptic('light');
     const saved = store.get('s69Code', null);
     if (saved && !$('s69CodeInput').value) $('s69CodeInput').value = saved;
+    G.piece = store.get('s69Piece', 'hearts');
+    renderS69Suits(null);
     show('s69');
-    // Offer the game in play back, so a pair who stopped on cell 45 are one
-    // tap from cell 45 rather than from cell 1.
+    s69OfferResume();
+  }
+
+  // A game in play is offered back, with the way to abandon it beside the way
+  // to continue it. Leaving the screen never ended a game, but without both
+  // buttons there was no way to tell — and no way to start a fresh board
+  // without the old one being handed back on the next visit.
+  async function s69OfferResume() {
     $('btnS69Resume').style.display = 'none';
+    $('btnS69Restart').style.display = 'none';
     try {
       const st = await coopFetch('/api/steps69/mine');
       $('btnS69Resume').textContent =
-        T().s69Resume + ' · ' + fmt(T().s69ResumeHint, { n: st.position });
+        T().s69Resume + ' · ' + fmt(T().s69ResumeHint, { n: st.you.position });
       $('btnS69Resume').style.display = '';
       $('btnS69Resume').onclick = () => { G.code = st.code; enterS69(); };
+
+      $('btnS69Restart').textContent = T().s69Restart;
+      $('btnS69Restart').style.display = '';
+      $('btnS69Restart').onclick = async () => {
+        if (!confirm(T().s69RestartConfirm)) return;
+        haptic('medium');
+        try { await coopFetch('/api/steps69/' + st.code, { method: 'DELETE' }); }
+        catch (e) { /* already gone is the outcome we wanted */ }
+        store.set('s69Code', null);
+        toast(T().s69Deleted);
+        s69OfferResume();
+      };
     } catch (e) { /* no game in play, which is the common case */ }
   }
 
   async function s69Create(mode) {
     haptic('light');
+    store.set('s69Piece', G.piece);
     $('loader').classList.add('show');
     try {
-      const st = await coopFetch('/api/steps69', { method: 'POST', json: { mode: mode } });
+      const st = await coopFetch('/api/steps69', {
+        method: 'POST', json: { mode: mode, piece: G.piece }
+      });
       G.code = st.code; G.st = st;
       store.set('s69Code', st.code);
       if (mode === 'solo') { enterS69(); return; }
@@ -2573,7 +3130,7 @@
         if (!st2.started) return;
         stopS69Poll();
         haptic('ok');
-        toast(fmt(T().s69Joined, { name: st2.players.guest || '' }));
+        toast(fmt(T().s69Joined, { name: st2.partner.name || '' }));
         enterS69();
       });
     } catch (e) { s69Error(e); } finally { $('loader').classList.remove('show'); }
@@ -2581,14 +3138,17 @@
 
   async function s69Join(code) {
     haptic('light');
+    store.set('s69Piece', G.piece);
     $('loader').classList.add('show');
     try {
-      const st = await coopFetch('/api/steps69/' + code + '/join', { method: 'POST' });
+      const st = await coopFetch('/api/steps69/' + code + '/join', {
+        method: 'POST', json: { piece: G.piece }
+      });
       G.code = st.code; G.st = st;
       store.set('s69Code', st.code);
       enterS69();
     } catch (e) {
-      if (e.status === 409) toast(T().s69SoloJoin);
+      if (e.status === 409) toast(T().s69PieceTaken);
       else s69Error(e);
     } finally { $('loader').classList.remove('show'); }
   }
@@ -2599,12 +3159,12 @@
     $('loader').classList.add('show');
     try {
       G.board = await coopFetch('/api/steps69/' + G.code + '/board');
+      G.byId = {};
+      G.board.cells.forEach(c => { G.byId[c.id] = c; });
       G.st = await coopFetch('/api/steps69/' + G.code);
-      G.seen = (G.st.reactions || []).reduce((m, r) => Math.max(m, r.seq), 0);
+      G.opened = null;
       $('s69BoardTitle').textContent = T().s69Title;
       buildS69Map();
-      renderS69Reactions();
-      renderS69Music();
       renderS69(G.st, true);
       show('s69Board');
       startS69Poll(onS69State);
@@ -2614,8 +3174,7 @@
   function leaveS69() {
     stopS69Poll();
     if (G.settling) { clearTimeout(G.settling); G.settling = null; }
-    musicStop();
-    G.code = null; G.st = null; G.board = null;
+    G.code = null; G.st = null; G.board = null; G.byId = null; G.opened = null;
     $('s69Finale').classList.remove('show');
     $('s69Done').classList.remove('show');
     show('home');
@@ -2639,34 +3198,34 @@
     // server already reports the final square, so repainting here would
     // teleport the piece past the flight the partner is watching.
     if (G.settling) { G.st = st; return; }
-    const moved = !G.st || st.turns !== G.st.turns;
+    const moved = !G.st || st.you.rolls !== G.st.you.rolls
+                        || st.partner.rolls !== G.st.partner.rolls;
     renderS69(st, moved);
   }
 
   function renderS69(st, animate) {
     const prev = G.st;
     G.st = st;
-    playS69Reactions(st);
 
-    if (animate && st.last && st.last.event) flyS69Piece(st.last, st.position);
-    else paintS69Map(st.position);
+    // A new cell is a new secret: forget which one was open.
+    if (!prev || prev.you.position !== st.you.position) G.opened = null;
+
+    if (animate && st.last && st.last.event) flyS69Piece(st.last);
+    else paintS69Map();
 
     renderS69Turn(st);
     renderS69Cell(st);
 
-    if (animate && st.cell && (st.cell.kind === 'secret' || st.cell.kind === 'joker')) {
-      s69Haptic(st.cell.kind);
+    if (animate && st.last && st.last.seat === st.you.seat) {
+      const kind = st.you.cell.kind;
+      if (kind === 'secret' || kind === 'joker') s69Haptic(kind);
     }
-    if (st.position >= 69 && !st.finished) showS69Finale(st);
+    if (st.both_home && !st.finished) showS69Finale(st);
     if (st.finished && (!prev || !prev.finished)) showS69Done(st);
   }
 
   /* ---- the map ---- */
 
-  // A serpentine, running downward: cells 1-6 left to right, 7-12 right to
-  // left, and so on. Downward rather than upward on purpose, both because a
-  // phone scrolls that way and because the board's own line is «Искушение
-  // ведёт вас глубже».
   function s69Slots() {
     const slots = [];
     for (let r = 0; r * S69_COLS < G.board.size; r++) {
@@ -2681,28 +3240,33 @@
     return slots;
   }
 
-  const S69_MARK = { ladder: '↑', snake: '↓', joker: '?', secret: '✦', final: '69' };
+  function s69BlockOf(id) {
+    const block = (G.board.blocks || []).filter(b => id >= b.first && id <= b.last)[0];
+    return block ? block.id : '';
+  }
+
+  // The mark in a cell's corner: a drawn triangle pointing where the portal
+  // throws you, with the destination beside it. No emoji on the board.
+  function s69MarkHTML(cell) {
+    if (cell.kind === 'ladder' || cell.kind === 'snake') {
+      return '<span class="s69-mark"><i></i>' + cell.to + '</span>';
+    }
+    if (cell.kind === 'joker') return '<span class="s69-mark">?</span>';
+    if (cell.kind === 'secret') return '<span class="s69-mark">◆</span>';
+    return '';
+  }
 
   function buildS69Map() {
     const box = $('s69Map');
     box.innerHTML = '';
-    const byId = {};
-    G.board.cells.forEach(c => { byId[c.id] = c; });
-
     s69Slots().forEach(id => {
       const el = document.createElement('div');
       if (id === null) { el.style.visibility = 'hidden'; box.appendChild(el); return; }
-      const c = byId[id];
-      el.className = 's69-cell k-' + c.kind + (c.milestone ? ' milestone' : '');
+      const c = G.byId[id];
+      el.className = 's69-cell k-' + c.kind + ' b-' + s69BlockOf(id) +
+                     (c.milestone ? ' milestone' : '');
       el.dataset.id = String(id);
-      el.textContent = c.kind === 'final' ? '' : String(id);
-      const mark = S69_MARK[c.kind];
-      if (mark) {
-        const m = document.createElement('span');
-        m.className = 'mark';
-        m.textContent = mark;
-        el.appendChild(m);
-      }
+      el.innerHTML = (c.kind === 'final' ? '69' : String(id)) + s69MarkHTML(c);
       el.title = c.title;
       box.appendChild(el);
     });
@@ -2710,54 +3274,74 @@
 
   function s69MapCell(id) { return $('s69Map').querySelector('[data-id="' + id + '"]'); }
 
-  function paintS69Map(position) {
+  function s69PieceHTML(player, mine) {
+    const suit = S69_SUITS[player.piece] || S69_SUITS.spades;
+    return '<span class="s69-piece seat-' + player.seat + (suit.red ? ' red' : '') +
+           (mine ? ' mine' : '') + '">' + suit.glyph + '</span>';
+  }
+
+  // `overrideMine` puts the player's own piece on a square other than the one
+  // the state reports, which is how the portal flight shows it landing before
+  // it is thrown on.
+  function paintS69Map(overrideMine) {
+    const st = G.st;
+    if (!st) return;
+    const mineAt = overrideMine != null ? overrideMine : st.you.position;
+    const theirsAt = st.partner.position;
+    // Behind *both* pieces, not behind the leading one: a cell only one
+    // player has walked past is still ahead of the other, and dimming it
+    // told them their own road was already finished.
+    const behind = Math.min(mineAt, theirsAt);
+
     $('s69Map').querySelectorAll('.s69-cell').forEach(el => {
       const id = Number(el.dataset.id);
-      el.classList.toggle('here', id === position);
-      el.classList.toggle('passed', id < position);
+      el.querySelectorAll('.s69-piece').forEach(p => p.remove());
+      el.classList.toggle('here', id === mineAt);
+      el.classList.toggle('passed', id < behind);
       el.classList.remove('flying');
+      let pieces = '';
+      if (id === mineAt) pieces += s69PieceHTML(st.you, true);
+      if (id === theirsAt) pieces += s69PieceHTML(st.partner, false);
+      if (pieces) el.insertAdjacentHTML('beforeend', pieces);
     });
-    const here = s69MapCell(position);
+
+    const here = s69MapCell(mineAt);
     if (here && here.scrollIntoView) {
       try { here.scrollIntoView({ block: 'nearest', behavior: 'smooth' }); } catch (e) {}
     }
   }
 
-  // The brief: a portal fires with a visible flight and a system line, never
-  // as a piece that was simply somewhere else the next time you looked.
-  function flyS69Piece(last, finalPosition) {
-    paintS69Map(last.landed);
+  // A portal fires with a visible flight and a system line, never as a piece
+  // that was simply somewhere else the next time you looked.
+  function flyS69Piece(last) {
+    const mine = last.seat === G.st.you.seat;
+    paintS69Map(mine ? last.landed : undefined);
     const el = s69MapCell(last.landed);
     if (el) el.classList.add('flying');
     s69Haptic(last.event);
-    toast((last.event === 'ladder' ? '🏹 ' : '🐍 ') +
-          (G.board.system[last.event] || last.message || ''));
+    toast((last.event === 'ladder' ? T().s69Ladder : T().s69Snake) + ': ' +
+          (G.board.system[last.event] || ''));
     if (G.settling) clearTimeout(G.settling);
-    G.settling = setTimeout(() => {
-      G.settling = null;
-      paintS69Map(finalPosition);
-    }, 620);
+    G.settling = setTimeout(() => { G.settling = null; paintS69Map(); }, 620);
   }
 
   /* ---- the current cell ---- */
 
   function renderS69Turn(st) {
-    // The dice is settled first and unconditionally. It used to be set at
-    // the bottom, after three early returns, so a solo game (which takes the
-    // second one) never re-enabled the button after its first roll and the
-    // whole game locked up on cell 2.
+    // Settled first and unconditionally: this used to sit after three early
+    // returns, so a solo game never re-enabled the dice after its first roll.
     $('s69Dice').disabled = !st.your_turn || G.rolling;
 
     const chip = $('s69TurnChip');
     if (st.finished) { chip.textContent = T().s69Done; chip.className = 'chip'; return; }
+    if (st.both_home) { chip.textContent = T().s69BothHome; chip.className = 'chip on'; return; }
     if (st.mode === 'solo') {
-      // One phone: nobody is waiting on anybody, so the chip says whose go
-      // it is rather than whether you may press anything.
-      chip.textContent = '🎲 ' + T().s69Seat[st.turn === 0 ? 'creator' : 'guest'];
+      chip.textContent = T().s69Seat[st.turn === 0 ? 'creator' : 'guest'];
       chip.className = 'chip on';
       return;
     }
     if (!st.started) { chip.textContent = T().s69Waiting; chip.className = 'chip'; return; }
+    if (st.you.home) { chip.textContent = T().s69YouAreHome; chip.className = 'chip'; return; }
     chip.textContent = st.your_turn
       ? T().s69YourTurn
       : fmt(T().s69PartnerTurn, { name: st.turn_name || '' });
@@ -2765,55 +3349,72 @@
   }
 
   function renderS69Cell(st) {
-    const c = st.cell || {};
-    const parts = [
-      '<div class="s69-kind">' + escapeHTML(fmt(T().s69Cell, { n: st.position })) + '</div>',
-      '<div class="s69-title">' + escapeHTML(c.title || '') + '</div>'
-    ];
-    if (c.text) parts.push('<div class="s69-text">' + escapeHTML(c.text) + '</div>');
+    const c = st.you.cell;
+    // The card carries the task and nothing about the machinery: the cell
+    // number, the kind and the "read this only if it is your turn" notice
+    // were scaffolding, and they crowded out the one thing worth reading.
+    const parts = ['<div class="s69-title">' + escapeHTML(c.title || '') + '</div>'];
 
     if (c.kind === 'joker' && c.joker) {
-      parts.push('<div class="s69-note"><b>' + escapeHTML(c.joker.title) + '</b><br>' +
-                 escapeHTML(c.joker.text) + '</div>');
+      parts.push('<div class="s69-text">' + escapeHTML(c.joker.title) + '</div>');
+      parts.push('<div class="s69-note">' + escapeHTML(c.joker.text) + '</div>');
+    } else if (c.text && c.kind !== 'secret') {
+      parts.push('<div class="s69-text">' + escapeHTML(c.text) + '</div>');
     }
 
-    // «Скрытое пламя»: blurred until tapped. The server sends exactly one of
-    // these two, so whichever arrived is the one this phone may read.
+    // «Скрытое пламя». The server sends exactly one of these two, so whichever
+    // arrived is the one this phone may read.
     const hidden = c.secret || c.partner;
     if (c.kind === 'secret' && hidden) {
+      const open = G.opened === st.you.position;
       parts.push(
-        '<div class="s69-spoiler" id="s69Spoiler">' +
-          (c.partner ? '<div class="s69-kind">' + escapeHTML(T().s69PartnerSecret) + '</div>' : '') +
+        '<div class="s69-spoiler' + (open ? ' open' : '') + '" id="s69Spoiler">' +
           '<div class="veil">' + escapeHTML(hidden) + '</div>' +
           '<span class="hint">' + escapeHTML(T().s69Reveal) + '</span>' +
         '</div>');
     }
 
     if (c.milestone && c.milestone_text) {
-      parts.push('<div class="s69-note"><b>' + escapeHTML(T().s69Milestone) + '</b><br>' +
+      parts.push('<div class="s69-note"><b>' + escapeHTML(T().s69Milestone) + '</b>' +
                  escapeHTML(c.milestone_text) + '</div>');
     }
 
-    if (st.last && st.last.event) {
+    if (st.last && st.last.event && st.last.seat === st.you.seat) {
       parts.push('<div class="s69-note ' + (st.last.event === 'ladder' ? 'up' : 'down') + '">' +
-                 escapeHTML(st.last.event === 'ladder' ? T().s69Ladder : T().s69Snake) +
-                 ': ' + escapeHTML(st.last.message || '') + '</div>');
+                 escapeHTML(st.last.message || '') + '</div>');
+    }
+
+    // Where the partner is standing, and their half of a secret they are on.
+    if (st.mode !== 'solo' && st.partner.name) {
+      const suit = S69_SUITS[st.partner.piece] || S69_SUITS.spades;
+      let line = '<div class="s69-partner"><b>' + suit.glyph + ' ' +
+                 escapeHTML(st.partner.name) + '</b> · ' +
+                 fmt(T().s69OnCell, { n: st.partner.position });
+      if (st.partner.cell.partner) {
+        line += '<br>' + escapeHTML(st.partner.cell.partner);
+      }
+      parts.push(line + '</div>');
     }
 
     $('s69Cell').innerHTML = parts.join('');
 
     const spoiler = $('s69Spoiler');
     if (spoiler) {
+      // Opens on a tap and stays open: it closed again on the second tap,
+      // which meant re-opening it in the middle of doing what it said.
       spoiler.onclick = () => {
-        const open = spoiler.classList.toggle('open');
-        spoiler.querySelector('.hint').textContent = open ? T().s69Revealed : T().s69Reveal;
+        if (spoiler.classList.contains('open')) return;
+        spoiler.classList.add('open');
+        G.opened = st.you.position;
         haptic('light');
       };
     }
 
     const dice = $('s69Dice');
-    dice.innerHTML = '<span class="pip">🎲</span><span>' + escapeHTML(T().s69Roll) + '</span>';
-    dice.style.display = st.position >= 69 ? 'none' : '';
+    const roll = st.last && st.last.seat === st.you.seat ? st.last.roll : null;
+    dice.innerHTML = '<span class="s69-die">' + (roll || '·') + '</span>' +
+                     '<span>' + escapeHTML(T().s69Roll) + '</span>';
+    dice.style.display = st.you.home ? 'none' : '';
   }
 
   /* ---- rolling ---- */
@@ -2827,8 +3428,7 @@
     dice.disabled = true;
     haptic('medium');
     try {
-      const st = await coopFetch('/api/steps69/' + G.code + '/roll', { method: 'POST' });
-      renderS69(st, true);
+      renderS69(await coopFetch('/api/steps69/' + G.code + '/roll', { method: 'POST' }), true);
     } catch (e) { s69Error(e); } finally {
       G.rolling = false;
       dice.classList.remove('rolling');
@@ -2836,74 +3436,25 @@
     }
   }
 
-  /* ---- reactions ---- */
-
-  function renderS69Reactions() {
-    const box = $('s69Reacts');
-    box.innerHTML = '';
-    S69_REACTIONS.forEach(emoji => {
-      const b = document.createElement('button');
-      b.className = 's69-react';
-      b.textContent = emoji;
-      b.onclick = () => s69React(emoji);
-      box.appendChild(b);
-    });
-  }
-
-  async function s69React(emoji) {
-    if (!G.code) return;
-    haptic('light');
-    floatS69(emoji);
-    try {
-      const st = await coopFetch('/api/steps69/' + G.code + '/react', {
-        method: 'POST', json: { emoji: emoji }
-      });
-      // Our own reaction is already on screen; record it as seen so the next
-      // poll does not play it back at us.
-      G.seen = (st.reactions || []).reduce((m, r) => Math.max(m, r.seq), G.seen);
-      G.st = st;
-    } catch (e) { /* a lost emoji is not worth a toast */ }
-  }
-
-  function playS69Reactions(st) {
-    const mine = st.your_role;
-    (st.reactions || []).forEach(r => {
-      if (r.seq <= G.seen) return;
-      G.seen = r.seq;
-      if (r.by === mine) return;   // already shown when it was sent
-      floatS69(r.emoji);
-      haptic('light');
-    });
-  }
-
-  function floatS69(emoji) {
-    const el = document.createElement('div');
-    el.className = 's69-float';
-    el.textContent = emoji;
-    $('shell').appendChild(el);
-    setTimeout(() => el.remove(), 1600);
-  }
-
   /* ---- the finale ---- */
 
   function showS69Finale(st) {
-    const f = st.cell && st.cell.finale;
-    if (!f) return;
-    $('s69FinaleTitle').textContent = f.title;
-    $('s69FinaleIntro').textContent = f.intro;
+    if (!st.finale) return;
+    $('s69FinaleTitle').textContent = st.finale.title;
+    $('s69FinaleIntro').textContent = st.finale.intro;
     const box = $('s69FinaleChoices');
     box.innerHTML = '';
-    f.choices.forEach(choice => {
+    st.finale.choices.forEach(choice => {
       const wrap = document.createElement('div');
       const b = document.createElement('button');
       b.className = 'btn btn-play';
       b.textContent = choice.title;
       b.onclick = () => s69ChooseFinale(choice.id);
       wrap.appendChild(b);
-      const p = document.createElement('p');
-      p.className = 's69-choice-text';
-      p.textContent = choice.text;
-      wrap.appendChild(p);
+      const text = document.createElement('p');
+      text.className = 's69-choice-text';
+      text.textContent = choice.text;
+      wrap.appendChild(text);
       box.appendChild(wrap);
     });
     $('s69Finale').classList.add('show');
@@ -2926,94 +3477,16 @@
   function showS69Done(st) {
     stopS69Poll();
     $('s69Finale').classList.remove('show');
-    const choice = ((st.cell && st.cell.finale && st.cell.finale.choices) || [])
+    const choice = ((st.finale && st.finale.choices) || [])
       .filter(c => c.id === st.finale_choice)[0];
     $('s69DoneTitle').textContent = T().s69Done;
     $('s69DoneText').textContent = (choice ? choice.text + '\n\n' : '') +
-      ((st.cell && st.cell.finale && st.cell.finale.outro) || T().s69Again);
+      ((st.finale && st.finale.outro) || T().s69Again);
     $('s69DoneAgain').textContent = T().s69Again;
     $('s69DoneHome').textContent = T().s69ToHome;
     $('s69Done').classList.add('show');
     confetti();
     haptic('ok');
-  }
-
-  /* ---- music ----
-     Synthesised beds, not tracks: the app ships no audio files, and a
-     WebAudio drone costs nothing, works offline and cannot 404. Swap these
-     for licensed stems when there are any; the control surface stays. */
-  const MUSIC = {
-    ctx: null, nodes: [], timer: null, preset: null,
-    presets: {
-      romantic: { root: 110, tempo: 0,   cutoff: 720, gain: .045 },
-      house:    { root: 82,  tempo: 122, cutoff: 900, gain: .045 },
-      techno:   { root: 65,  tempo: 132, cutoff: 520, gain: .05  }
-    }
-  };
-
-  function musicStop() {
-    if (MUSIC.timer) { clearInterval(MUSIC.timer); MUSIC.timer = null; }
-    MUSIC.nodes.forEach(n => { try { if (n.stop) n.stop(); n.disconnect(); } catch (e) {} });
-    MUSIC.nodes = [];
-    MUSIC.preset = null;
-    renderS69Music();
-  }
-
-  function musicPlay(name) {
-    musicStop();
-    const p = MUSIC.presets[name];
-    if (!p) return;
-    try {
-      MUSIC.ctx = MUSIC.ctx || new (window.AudioContext || window.webkitAudioContext)();
-      const ctx = MUSIC.ctx;
-      if (ctx.state === 'suspended') ctx.resume();
-
-      const out = ctx.createGain(); out.gain.value = p.gain; out.connect(ctx.destination);
-      const filter = ctx.createBiquadFilter();
-      filter.type = 'lowpass'; filter.frequency.value = p.cutoff; filter.connect(out);
-      [[p.root, 'sawtooth', -6], [p.root * 1.5, 'triangle', 5]].forEach(spec => {
-        const o = ctx.createOscillator();
-        o.type = spec[1]; o.frequency.value = spec[0]; o.detune.value = spec[2];
-        o.connect(filter); o.start();
-        MUSIC.nodes.push(o);
-      });
-      MUSIC.nodes.push(filter, out);
-
-      if (p.tempo) {
-        MUSIC.timer = setInterval(() => {
-          const t = ctx.currentTime;
-          const kick = ctx.createOscillator(), g = ctx.createGain();
-          kick.frequency.setValueAtTime(115, t);
-          kick.frequency.exponentialRampToValueAtTime(45, t + .12);
-          g.gain.setValueAtTime(p.gain * 2.5, t);
-          g.gain.exponentialRampToValueAtTime(.0001, t + .2);
-          kick.connect(g); g.connect(ctx.destination);
-          kick.start(t); kick.stop(t + .22);
-        }, 60000 / p.tempo);
-      }
-      MUSIC.preset = name;
-    } catch (e) { MUSIC.preset = null; }
-    store.set('s69Music', MUSIC.preset);
-    renderS69Music();
-  }
-
-  function renderS69Music() {
-    const box = $('s69MusicRow');
-    if (!box) return;
-    const options = [
-      ['', T().s69MusicOff],
-      ['romantic', T().s69MusicRomantic],
-      ['house', T().s69MusicHouse],
-      ['techno', T().s69MusicTechno]
-    ];
-    box.innerHTML = '';
-    options.forEach(opt => {
-      const b = document.createElement('button');
-      b.className = 'chip' + ((MUSIC.preset || '') === opt[0] ? ' on' : '');
-      b.textContent = opt[1];
-      b.onclick = () => { haptic('light'); opt[0] ? musicPlay(opt[0]) : musicStop(); };
-      box.appendChild(b);
-    });
   }
 
   /* ---- wiring ---- */
@@ -3060,6 +3533,7 @@
   applyI18n();
   // Preload content in background for instant start
   loadData();
+  renderHomeModules();
   // The bot's "Библиотека" button opens the app at ?screen=library.
   try {
     const screen = new URLSearchParams(location.search).get('screen');

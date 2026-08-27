@@ -511,8 +511,6 @@ class TestWelcomeScreen:
         """
         configured = MagicMock()
         configured.webapp_url = "https://example.test/app"
-        configured.webapp_library_url = "https://example.test/app?tab=library"
-        configured.webapp_steps69_url = "https://example.test/app?tab=steps69"
         configured.gift_product_id = "gift-1"
 
         with patch('vechnost_bot.callback_handlers.settings', configured):
@@ -526,11 +524,10 @@ class TestWelcomeScreen:
             for button in row
             if button.web_app
         ]
-        assert web_app_urls == [
-            "https://example.test/app",
-            "https://example.test/app?tab=library",
-            "https://example.test/app?tab=steps69",
-        ]
+        # One door into the app, not three. The Library and «69 ступеней»
+        # had their own rows here, which put the app's navigation into the
+        # chat and meant every new section needed another button beside them.
+        assert web_app_urls == ["https://example.test/app"]
 
     @pytest.mark.parametrize("language", list(Language))
     def test_welcome_screen_without_optional_features(self, language):

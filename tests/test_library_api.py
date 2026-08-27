@@ -1,12 +1,16 @@
 """Tests for the Library HTTP API."""
 
 import os
+from unittest.mock import patch
 
 import pytest
 from fastapi.testclient import TestClient
 
 os.environ.setdefault("TELEGRAM_BOT_TOKEN", "1234567890:TEST_TOKEN_FOR_UNIT_TESTS")
 
+from vechnost_bot.config import settings
+from vechnost_bot.i18n import Language
+from vechnost_bot.library import load_guide
 from vechnost_bot.payments.web import app
 
 client = TestClient(app)
@@ -113,3 +117,77 @@ def test_index_count_for_dates_respects_nsfw_flag():
     dates_with = next(m for m in with_nsfw["modules"] if m["id"] == "dates")
     assert dates_without["count"] == 140
     assert dates_with["count"] == 150
+
+
+# ---------------------------------------------------------------------------
+# The guide: a module served as a document rather than a deck
+# ---------------------------------------------------------------------------
+
+def test_a_guide_arrives_as_ordered_steps():
+    body = client.get("/api/library/nude_guide").json()
+    assert body["type"] == "guide"
+    assert [s["number"] for s in body["steps"]] == [1, 2, 5]
+    assert body["intro"].strip()
+    assert all(i["art"] for s in body["steps"] for i in s["items"])
+
+
+def test_a_guides_pose_steps_wait_for_the_age_confirmation():
+    """Advertised by title and size only, never by content — the same rule
+    the Library's categories follow, and the only way the gate is reachable."""
+    body = client.get("/api/library/nude_guide").json()
+    withheld = {w["id"]: w["total"] for w in body["nsfw_withheld"]}
+    assert withheld == {"her": 10, "him": 10}
+    assert "her" not in [s["id"] for s in body["steps"]]
+
+    confirmed = client.get("/api/library/nude_guide?nsfw=1").json()
+    assert [s["id"] for s in confirmed["steps"]] == ["light", "camera", "her", "him", "edit"]
+
+
+def test_the_craft_steps_are_in_front_of_the_age_gate():
+    """Light, camera and what to do with the pictures afterwards are not
+    nudity, and the safety advice least of all."""
+    body = client.get("/api/library/nude_guide").json()
+    assert [s["id"] for s in body["steps"]] == ["light", "camera", "edit"]
+
+
+def test_an_unpaid_caller_gets_the_first_step_and_no_more():
+    """The guide is paid; the step about light is a real teaser on its own."""
+    with (
+        patch.object(settings, "enable_payment", True),
+        patch(
+            "vechnost_bot.payments.library_api.validate_init_data",
+            return_value={"user": {"id": 4242, "first_name": "Unpaid"}},
+        ),
+        patch("vechnost_bot.payments.library_api.user_has_access", return_value=False),
+    ):
+        body = client.get(
+            "/api/library/nude_guide?nsfw=1", headers={"Authorization": "tma x"}
+        ).json()
+
+    assert body["locked"] is True
+    assert [s["id"] for s in body["steps"]] == ["light"]
+    assert body["free_count"] == 4
+    assert body["total"] == 29
+
+
+def test_an_unpaid_caller_never_receives_the_pose_text():
+    """Asserted on the raw body: a leak under an unexpected key would slip
+    past a field-level check."""
+    with (
+        patch.object(settings, "enable_payment", True),
+        patch(
+            "vechnost_bot.payments.library_api.validate_init_data",
+            return_value={"user": {"id": 4243, "first_name": "Unpaid"}},
+        ),
+        patch("vechnost_bot.payments.library_api.user_has_access", return_value=False),
+    ):
+        response = client.get(
+            "/api/library/nude_guide?nsfw=1", headers={"Authorization": "tma x"}
+        )
+
+    poses = [
+        i.text for s in load_guide("nude_guide", Language.RUSSIAN)
+        if s.id in ("her", "him") for i in s.items
+    ]
+    for text in poses:
+        assert text not in response.text

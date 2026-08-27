@@ -17,9 +17,12 @@ from ..i18n import Language
 from ..library import (
     MODULES,
     REFLECTION_TOTAL,
+    GuideStep,
     LibraryCategory,
     LibraryModule,
+    guide_intro,
     load_categories,
+    load_guide,
     load_practices,
     question_of_the_day,
 )
@@ -45,6 +48,11 @@ def _visible_categories(
     ]
 
 
+def _visible_steps(module_id: str, language: Language, nsfw: int) -> list[GuideStep]:
+    """A guide's steps, minus any withheld because they are nsfw."""
+    return [s for s in load_guide(module_id, language) if not s.nsfw or nsfw == 1]
+
+
 def _module_count(module: LibraryModule, language: Language, nsfw: int) -> int:
     """
     The item count for a module, honoring the nsfw filter.
@@ -57,6 +65,8 @@ def _module_count(module: LibraryModule, language: Language, nsfw: int) -> int:
         return REFLECTION_TOTAL
     if module.type == "practice":
         return len(load_practices(module.id, language))
+    if module.type == "guide":
+        return sum(len(s.items) for s in _visible_steps(module.id, language, nsfw))
     return sum(
         len(c.items) for c in _visible_categories(module.id, language, nsfw)
     )
@@ -144,6 +154,25 @@ async def library_module(
             )],
             "total": _module_count(module, language, nsfw),
             "free_count": min(FREE_LIBRARY_ITEMS_PER_LIST, len(items)) if locked else len(items),
+        })
+        return payload
+
+    if module.type == "guide":
+        # A guide is read top to bottom, not swiped: the client lays the
+        # steps out as a document, so they arrive whole and in order. The
+        # unpaid slice is the first step, which is the one about light and
+        # is genuinely useful on its own.
+        steps = _visible_steps(module_id, language, nsfw)
+        shown = steps[:1] if locked else steps
+        payload.update({
+            "intro": guide_intro(module_id, language),
+            "steps": [s.model_dump() for s in shown],
+            "nsfw_withheld": [
+                {"id": s.id, "title": s.title, "total": len(s.items)}
+                for s in load_guide(module_id, language) if s.nsfw and nsfw != 1
+            ],
+            "total": _module_count(module, language, nsfw),
+            "free_count": sum(len(s.items) for s in shown),
         })
         return payload
 

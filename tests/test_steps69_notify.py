@@ -32,17 +32,21 @@ def db(tmp_path):
         yield
 
 
-async def _game(code, *, position, idle, turns=4, finished=False, notified=None):
+async def _game(code, *, position, idle, turns=4, finished=False, notified=None,
+                partner_position=None):
     """A game in whatever state the test needs, aged by hand."""
     async with get_db() as session:
         game = await Steps69Repository.create(
             session, code=code, creator_telegram_user_id=11,
-            creator_name="A", mode="duo",
+            creator_name="A", mode="duo", creator_piece="hearts",
         )
         game.guest_telegram_user_id = 22
         game.guest_name = "B"
-        game.position = position
-        game.turns = turns
+        game.guest_piece = "spades"
+        game.creator_position = position
+        game.guest_position = partner_position if partner_position is not None else position
+        game.creator_turns = turns
+        game.guest_turns = turns
         game.finished = finished
         game.resume_notified_at = notified
         game.updated_at = datetime.utcnow() - idle
@@ -84,6 +88,19 @@ async def test_a_game_that_was_never_rolled_is_not_stalled(db):
     await _game("DDDDDD", position=1, idle=IDLE_BEFORE_NUDGE * 2, turns=0)
     bot = _bot()
     assert await nudge_stalled_games(bot) == 0
+
+
+async def test_each_partner_hears_about_their_own_piece(db):
+    """They walk the board separately, so one shared cell number would be
+    wrong for at least one of them."""
+    await _game("JJJJJJ", position=45, partner_position=12,
+                idle=IDLE_BEFORE_NUDGE * 2)
+    bot = _bot()
+    assert await nudge_stalled_games(bot) == 1
+
+    said = {c.kwargs["chat_id"]: c.kwargs["text"] for c in bot.send_message.await_args_list}
+    assert "45" in said[11] and "12" not in said[11]
+    assert "12" in said[22] and "45" not in said[22]
 
 
 async def test_a_long_abandoned_game_is_let_go(db):

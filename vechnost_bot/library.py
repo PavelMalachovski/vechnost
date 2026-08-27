@@ -31,11 +31,35 @@ class LibraryCategory(BaseModel):
     items: list[str]
 
 
+class GuideItem(BaseModel):
+    """One thing to do, with the schematic that shows how it looks."""
+
+    id: str
+    title: str
+    text: str
+    # The key of the line drawing the Mini App renders beside the text.
+    # Every item carries one; `test_library.py` checks that none is blank,
+    # because a missing key draws nothing and reads as a layout fault.
+    art: str
+    tips: list[str] = []
+
+
+class GuideStep(BaseModel):
+    """One numbered rung of a guide, so a reader knows where they are."""
+
+    id: str
+    number: int
+    title: str
+    lead: str
+    nsfw: bool = False
+    items: list[GuideItem]
+
+
 class LibraryModule(BaseModel):
     id: str
     title: str
     emoji: str
-    type: Literal["list", "practice", "daily"]
+    type: Literal["list", "practice", "daily", "guide"]
     paid: bool
     count: int
 
@@ -52,7 +76,7 @@ MODULES: dict[str, LibraryModule] = {
         LibraryModule(id="practices_couples", title="Практики для пар", emoji="💞",
                       type="practice", paid=True, count=25),
         LibraryModule(id="nude_guide", title="Мастер-класс по ню", emoji="📸",
-                      type="list", paid=True, count=34),
+                      type="guide", paid=True, count=29),
         LibraryModule(id="reflection", title="Вопрос дня", emoji="🌙",
                       type="daily", paid=False, count=365),
     ]
@@ -74,6 +98,19 @@ def load_practices(module_id: str, language: Language = Language.RUSSIAN) -> lis
     """The practices of a `practice`-type module, in authored order."""
     data = _load_yaml(module_id, language)
     return [Practice(**item) for item in data.get("items", [])]
+
+
+def load_guide(
+    module_id: str, language: Language = Language.RUSSIAN
+) -> list[GuideStep]:
+    """The numbered steps of a `guide`-type module, in authored order."""
+    data = _load_yaml(module_id, language)
+    return [GuideStep(**step) for step in data.get("steps", [])]
+
+
+def guide_intro(module_id: str, language: Language = Language.RUSSIAN) -> str:
+    """The paragraph a guide opens on, before its first step."""
+    return str(_load_yaml(module_id, language).get("intro", ""))
 
 
 def load_categories(

@@ -60,6 +60,7 @@ async def create_tables() -> None:
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
         await conn.run_sync(_ensure_user_columns)
+        await conn.run_sync(_ensure_steps69_columns)
     logger.info("Database tables created successfully")
 
 
@@ -83,11 +84,53 @@ def _ensure_user_columns(sync_conn) -> None:
             "ALTER TABLE users ADD COLUMN daily_card_opt_out BOOLEAN "
             "NOT NULL DEFAULT '0'"
         ),
+        # No UNIQUE here: SQLite cannot add a unique column to a populated
+        # table, and the code is minted from a uniqueness check in the
+        # repository anyway. The model and the migration both declare it, so
+        # a database built from either gets the constraint.
+        "referral_code": "ALTER TABLE users ADD COLUMN referral_code VARCHAR",
+        "referred_by": "ALTER TABLE users ADD COLUMN referred_by BIGINT",
     }
     for column, ddl in additions.items():
         if column not in existing:
             sync_conn.execute(text(ddl))
             logger.info(f"Added users.{column} column")
+
+
+def _ensure_steps69_columns(sync_conn) -> None:
+    """Add the per-player columns to a board table created before them.
+
+    «69 ступеней» shipped with one piece for the couple and now has one each,
+    so every position, roll count and Joker became two. Deploys run
+    create_all, which never alters an existing table, hence this.
+
+    Games already in flight are not migrated: a single shared position cannot
+    be split into two without inventing where the second partner was standing.
+    Both new positions default to 1, so an unfinished game restarts rather
+    than resuming somewhere neither player agreed to.
+    """
+    from sqlalchemy import inspect, text
+
+    inspector = inspect(sync_conn)
+    if "steps69_games" not in inspector.get_table_names():
+        return
+
+    existing = {col["name"] for col in inspector.get_columns("steps69_games")}
+    additions = {
+        "creator_position": "ALTER TABLE steps69_games ADD COLUMN creator_position INTEGER NOT NULL DEFAULT 1",
+        "guest_position": "ALTER TABLE steps69_games ADD COLUMN guest_position INTEGER NOT NULL DEFAULT 1",
+        "creator_piece": "ALTER TABLE steps69_games ADD COLUMN creator_piece VARCHAR",
+        "guest_piece": "ALTER TABLE steps69_games ADD COLUMN guest_piece VARCHAR",
+        "creator_turns": "ALTER TABLE steps69_games ADD COLUMN creator_turns INTEGER NOT NULL DEFAULT 0",
+        "guest_turns": "ALTER TABLE steps69_games ADD COLUMN guest_turns INTEGER NOT NULL DEFAULT 0",
+        "creator_joker_task_id": "ALTER TABLE steps69_games ADD COLUMN creator_joker_task_id VARCHAR",
+        "guest_joker_task_id": "ALTER TABLE steps69_games ADD COLUMN guest_joker_task_id VARCHAR",
+        "last_seat": "ALTER TABLE steps69_games ADD COLUMN last_seat INTEGER",
+    }
+    for column, ddl in additions.items():
+        if column not in existing:
+            sync_conn.execute(text(ddl))
+            logger.info(f"Added steps69_games.{column} column")
 
 
 async def drop_tables() -> None:

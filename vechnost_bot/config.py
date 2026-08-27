@@ -146,6 +146,24 @@ class Settings(BaseSettings):
                     "gift product link is available."
     )
 
+    # Referrals
+    referral_payment_url: str | None = Field(
+        default=None,
+        validation_alias="REFERRAL_PAYMENT_URL",
+        description="Tribute page for the discounted product shown to users "
+                    "who arrived through someone's referral link. Unset means "
+                    "referrals are still tracked but everyone pays full price."
+    )
+
+    referral_discount_percent: int = Field(
+        default=10,
+        ge=1,
+        le=90,
+        validation_alias="REFERRAL_DISCOUNT_PERCENT",
+        description="What the referral page is worth, for the copy only. The "
+                    "price itself lives in the Tribute product."
+    )
+
     # Daily card push
     daily_card_enabled: bool = Field(
         default=True,

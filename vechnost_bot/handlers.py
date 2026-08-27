@@ -46,6 +46,38 @@ async def start_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
     if context.args and len(context.args) > 0:
         param = context.args[0]
         logger.info(f"Start command parameter: {param}")
+
+        # A referral link. Credited before the greeting and never instead of
+        # it: whoever followed the link came to see the bot, and a failed
+        # credit (their own link, a second link, an unknown code) must still
+        # leave them on the welcome screen.
+        from .referrals import parse_start_param
+
+        referral_code = parse_start_param(param)
+        if referral_code:
+            try:
+                from .payments.database import get_db
+                from .payments.repositories import UserRepository
+
+                async with get_db() as db_session:
+                    await UserRepository.create_or_update(
+                        db_session,
+                        telegram_user_id=user_id,
+                        username=update.effective_user.username,
+                        first_name=update.effective_user.first_name,
+                        last_name=update.effective_user.last_name,
+                        language=update.effective_user.language_code,
+                    )
+                    credited = await UserRepository.record_referral(
+                        db_session, user_id, referral_code
+                    )
+                if credited:
+                    await update.message.reply_text(
+                        get_text("referral.welcome", Language.RUSSIAN)
+                    )
+            except Exception as e:
+                logger.warning(f"Referral {referral_code} not credited: {e}")
+
         if param.startswith("activate_"):
             # Extract certificate code
             code = param.replace("activate_", "").strip().upper()
@@ -97,6 +129,49 @@ async def start_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
 
     text, keyboard = welcome_screen(Language.RUSSIAN)
     await update.message.reply_text(text, reply_markup=keyboard, parse_mode="HTML")
+
+
+async def invite_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """`/invite`: the user's own referral link, and what it is worth."""
+    if not update.message or not update.effective_user:
+        return
+
+    from .config import settings
+    from .payments.database import get_db
+    from .payments.repositories import UserRepository
+    from .referrals import discount_available, invite_link
+
+    user_id = update.effective_user.id
+    language = Language.RUSSIAN
+
+    try:
+        async with get_db() as session:
+            await UserRepository.create_or_update(
+                session,
+                telegram_user_id=user_id,
+                username=update.effective_user.username,
+                first_name=update.effective_user.first_name,
+            )
+            code = await UserRepository.ensure_referral_code(session, user_id)
+            invited = await UserRepository.count_referrals(session, user_id)
+    except Exception as e:
+        logger.error(f"Could not build an invite link for {user_id}: {e}")
+        await update.message.reply_text(get_text("referral.error", language))
+        return
+
+    link = invite_link(code) if code else None
+    if not link:
+        await update.message.reply_text(get_text("referral.error", language))
+        return
+
+    text = get_text(
+        "referral.invite" if discount_available() else "referral.invite_no_discount",
+        language,
+        link=link,
+        percent=settings.referral_discount_percent,
+        invited=invited,
+    )
+    await update.message.reply_text(text, disable_web_page_preview=True)
 
 
 async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:

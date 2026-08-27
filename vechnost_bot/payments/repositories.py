@@ -91,6 +91,94 @@ class UserRepository:
         )
         return list(result.scalars().all())
 
+    @staticmethod
+    async def get_by_referral_code(
+        session: AsyncSession, code: str
+    ) -> User | None:
+        """The user who hands out this code."""
+        result = await session.execute(
+            select(User).where(User.referral_code == code)
+        )
+        return result.scalar_one_or_none()
+
+    @staticmethod
+    async def ensure_referral_code(
+        session: AsyncSession, telegram_user_id: int
+    ) -> str | None:
+        """This user's code, minted on the first ask and stable after.
+
+        Derives a candidate from the user id and salts the seed again on a
+        collision, so two accounts never share a code and the loop always
+        terminates on a keyspace of 32^6.
+        """
+        from ..referrals import code_from_seed
+
+        user = await UserRepository.get_by_telegram_id(session, telegram_user_id)
+        if not user:
+            return None
+        if user.referral_code:
+            return user.referral_code
+
+        for attempt in range(20):
+            seed = f"{telegram_user_id}:{attempt}"
+            candidate = code_from_seed(seed)
+            taken = await UserRepository.get_by_referral_code(session, candidate)
+            if taken is None or taken.id == user.id:
+                user.referral_code = candidate
+                await session.flush()
+                return candidate
+
+        logger.error(f"Could not mint a referral code for {telegram_user_id}")
+        return None
+
+    @staticmethod
+    async def record_referral(
+        session: AsyncSession, telegram_user_id: int, code: str
+    ) -> bool:
+        """Credit an invitation. True when it counted, False when it did not.
+
+        Refused for a user who already has a referrer (the credit belongs to
+        whoever invited them first), for a code nobody owns, and for anyone
+        following their own link.
+        """
+        user = await UserRepository.get_by_telegram_id(session, telegram_user_id)
+        if not user or user.referred_by is not None:
+            return False
+
+        referrer = await UserRepository.get_by_referral_code(session, code)
+        if not referrer or referrer.telegram_user_id == telegram_user_id:
+            return False
+
+        user.referred_by = referrer.telegram_user_id
+        await session.flush()
+        logger.info(f"User {telegram_user_id} was referred by {referrer.telegram_user_id}")
+        return True
+
+    @staticmethod
+    async def count_referrals(session: AsyncSession, telegram_user_id: int) -> int:
+        """How many people came in on this user's link."""
+        result = await session.execute(
+            select(User).where(User.referred_by == telegram_user_id)
+        )
+        return len(list(result.scalars().all()))
+
+    @staticmethod
+    async def is_referred(session: AsyncSession, telegram_user_id: int) -> bool:
+        user = await UserRepository.get_by_telegram_id(session, telegram_user_id)
+        return bool(user and user.referred_by is not None)
+
+    @staticmethod
+    async def get_all(session: AsyncSession) -> list[User]:
+        """Every registered user, oldest first.
+
+        Deliberately does not honour `daily_card_opt_out`: that flag is a
+        choice about the daily prompt, not consent withdrawn from the bot,
+        and the one caller is an announcement about the product itself.
+        Anything recurring belongs in `get_daily_card_recipients`.
+        """
+        result = await session.execute(select(User).order_by(User.id))
+        return list(result.scalars().all())
+
 
 class ProductRepository:
     """Repository for Product operations."""
@@ -482,15 +570,16 @@ class Steps69Repository:
         creator_telegram_user_id: int,
         creator_name: str | None,
         mode: str,
+        creator_piece: str,
     ) -> Steps69Game:
-        """Start a game with the piece on cell 1 and nothing spent yet."""
+        """Start a game with both pieces on cell 1 and nothing spent yet."""
         game = Steps69Game(
             code=code,
             mode=mode,
             creator_telegram_user_id=creator_telegram_user_id,
             creator_name=creator_name,
+            creator_piece=creator_piece,
             used_jokers=[],
-            reactions=[],
         )
         session.add(game)
         await session.flush()
@@ -537,7 +626,7 @@ class Steps69Repository:
         result = await session.execute(
             select(Steps69Game).where(
                 Steps69Game.finished.is_(False),
-                Steps69Game.turns > 0,
+                (Steps69Game.creator_turns + Steps69Game.guest_turns) > 0,
                 Steps69Game.resume_notified_at.is_(None),
                 Steps69Game.updated_at < idle_since,
                 Steps69Game.updated_at > give_up_before,

@@ -1043,17 +1043,13 @@ def welcome_screen(language: Language) -> tuple[str, InlineKeyboardMarkup]:
     # would otherwise leave that welcome screen with no way to play at all.
     rows = []
     if settings.webapp_url:
+        # One door, not three. The Library and «69 ступеней» had their own
+        # rows here, which put the app's own navigation into the chat and
+        # meant every new section needed another button beside them. The app
+        # lists all of it on its home screen.
         rows.append([InlineKeyboardButton(
             get_text('welcome.button_webapp', language),
             web_app=WebAppInfo(url=settings.webapp_url)
-        )])
-        rows.append([InlineKeyboardButton(
-            get_text('welcome.button_library', language),
-            web_app=WebAppInfo(url=settings.webapp_library_url)
-        )])
-        rows.append([InlineKeyboardButton(
-            get_text('welcome.button_steps69', language),
-            web_app=WebAppInfo(url=settings.webapp_steps69_url)
         )])
     else:
         rows.append([InlineKeyboardButton(

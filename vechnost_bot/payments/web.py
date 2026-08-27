@@ -10,6 +10,7 @@ from fastapi import Depends, FastAPI, Header, HTTPException, Request
 from fastapi.responses import JSONResponse, Response
 from fastapi.staticfiles import StaticFiles
 
+from .. import referrals
 from ..config import settings
 from ..freemium import FREE_CARDS_PER_DECK, free_slice, is_index_free
 from ..i18n import Language, get_text
@@ -17,8 +18,9 @@ from ..logic import localized_game_data
 from ..models import ContentType, Theme
 from ..renderer import get_background_path, render_card
 from .compat_api import router as compat_router
-from .database import close_db, init_db
+from .database import close_db, get_db, init_db
 from .library_api import router as library_router
+from .repositories import UserRepository
 from .rooms import router as rooms_router
 from .services import (
     apply_webhook_event,
@@ -76,13 +78,41 @@ async def health_check() -> dict[str, str]:
     }
 
 
-async def _get_purchase_url() -> str:
-    """Payment link for the Mini App paywall: first product, else the configured page."""
+async def _get_purchase_url(referred: bool = False) -> str:
+    """Payment link for the Mini App paywall.
+
+    A user who arrived on someone's referral link is sent to the discounted
+    Tribute product instead. Tribute owns the price, so choosing the page is
+    the whole of the discount; with no discounted page configured everyone
+    gets the ordinary one and the referral is still recorded.
+    """
+    discounted = referrals.payment_url_for(referred)
+    if discounted:
+        return discounted
     for product in await get_products_for_purchase():
         link = product.t_link or product.web_link
         if link:
             return link
     return settings.tribute_payment_url
+
+
+async def _caller_is_referred(authorization: str | None) -> bool:
+    """Whether this Mini App caller came in on someone's invite."""
+    if not settings.enable_payment:
+        return False
+    scheme, _, init_data = (authorization or "").partition(" ")
+    if scheme.lower() != "tma" or not init_data:
+        return False
+    try:
+        parsed = validate_init_data(init_data, settings.telegram_bot_token)
+    except InitDataError:
+        return False
+    try:
+        async with get_db() as session:
+            return await UserRepository.is_referred(session, parsed["user"]["id"])
+    except Exception as e:
+        logger.warning(f"Referral lookup failed: {e}")
+        return False
 
 
 async def _request_is_paid(authorization: str | None) -> bool:
@@ -154,9 +184,12 @@ async def get_questions(
 
     access: dict[str, Any] = {"paid": paid}
     if not paid:
+        referred = await _caller_is_referred(authorization)
         access["free_per_deck"] = FREE_CARDS_PER_DECK
-        access["payment_url"] = await _get_purchase_url()
+        access["payment_url"] = await _get_purchase_url(referred)
         access["price"] = await get_price_label()
+        if referred and referrals.discount_available():
+            access["discount_percent"] = settings.referral_discount_percent
 
     bot_url = f"https://t.me/{settings.bot_username}" if settings.bot_username else None
 
