@@ -13,8 +13,11 @@ payment covers both. Three things differ, and each is deliberate:
   happened. A client that rolled its own dice could roll 69 sixes, and both
   phones have to agree on the same number anyway.
 
-Secrets and Joker tasks are not in the board payload. They reach exactly the
-player entitled to them, through `steps69.cell_view`.
+Each partner has their own piece and walks their own board. A player who
+reaches 69 stops rolling and waits; the finale unlocks when both are home.
+Secrets and Joker tasks are not in the board payload: a cell's instruction
+reaches the player standing on it through `steps69.cell_view`, and their
+partner gets only the one line written for them.
 """
 
 import hashlib
@@ -43,26 +46,24 @@ router = APIRouter(prefix="/api/steps69", tags=["steps69"])
 
 _CODE_ALPHABET = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"
 
-# The emoji a partner may fling across the table. A fixed palette rather
-# than free text: whatever lands here is stored and rendered on the other
-# partner's phone, and the UI only ever offers these five anyway.
-REACTIONS = ("🔥", "❤️", "💦", "😈", "👏")
+# The four suits the deck already uses, so a piece on the board belongs to
+# the same world as the cards. Both partners must pick different ones.
+PIECES = ("hearts", "spades", "clubs", "diamonds")
 
-# How many reactions the row keeps. Enough for a polling client to catch up
-# after a few seconds offline, short enough that the column stays small.
-REACTION_TAIL = 12
+Seat = Literal[0, 1]
 
 
 class CreateRequest(BaseModel):
     mode: Literal["duo", "solo"] = "duo"
+    piece: str = Field(default="hearts")
+
+
+class JoinRequest(BaseModel):
+    piece: str = Field(default="spades")
 
 
 class FinaleRequest(BaseModel):
     choice: str = Field(min_length=1, max_length=32)
-
-
-class ReactRequest(BaseModel):
-    emoji: str = Field(min_length=1, max_length=8)
 
 
 def _generate_code() -> str:
@@ -71,6 +72,15 @@ def _generate_code() -> str:
 
 def _language(lang: str) -> Language:
     return Language.coerce(lang)
+
+
+def _validated_piece(piece: str, taken: str | None) -> str:
+    """A suit nobody else in this game is already wearing."""
+    if piece not in PIECES:
+        raise HTTPException(status_code=400, detail="unknown piece")
+    if taken is not None and piece == taken:
+        raise HTTPException(status_code=409, detail="piece already taken")
+    return piece
 
 
 def _caller(authorization: str | None, guest_id: str | None) -> tuple[int, str]:
@@ -120,20 +130,55 @@ def _seat(game: Steps69Game, user_id: int) -> int:
     return 0 if user_id == game.creator_telegram_user_id else 1
 
 
-def _audience(game: Steps69Game, user_id: int) -> steps69.Audience:
-    """Which half of a secret cell this caller is entitled to.
+def _position(game: Steps69Game, seat: int) -> int:
+    return game.creator_position if seat == 0 else game.guest_position
 
-    One phone means one screen, so a solo game gets both halves. In a duo
-    game the mover is whoever rolled onto the current cell, which is the
-    seat opposite the one holding the next turn.
-    """
-    if game.mode == "solo":
-        return "shared"
-    if not game.turns:
-        # Cell 1 is a joint action and carries no secret; nobody has moved.
-        return "shared"
-    mover_seat = 1 - game.turn
-    return "mover" if _seat(game, user_id) == mover_seat else "partner"
+
+def _set_position(game: Steps69Game, seat: int, value: int) -> None:
+    if seat == 0:
+        game.creator_position = value
+    else:
+        game.guest_position = value
+
+
+def _rolls(game: Steps69Game, seat: int) -> int:
+    return game.creator_turns if seat == 0 else game.guest_turns
+
+
+def _piece(game: Steps69Game, seat: int) -> str | None:
+    return game.creator_piece if seat == 0 else game.guest_piece
+
+
+def _joker_id(game: Steps69Game, seat: int) -> str | None:
+    return game.creator_joker_task_id if seat == 0 else game.guest_joker_task_id
+
+
+def _home(game: Steps69Game, seat: int) -> bool:
+    return _position(game, seat) >= steps69.BOARD_SIZE
+
+
+def _both_home(game: Steps69Game) -> bool:
+    return _home(game, 0) and _home(game, 1)
+
+
+def _player_view(
+    game: Steps69Game, seat: int, audience: steps69.Audience, language: Language
+) -> dict[str, Any]:
+    """One player as the caller may see them: where they stand and on what."""
+    return {
+        "seat": seat,
+        "name": game.creator_name if seat == 0 else game.guest_name,
+        "piece": _piece(game, seat),
+        "position": _position(game, seat),
+        "rolls": _rolls(game, seat),
+        "home": _home(game, seat),
+        "cell": steps69.cell_view(
+            _position(game, seat),
+            audience,
+            joker_task_id=_joker_id(game, seat),
+            language=language,
+        ),
+    }
 
 
 def _state(
@@ -144,13 +189,17 @@ def _state(
     started = solo or game.guest_telegram_user_id is not None
     seat = _seat(game, user_id)
 
-    turn_name = game.creator_name if game.turn == 0 else game.guest_name
-    your_turn = (
-        not game.finished
-        and started
-        and (solo or game.turn == seat)
-        and game.position < steps69.BOARD_SIZE
-    )
+    # One phone shows the seat that just *moved*, and shows it everything:
+    # there is no second device to withhold a secret from. The mover, not
+    # the next player — the card is the task they were just dealt, and
+    # switching to the next player's card the instant the dice landed meant
+    # nobody ever read their own. Before the first roll there is no mover,
+    # so the seat on turn stands in.
+    #
+    # Two phones each show their own piece, and see only the partner's line
+    # on the other.
+    me = (game.last_seat if game.last_seat is not None else game.turn) if solo else seat
+    them = 1 - me
 
     state: dict[str, Any] = {
         "code": game.code,
@@ -159,28 +208,31 @@ def _state(
         "your_seat": seat,
         "started": started,
         "finished": game.finished,
-        "position": game.position,
-        "turns": game.turns,
         "turn": game.turn,
-        "your_turn": your_turn,
-        "turn_name": turn_name,
-        "players": {"creator": game.creator_name, "guest": game.guest_name},
-        "cell": steps69.cell_view(
-            game.position,
-            _audience(game, user_id),
-            joker_task_id=game.joker_task_id,
-            language=language,
+        "your_turn": (
+            not game.finished
+            and started
+            and (solo or game.turn == seat)
+            and not _home(game, game.turn)
         ),
-        "reactions": list(game.reactions or []),
+        "turn_name": game.creator_name if game.turn == 0 else game.guest_name,
+        "you": _player_view(game, me, "shared" if solo else "mover", language),
+        "partner": _player_view(game, them, "shared" if solo else "partner", language),
+        "both_home": _both_home(game),
+        "finale": (
+            steps69.load_finale(language).model_dump() if _both_home(game) else None
+        ),
         "finale_choice": game.finale_choice,
+        "pieces_taken": [p for p in (game.creator_piece, game.guest_piece) if p],
     }
 
-    if game.turns:
+    if game.last_seat is not None:
         state["last"] = {
+            "seat": game.last_seat,
             "from": game.last_from,
             "roll": game.last_roll,
             "landed": game.last_landed,
-            "to": game.position,
+            "to": _position(game, game.last_seat),
             "event": game.last_event,
             "message": (
                 steps69.cell(game.last_landed, language).text
@@ -195,6 +247,12 @@ def _state(
 # Routes. `/mine` is declared before `/{code}` so it is not read as a code.
 # ---------------------------------------------------------------------------
 
+@router.get("/pieces")
+async def pieces() -> dict[str, Any]:
+    """The suits a player may choose. Public: it is four words."""
+    return {"pieces": list(PIECES)}
+
+
 @router.post("", dependencies=[Depends(throttle("create"))])
 async def create(
     body: CreateRequest,
@@ -205,6 +263,7 @@ async def create(
     user_id, name = _caller(authorization, x_guest_id)
     await _require_access(user_id)
     language = _language(lang)
+    piece = _validated_piece(body.piece, None)
 
     async with get_db() as session:
         code = _generate_code()
@@ -216,7 +275,14 @@ async def create(
             creator_telegram_user_id=user_id,
             creator_name=name,
             mode=body.mode,
+            creator_piece=piece,
         )
+        if body.mode == "solo":
+            # One phone, two players: the second seat exists but nobody
+            # authenticates into it, so it gets the first free suit.
+            game.guest_piece = next(p for p in PIECES if p != piece)
+            game.guest_name = game.guest_name or None
+            await session.flush()
         return _state(game, user_id, language)
 
 
@@ -240,6 +306,7 @@ async def mine(
 @router.post("/{code}/join", dependencies=[Depends(throttle("join"))])
 async def join(
     code: str,
+    body: JoinRequest,
     lang: str = "ru",
     authorization: str | None = Header(default=None),
     x_guest_id: str | None = Header(default=None),
@@ -259,6 +326,7 @@ async def join(
         elif game.guest_telegram_user_id is None:
             game.guest_telegram_user_id = user_id
             game.guest_name = name
+            game.guest_piece = _validated_piece(body.piece, game.creator_piece)
             game.updated_at = datetime.utcnow()
             await session.flush()
         elif game.guest_telegram_user_id != user_id:
@@ -310,52 +378,67 @@ async def roll(
     language = _language(lang)
 
     async with get_db() as session:
-        # Locked: a roll reads position, turn count and the spent-joker list
-        # and writes all three back, and both partners poll the same row.
+        # Locked: a roll reads a position, a roll count and the spent-joker
+        # list and writes all three back, and both partners poll the same row.
         game = await _load(session, code, user_id, for_update=True)
 
         if game.finished:
             raise HTTPException(status_code=409, detail="the game is over")
-        if game.position >= steps69.BOARD_SIZE:
-            # Cell 69 blocks the dice for the rest of the session; the pair
-            # leave it by choosing a finale, not by rolling past it.
-            raise HTTPException(status_code=409, detail="the dice are done")
 
         solo = game.mode == "solo"
-        if not solo:
+        if solo:
+            mover = game.turn
+        else:
             if game.guest_telegram_user_id is None:
                 raise HTTPException(status_code=409, detail="partner has not joined yet")
-            if game.turn != _seat(game, user_id):
+            mover = _seat(game, user_id)
+            if game.turn != mover:
                 raise HTTPException(status_code=403, detail="not your turn")
 
+        if _home(game, mover):
+            # Cell 69 blocks that piece for the rest of the game; the pair
+            # leave the board by choosing a finale, not by rolling past it.
+            raise HTTPException(status_code=409, detail="the dice are done")
+
         move = steps69.resolve_move(
-            game.position, steps69.roll_dice(), language
+            _position(game, mover), steps69.roll_dice(), language
         )
 
+        game.last_seat = mover
         game.last_from = move.start
         game.last_roll = move.roll
         game.last_landed = move.landed
         game.last_event = move.event
-        game.position = move.position
-        game.turns += 1
-        game.turn = 1 - game.turn
+        _set_position(game, mover, move.position)
+        if mover == 0:
+            game.creator_turns += 1
+        else:
+            game.guest_turns += 1
 
         landed_cell = steps69.cell(move.position, language)
+        joker_id = None
         if landed_cell.kind == "joker":
             spent = list(game.used_jokers or [])
             task = steps69.pick_joker(
-                move.position, game.turns, used=spent, language=language
+                move.position, _rolls(game, mover), used=spent, language=language
             )
-            game.joker_task_id = task.id
+            joker_id = task.id
             if task.id not in spent:
                 spent.append(task.id)
             game.used_jokers = spent
+        if mover == 0:
+            game.creator_joker_task_id = joker_id
         else:
-            game.joker_task_id = None
+            game.guest_joker_task_id = joker_id
+
+        # The turn passes to the partner unless they are already home, in
+        # which case the mover keeps rolling until they are home too.
+        other = 1 - mover
+        game.turn = other if not _home(game, other) else mover
 
         game.updated_at = datetime.utcnow()
-        # A pair who came back and finished the board should be eligible for
-        # a nudge again if they start another game later.
+        # A pair who come back and finish should be eligible for a nudge
+        # again if they start another game later.
         game.resume_notified_at = None
         await session.flush()
         return _state(game, user_id, language)
@@ -375,8 +458,8 @@ async def finale(
 
     async with get_db() as session:
         game = await _load(session, code, user_id, for_update=True)
-        if game.position < steps69.BOARD_SIZE:
-            raise HTTPException(status_code=409, detail="the piece is not on 69 yet")
+        if not _both_home(game):
+            raise HTTPException(status_code=409, detail="both pieces must reach 69")
 
         valid = {c.id for c in steps69.load_finale(language).choices}
         if body.choice not in valid:
@@ -394,36 +477,6 @@ async def finale(
         return _state(game, user_id, language)
 
 
-@router.post("/{code}/react", dependencies=[Depends(throttle("write"))])
-async def react(
-    code: str,
-    body: ReactRequest,
-    lang: str = "ru",
-    authorization: str | None = Header(default=None),
-    x_guest_id: str | None = Header(default=None),
-) -> dict[str, Any]:
-    """Send the partner an emoji. Palette only, never free text."""
-    user_id, _ = _caller(authorization, x_guest_id)
-    language = _language(lang)
-
-    if body.emoji not in REACTIONS:
-        raise HTTPException(status_code=400, detail="unknown reaction")
-
-    async with get_db() as session:
-        game = await _load(session, code, user_id, for_update=True)
-        tail = list(game.reactions or [])
-        seq = max((r.get("seq", 0) for r in tail), default=0) + 1
-        tail.append({
-            "seq": seq,
-            "by": "creator" if _seat(game, user_id) == 0 else "guest",
-            "emoji": body.emoji,
-        })
-        game.reactions = tail[-REACTION_TAIL:]
-        game.updated_at = datetime.utcnow()
-        await session.flush()
-        return _state(game, user_id, language)
-
-
 @router.delete("/{code}")
 async def delete(
     code: str,
@@ -431,7 +484,12 @@ async def delete(
     authorization: str | None = Header(default=None),
     x_guest_id: str | None = Header(default=None),
 ) -> dict[str, Any]:
-    """Erase the game. Either participant may do it, finished or not."""
+    """Erase the game. Either participant may do it, finished or not.
+
+    Also what "начать заново" runs: a fresh board is a new game, and leaving
+    the old one behind would have `/mine` offer to resume the game the pair
+    just abandoned.
+    """
     user_id, _ = _caller(authorization, x_guest_id)
 
     async with get_db() as session:

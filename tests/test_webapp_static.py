@@ -139,12 +139,22 @@ def test_the_fade_marks_only_an_edge_that_actually_hides_something():
     """A fade that is always on dims the first line of an unscrolled card and
     the last line at the end — the rendering fault it exists to prevent."""
     html = INDEX.read_text(encoding="utf-8")
-    assert "mask-image" in _css_block(html, ".q-zone")
-    assert ".q-zone.cut-top {" in html
-    assert ".q-zone.cut-bottom {" in html
+    assert ".card .front.cut-top::before {" in html
+    assert ".card .front.cut-bottom::after {" in html
     assert "function markZoneEdges" in html
     # Global hooks, so a deck that does not know about them still gets it.
     assert "MutationObserver(refreshZoneEdges)" in html
+
+
+def test_the_fade_never_masks_the_scroller_itself():
+    """A mask makes its element invisible to hit testing, so a mask on
+    .q-zone meant a finger drag on the card text found no scrollable
+    ancestor and scrolled nothing: readable by script, unreadable by hand.
+    The fade is an overlay on the face instead, and must stay one."""
+    html = INDEX.read_text(encoding="utf-8")
+    assert "mask-image" not in _css_block(html, ".q-zone")
+    fade = _css_block(html, ".card .front::before,\n  .card .front::after")
+    assert "pointer-events: none" in fade
 
 
 def test_the_stage_still_blocks_horizontal_panning_but_allows_vertical():

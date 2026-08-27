@@ -57,6 +57,12 @@ class User(Base):
     daily_card_opt_out: Mapped[bool] = mapped_column(
         Boolean, default=False, nullable=False, server_default="0"
     )
+    # The code this user hands out, minted on first ask and stable after.
+    referral_code: Mapped[str | None] = mapped_column(String, unique=True, nullable=True)
+    # Who brought them in. Set once, on the /start that carried a code, and
+    # never overwritten: the discount belongs to the first person to invite
+    # them, and a second link must not reassign the credit.
+    referred_by: Mapped[int | None] = mapped_column(BigInteger, nullable=True)
     created_at: Mapped[datetime] = mapped_column(
         default=datetime.utcnow, nullable=False
     )
@@ -69,7 +75,10 @@ class User(Base):
         "Subscription", back_populates="user", cascade="all, delete-orphan"
     )
 
-    __table_args__ = (Index("idx_telegram_user_id", "telegram_user_id"),)
+    __table_args__ = (
+        Index("idx_telegram_user_id", "telegram_user_id"),
+        Index("idx_referral_code", "referral_code"),
+    )
 
     def __repr__(self) -> str:
         return f"<User(id={self.id}, telegram_user_id={self.telegram_user_id}, username='{self.username}')>"
@@ -273,11 +282,9 @@ class Steps69Game(Base):
       so there is no guest row and no turn to enforce, but the game still
       lives here: the paywall is enforced server-side, and a game left in
       the middle is what the resume push looks for.
-    * `turns` counts rolls, and feeds the Joker's tempo rule. `used_jokers`
-      keeps a pair from drawing the same task twice in one game.
-    * `reactions` is a short tail of emoji, each with a monotonic `seq`, so
-      a polling client can tell what it has not animated yet without a
-      second column to hold the counter.
+    * Each partner has their own piece, position and roll count. The board
+      is walked twice, and the game ends when both pieces stand on 69.
+      `used_jokers` is shared, so one game never deals the same task twice.
 
     No TTL. A pair who stop at cell 45 on a Tuesday are meant to be able to
     come back on Friday and find their piece where they left it, which is
@@ -294,24 +301,39 @@ class Steps69Game(Base):
     guest_telegram_user_id: Mapped[int | None] = mapped_column(BigInteger, nullable=True)
     guest_name: Mapped[str | None] = mapped_column(String, nullable=True)
 
-    position: Mapped[int] = mapped_column(Integer, default=1, nullable=False)
+    # One piece per player, not one per couple. Each partner walks their own
+    # board and reads the cell they are standing on, and the game is over
+    # only when both have reached 69 — which is the rule the board was
+    # written to ("игра не заканчивается, пока оба не достигли пика").
+    creator_position: Mapped[int] = mapped_column(Integer, default=1, nullable=False)
+    guest_position: Mapped[int] = mapped_column(Integer, default=1, nullable=False)
+    # The suit each player's piece wears, chosen when the game starts.
+    creator_piece: Mapped[str | None] = mapped_column(String, nullable=True)
+    guest_piece: Mapped[str | None] = mapped_column(String, nullable=True)
     turn: Mapped[int] = mapped_column(Integer, default=0, nullable=False)  # 0=creator
-    turns: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
+    # Rolls made by each player. Per player, not per game, because the Joker's
+    # tempo rule asks how fast *this* player crossed the board.
+    creator_turns: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
+    guest_turns: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
 
     # The last roll, kept so a partner who polls in mid-animation sees the
-    # same move rather than a piece that teleported.
+    # same move rather than a piece that teleported. One set is enough:
+    # only one player moves at a time, and `last_seat` says which.
+    last_seat: Mapped[int | None] = mapped_column(Integer, nullable=True)
     last_roll: Mapped[int | None] = mapped_column(Integer, nullable=True)
     last_from: Mapped[int | None] = mapped_column(Integer, nullable=True)
     last_landed: Mapped[int | None] = mapped_column(Integer, nullable=True)
     last_event: Mapped[str | None] = mapped_column(String, nullable=True)
 
-    joker_task_id: Mapped[str | None] = mapped_column(String, nullable=True)
-    # Declared as the lists they are. The sibling columns say `Mapped[dict]`
+    # A Joker is dealt to the piece standing on it, so each player carries
+    # their own; `used_jokers` stays shared, so one game never repeats a task.
+    creator_joker_task_id: Mapped[str | None] = mapped_column(String, nullable=True)
+    guest_joker_task_id: Mapped[str | None] = mapped_column(String, nullable=True)
+    # Declared as the list it is. The sibling columns say `Mapped[dict]`
     # with a comment correcting it, which is a type that lies; the column
     # type is given explicitly either way, so the annotation is free to be
     # honest.
     used_jokers: Mapped[list] = mapped_column(JSONEncodedDict, nullable=False)
-    reactions: Mapped[list] = mapped_column(JSONEncodedDict, nullable=False)
 
     finale_choice: Mapped[str | None] = mapped_column(String, nullable=True)
     finished: Mapped[bool] = mapped_column(default=False, nullable=False)

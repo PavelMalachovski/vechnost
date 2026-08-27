@@ -95,6 +95,11 @@ pytest tests/test_freemium.py -q         # run one suite
   `compat_notify.py` sends both partners a push the moment the test
   completes, since the second partner often finishes hours later and would
   otherwise never come back to read it.
+- **Every player walks their own board in «69 ступеней».** Two pieces, two
+  positions, two roll counts, two Joker slots; `used_jokers` stays shared so
+  one game never deals a task twice. A player who reaches 69 stops rolling
+  and the turn skips them; the finale unlocks when both are home. A piece is
+  one of the deck's four suits and two players may not wear the same one.
 - **«69 ступеней» is the third two-partner feature** and follows the same
   shape again: `steps69.py` is the domain layer (board, portals, dice, the
   Joker – no FastAPI or python-telegram-bot imports, like `library.py` and
@@ -110,6 +115,9 @@ pytest tests/test_freemium.py -q         # run one suite
   - **The dice are the server's.** The client asks to roll and is told what
     happened. Both phones have to agree on the number anyway, and a client
     that rolled its own could roll sixty-nine sixes.
+  - **No emoji, no music, no reactions.** The board speaks in suits, drawn
+    arrows and colour by block; the three were removed on purpose and the
+    column behind the reactions went with them.
   Content lives in `data/steps69_ru.yaml`. Portals are declared *on the
   cells* (`kind: ladder` + `to:`), never in a separate table, so a rewritten
   cell cannot lose its link. Ladders are 4→18, 22→40, 42→60, 65→68; snakes
@@ -119,7 +127,10 @@ pytest tests/test_freemium.py -q         # run one suite
 - **A secret cell's text reaches exactly one player.** `steps69.cell_view`
   takes an `audience` – `"mover"` gets the instruction, `"partner"` gets
   their own line, and `"shared"` (the one-phone game) gets both because
-  there is no second device to withhold anything from. The board payload
+  there is no second device to withhold anything from. With two pieces the
+  state carries two cells: yours as `"mover"`, your partner's as
+  `"partner"`. One phone shows the seat that just *moved*, never the one on
+  turn next, or nobody ever reads the task they were dealt. The board payload
   (`board_view`) carries titles and portal arrows only: a cell's instruction
   arrives when the piece is standing on it, so the deck cannot be read ahead
   through the network tab.
@@ -128,6 +139,33 @@ pytest tests/test_freemium.py -q         # run one suite
   than `RUSH_CELLS_PER_TURN` cells per roll get a tender task wherever they
   are: reaching the last third in six rolls means skipping everything that
   makes an ecstatic task land. Tasks already dealt this game are skipped.
+- **The masterclass is a `guide`, not a deck.** `library.py` grows a fourth
+  module type: numbered `GuideStep`s of `GuideItem`s, each carrying an `art`
+  key. The Mini App renders it as a document (drawing left, words right,
+  tips under both) on its own `#guide` screen, and the drawings are
+  generated from joint coordinates in `ART_POSES` rather than authored as
+  path data, so twenty-nine schematics stay consistent and a pose is nudged
+  by moving one number. An unpaid caller gets the first step only.
+- **A fade must never be a mask on a scroller.** `.q-zone` used to carry a
+  `mask-image`, and a mask makes its element invisible to hit testing:
+  `elementFromPoint` in the middle of a card returned `.front`, so a finger
+  drag found no scrollable ancestor and long card text was readable by
+  script and unreadable by hand. The fade is an overlay on `.card .front`
+  with `pointer-events: none`, and `markZoneEdges` puts the `cut-*` flags on
+  the face for that reason. `tests/test_webapp_static.py` holds it.
+- **Referral discounts are a second Tribute product, not a coupon.** Tribute
+  owns the price, so `referrals.payment_url_for` only chooses which of two
+  payment pages a user sees. With `REFERRAL_PAYMENT_URL` unset the codes are
+  still minted and invites still recorded, and nobody is promised a discount
+  that does not exist.
+- **A broadcast is a script, never a bot command.** `scripts/broadcast.py`
+  sends nothing without `--confirm`, and lives outside the bot so no stray
+  callback can ever reach it.
+- **The bot has one door into the app.** The welcome screen offers a single
+  Mini App button; the Library and «69 ступеней» rows were removed, because
+  the app's own navigation belongs in the app. The chat menu button and the
+  command list are published at startup by `bot.py::_publish_entry_points`,
+  which is what a user with a cleared history has left to tap.
 - **Rate limiting lives in `payments/throttle.py`**, as FastAPI
   dependencies: `throttle("join")` on anything that takes a six-character
   code, `throttle("render")` on `/api/card`, `throttle("admin")` on the
@@ -189,7 +227,10 @@ pytest tests/test_freemium.py -q         # run one suite
   punctuation. Add a new content YAML to that test's `CONTENT` list, or it
   is simply never checked.
 - **The board is not a deck.** «69 ступеней» has its own screens and its own
-  state (`G`) in `webapp/index.html`, and reuses `coopFetch` for auth rather
+  state (`G`) in `webapp/index.html`, and the Library modules are listed on
+  the home screen rather than behind a «Библиотека» button (the `#library`
+  screen stays: the daily push still deep-links to it, so `LIB_BACK_TO`
+  records which way a module was entered), and reuses `coopFetch` for auth rather
   than the swipe engine for movement: there is nothing to swipe. The map is a
   serpentine running *downward* (cells 1-6 left to right, 7-12 right to
   left), capped at `30vh` and scrolling inside itself, because twelve rows of

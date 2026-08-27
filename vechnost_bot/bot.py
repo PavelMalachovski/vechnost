@@ -10,6 +10,7 @@ from .config import create_bot, get_log_level
 from .handlers import (
     handle_callback_query,
     help_command,
+    invite_command,
     reset_command,
     start_command,
     about_command,
@@ -43,10 +44,54 @@ async def on_error(update: object, context: ContextTypes.DEFAULT_TYPE) -> None:
     log_bot_event("unhandled_error", error=str(error))
 
 
+async def _publish_entry_points(application: Application) -> None:
+    """Give a user with an empty chat a way back in.
+
+    Clearing the history deletes every button the bot ever sent, and with the
+    game living in the Mini App there is nothing left on screen to tap: the
+    user has to know to type /start. Two things survive a cleared history and
+    are set here, once, at startup.
+
+    The menu button is the blue control beside the message box; pointed at
+    the Mini App it opens the app directly. The command list is what the "/"
+    menu offers, which is where /start becomes discoverable again.
+
+    Neither is worth taking the bot down for, so a failure is logged and the
+    bot starts anyway.
+    """
+    from telegram import BotCommand, MenuButtonCommands, MenuButtonWebApp, WebAppInfo
+
+    from .config import settings
+    from .i18n import Language, get_text
+
+    language = Language.RUSSIAN
+    try:
+        await application.bot.set_my_commands([
+            BotCommand("start", get_text("commands.start", language)),
+            BotCommand("help", get_text("commands.help", language)),
+            BotCommand("about", get_text("commands.about", language)),
+            BotCommand("invite", get_text("commands.invite", language)),
+            BotCommand("reset", get_text("commands.reset", language)),
+        ])
+        if settings.webapp_url:
+            await application.bot.set_chat_menu_button(
+                menu_button=MenuButtonWebApp(
+                    text=get_text("commands.menu_button", language),
+                    web_app=WebAppInfo(url=settings.webapp_url),
+                )
+            )
+        else:
+            # No app to open: the "/" menu is the only way back, so make the
+            # button open that rather than leave it on Telegram's default.
+            await application.bot.set_chat_menu_button(menu_button=MenuButtonCommands())
+    except Exception as e:
+        logging.getLogger(__name__).warning(f"Could not publish entry points: {e}")
+
+
 def create_application() -> Application:
     """Create and configure the Telegram application."""
     bot = create_bot()
-    application = Application.builder().bot(bot).build()
+    application = Application.builder().bot(bot).post_init(_publish_entry_points).build()
 
     # Add command handlers
     application.add_handler(CommandHandler("start", start_command))
@@ -54,6 +99,7 @@ def create_application() -> Application:
     application.add_handler(CommandHandler("reset", reset_command))
     application.add_handler(CommandHandler("about", about_command))
     application.add_handler(CommandHandler("activate", activate_certificate_command))
+    application.add_handler(CommandHandler("invite", invite_command))
 
     # Add callback query handler
     application.add_handler(CallbackQueryHandler(handle_callback_query))

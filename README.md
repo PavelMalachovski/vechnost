@@ -15,11 +15,14 @@ inside a polished Telegram Mini App.
   very PNGs the bot composites onto, served from `/assets`.
 - **Four decks.** Acquaintance ♥, For Couples ♠, Sex ♣ (18+), Provocation ♦ —
   310 questions/tasks, with 3 progressive levels on the couple-facing decks.
-- **Library.** A second section beside the game, read as a deck of cards
-  like the game itself: 150 date ideas in 8 categories, the 36 questions to
-  fall in love, 25 practices for couples and 25 for yourself, a nude
-  photography masterclass (light, camera, poses, and what to do with the
-  pictures afterwards), and a year of self-reflection prompts.
+- **Library.** Six modules listed on the Mini App's home screen and read as
+  decks of cards: 150 date ideas in 8 categories, the 36 questions to fall in
+  love, 25 practices for couples and 25 for yourself, and a year of
+  self-reflection prompts. The nude photography masterclass is the exception,
+  read as a document: five numbered steps from light to safety, each item a
+  schematic drawing beside the words and the tips underneath.
+- **Referrals.** `/invite` hands a user a link. Whoever opens the bot through
+  it is sent to a discounted Tribute product when the paywall comes up.
 - **Russian.** UI and content are Russian throughout, in both front-ends.
   English and Czech were shipped once and have been retired; they are in git
   history, not in the app.
@@ -32,13 +35,14 @@ inside a polished Telegram Mini App.
 - **Couple mode.** Two phones, one shared deck, taking turns — one payment
   covers both partners.
 - **69 Steps (18+).** A board game of temptation: 69 cells, four ladders that
-  throw the pair upward and three snakes that pull them back to tenderness,
-  three Joker cells that deal a task chosen by how far along and how fast the
-  pair are moving, and a final cell that blocks the dice and offers two ways
-  to finish. Playable on two phones (the dice locks for whoever is not on
-  turn, emoji reactions cross between them) or on one, passed back and forth.
-  Behind the paywall in full. A secret cell's instruction reaches only the
-  partner who rolled onto it; the other gets their own line.
+  throw a piece upward and three snakes that pull it back to tenderness,
+  three Joker cells that deal a task chosen by how far along and how fast
+  that player is moving, and a final cell that blocks the dice. Each partner
+  picks a suit and walks their own board; the finale unlocks when both are
+  standing on 69. Playable on two phones (the dice locks for whoever is not
+  on turn) or on one, passed back and forth. Behind the paywall in full. A
+  secret cell's instruction reaches only the player standing on it; their
+  partner gets the one line written for them.
 - **Compatibility test.** Forty questions across eight areas, taken separately
   by both partners and compared. The result names the areas where they are a
   team, the two worth talking about, and the exact questions they answered
@@ -74,6 +78,7 @@ vechnost/
 │   ├── library.py         # Library content loader
 │   ├── daily_card.py      # Daily self-reflection push
 │   ├── compat.py          # Compatibility test: scoring, result assembly
+│   ├── referrals.py       # Invite codes and the discounted payment page
 │   ├── compat_notify.py   # "Your result is ready" push to both partners
 │   ├── steps69.py         # 69 Steps: board, portals, dice, the Joker
 │   ├── steps69_notify.py  # "Your piece is waiting on cell 45" nudge
@@ -91,6 +96,7 @@ vechnost/
 │       └── middleware.py, signature.py, tribute_client.py
 ├── webapp/                # Mini App (single-file index.html + fonts)
 ├── data/                  # questions.yaml, translations_ru.yaml, steps69_ru.yaml
+│   └── messages/          # Broadcast texts for scripts/broadcast.py
 │   └── library/           # Library content, one YAML per module
 ├── assets/                # Card backgrounds + fonts (Inter, Lora, Forum)
 │                          #   library.png and card_back.png are generated
@@ -141,6 +147,7 @@ All settings are read from environment variables (or `.env`). See
 | `TRIBUTE_API_KEY`, `TRIBUTE_PAYMENT_URL`, `WEBHOOK_SECRET` | Tribute payment integration |
 | `ADMIN_TOKEN` | Bearer token for `/admin/*`. Falls back to `TRIBUTE_API_KEY`; set it separately so an outbound credential is not also an inbound password |
 | `GIFT_PRODUCT_ID`, `GIFT_PAYMENT_URL` | Gift-certificate product (optional) |
+| `REFERRAL_PAYMENT_URL`, `REFERRAL_DISCOUNT_PERCENT` | Discounted Tribute product shown to users who arrived on someone's invite link. Unset: referrals are tracked, everyone pays the same |
 | `DAILY_CARD_ENABLED`, `DAILY_CARD_HOUR_UTC` | Daily self-reflection push (default on, 17:00 UTC ≈ 19:00 Prague) |
 | `DATABASE_URL` | SQLite locally, PostgreSQL in production |
 | `REDIS_URL` | Session/cache store (falls back to in-memory) |
