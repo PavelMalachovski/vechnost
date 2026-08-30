@@ -130,6 +130,17 @@ class Settings(BaseSettings):
                     "shared card images and share links."
     )
 
+    webapp_short_name: str | None = Field(
+        default=None,
+        validation_alias="WEBAPP_SHORT_NAME",
+        description="The Mini App short name set in BotFather "
+                    "(Bot Settings -> Configure Mini App). With it, an invite "
+                    "is a direct link (t.me/<bot>/<short name>?startapp=...) "
+                    "that opens the app on the right screen in one tap. "
+                    "Without it, invites fall back to t.me/<bot>?start=..., "
+                    "where the bot answers with a button into the app."
+    )
+
     # Gift certificates
     gift_product_id: str | None = Field(
         default=None,
@@ -190,6 +201,16 @@ class Settings(BaseSettings):
             return None
         separator = "&" if "?" in self.webapp_url else "?"
         return f"{self.webapp_url}{separator}screen={screen}"
+
+    def webapp_join_url(self, screen: str, code: str) -> str | None:
+        """The Mini App URL that opens a screen already holding an invite code.
+
+        What the bot's own button points at when someone taps a
+        `t.me/<bot>?start=s69_XXXXXX` link: the app reads both parameters on
+        boot and joins, so the partner never types a code.
+        """
+        base = self._webapp_screen_url(screen)
+        return f"{base}&code={code}" if base else None
 
     @property
     def webapp_library_url(self) -> str | None:

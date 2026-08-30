@@ -88,7 +88,14 @@ def test_healthy_recipient_gets_the_card():
     assert "daily_off" in labels
 
 
-def test_library_button_appears_only_when_the_mini_app_is_configured():
+def test_one_door_into_the_app_and_one_way_out():
+    """«Играть» and «Библиотека» were one app opened at two screens.
+
+    They asked the reader to choose before they had seen either, so the push
+    carries one button into the app and the opt-out beside it. Without a
+    WEBAPP_URL there is no app to open and the button falls back to the
+    bot's own deck rather than disappearing.
+    """
     from vechnost_bot.config import settings
     from vechnost_bot.daily_card import _daily_keyboard
 
@@ -96,13 +103,18 @@ def test_library_button_appears_only_when_the_mini_app_is_configured():
     try:
         settings.webapp_url = None
         rows = _daily_keyboard(Language.RUSSIAN).inline_keyboard
-        assert all(b.web_app is None for row in rows for b in row)
+        buttons = [b for row in rows for b in row]
+        assert all(b.web_app is None for b in buttons)
+        assert [b.callback_data for b in buttons] == ["start_game", "daily_off"]
 
         settings.webapp_url = "https://example.com/app"
         rows = _daily_keyboard(Language.RUSSIAN).inline_keyboard
-        library = [b for row in rows for b in row if b.web_app]
-        assert len(library) == 1
-        assert library[0].web_app.url.endswith("screen=library")
+        buttons = [b for row in rows for b in row]
+        assert len(buttons) == 2, "one way in, one way out"
+        into_app = [b for b in buttons if b.web_app]
+        assert len(into_app) == 1
+        assert into_app[0].web_app.url == "https://example.com/app"
+        assert buttons[-1].callback_data == "daily_off"
     finally:
         settings.webapp_url = original
 

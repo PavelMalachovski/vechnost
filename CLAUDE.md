@@ -60,6 +60,18 @@ pytest tests/test_freemium.py -q         # run one suite
   Telegram `initData` via `payments/webapp_auth.py::validate_init_data`
   (`Authorization: tma <initData>`). The server never ships paid content to
   an unpaid client — enforce access server-side, not in the client.
+- **An invite is a link, never a typed code.** All three two-partner
+  features draw six-character codes from one alphabet, so a code entered at
+  the wrong door failed confusingly and a mistyped character simply refused
+  the partner. `invites.py` mints the link and the server puts it in the
+  state payload as `invite_url` — the client never spells one, because only
+  the server knows whether `WEBAPP_SHORT_NAME` is set and therefore which
+  shape works: `t.me/<bot>/<app>?startapp=<kind>_<CODE>` (one tap, needs a
+  Mini App short name in BotFather) or `t.me/<bot>?start=<kind>_<CODE>`
+  (the bot answers with a button into the app, nothing to configure). The
+  prefixes are `s69`, `cmp`, `duo`. The Mini App reads both `start_param`
+  and `?screen=&code=` on boot and joins by itself; there are no code
+  fields left anywhere in it.
 - **Two-partner features follow `payments/rooms.py`**: a short room code,
   both players polling for state, a 24-hour TTL, and the room inheriting the
   creator's access so one payment covers both. `payments/library_api.py` was
@@ -115,6 +127,11 @@ pytest tests/test_freemium.py -q         # run one suite
   - **The dice are the server's.** The client asks to roll and is told what
     happened. Both phones have to agree on the number anyway, and a client
     that rolled its own could roll sixty-nine sixes.
+  - **A suit is never a locked door.** `join` deals the guest whichever suit
+    the creator is not wearing rather than refusing a clash. It used to 409
+    on a taken piece and both ends defaulted to «hearts», so the ordinary
+    invite — neither partner having touched the picker — turned the second
+    phone away at the door. That was what "two phones do not work" meant.
   - **No emoji, no music, no reactions.** The board speaks in suits, drawn
     arrows and colour by block; the three were removed on purpose and the
     column behind the reactions went with them.
@@ -146,6 +163,17 @@ pytest tests/test_freemium.py -q         # run one suite
   generated from joint coordinates in `ART_POSES` rather than authored as
   path data, so twenty-nine schematics stay consistent and a pose is nudged
   by moving one number. An unpaid caller gets the first step only.
+- **A pose drawing has to say which way the body faces.** The figures are
+  silhouettes — thick rounded limbs, a filled torso, a head carrying a nose
+  bump in profile or a mass of hair for a back view — and each carries a
+  `view` and a `face`, printed under the drawing as «вид сбоку · свет
+  слева». As stick figures, «спиной к камере» and «боком к окну» came out as
+  the same scribble. Two things in `artFigure` are load-bearing: the
+  perpendicular across the spine is signed so `L` is the frame's left (the
+  other sign hangs every left limb off the right shoulder, and each arm
+  crosses the chest to reach its own hand), and a body seen edge-on gets a
+  narrow torso, because shoulders spread in depth there, not across the
+  picture.
 - **A fade must never be a mask on a scroller.** `.q-zone` used to carry a
   `mask-image`, and a mask makes its element invisible to hit testing:
   `elementFromPoint` in the middle of a card returned `.front`, so a finger
@@ -161,6 +189,17 @@ pytest tests/test_freemium.py -q         # run one suite
 - **A broadcast is a script, never a bot command.** `scripts/broadcast.py`
   sends nothing without `--confirm`, and lives outside the bot so no stray
   callback can ever reach it.
+- **The daily push has one button into the app.** «Играть» and «Библиотека»
+  were the same app opened at two screens, and the choice came before the
+  reader had seen either. It is one «Зайти в приложение» now, with the
+  opt-out beside it. Older pushes already in people's chats still deep-link
+  to `?screen=library`, so that route stays alive.
+- **The home screen carries what a couple came for.** Playing, the two
+  partner features, «69 ступеней» and the masterclass; the five reading
+  modules sit one tap deeper behind «Практики» (`HOME_MODULES` in
+  `webapp/index.html` says which stay on top). «Практики» is the `#library`
+  screen renamed, which is why `LIB_BACK_TO` and the old deep link still
+  work.
 - **The bot has one door into the app.** The welcome screen offers a single
   Mini App button; the Library and «69 ступеней» rows were removed, because
   the app's own navigation belongs in the app. The chat menu button and the
@@ -217,6 +256,13 @@ pytest tests/test_freemium.py -q         # run one suite
   one flat dictionary now, not a per-language map, and there is no language
   chip row.
 - New user-facing text is Russian. There is no second language to fill in.
+- **No gendered verb forms in user-facing text.** Not «уверен», and not the
+  «уверен(а)» bracket either: the reader may be of any gender, and the
+  brackets read as a form to fill in. Russian gives you present and future
+  tense (no gender), «мне удалось», «случалось ли тебе», nominalisation
+  («в чём проявилась моя щедрость»), and agreement with a noun («партнёр
+  изменил», «был ли у тебя опыт») — use those. `data/questions.yaml`,
+  `data/library/*.yaml` and the interface copy carry none.
 - **No em dash in user-facing text.** `data/questions.yaml`,
   `data/steps69_ru.yaml` and `data/library/*.yaml` hold zero long dashes;
   use an en dash `–` or rewrite the sentence. `tests/test_no_em_dash.py`

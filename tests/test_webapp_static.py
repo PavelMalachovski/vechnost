@@ -293,3 +293,87 @@ def test_the_home_screen_shows_decks_not_typographic_suits():
     for card in ("acq/acq_1.png", "couples/couples_1.png",
                  "sex/questions.png", "prov/prov.png"):
         assert card in html
+
+
+def test_no_screen_still_asks_for_a_typed_code():
+    """Invites are links now, at all three doors.
+
+    The three features drew six-character codes from one alphabet, so a code
+    entered at the wrong door failed confusingly, and a mistyped character
+    just refused the partner. A link cannot be entered at the wrong door.
+    """
+    html = INDEX.read_text(encoding="utf-8")
+    for field in ("coopCodeInput", "compatCodeInput", "s69CodeInput"):
+        assert field not in html, field
+    assert 'class="coop-input"' not in html
+    for button in ("btnCoopJoin", "btnCompatJoin", "btnS69Join"):
+        assert button not in html, button
+
+
+def test_the_invite_link_comes_from_the_server():
+    """Only the server knows whether this deployment has a Mini App short
+    name, and so which of the two link shapes actually works."""
+    html = INDEX.read_text(encoding="utf-8")
+    assert "invite_url" in html
+    assert "showInviteLink" in html
+    # No client-side link building: a hand-rolled t.me/<bot>?start=... would
+    # go stale the moment a short name is configured. (The two shapes are
+    # named in the comments that explain the boot path; that is not code.)
+    code = "\n".join(line for line in html.splitlines()
+                     if not line.lstrip().startswith("//"))
+    assert "?start=" not in code
+    assert "?startapp=" not in code
+
+
+def test_a_link_arriving_from_either_shape_lands_on_the_same_screen():
+    """`startapp` hands the payload to the page; the bot's button spells it
+    into the query string. Both have to reach the same join."""
+    html = INDEX.read_text(encoding="utf-8")
+    boot = html.split("function bootTarget(")[1].split("\n  }")[0]
+    assert "initDataUnsafe" in boot and "start_param" in boot
+    assert "tgWebAppStartParam" in boot
+    assert "screen" in boot and "code" in boot
+    for kind in ("s69:", "cmp:", "duo:"):
+        assert kind in html, kind
+
+
+def test_the_home_screen_carries_the_masterclass_and_hides_the_rest():
+    """Five titles of prose on the first screen drowned out the four things
+    a couple open the app to do. They live behind «Практики» now."""
+    html = INDEX.read_text(encoding="utf-8")
+    assert "const HOME_MODULES = ['nude_guide']" in html
+    assert "btnPractices" in html
+    assert "Интерактивная игра 69 ступеней" in html
+    assert "Территория наслаждения" not in html
+
+
+def test_an_overlay_taller_than_the_phone_can_be_scrolled():
+    """The 69 finale is two choices with a paragraph each. Centred with
+    justify-content it pushed its own head above the scroll origin and left
+    the buttons under it unreachable."""
+    html = INDEX.read_text(encoding="utf-8")
+    block = html.split("  .overlay {")[1].split("}")[0]
+    assert "overflow-y: auto" in block
+    assert "justify-content: center" not in block
+    assert ".overlay > :first-child { margin-top: auto; }" in html
+
+
+def test_a_long_compatibility_question_scrolls_instead_of_pushing_the_answers_off():
+    html = INDEX.read_text(encoding="utf-8")
+    block = html.split("  #compatQuestion{")[1].split("}")[0]
+    assert "overflow-y:auto" in block
+    assert "min-height:0" in block
+
+
+def test_the_pose_drawings_show_which_way_the_body_faces():
+    """A stick figure draws «спиной к камере» and «боком к окну» the same
+    way. The silhouette carries a face mark, and the caption says the view
+    outright."""
+    html = INDEX.read_text(encoding="utf-8")
+    assert "ART_FACE_DIR" in html
+    assert "art-cap" in html
+    for label in ("вид сбоку", "вид со спины", "вид спереди"):
+        assert label in html, label
+    # Every pose names the view its caption will print.
+    poses = html.split("const ART_POSES = {")[1].split("\n  };")[0]
+    assert poses.count("view:") == poses.count("light:")

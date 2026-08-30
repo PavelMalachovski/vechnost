@@ -105,13 +105,76 @@ def test_a_suit_nobody_plays_is_refused(client):
     assert response.status_code == 400
 
 
-def test_the_partner_cannot_take_the_same_suit(client):
-    """Two identical pieces on one board are two pieces nobody can tell apart."""
+def test_the_partner_is_dealt_a_free_suit_instead_of_a_refusal(client):
+    """Two identical pieces are indistinguishable, so the second is swapped.
+
+    It used to be a 409, and both ends defaulted to the same suit, so the
+    ordinary invite — neither partner having touched the picker — refused the
+    partner at the door. Nobody reads "hearts is taken" as "pick another
+    suit"; they read it as "this game will not let me in".
+    """
     game = create(client, piece="hearts")
-    response = client.post(
+    joined = client.post(
         f"/api/steps69/{game['code']}/join", json={"piece": "hearts"}, headers=BOB
     )
-    assert response.status_code == 409
+    assert joined.status_code == 200
+    body = joined.json()
+    assert body["you"]["piece"] != "hearts"
+    assert body["partner"]["piece"] == "hearts"
+
+
+def test_the_partner_joins_without_naming_a_suit(client):
+    """What an invite link produces: a join with no body worth speaking of."""
+    game = create(client, piece="hearts")
+    joined = client.post(f"/api/steps69/{game['code']}/join", json={}, headers=BOB)
+    assert joined.status_code == 200
+    body = joined.json()
+    assert body["started"] is True
+    assert body["you"]["piece"] and body["you"]["piece"] != "hearts"
+
+
+def test_the_state_carries_the_link_to_send_the_partner(client):
+    game = create(client)
+    assert game["invite_url"] and game["code"] in game["invite_url"]
+    assert "s69_" in game["invite_url"]
+
+
+def test_two_phones_play_a_whole_game_through_the_invite_link(client):
+    """The path a partner actually takes, end to end.
+
+    The creator makes a game and sends a link; the partner opens it, which
+    posts a join with no suit named, reads the board and rolls. This used to
+    stop at the door: both ends defaulted to the same suit and the join came
+    back 409.
+    """
+    from vechnost_bot import invites
+
+    game = create(client, piece="hearts")
+    link = game["invite_url"]
+    screen, code = invites.parse_invite_param(link.split("=")[-1])
+    assert (screen, code) == ("steps69", game["code"])
+
+    joined = client.post(f"/api/steps69/{code}/join", json={}, headers=BOB)
+    assert joined.status_code == 200, joined.text
+    assert joined.json()["started"] is True
+
+    # The guest can read the map and is on the board, not looking at it.
+    assert client.get(f"/api/steps69/{code}/board", headers=BOB).status_code == 200
+
+    # 2 and 4 from cell 1 land on 3 and 5, neither of which is a portal:
+    # the point here is the two phones, not the board.
+    with patch.object(steps69, "roll_dice", return_value=2):
+        first = roll(client, code, ALICE)
+    assert first.status_code == 200
+    assert first.json()["you"]["position"] == 3
+
+    with patch.object(steps69, "roll_dice", return_value=4):
+        second = roll(client, code, BOB)
+    assert second.status_code == 200
+    body = second.json()
+    assert body["you"]["position"] == 5, "the guest walks their own board"
+    assert body["partner"]["position"] == 3
+    assert body["your_turn"] is False, "the turn went back to the creator"
 
 
 def test_the_partner_takes_their_own_suit(client):

@@ -30,15 +30,27 @@ def _user_language(code: str | None) -> Language:
 
 
 def _daily_keyboard(language: Language) -> InlineKeyboardMarkup:
-    rows = [[InlineKeyboardButton(
-        get_text('daily.play_button', language),
-        callback_data="start_game"
-    )]]
-    # This push *is* a Library item, so offer the Library next to the deck.
-    if settings.webapp_library_url:
+    """One way in, and one way out.
+
+    The push used to carry «Играть» and «Библиотека», which were two names
+    for the same app opened at two screens — a choice made before the reader
+    had seen either. It is one button now, and the app's own home screen is
+    where the choosing belongs. Opting out stays: it is the only thing here
+    that is not the app.
+
+    Without WEBAPP_URL there is no app to open, so the card falls back to the
+    bot's own deck rather than showing a dead row.
+    """
+    rows = []
+    if settings.webapp_url:
         rows.append([InlineKeyboardButton(
-            get_text('daily.library_button', language),
-            web_app=WebAppInfo(url=settings.webapp_library_url)
+            get_text('daily.open_app_button', language),
+            web_app=WebAppInfo(url=settings.webapp_url)
+        )])
+    else:
+        rows.append([InlineKeyboardButton(
+            get_text('daily.open_app_button', language),
+            callback_data="start_game"
         )])
     rows.append([InlineKeyboardButton(
         get_text('daily.unsubscribe_button', language),
