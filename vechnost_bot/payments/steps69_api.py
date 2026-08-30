@@ -30,7 +30,7 @@ from fastapi import APIRouter, Depends, Header, HTTPException
 from pydantic import BaseModel, Field
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from .. import steps69
+from .. import invites, steps69
 from ..config import settings
 from ..i18n import Language
 from .database import get_db
@@ -59,7 +59,12 @@ class CreateRequest(BaseModel):
 
 
 class JoinRequest(BaseModel):
-    piece: str = Field(default="spades")
+    # Optional, and normally absent: a partner arriving through an invite
+    # link has not been past the suit picker, so the server deals them a free
+    # suit. It used to default to a suit, and both ends defaulted to the same
+    # one, so the ordinary case — neither partner touching the picker — was a
+    # 409 that read as "the game will not let me in".
+    piece: str | None = None
 
 
 class FinaleRequest(BaseModel):
@@ -81,6 +86,20 @@ def _validated_piece(piece: str, taken: str | None) -> str:
     if taken is not None and piece == taken:
         raise HTTPException(status_code=409, detail="piece already taken")
     return piece
+
+
+def _free_piece(piece: str | None, taken: str | None) -> str:
+    """The suit the joining partner ends up wearing.
+
+    A suit that is free is granted; anything else — none asked for, an
+    unknown one, or the one the creator is already wearing — is swapped for
+    the first free suit rather than refused. Which of four glyphs a piece
+    wears is not worth a locked door, and the door was locked by default:
+    both ends sent "hearts" unless someone thought to change it.
+    """
+    if piece in PIECES and piece != taken:
+        return piece
+    return next(p for p in PIECES if p != taken)
 
 
 def _caller(authorization: str | None, guest_id: str | None) -> tuple[int, str]:
@@ -224,6 +243,10 @@ def _state(
         ),
         "finale_choice": game.finale_choice,
         "pieces_taken": [p for p in (game.creator_piece, game.guest_piece) if p],
+        # The link the creator sends. Composed here rather than in the client
+        # so the app never has to know how a deep link is spelled, and so the
+        # shape follows the deployment's own configuration.
+        "invite_url": invites.invite_url("s69", game.code),
     }
 
     if game.last_seat is not None:
@@ -326,7 +349,7 @@ async def join(
         elif game.guest_telegram_user_id is None:
             game.guest_telegram_user_id = user_id
             game.guest_name = name
-            game.guest_piece = _validated_piece(body.piece, game.creator_piece)
+            game.guest_piece = _free_piece(body.piece, game.creator_piece)
             game.updated_at = datetime.utcnow()
             await session.flush()
         elif game.guest_telegram_user_id != user_id:

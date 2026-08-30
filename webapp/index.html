@@ -180,17 +180,21 @@
 
   .coop-box { display: flex; flex-direction: column; gap: 12px; }
   .coop-box p { font-size: 14px; color: var(--muted-on-dark); text-align: center; line-height: 1.5; }
-  .coop-input {
-    width: 100%; padding: 14px 16px; border-radius: 14px;
-    border: 1px solid rgba(255,255,255,.18);
-    background: rgba(255,255,255,.07); color: #fff; font: inherit; font-size: 20px;
-    text-transform: uppercase; text-align: center; letter-spacing: .25em; outline: none;
-  }
-  .coop-input:focus { border-color: rgba(232,107,181,.8); }
-  .code-display {
-    font-family: var(--font-emblem); font-size: 46px; letter-spacing: .2em;
-    color: #FFD9EF; text-align: center; margin: 10px 0 4px;
-    text-shadow: 0 0 30px rgba(232,107,181,.4);
+  /* The invite itself. It replaced a six-character code typed at one of
+     three doors that take codes from the same alphabet — a code entered at
+     the wrong door failed confusingly, and a partner who mistyped one
+     character was simply refused. A link cannot be entered at the wrong
+     door, and there is nothing to type.
+
+     It is shown, not hidden behind the share button: someone whose Telegram
+     share sheet misbehaves can read it, copy it and paste it anywhere. Long,
+     so it wraps and breaks anywhere rather than pushing the screen sideways. */
+  .invite-link {
+    font-size: 14px; line-height: 1.5; text-align: center;
+    color: #FFD9EF; background: rgba(255,255,255,.07);
+    border: 1px solid rgba(255,255,255,.14); border-radius: 14px;
+    padding: 12px 14px; margin: 6px 0 2px;
+    overflow-wrap: anywhere; word-break: break-all; user-select: all;
   }
   .waiting-dots { text-align: center; font-size: 13.5px; color: var(--muted-on-dark); }
 
@@ -303,7 +307,17 @@
   .compat-strength{border-left:3px solid rgba(120,220,160,.7)}
   .compat-growth{border-left:3px solid rgba(255,200,120,.7)}
   .compat-crisis{border-left:3px solid rgba(255,120,150,.8)}
-  #compatQuestion,#compatScale{padding:0 16px}
+  #compatScale{padding:0 16px}
+  /* The question scrolls; the scale under it does not move. A five-line
+     question used to push the answer buttons off the bottom of the phone,
+     and there was nothing to scroll — the screen itself does not. */
+  #compatQuestion{
+    padding:0 16px; flex:1 1 auto; min-height:0;
+    display:grid; place-items:center;
+    overflow-y:auto; overscroll-behavior:contain;
+    -webkit-overflow-scrolling:touch; touch-action:pan-y; scrollbar-width:none;
+  }
+  #compatQuestion::-webkit-scrollbar{display:none}
   #compatResultBody{flex:1;overflow-y:auto;padding:0 16px 32px}
 
   /* ---------- deck ---------- */
@@ -477,13 +491,25 @@
   .ctrl[disabled] { opacity: .35; pointer-events: none; }
 
   /* ---------- overlays ---------- */
+  /* Centred by auto margins rather than by justify-content, and scrollable,
+     for the same reason the panes above are: `center` distributes negative
+     free space too, so an overlay taller than the phone pushed its own head
+     above the scroll origin and left the button under it unreachable. The
+     69 finale is two choices with a paragraph each, and it was exactly that
+     tall. */
   .overlay {
     position: absolute; inset: 0; z-index: 30;
-    display: none; align-items: center; justify-content: center; flex-direction: column;
+    display: none; align-items: center; flex-direction: column;
     padding: 30px 26px calc(var(--safe-bottom) + 30px);
     background: rgba(20, 2, 13, .88); backdrop-filter: blur(14px); -webkit-backdrop-filter: blur(14px);
     text-align: center;
+    overflow-y: auto; overscroll-behavior: contain;
+    -webkit-overflow-scrolling: touch; touch-action: pan-y; scrollbar-width: none;
   }
+  .overlay::-webkit-scrollbar { display: none; }
+  .overlay > * { flex-shrink: 0; }
+  .overlay > :first-child { margin-top: auto; }
+  .overlay > :last-child { margin-bottom: auto; }
   .overlay.show { display: flex; }
   .overlay h2 { font-size: 24px; margin-bottom: 10px; }
   .overlay p { font-size: 15px; color: var(--muted-on-dark); line-height: 1.5; max-width: 300px; margin-bottom: 24px; }
@@ -520,15 +546,31 @@
   .guide-lead { font-size: 13.5px; line-height: 1.55; color: var(--muted-on-dark); margin: 0 0 12px 36px; }
 
   .guide-item {
-    display: grid; grid-template-columns: 108px 1fr; gap: 12px;
+    display: grid; grid-template-columns: 124px 1fr; gap: 12px;
     background: rgba(255,255,255,.05); border-radius: 16px;
     padding: 14px; margin-bottom: 10px;
   }
+  .art-wrap { align-self: start; display: flex; flex-direction: column; gap: 4px; }
   .guide-art {
-    width: 100%; height: auto; grid-row: span 1;
-    color: var(--text-on-dark); align-self: start;
+    width: 100%; height: auto;
+    color: var(--text-on-dark);
   }
-  .art-body, .art-lamp, .art-cam, .art-focus {
+  /* What the drawing names in words: the view, and where the light stands.
+     A schematic can show that a body is bent without showing which way it is
+     turned, and «спиной к камере» and «боком» draw nearly the same outline. */
+  .art-cap {
+    font-size: 10.5px; line-height: 1.3; text-align: center;
+    color: var(--muted-on-dark); opacity: .85;
+  }
+  /* A silhouette, not a stick figure: limbs are thick rounded strokes and
+     the torso and head are filled, so a pose reads as a body at 124px. */
+  .art-limb {
+    fill: none; stroke: currentColor; stroke-width: 6.4;
+    stroke-linecap: round; stroke-linejoin: round; opacity: .92;
+  }
+  .art-torso, .art-skull { fill: currentColor; stroke: none; opacity: .92; }
+  .art-cloth { fill: currentColor; opacity: .45; stroke: none; }
+  .art-lamp, .art-cam, .art-focus {
     fill: none; stroke: currentColor; stroke-width: 3.2;
     stroke-linecap: round; stroke-linejoin: round;
   }
@@ -539,6 +581,10 @@
   .art-prop { stroke: currentColor; stroke-width: 1.4; opacity: .35; fill: none; }
   .art-crop { stroke: #9FEFC4; stroke-width: 1.6; stroke-dasharray: 5 4; fill: none; opacity: .8; }
   .art-shade { fill: currentColor; opacity: .18; stroke: none; }
+  /* The half of a body the light does not reach. It is painted in the
+     shell's own colour rather than as a wash of currentColor: the body is a
+     filled silhouette now, and a light wash over a light shape is nothing. */
+  .art-shadow { fill: #1C0414; opacity: .6; stroke: none; }
   .art-diffuse { fill: #FFD96E; opacity: .12; stroke: none; }
   .art-note { fill: currentColor; opacity: .55; font-size: 9px; font-weight: 600; }
 
@@ -751,10 +797,13 @@
     <button class="btn btn-second" id="btnCoop" data-i18n="coopBtn"></button>
     <button class="btn btn-second" id="btnCompat" data-i18n="compatBtn"></button>
     <button class="btn btn-second" id="btnS69" data-i18n="s69Btn"></button>
-    <!-- The Library used to be one button hiding six things. Its modules are
-         listed here instead, filled in by renderHomeModules() once
-         /api/library answers, so a module added on the server appears here
-         without another button being written by hand. -->
+    <!-- Two rows, not six. The five reading modules sit one tap deeper
+         behind «Практики», because the home screen is where a couple decide
+         what to do tonight and five titles of prose drowned the four things
+         they came for. The masterclass stays on the surface: it is a course,
+         not a list to browse. renderHomeModules() fills this in once
+         /api/library answers, so a module added on the server still lands
+         in the right place without another button written by hand. -->
     <div id="homeModules"></div>
   </section>
 
@@ -766,10 +815,8 @@
       <div style="width:40px"></div>
     </div>
     <div class="coop-box">
+      <p data-i18n="coopIntro"></p>
       <button class="btn btn-play" id="btnCoopCreate" data-i18n="coopCreate" style="margin-top:0"></button>
-      <p data-i18n="coopOr"></p>
-      <input class="coop-input" id="coopCodeInput" maxlength="6" autocomplete="off" spellcheck="false">
-      <button class="btn btn-second" id="btnCoopJoin" data-i18n="coopJoinBtn" style="margin-top:0"></button>
     </div>
   </section>
 
@@ -831,10 +878,9 @@
     </div>
     <div class="coop-box">
       <p data-i18n="compatIntro"></p>
+      <button class="btn btn-play" id="btnCompatResume" style="margin-top:0;display:none"></button>
       <button class="btn btn-play" id="btnCompatCreate" data-i18n="compatCreate" style="margin-top:0"></button>
-      <p data-i18n="coopOr"></p>
-      <input class="coop-input" id="compatCodeInput" maxlength="6" autocomplete="off" spellcheck="false">
-      <button class="btn btn-second" id="btnCompatJoin" data-i18n="coopJoinBtn" style="margin-top:0"></button>
+      <p data-i18n="compatCreateHint"></p>
       <button class="btn btn-second" id="btnCompatMine" data-i18n="compatMine" style="margin-top:14px"></button>
     </div>
   </section>
@@ -847,8 +893,9 @@
     </div>
     <div class="coop-box">
       <p data-i18n="compatInviteHint"></p>
-      <div class="code-display" id="compatCode"></div>
+      <div class="invite-link" id="compatCode"></div>
       <button class="btn btn-play" id="btnCompatShare" data-i18n="inviteShare" style="margin-top:0"></button>
+      <button class="btn btn-second" id="btnCompatCopy" data-i18n="inviteCopy" style="margin-top:0"></button>
       <p class="waiting-dots" id="compatWaiting"></p>
     </div>
   </section>
@@ -892,9 +939,6 @@
       <div class="s69-suits" id="s69Suits"></div>
       <button class="btn btn-play" id="btnS69Duo" data-i18n="s69Duo" style="margin-top:0"></button>
       <button class="btn btn-second" id="btnS69Solo" data-i18n="s69Solo" style="margin-top:0"></button>
-      <p data-i18n="s69Or"></p>
-      <input class="coop-input" id="s69CodeInput" maxlength="6" autocomplete="off" spellcheck="false">
-      <button class="btn btn-second" id="btnS69Join" data-i18n="coopJoinBtn" style="margin-top:0"></button>
       <p class="s69-age" data-i18n="s69Age"></p>
     </div>
   </section>
@@ -908,8 +952,9 @@
     </div>
     <div class="coop-box">
       <p data-i18n="s69InviteHint"></p>
-      <div class="code-display" id="s69Code"></div>
+      <div class="invite-link" id="s69Code"></div>
       <button class="btn btn-play" id="btnS69Share" data-i18n="inviteShare" style="margin-top:0"></button>
+      <button class="btn btn-second" id="btnS69Copy" data-i18n="inviteCopy" style="margin-top:0"></button>
       <p class="waiting-dots" id="s69Waiting"></p>
     </div>
   </section>
@@ -936,8 +981,9 @@
     </div>
     <div class="coop-box">
       <p data-i18n="inviteHint"></p>
-      <div class="code-display" id="inviteCode"></div>
+      <div class="invite-link" id="inviteCode"></div>
       <button class="btn btn-play" id="btnInviteShare" data-i18n="inviteShare" style="margin-top:0"></button>
+      <button class="btn btn-second" id="btnInviteCopy" data-i18n="inviteCopy" style="margin-top:0"></button>
       <p class="waiting-dots" id="inviteWaiting"></p>
     </div>
   </section>
@@ -1059,16 +1105,18 @@
       tagline: 'Интерактивный проект о любви «от больше никогда» до «навсегда»',
       play: 'Играть', chooseTheme: 'Выбери тему', level: 'Уровень',
       questions: 'Вопросы', tasks: 'Задания',
-      hint: 'Свайпни карту или нажми →',
+      hint: 'Свайп по карте или кнопка →',
       nsfwTitle: 'Контент 18+',
-      nsfwText: 'В этой теме откровенные вопросы и задания для взрослых. Продолжая, ты подтверждаешь, что тебе есть 18 лет.',
-      nsfwLibText: 'В этой категории откровенные идеи для взрослых. Продолжая, ты подтверждаешь, что тебе есть 18 лет.',
+      nsfwText: 'В этой теме откровенные вопросы и задания для взрослых. Продолжая, вы подтверждаете, что вам есть 18 лет.',
+      nsfwLibText: 'В этой категории откровенные идеи для взрослых. Продолжая, вы подтверждаете, что вам есть 18 лет.',
       nsfwYes: 'Мне есть 18', nsfwNo: 'Назад',
       doneTitle: 'Колода пройдена!', doneText: 'Вы разобрали все карты этой колоды. Это только начало разговора.',
       again: 'Начать заново', toThemes: 'К темам',
       shuffled: 'Колода перемешана', ordered: 'По порядку',
       cardWord: 'Карта', resumed: 'Продолжаем с места остановки',
-      loadError: 'Не удалось загрузить вопросы. Проверь соединение.',
+      loadError: 'Не удалось загрузить вопросы. Проверьте соединение.',
+      practicesBtn: '🌿 Практики',
+      inviteNoLink: 'Ссылку не удалось собрать. Обновите приложение.',
       paywallTitle: 'Бесплатные карты закончились',
       paywallText: 'Вы прошли {free} бесплатных карт из {total}. Полный доступ откроет все колоды целиком: сотни вопросов, все уровни, навсегда.',
       paywallBuy: '💳 Открыть всё', paywallClose: 'Закрыть',
@@ -1077,71 +1125,73 @@
       shareText: 'Вопрос из VECHNOST, игры для пар',
       shareError: 'Не получилось поделиться',
       coopBtn: '👥 Пригласить партнёра', coopTitle: 'Игра вдвоём',
-      coopCreate: 'Создать игру', coopOr: 'или введи код, который прислал партнёр',
-      coopJoinBtn: 'Присоединиться',
-      inviteTitle: 'Код для партнёра',
-      inviteHint: 'Отправь этот код партнёру. Игра начнётся, как только он войдёт.',
+      coopIntro: 'Создайте игру и отправьте партнёру ссылку. Он нажмёт на неё и окажется в вашей колоде.',
+      coopCreate: 'Создать игру',
+      inviteTitle: 'Ссылка для партнёра',
+      inviteHint: 'Отправьте эту ссылку партнёру. Игра начнётся, как только он по ней перейдёт.',
       inviteShare: '💌 Отправить приглашение',
+      inviteCopy: '🔗 Скопировать ссылку',
+      inviteCopied: 'Ссылка скопирована',
       inviteWaiting: 'Ждём партнёра…',
-      coopInviteMsg: 'Сыграем в VECHNOST вдвоём? 💜 Открой {bot} → «Играть вдвоём» → введи код: {code}',
+      coopInviteMsg: 'Сыграем в VECHNOST вдвоём? 💜 Нажми на ссылку, и колода откроется:',
       yourTurn: '✨ Твой ход', partnerTurn: 'Отвечает {name}…',
       notYourTurn: 'Сейчас ход партнёра',
       partnerJoined: '{name} в игре!',
       coopGone: 'Игра не найдена или закончилась',
       coopFull: 'В этой игре уже двое',
       coopDoneText: 'Вы прошли колоду вместе. Это только начало разговора.',
-      libraryBtn: '📚 Библиотека', libraryTitle: 'Библиотека',
+      libraryBtn: '🌿 Практики', libraryTitle: 'Практики',
       libLocked: 'Открыть полностью',
       libFreeNote: 'Показаны {free} из {total}',
       libWhy: 'Зачем', libResult: 'Итог',
       libDayOf: 'День {day} из 365',
-      libLoadError: 'Не удалось загрузить библиотеку. Проверь соединение.',
+      libLoadError: 'Не удалось загрузить практики. Проверьте соединение.',
       compatBtn: '💞 Тест совместимости', compatTitle: 'Тест совместимости',
       compatIntro: '40 вопросов о восьми сферах вашей жизни. Отвечаете порознь – результат видите вместе. Партнёр никогда не увидит ваши ответы, только то, в чём вы разошлись.',
+      compatCreateHint: 'После старта отправьте партнёру ссылку: он нажмёт на неё и попадёт прямо в тест.',
       compatCreate: 'Начать тест', compatMine: 'Прошлый результат',
-      compatInviteHint: 'Отправь этот код партнёру. Отвечать можно, как только он войдёт.',
+      compatInviteHint: 'Отправьте эту ссылку партнёру. Отвечать можно, как только он по ней перейдёт.',
       compatWaitingPartner: 'Партнёр ответил на {n} из {total}',
-      compatDone: 'Ты ответил(а) на все 40. Ждём партнёра…',
+      compatDone: 'Все 40 вопросов позади. Ждём партнёра…',
       compatResultTitle: 'Ваш результат',
       compatStrengths: 'Сферы, где вы команда', compatAttention: 'Требуют разговора',
       compatAll: 'По всем сферам', compatZoneStrength: 'Сфера силы',
       compatZoneGrowth: 'Зона роста', compatZoneCrisis: 'Критическая зона',
       compatNoResult: 'У вас пока нет пройденного теста',
       compatPaywall: 'Тест совместимости входит в полный доступ',
-      compatInviteMsg: 'Пройдём тест совместимости в VECHNOST? 💞 Открой {bot} → «Тест совместимости» → введи код: {code}',
+      compatInviteMsg: 'Пройдём тест совместимости в VECHNOST? 💞 Нажми на ссылку, и тест откроется:',
       compatResume: 'Продолжаем с вопроса {n}',
+      compatResumeBtn: 'Продолжить тест',
       compatDelete: 'Удалить результат и ответы',
       compatDeleteConfirm: 'Удалить тест? Ваши ответы и ответы партнёра будут стёрты навсегда.',
       compatDeleted: 'Тест удалён',
-      s69Btn: '🎲 Территория наслаждения 18+', s69Title: '69 ступеней',
+      s69Btn: '🎲 Интерактивная игра 69 ступеней', s69Title: '69 ступеней',
       s69Tagline: 'Территория искушения',
       s69Intro: 'Поле на 69 клеток и две фишки. Змеи искушения тянут вниз, к нежности, стрелы любви бросают вверх, к пику. Игра не кончится, пока оба не дойдут до 69-й.',
       s69Age: 'Только 18+. Играйте, когда вас двое и никто не помешает.',
       s69Duo: 'Играть на двух телефонах',
       s69Solo: 'Один телефон на двоих',
-      s69Or: 'или введи код, который прислал партнёр',
       s69Resume: 'Продолжить игру',
       s69ResumeHint: 'ваша фишка ждёт на {n}-й клетке',
       s69Restart: 'Начать заново',
       s69RestartConfirm: 'Начать заново? Текущая игра и обе фишки будут стёрты.',
-      s69Pick: 'Выбери свою фишку',
+      s69Pick: 'Выберите свою фишку',
       s69Suit: { hearts: 'Черви', spades: 'Пики', clubs: 'Трефы', diamonds: 'Бубны' },
-      s69PieceTaken: 'Эту фишку уже взял партнёр. Выбери другую.',
       s69OnCell: 'клетка {n}',
       s69YouAreHome: 'Ты на 69-й. Ждём партнёра.',
       s69BothHome: 'Оба на вершине',
-      s69InviteHint: 'Отправь этот код партнёру. Кубик оживёт, как только он войдёт.',
-      s69InviteMsg: 'Пройдём «69 ступеней» в VECHNOST? 🔥 Открой {bot} → «69 ступеней» → введи код: {code}',
+      s69InviteHint: 'Отправьте эту ссылку партнёру. Кубик оживёт, как только он по ней перейдёт.',
+      s69InviteMsg: 'Пройдём «69 ступеней» в VECHNOST? 🔥 Нажми на ссылку, и доска откроется:',
       s69Waiting: 'Ждём партнёра…',
-      s69Joined: '{name} в игре. Бросай.',
+      s69Joined: '{name} в игре. Бросайте кубик.',
       s69Roll: 'Бросить кубик',
       s69Rolling: 'Кубик летит…',
       s69YourTurn: '✨ Твой ход',
-      s69PartnerTurn: 'Ходит {name}. Смотри.',
+      s69PartnerTurn: 'Ходит {name}. Смотрите.',
       s69NotYourTurn: 'Сейчас ход партнёра',
       s69Ladder: 'Стрела любви',
       s69Snake: 'Змея искушения',
-      s69Reveal: 'Нажми, чтобы открыть',
+      s69Reveal: 'Нажмите, чтобы открыть',
 
       s69Milestone: 'Каждая десятая',
       s69FinaleTitle: 'Клетка 69',
@@ -1861,7 +1911,43 @@
 
   /* ---------------- coop (couple mode) ---------------- */
   const COOP = { creating: false, active: false };
-  const C = { code: null, st: null, timer: null };
+  const C = { code: null, st: null, timer: null, invite: null };
+
+  /* ---------------- invites ---------------- */
+  // All three two-partner features send a link now. The server composes it
+  // (it is the only side that knows whether this deployment has a Mini App
+  // short name, and so which of the two link shapes works), and this file
+  // only ever shows, shares and copies what it was handed.
+  //
+  // Nothing here falls back to showing the six-character code: there is no
+  // longer a field anywhere to type one into, so a code on screen would be
+  // an instruction that cannot be followed.
+  function showInviteLink(el, url) {
+    el.textContent = url || T().inviteNoLink;
+  }
+
+  function shareInvite(url, message) {
+    if (!url) { toast(T().inviteNoLink); return; }
+    haptic('light');
+    // url and text are separate parameters: Telegram renders the link as a
+    // tappable preview and the sentence as the message around it. Passing
+    // the whole sentence as `url`, which is what this used to do, sent the
+    // partner a line of text with no link in it on some clients.
+    const share = 'https://t.me/share/url?url=' + encodeURIComponent(url) +
+                  '&text=' + encodeURIComponent(message);
+    try {
+      if (tg) tg.openTelegramLink(share); else window.open(share, '_blank');
+    } catch (e) { toast(T().shareError); }
+  }
+
+  function copyInvite(url) {
+    if (!url) { toast(T().inviteNoLink); return; }
+    haptic('light');
+    try {
+      navigator.clipboard.writeText(url);
+      toast(T().inviteCopied);
+    } catch (e) { toast(T().shareError); }
+  }
 
   let guestId = store.get('guestId', null);
   if (!guestId) {
@@ -1922,8 +2008,8 @@
         method: 'POST',
         json: { theme: S.theme, level: level, type: 'questions' }
       });
-      C.code = st.code; C.st = st;
-      $('inviteCode').textContent = st.code;
+      C.code = st.code; C.st = st; C.invite = st.invite_url || null;
+      showInviteLink($('inviteCode'), C.invite);
       $('inviteWaiting').textContent = T().inviteWaiting;
       show('invite');
       startCoopPoll(st2 => {
@@ -1942,9 +2028,10 @@
     }
   }
 
-  async function joinCoopRoom() {
-    const code = ($('coopCodeInput').value || '').trim().toUpperCase();
-    if (code.length < 4) return;
+  // Called by an invite link, never by a typed code: there is no code field
+  // any more. Kept as its own function because boot() reaches for it too.
+  async function joinCoopRoom(code) {
+    if (!code) return;
     haptic('light');
     $('loader').classList.add('show');
     try {
@@ -2074,10 +2161,8 @@
     show('home');
   }
 
-  $('btnCoop').onclick = () => { haptic('light'); $('coopCodeInput').value = ''; show('coop'); };
+  $('btnCoop').onclick = () => { haptic('light'); show('coop'); };
   $('coopBack').onclick = () => show('home');
-  $('btnCoopJoin').onclick = joinCoopRoom;
-  $('coopCodeInput').addEventListener('keydown', e => { if (e.key === 'Enter') joinCoopRoom(); });
   $('btnCoopCreate').onclick = async () => {
     haptic('light');
     if (!DATA) await loadData();
@@ -2087,15 +2172,8 @@
     show('themes');
   };
   $('inviteBack').onclick = () => { stopCoopPoll(); C.code = null; C.st = null; show('coop'); };
-  $('btnInviteShare').onclick = () => {
-    if (!C.code) return;
-    haptic('light');
-    const text = fmt(T().coopInviteMsg, { bot: BOT_URL || 'VECHNOST', code: C.code });
-    const url = 'https://t.me/share/url?url=' + encodeURIComponent(BOT_URL || '') + '&text=' + encodeURIComponent(text);
-    try {
-      if (tg) tg.openTelegramLink(url); else window.open(url, '_blank');
-    } catch (e) { window.open(url, '_blank'); }
-  };
+  $('btnInviteShare').onclick = () => shareInvite(C.invite, T().coopInviteMsg);
+  $('btnInviteCopy').onclick = () => copyInvite(C.invite);
 
   /* ---------------- library ---------------- */
   let LIB_NSFW_PENDING = null;   // {module, category} to open after the 18+ overlay
@@ -2118,33 +2196,56 @@
     return res.json();
   }
 
-  // The home screen's own copy of the module list. Same payload as the
-  // Library screen, same tap target — the Library screen stays as the place
-  // a module's back button returns to, so nothing below it had to change.
+  // Which modules stand on the home screen in their own right. Everything
+  // else lives one tap deeper, behind «Практики»: five titles of prose on
+  // the first screen drowned out the four things a couple open the app to
+  // do. The masterclass is here because it is a course to work through,
+  // not a list to browse.
+  const HOME_MODULES = ['nude_guide'];
+
+  // The home screen's own copy of the module list, and the door to the rest
+  // of them. The Practices screen is the Library screen renamed: a module's
+  // back button still has to return to whichever of the two it came from,
+  // which is what LIB_BACK_TO records.
   async function renderHomeModules() {
     const box = $('homeModules');
     if (!box) return;
-    try {
-      const data = await libFetch('/api/library?lang=' + lang + libNsfwParam());
-      box.innerHTML = data.modules.map(m => `
-        <button class="btn btn-second home-mod" data-module="${m.id}">
-          ${escapeHTML(m.title)}${m.locked ? ' 🔒' : ''}
-        </button>`).join('');
+    const practices = () =>
+      `<button class="btn btn-second home-mod" id="btnPractices">${escapeHTML(T().practicesBtn)}</button>`;
+    const wire = () => {
+      const open = $('btnPractices');
+      if (open) open.onclick = () => { haptic('light'); openLibrary(); };
       box.querySelectorAll('[data-module]').forEach(btn => {
         btn.onclick = () => { haptic('light'); LIB_BACK_TO = 'home'; openLibModule(btn.dataset.module); };
       });
+    };
+    try {
+      const data = await libFetch('/api/library?lang=' + lang + libNsfwParam());
+      const featured = data.modules.filter(m => HOME_MODULES.indexOf(m.id) !== -1);
+      box.innerHTML = featured.map(m => `
+        <button class="btn btn-second home-mod" data-module="${m.id}">
+          ${escapeHTML(m.title)}${m.locked ? ' 🔒' : ''}
+        </button>`).join('') + practices();
+      wire();
     } catch (e) {
-      // The rest of the home screen still works; a missing row is not worth
-      // a toast on the first screen a user ever sees.
-      box.innerHTML = '';
+      // The rest of the home screen still works, and «Практики» opens a
+      // screen that fetches for itself — so the door stays even when this
+      // call failed. A missing row is not worth a toast on the first screen
+      // a user ever sees.
+      box.innerHTML = practices();
+      wire();
     }
   }
 
+  // «Практики»: everything the home screen does not carry itself. Still the
+  // #library screen, and still where the older daily pushes' ?screen=library
+  // deep link lands.
   async function openLibrary() {
     show('library');
     $('loader').classList.add('show');
     try {
       const data = await libFetch('/api/library?lang=' + lang + libNsfwParam());
+      data.modules = data.modules.filter(m => HOME_MODULES.indexOf(m.id) === -1);
       const box = $('libraryList');
       box.innerHTML = data.modules.map(m => `
         <button class="theme-card lib-mod" data-module="${m.id}">
@@ -2375,7 +2476,7 @@
   // `pending` is an answer POST in flight; `resultCode` is the test whose
   // result is currently on the result screen, which /mine may set to a
   // different code than the one being played.
-  const CT = { code: null, st: null, timer: null, questions: null, idx: 0,
+  const CT = { code: null, st: null, timer: null, questions: null, idx: 0, invite: null,
                pending: false, resultCode: null };
 
   function stopCompatPoll() {
@@ -2428,12 +2529,13 @@
   function adoptCompatState(st) {
     CT.code = st.code;
     CT.st = st;
+    CT.invite = st.invite_url || null;
     CT.pending = false;
     CT.idx = compatResumeIndex(st);
-    // Remembered so the intro screen can offer the code back: without it a
-    // creator who closes the app mid-quiz has no way to name their own test.
+    // Remembered so the intro screen can offer the test back: without it a
+    // creator who closes the app mid-quiz has no way back into their own
+    // test — there is no code field to type it into any more.
     store.set('compatCode', st.code);
-    $('compatCodeInput').value = st.code;
   }
 
   async function compatCreate() {
@@ -2441,7 +2543,7 @@
     try {
       const st = await coopFetch('/api/compat', { method: 'POST', json: {} });
       adoptCompatState(st);
-      $('compatCode').textContent = st.code;
+      showInviteLink($('compatCode'), CT.invite);
       $('compatWaiting').textContent = T().inviteWaiting;
       show('compatInvite');
       startCompatPoll();
@@ -2460,7 +2562,7 @@
       // The creator re-opening their own test before the partner has joined
       // belongs on the invite screen, not in a quiz they cannot answer yet.
       if (!st.started) {
-        $('compatCode').textContent = st.code;
+        showInviteLink($('compatCode'), CT.invite);
         $('compatWaiting').textContent = T().inviteWaiting;
         show('compatInvite');
         return;
@@ -2568,9 +2670,8 @@
       await coopFetch('/api/compat/' + code, { method: 'DELETE' });
       stopCompatPoll();
       if (store.get('compatCode', null) === code) store.set('compatCode', null);
-      if (CT.code === code) { CT.code = null; CT.st = null; CT.idx = 0; }
+      if (CT.code === code) { CT.code = null; CT.st = null; CT.idx = 0; CT.invite = null; }
       CT.resultCode = null;
-      $('compatCodeInput').value = '';
       toast(T().compatDeleted);
       show('compat');
     } catch (e) {
@@ -2639,9 +2740,14 @@
 
   $('btnCompat').onclick = () => {
     haptic('light');
-    // Offer the last test back so an interrupted run is one tap from resuming.
+    // Offer the last test back so an interrupted run is one tap from
+    // resuming. It used to be offered as a code prefilled into a field the
+    // user then had to submit; the field is gone, so it is a button.
     const saved = store.get('compatCode', null);
-    if (saved && !$('compatCodeInput').value) $('compatCodeInput').value = saved;
+    const resume = $('btnCompatResume');
+    resume.textContent = T().compatResumeBtn;
+    resume.style.display = saved ? '' : 'none';
+    resume.onclick = () => compatJoin(saved);
     show('compat');
   };
   $('compatBack').onclick = () => { stopCompatPoll(); show('home'); };
@@ -2649,11 +2755,6 @@
   $('compatQuizBack').onclick = () => { stopCompatPoll(); show('compat'); };
   $('compatResultBack').onclick = () => show('compat');
   $('btnCompatCreate').onclick = compatCreate;
-  $('btnCompatJoin').onclick = () => {
-    const code = ($('compatCodeInput').value || '').trim().toUpperCase();
-    if (code.length === 6) compatJoin(code);
-  };
-  $('compatCodeInput').addEventListener('keydown', e => { if (e.key === 'Enter') $('btnCompatJoin').click(); });
   $('btnCompatMine').onclick = async () => {
     try {
       const data = await coopFetch('/api/compat/mine');
@@ -2662,18 +2763,10 @@
       toast(e.status === 404 ? T().compatNoResult : T().loadError);
     }
   };
-  $('btnCompatShare').onclick = () => {
-    // Its own message, not coopInviteMsg: that one sends the partner to
-    // «Играть вдвоём», where the code hits /api/rooms and 404s. Both features
-    // draw six-character codes from the same alphabet, so the wrong door
-    // fails confusingly rather than obviously.
-    const msg = fmt(T().compatInviteMsg, { bot: BOT_URL || 'VECHNOST', code: CT.code });
-    try {
-      if (tg) tg.openTelegramLink('https://t.me/share/url?url=' + encodeURIComponent(msg));
-      else navigator.clipboard.writeText(msg);
-      haptic('light');
-    } catch (e) { toast(T().shareError); }
-  };
+  // Its own message and its own link: the three features' links carry
+  // different prefixes, so one opens the test and never the deck.
+  $('btnCompatShare').onclick = () => shareInvite(CT.invite, T().compatInviteMsg);
+  $('btnCompatCopy').onclick = () => copyInvite(CT.invite);
 
   /* ---------------- guide document ---------------- */
 
@@ -2756,8 +2849,20 @@
   // Where a lamp sits, and which way it throws. `to` is the point it aims at.
   const ART_LIGHTS = {
     left:   [14, 46], right:  [106, 46],
-    back:   [60, 16], front:  [60, 122],
+    back:   [60, 16], front:  [60, 116],
     top:    [60, 12], topleft: [20, 18]
+  };
+
+  // The caption under a drawing. A schematic can show that a body is bent
+  // without showing which way it is turned, and "встань спиной к камере" and
+  // "встань боком" draw nearly the same outline: the words settle it.
+  const ART_VIEW_LABEL = {
+    side: 'вид сбоку', back: 'вид со спины', front: 'вид спереди',
+    top: 'вид сверху', plan: 'схема сверху', crop: 'кадр крупным планом'
+  };
+  const ART_LIGHT_LABEL = {
+    left: 'свет слева', right: 'свет справа', back: 'свет сзади',
+    front: 'свет спереди', top: 'свет сверху', topleft: 'свет сверху слева'
   };
 
   function artLamp(where, aimX, aimY) {
@@ -2782,146 +2887,239 @@
       </g>`;
   }
 
-  // A figure from named joints. The body gets real width: shoulders and hips
-  // are derived perpendicular to the spine rather than authored, so limbs
-  // leave the torso at its edges instead of fanning out of one point at the
-  // neck, and a symmetric pose no longer draws its left and right arms on
-  // top of each other. Missing limbs are simply not drawn, which is how a
-  // torso-only frame ("Текстура", "Прикосновение") is expressed.
-  const ART_SHOULDER = 8.5, ART_HIP = 6.5;
+  // A body, drawn as a silhouette rather than as a stick figure.
+  //
+  // The stick version drew every pose as the same hairline scribble: you
+  // could see that a limb was bent but not which way the person faced, and
+  // "спиной к камере" and "боком к окну" came out as the same picture. So
+  // limbs are thick rounded strokes, the torso is a filled slab, and the
+  // head carries the one mark that settles the question at this size — a
+  // nose bump in profile, a mass of hair for a back view, neither for a
+  // face-on one. The caption under the drawing names the view outright.
+  //
+  // Joints stay named coordinates: twenty-nine drawings stay consistent
+  // with each other, and a pose is nudged by moving one number.
+  const ART_SHOULDER = 9.5, ART_HIP = 7.5, ART_HEAD_R = 8;
 
-  function artFigure(j) {
-    const line = (a, b) => (a && b) ? `<line x1="${a[0]}" y1="${a[1]}" x2="${b[0]}" y2="${b[1]}"/>` : '';
-    const head = j.head ? `<circle cx="${j.head[0]}" cy="${j.head[1]}" r="7"/>` : '';
+  // Which way the head is turned, as a unit vector on the frame.
+  const ART_FACE_DIR = {
+    left: [-1, 0], right: [1, 0], up: [0, -1], down: [0, 1],
+    upleft: [-0.71, -0.71], upright: [0.71, -0.71],
+    downleft: [-0.71, 0.71], downright: [0.71, 0.71]
+  };
 
-    // The unit vector across the spine. A degenerate spine (neck on hip)
-    // would divide by zero, so it falls back to plain horizontal.
+  function artHead(head, face) {
+    if (!head) return '';
+    const r = ART_HEAD_R, x = head[0], y = head[1];
+    const skull = `<circle class="art-skull" cx="${x}" cy="${y}" r="${r}"/>`;
+    if (face === 'away') {
+      // Hair spilling past the skull. It is what separates a back view from
+      // a front one when the outline is otherwise symmetrical, and it reads
+      // at 108px because it breaks the circle rather than shading it.
+      const R = r + 2.8;
+      return skull + `<path class="art-skull" d="M${(x - R).toFixed(1)} ${y + 2}
+        A${R} ${R} 0 0 1 ${(x + R).toFixed(1)} ${y + 2}
+        L${(x + r).toFixed(1)} ${y + 2}
+        A${r} ${r} 0 0 0 ${(x - r).toFixed(1)} ${y + 2} Z"/>`;
+    }
+    const dir = ART_FACE_DIR[face];
+    if (!dir) return skull;
+    // The nose: a bump on the silhouette pointing where the body looks.
+    return skull + `<circle class="art-skull" r="2.5"
+      cx="${(x + dir[0] * (r + 0.4)).toFixed(1)}"
+      cy="${(y + dir[1] * (r + 0.4)).toFixed(1)}"/>`;
+  }
+
+  function artFigure(pose) {
+    const j = pose.j;
+    const path = (pts) => {
+      const use = pts.filter(Boolean);
+      if (use.length < 2) return '';
+      return `<polyline class="art-limb" points="${
+        use.map(pt => pt[0].toFixed(1) + ',' + pt[1].toFixed(1)).join(' ')}"/>`;
+    };
+
+    // The unit vector across the spine, so shoulders and hips have real
+    // width and limbs leave the torso at its edges. Signed so that with a
+    // spine running down the frame, `L` is the left of the frame: the
+    // opposite sign put every left limb on the right shoulder, and each
+    // arm crossed the chest to reach its own hand. A degenerate spine
+    // (neck on hip) would divide by zero, so it falls back to horizontal.
     let px = 1, py = 0;
     if (j.neck && j.hip) {
       const dx = j.hip[0] - j.neck[0], dy = j.hip[1] - j.neck[1];
       const len = Math.hypot(dx, dy) || 1;
-      px = -dy / len; py = dx / len;
+      px = dy / len; py = -dx / len;
     }
+    // A body seen edge-on is a narrow slab, not a wide one: shoulders spread
+    // in depth there, not across the picture. Drawn at full width, a profile
+    // pose grew a shoulder behind its own back.
+    const edgeOn = pose.view === 'side' || pose.view === 'crop';
+    const shoulder = edgeOn ? 5.5 : ART_SHOULDER;
+    const hipW = edgeOn ? 4.5 : ART_HIP;
     const off = (pt, w) => pt ? [pt[0] + px * w, pt[1] + py * w] : null;
-    const shL = off(j.neck, -ART_SHOULDER), shR = off(j.neck, ART_SHOULDER);
-    const hipL = off(j.hip, -ART_HIP), hipR = off(j.hip, ART_HIP);
+    const shL = off(j.neck, -shoulder), shR = off(j.neck, shoulder);
+    const hipL = off(j.hip, -hipW), hipR = off(j.hip, hipW);
 
     const torso = (shL && hipR)
-      ? `<path d="M${shL[0].toFixed(1)} ${shL[1].toFixed(1)}
+      ? `<path class="art-torso" d="M${shL[0].toFixed(1)} ${shL[1].toFixed(1)}
                   L${shR[0].toFixed(1)} ${shR[1].toFixed(1)}
                   L${hipR[0].toFixed(1)} ${hipR[1].toFixed(1)}
                   L${hipL[0].toFixed(1)} ${hipL[1].toFixed(1)} Z"/>`
       : '';
 
+    // A sheet or a towel: drawn over the body, because that is where it is.
+    const drape = pose.drape && j.hip && j.neck
+      ? artDrape(j, pose.drape, px, py, shoulder, hipW) : '';
+
     return `<g class="art-body">
-        ${head}
-        ${line(j.head && j.neck ? [j.head[0], j.head[1] + 7] : null, j.neck)}
+        ${path([j.head && j.neck ? [j.head[0], j.head[1] + ART_HEAD_R - 1] : null, j.neck])}
+        ${path([shL, j.elbowL, j.handL])}${path([shR, j.elbowR, j.handR])}
+        ${path([hipL, j.kneeL, j.footL])}${path([hipR, j.kneeR, j.footR])}
         ${torso}
-        ${line(shL, j.elbowL)}${line(j.elbowL, j.handL)}
-        ${line(shR, j.elbowR)}${line(j.elbowR, j.handR)}
-        ${line(hipL, j.kneeL)}${line(j.kneeL, j.footL)}
-        ${line(hipR, j.kneeR)}${line(j.kneeR, j.footR)}
+        ${drape}
+        ${artHead(j.head, pose.face)}
       </g>`;
   }
 
-  // Pose coordinates. Read them as a side or back view of the body, with the
-  // floor at the bottom of the frame.
-  const ART_POSES = {
-    'her-1': { light: 'left', cam: [104, 92], prop: 'bed', j: {
-      head:[56,26], neck:[56,40], hip:[56,80],
-      elbowL:[42,58], handL:[38,74], elbowR:[46,60], handR:[44,76],
-      kneeL:[38,62], footL:[42,92], kneeR:[84,90], footR:[104,96] } },
-    'her-2': { light: 'back', cam: [60, 124], prop: 'floor', j: {
-      head:[28,54], neck:[40,62], hip:[84,80],
-      elbowL:[30,80], handL:[26,96], elbowR:[38,58], handR:[30,48],
-      kneeL:[104,68], footL:[86,58], kneeR:[108,90], footR:[112,104] } },
-    'her-3': { light: 'front', cam: [60, 124], prop: 'floor', j: {
-      head:[60,30], neck:[60,44], hip:[60,80],
-      elbowL:[42,32], handL:[52,20], elbowR:[78,32], handR:[68,20],
-      kneeL:[52,96], footL:[52,116], kneeR:[70,96], footR:[70,116] } },
-    'her-4': { light: 'topleft', cam: [104, 96], prop: 'floor', j: {
-      head:[56,40], neck:[56,54], hip:[56,86],
-      elbowL:[40,72], handL:[62,80], elbowR:[46,74], handR:[70,82],
-      kneeL:[76,68], footL:[80,96], kneeR:[82,74], footR:[86,100] } },
-    'her-5': { light: 'back', cam: [60, 124], prop: 'window', j: {
-      head:[60,28], neck:[60,42], hip:[60,80],
-      elbowL:[48,60], handL:[46,80], elbowR:[72,60], handR:[74,80],
-      kneeL:[50,98], footL:[46,116], kneeR:[72,98], footR:[78,112] } },
-    'her-6': { light: 'top', cam: [60, 124], prop: 'floor', j: {
-      head:[26,84], neck:[40,84], hip:[80,84],
-      elbowL:[26,68], handL:[12,72], elbowR:[26,98], handR:[12,94],
-      kneeL:[98,66], footL:[80,58], kneeR:[100,74], footR:[84,66] } },
-    'her-7': { light: 'left', cam: [104, 74], prop: 'crop', j: {
-      head:[60,12], neck:[60,32], hip:[60,100],
-      elbowL:[34,58], handL:[54,42], elbowR:[86,62], handR:[64,66] } },
-    'her-8': { light: 'back', cam: [60, 124], prop: 'floor', j: {
-      head:[60,38], neck:[60,54], hip:[60,94],
-      elbowL:[38,52], handL:[56,34], elbowR:[82,52], handR:[64,34],
-      kneeL:[34,102], footL:[66,112], kneeR:[86,102], footR:[54,112] } },
-    'her-9': { light: 'left', cam: [104, 92], prop: 'blinds', j: {
-      head:[60,28], neck:[60,42], hip:[60,80],
-      elbowL:[42,58], handL:[52,76], elbowR:[78,58], handR:[68,76],
-      kneeL:[52,98], footL:[52,116], kneeR:[70,98], footR:[70,116] } },
-    'her-10': { light: 'left', cam: [104, 88], prop: 'chair', j: {
-      head:[58,40], neck:[58,54], hip:[58,86],
-      elbowL:[44,58], handL:[46,44], elbowR:[74,58], handR:[72,44],
-      kneeL:[42,100], footL:[38,116], kneeR:[76,100], footR:[80,116] } },
+  // «Завернись в простыню» and «полотенце на бёдрах» are the pose, not a
+  // detail of it, so the cloth is drawn rather than left to the caption.
+  function artDrape(j, kind, px, py, shoulder, hipW) {
+    const at = (a, b, k) => [a[0] + (b[0] - a[0]) * k, a[1] + (b[1] - a[1]) * k];
+    const from = kind === 'towel' ? at(j.neck, j.hip, 0.62) : at(j.neck, j.hip, 0.1);
+    const to = kind === 'towel' ? at(j.neck, j.hip, 1.35) : at(j.neck, j.hip, 1.5);
+    const w = (kind === 'towel' ? hipW : shoulder) + 3;
+    const corner = (pt, s) => `${(pt[0] + px * w * s).toFixed(1)} ${(pt[1] + py * w * s).toFixed(1)}`;
+    return `<path class="art-cloth" d="M${corner(from, -1)} L${corner(from, 1)}
+      L${corner(to, 1)} L${corner(to, -1)} Z"/>`;
+  }
 
-    'him-1': { light: 'left', cam: [60, 124], prop: 'floor', j: {
-      head:[60,28], neck:[60,44], hip:[60,84],
-      elbowL:[38,40], handL:[52,24], elbowR:[82,40], handR:[68,24],
-      kneeL:[46,100], footL:[42,116], kneeR:[74,100], footR:[78,116] } },
-    'him-2': { light: 'top', cam: [104, 92], prop: 'wall', j: {
-      head:[46,44], neck:[46,58], hip:[46,90],
-      elbowL:[62,72], handL:[52,54], elbowR:[40,76], handR:[36,92],
-      kneeL:[70,68], footL:[74,96], kneeR:[86,92], footR:[104,98] } },
-    'him-3': { light: 'right', cam: [60, 124], prop: 'floor', j: {
-      head:[60,28], neck:[60,44], hip:[60,84],
-      elbowL:[44,62], handL:[58,74], elbowR:[76,62], handR:[62,74],
-      kneeL:[50,100], footL:[48,116], kneeR:[70,100], footR:[72,116] } },
-    'him-4': { light: 'front', cam: [60, 124], prop: 'floor', j: {
-      head:[60,32], neck:[60,46], hip:[60,84],
-      elbowL:[44,30], handL:[40,14], elbowR:[76,30], handR:[80,14],
-      kneeL:[52,100], footL:[50,116], kneeR:[68,100], footR:[70,116] } },
-    'him-5': { light: 'back', cam: [60, 124], prop: 'floor', j: {
-      head:[58,28], neck:[58,44], hip:[58,84],
-      elbowL:[48,62], handL:[50,80], elbowR:[68,62], handR:[66,80],
-      kneeL:[50,100], footL:[46,116], kneeR:[68,100], footR:[72,116] } },
-    'him-6': { light: 'left', cam: [104, 84], prop: 'wall', j: {
-      head:[42,44], neck:[50,54], hip:[80,78],
-      elbowL:[36,40], handL:[26,28], elbowR:[40,50], handR:[28,34],
-      kneeL:[84,98], footL:[84,116], kneeR:[94,96], footR:[98,116] } },
-    'him-7': { light: 'topleft', cam: [104, 92], prop: 'bath', j: {
-      head:[56,42], neck:[56,56], hip:[56,86],
-      elbowL:[42,70], handL:[48,88], elbowR:[70,70], handR:[64,88],
-      kneeL:[42,92], footL:[40,116], kneeR:[70,92], footR:[72,116] } },
-    'him-8': { light: 'left', cam: [60, 124], prop: 'floor', j: {
-      head:[36,64], neck:[50,72], hip:[92,88],
-      elbowL:[42,90], handL:[38,72], elbowR:[52,92], handR:[48,74],
-      kneeL:[106,98], footL:[112,86], kneeR:[104,104], footR:[110,94] } },
-    'him-9': { light: 'right', cam: [60, 124], prop: 'chair', j: {
-      head:[52,36], neck:[52,50], hip:[52,84],
-      elbowL:[40,66], handL:[56,84], elbowR:[64,66], handR:[70,80],
-      kneeL:[76,80], footL:[70,104], kneeR:[80,88], footR:[92,108] } },
-    'him-10': { light: 'left', cam: [104, 70], prop: 'crop', j: {
-      head:[60,12], neck:[60,34], hip:[60,100],
-      elbowL:[32,56], handL:[74,64], elbowR:[88,56], handR:[46,68] } }
+  // Pose coordinates. Read them as the view the caption names, with the
+  // floor at the bottom of the frame. `face` is where the head is turned:
+  // 'away' is the back of the head, a direction is a profile, nothing at all
+  // is a frame with no head in it.
+  const ART_POSES = {
+    // Сидит на краю кровати боком, одна нога вытянута, вторая прижата к груди.
+    'her-1': { light: 'left', cam: [104, 76], prop: 'bed', view: 'side', face: 'right', j: {
+      head: [42, 50], neck: [44, 64], hip: [46, 98],
+      elbowL: [56, 78], handL: [66, 74], elbowR: [58, 82], handR: [68, 78],
+      kneeL: [70, 72], footL: [54, 96], kneeR: [72, 102], footR: [98, 114] } },
+    // Лежит на боку, опора на локоть, верхняя нога согнута вперёд: S-изгиб.
+    'her-2': { light: 'back', cam: 'front', prop: 'floor', view: 'side', face: 'right', j: {
+      head: [24, 86], neck: [38, 94], hip: [76, 106],
+      elbowL: [36, 110], handL: [28, 116], elbowR: [30, 78], handR: [20, 70],
+      kneeL: [98, 110], footL: [114, 114], kneeR: [100, 94], footR: [84, 108] } },
+    // Стоит спиной к камере, руки подняты к волосам.
+    'her-3': { light: 'front', cam: 'front', prop: 'floor', view: 'back', face: 'away', j: {
+      head: [60, 26], neck: [60, 42], hip: [60, 80],
+      elbowL: [34, 34], handL: [52, 20], elbowR: [86, 34], handR: [68, 20],
+      kneeL: [48, 98], footL: [42, 116], kneeR: [72, 98], footR: [78, 116] } },
+    // Сидит на полу в простыне, обхватив колени; одно плечо открыто.
+    'her-4': { light: 'topleft', cam: [104, 92], prop: 'floor', view: 'side',
+      face: 'right', drape: 'sheet', j: {
+      head: [54, 54], neck: [54, 68], hip: [54, 96],
+      elbowL: [38, 84], handL: [66, 88], elbowR: [42, 88], handR: [70, 92],
+      kneeL: [78, 80], footL: [64, 110], kneeR: [82, 86], footR: [68, 112] } },
+    // Стоит боком к окну, одна нога на носочке, руки вдоль тела.
+    'her-5': { light: 'back', cam: 'front', prop: 'window', view: 'side', face: 'left', j: {
+      head: [58, 26], neck: [58, 42], hip: [58, 80],
+      elbowL: [46, 60], handL: [44, 80], elbowR: [70, 60], handR: [72, 80],
+      kneeL: [48, 98], footL: [42, 116], kneeR: [72, 96], footR: [84, 110] } },
+    // Лежит на спине, руки за головой, согнутые колени наклонены вбок.
+    'her-6': { light: 'top', cam: [102, 20], prop: 'floor', view: 'top', face: 'down', j: {
+      head: [26, 84], neck: [40, 84], hip: [80, 84],
+      elbowL: [26, 68], handL: [12, 72], elbowR: [26, 100], handR: [12, 96],
+      kneeL: [100, 68], footL: [84, 58], kneeR: [104, 78], footR: [88, 66] } },
+    // Кадр от подбородка до бёдер: одна рука на ключице, вторая на груди.
+    'her-7': { light: 'left', cam: [104, 74], prop: 'crop', view: 'crop', j: {
+      neck: [60, 34], hip: [60, 102],
+      elbowL: [40, 62], handL: [56, 44], elbowR: [80, 62], handR: [66, 62] } },
+    // Сидит по-турецки, наклонилась вперёд, голова на скрещённых руках.
+    'her-8': { light: 'back', cam: 'front', prop: 'floor', view: 'side', face: 'left', j: {
+      head: [44, 64], neck: [54, 74], hip: [66, 94],
+      elbowL: [36, 84], handL: [58, 76], elbowR: [40, 88], handR: [62, 80],
+      kneeL: [34, 104], footL: [70, 110], kneeR: [88, 104], footR: [52, 112] } },
+    // Стоит в полосах света от жалюзи, руки на талии.
+    'her-9': { light: 'left', cam: [104, 88], prop: 'blinds', view: 'front', face: 'down', j: {
+      head: [60, 26], neck: [60, 42], hip: [60, 80],
+      elbowL: [40, 62], handL: [52, 78], elbowR: [80, 62], handR: [68, 78],
+      kneeL: [48, 98], footL: [42, 116], kneeR: [72, 98], footR: [78, 116] } },
+    // Сидит на стуле верхом, спиной к камере, голова опущена на руки.
+    'her-10': { light: 'left', cam: [104, 86], prop: 'chair', view: 'back', face: 'away', j: {
+      head: [54, 58], neck: [58, 72], hip: [64, 92],
+      elbowL: [46, 82], handL: [40, 68], elbowR: [50, 86], handR: [42, 72],
+      kneeL: [48, 100], footL: [44, 116], kneeR: [80, 98], footR: [86, 116] } },
+
+    // Стоит спиной к камере, ноги на ширине плеч, руки сцеплены за головой.
+    'him-1': { light: 'left', cam: 'front', prop: 'floor', view: 'back', face: 'away', j: {
+      head: [60, 28], neck: [60, 44], hip: [60, 84],
+      elbowL: [34, 44], handL: [50, 32], elbowR: [86, 44], handR: [70, 32],
+      kneeL: [44, 100], footL: [38, 116], kneeR: [76, 100], footR: [82, 116] } },
+    // Сидит у стены: одна нога вытянута, локоть на колене, ладонь к подбородку.
+    'him-2': { light: 'top', cam: [104, 92], prop: 'wall', view: 'side', face: 'right', j: {
+      head: [34, 52], neck: [34, 66], hip: [36, 96],
+      elbowL: [26, 80], handL: [24, 98], elbowR: [64, 72], handR: [44, 58],
+      kneeL: [74, 102], footL: [104, 110], kneeR: [62, 74], footR: [56, 104] } },
+    // Стоит прямо, руки заведены за спину.
+    'him-3': { light: 'right', cam: 'front', prop: 'floor', view: 'front', face: 'down', j: {
+      head: [60, 28], neck: [60, 44], hip: [60, 84],
+      elbowL: [42, 64], handL: [56, 80], elbowR: [78, 64], handR: [64, 80],
+      kneeL: [52, 100], footL: [50, 116], kneeR: [70, 100], footR: [72, 116] } },
+    // Стоит прямо, руки подняты вверх, потягивается.
+    'him-4': { light: 'front', cam: 'front', prop: 'floor', view: 'front', face: 'down', j: {
+      head: [60, 32], neck: [60, 46], hip: [60, 84],
+      elbowL: [44, 28], handL: [40, 12], elbowR: [76, 28], handR: [80, 12],
+      kneeL: [52, 100], footL: [50, 116], kneeR: [68, 100], footR: [70, 116] } },
+    // Стоит боком к источнику света, руки свободно.
+    'him-5': { light: 'back', cam: 'front', prop: 'floor', view: 'side', face: 'right', j: {
+      head: [58, 28], neck: [58, 44], hip: [58, 84],
+      elbowL: [48, 62], handL: [50, 80], elbowR: [68, 62], handR: [66, 80],
+      kneeL: [50, 100], footL: [46, 116], kneeR: [68, 100], footR: [72, 116] } },
+    // Опирается руками о стену выше головы, торс наклонён.
+    'him-6': { light: 'left', cam: [104, 84], prop: 'wall', view: 'side', face: 'left', j: {
+      head: [46, 48], neck: [58, 58], hip: [86, 80],
+      elbowL: [40, 44], handL: [24, 32], elbowR: [44, 52], handR: [26, 38],
+      kneeL: [88, 100], footL: [84, 116], kneeR: [98, 98], footR: [100, 116] } },
+    // Сидит на краю ванны, полотенце на бёдрах, голова опущена.
+    'him-7': { light: 'topleft', cam: [104, 90], prop: 'bath', view: 'side',
+      face: 'downleft', drape: 'towel', j: {
+      head: [50, 52], neck: [56, 64], hip: [56, 88],
+      elbowL: [40, 74], handL: [46, 92], elbowR: [70, 74], handR: [66, 92],
+      kneeL: [44, 94], footL: [40, 116], kneeR: [66, 94], footR: [70, 116] } },
+    // Лежит на животе, приподнялся на локтях, смотрит в камеру.
+    'him-8': { light: 'left', cam: 'front', prop: 'floor', view: 'side', face: 'downleft', j: {
+      head: [32, 78], neck: [48, 88], hip: [92, 100],
+      elbowL: [40, 106], handL: [30, 96], elbowR: [46, 108], handR: [36, 98],
+      kneeL: [110, 104], footL: [116, 90], kneeR: [108, 110], footR: [114, 96] } },
+    // Сидит боком на стуле, нога на ногу, рука на бедре.
+    'him-9': { light: 'right', cam: 'front', prop: 'chair', view: 'side', face: 'right', j: {
+      head: [52, 52], neck: [54, 66], hip: [56, 88],
+      elbowL: [42, 76], handL: [58, 86], elbowR: [66, 76], handR: [76, 84],
+      kneeL: [78, 84], footL: [72, 110], kneeR: [82, 92], footR: [96, 106] } },
+    // Только торс в профиль, руки скрещены на груди, лицо вне кадра.
+    'him-10': { light: 'left', cam: [104, 70], prop: 'crop', view: 'crop', j: {
+      neck: [60, 34], hip: [60, 100],
+      elbowL: [38, 58], handL: [72, 58], elbowR: [82, 58], handR: [48, 66] } }
   };
 
   // The props that make a pose legible: the surface it happens on.
   function artProp(kind) {
     if (kind === 'floor') return `<line class="art-prop" x1="8" y1="${ART_FLOOR}" x2="112" y2="${ART_FLOOR}"/>`;
-    if (kind === 'bed') return `<path class="art-prop" d="M8 100 H84 V${ART_FLOOR} H8 Z"/>`;
+    if (kind === 'bed') return `<path class="art-prop" d="M8 100 H84 V${ART_FLOOR} H8 Z"/>
+                                <line class="art-prop" x1="8" y1="${ART_FLOOR}" x2="112" y2="${ART_FLOOR}"/>`;
     if (kind === 'wall') return `<line class="art-prop" x1="18" y1="14" x2="18" y2="${ART_FLOOR}"/>
                                  <line class="art-prop" x1="8" y1="${ART_FLOOR}" x2="112" y2="${ART_FLOOR}"/>`;
-    if (kind === 'chair') return `<path class="art-prop" d="M38 90 H84 M38 90 V${ART_FLOOR} M84 90 V${ART_FLOOR} M38 62 V90"/>`;
+    if (kind === 'chair') return `<path class="art-prop" d="M38 90 H84 M38 90 V${ART_FLOOR} M84 90 V${ART_FLOOR} M38 62 V90"/>
+                                  <line class="art-prop" x1="8" y1="${ART_FLOOR}" x2="112" y2="${ART_FLOOR}"/>`;
     if (kind === 'bath') return `<path class="art-prop" d="M28 92 H96 V${ART_FLOOR} H28 Z"/>`;
-    if (kind === 'window') return `<path class="art-prop" d="M34 10 H86 V96 H34 Z M60 10 V96 M34 52 H86"/>`;
+    if (kind === 'window') return `<path class="art-prop" d="M34 10 H86 V96 H34 Z M60 10 V96 M34 52 H86"/>
+                                   <line class="art-prop" x1="8" y1="${ART_FLOOR}" x2="112" y2="${ART_FLOOR}"/>`;
     if (kind === 'blinds') return [20, 34, 48, 62, 76, 90].map(y =>
-      `<line class="art-prop" x1="24" y1="${y}" x2="96" y2="${y + 8}"/>`).join('');
+      `<line class="art-prop" x1="24" y1="${y}" x2="96" y2="${y + 8}"/>`).join('') +
+      `<line class="art-prop" x1="8" y1="${ART_FLOOR}" x2="112" y2="${ART_FLOOR}"/>`;
     // The frame edge of a close-up: without it a headless torso reads as an
     // arrow rather than as "this much of the body is in shot".
-    if (kind === 'crop') return `<rect class="art-crop" x="14" y="30" width="92" height="86" rx="4"/>`;
+    if (kind === 'crop') return `<rect class="art-crop" x="14" y="24" width="92" height="94" rx="4"/>`;
     return '';
   }
 
@@ -2929,76 +3127,105 @@
     return `<svg class="guide-art" viewBox="0 0 ${ART_W} ${ART_H}" role="img" aria-hidden="true">${inner}</svg>`;
   }
 
+  // Drawing plus caption. The caption is HTML, not SVG text: it inherits the
+  // page's font and wraps, where an 8px <text> inside a 120-unit frame would
+  // have to be measured by hand and would still clip on a narrow phone.
+  function artFramed(inner, caption) {
+    return '<div class="art-wrap">' + artSvg(inner) +
+           (caption ? '<span class="art-cap">' + escapeHTML(caption) + '</span>' : '') +
+           '</div>';
+  }
+
+  function artCaption(view, light, cam) {
+    const parts = [];
+    if (ART_VIEW_LABEL[view]) parts.push(ART_VIEW_LABEL[view]);
+    if (ART_LIGHT_LABEL[light]) parts.push(ART_LIGHT_LABEL[light]);
+    // A camera at the viewer's own position has no glyph to draw — it is
+    // where you are standing — so it is named rather than drawn. Drawn, it
+    // landed between the feet and read as a third leg.
+    if (cam === 'front') parts.push('камера напротив');
+    return parts.join(' · ');
+  }
+
   // The lighting schematics: seen from above, so "where the lamp stands
   // relative to you and the phone" is a plan a reader can actually walk.
+  // The nose on the circle says which way you are facing in that plan.
   function artLightScheme(key) {
-    const you = `<circle class="art-body" cx="60" cy="64" r="13"/>
-                 <line class="art-body" x1="60" y1="51" x2="60" y2="46"/>`;
-    const shade = (d) => `<path class="art-shade" d="${d}"/>`;
+    const you = `<circle class="art-skull" cx="60" cy="64" r="13"/>
+                 <circle class="art-skull" cx="60" cy="78" r="3.4"/>`;
+    const shade = (d) => `<path class="art-shadow" d="${d}"/>`;
     if (key === 'light-side') {
-      return artSvg(you + shade('M60 51 A13 13 0 0 0 60 77 Z') +
-        artLamp('left', 48, 64) + artCamera(60, 112) + artProp('floor'));
+      return artFramed(you + shade('M60 51 A13 13 0 0 0 60 77 Z') +
+        artLamp('left', 48, 64) + artCamera(60, 112) + artProp('floor'),
+        artCaption('plan', 'left'));
     }
     if (key === 'light-rim') {
-      return artSvg(you + shade('M60 51 A13 13 0 0 0 60 77 A13 13 0 0 0 60 51 Z') +
-        artLamp('back', 60, 52) + artCamera(60, 112) + artProp('floor'));
+      return artFramed(you + shade('M60 51 A13 13 0 0 0 60 77 A13 13 0 0 0 60 51 Z') +
+        artLamp('back', 60, 52) + artCamera(60, 112) + artProp('floor'),
+        artCaption('plan', 'back'));
     }
     if (key === 'light-soft') {
-      return artSvg(you + `<circle class="art-diffuse" cx="20" cy="18" r="17"/>` +
-        artLamp('topleft', 50, 56) + artCamera(60, 112) + artProp('floor'));
+      return artFramed(you + `<circle class="art-diffuse" cx="20" cy="18" r="17"/>` +
+        artLamp('topleft', 50, 56) + artCamera(60, 112) + artProp('floor'),
+        artCaption('plan', 'topleft'));
     }
     if (key === 'light-stripes') {
-      return artSvg(artProp('blinds') + you +
-        artLamp('left', 48, 64) + artCamera(60, 112));
+      return artFramed(artProp('blinds') + you +
+        artLamp('left', 48, 64) + artCamera(60, 112),
+        artCaption('plan', 'left'));
     }
     return '';
   }
 
   function artCameraScheme(key) {
-    const stand = `<line class="art-body" x1="60" y1="34" x2="60" y2="74"/>
-                   <circle class="art-body" cx="60" cy="26" r="7.5"/>
-                   <line class="art-body" x1="60" y1="74" x2="52" y2="${ART_FLOOR}"/>
-                   <line class="art-body" x1="60" y1="74" x2="68" y2="${ART_FLOOR}"/>`;
+    const stand = artFigure({ face: 'left', j: {
+      head: [60, 26], neck: [60, 40], hip: [60, 74],
+      elbowL: [50, 56], handL: [52, 72], elbowR: [70, 56], handR: [68, 72],
+      kneeL: [54, 96], footL: [52, ART_FLOOR], kneeR: [68, 96], footR: [70, ART_FLOOR] } });
     if (key === 'camera-height') {
-      return artSvg(stand + artProp('floor') + artCamera(24, 74) +
-        `<line class="art-ray" x1="24" y1="74" x2="52" y2="74"/>
-         <text class="art-note" x="24" y="96">пупок</text>`);
+      return artFramed(artProp('floor') + stand + artCamera(22, 74) +
+        `<line class="art-ray" x1="22" y1="74" x2="50" y2="74"/>`,
+        'камера на уровне пупка');
     }
     if (key === 'camera-exposure') {
-      return artSvg(stand + artProp('floor') + artCamera(24, 60) +
-        `<circle class="art-lamp" cx="24" cy="30" r="6"/>
-         <path class="art-ray" d="M24 40 V50"/>
-         <text class="art-note" x="14" y="106">ярче → вниз</text>`);
+      return artFramed(artProp('floor') + stand + artCamera(22, 60) +
+        `<circle class="art-lamp" cx="22" cy="28" r="6"/>
+         <path class="art-ray" d="M22 38 V48"/>`,
+        'ярче – ползунок вниз');
     }
     if (key === 'camera-focus') {
-      return artSvg(stand + artProp('floor') + artCamera(24, 60) +
-        `<circle class="art-focus" cx="60" cy="46" r="9"/>
-         <line class="art-ray" x1="34" y1="58" x2="52" y2="48"/>`);
+      return artFramed(artProp('floor') + stand + artCamera(22, 60) +
+        `<circle class="art-focus" cx="60" cy="44" r="10"/>
+         <line class="art-ray" x1="32" y1="58" x2="50" y2="48"/>`,
+        'тап по точке фокуса');
     }
     if (key === 'edit-bw') {
-      return artSvg(`<rect class="art-body" x="20" y="26" width="80" height="76" rx="6"/>
+      return artFramed(`<rect class="art-prop" x="20" y="26" width="80" height="76" rx="6"/>
         <path class="art-shade" d="M60 26 H100 V102 H60 Z"/>
-        <line class="art-body" x1="60" y1="26" x2="60" y2="102"/>`);
+        <line class="art-prop" x1="60" y1="26" x2="60" y2="102"/>`,
+        'цвет слева, тени справа');
     }
     if (key === 'edit-privacy') {
-      return artSvg(`<rect class="art-body" x="20" y="26" width="80" height="76" rx="6"/>
-        <circle class="art-body" cx="60" cy="52" r="11"/>
+      return artFramed(`<rect class="art-prop" x="20" y="26" width="80" height="76" rx="6"/>
+        <circle class="art-skull" cx="60" cy="52" r="11"/>
         <path class="art-shade" d="M44 40 H76 V64 H44 Z"/>
-        <line class="art-body" x1="40" y1="82" x2="80" y2="82"/>`);
+        <line class="art-prop" x1="40" y1="82" x2="80" y2="82"/>`,
+        'лицо в кадре – отдельное решение');
     }
     return '';
   }
 
-  // The one entry point: a key in, an SVG string out, '' when nothing matches
-  // so a new content key shows as a blank slot rather than breaking the page.
+  // The one entry point: a key in, a drawing out, '' when nothing matches so
+  // a new content key shows as a blank slot rather than breaking the page.
   function guideArt(key) {
     if (!key) return '';
     const pose = ART_POSES[key];
     if (pose) {
       const aim = pose.j.hip || pose.j.neck || [60, 64];
-      return artSvg(artProp(pose.prop) + artFigure(pose.j) +
-                    artLamp(pose.light, aim[0], aim[1]) +
-                    artCamera(pose.cam[0], pose.cam[1]));
+      return artFramed(artProp(pose.prop) + artFigure(pose) +
+                       artLamp(pose.light, aim[0], aim[1]) +
+                       (Array.isArray(pose.cam) ? artCamera(pose.cam[0], pose.cam[1]) : ''),
+                       artCaption(pose.view, pose.light, pose.cam));
     }
     if (key.indexOf('light-') === 0) return artLightScheme(key);
     return artCameraScheme(key);
@@ -3020,7 +3247,8 @@
     rolling: false,  // guards a double tap on the dice
     settling: null,  // portal animation timer
     piece: 'hearts', // the suit picked on the entry screen
-    opened: null     // the cell whose secret is already open, so it stays open
+    opened: null,    // the cell whose secret is already open, so it stays open
+    invite: null     // the link that puts the partner on this board
   };
 
   // The four suits the deck is printed with. Characters, not emoji: the board
@@ -3076,8 +3304,6 @@
 
   async function openS69() {
     haptic('light');
-    const saved = store.get('s69Code', null);
-    if (saved && !$('s69CodeInput').value) $('s69CodeInput').value = saved;
     G.piece = store.get('s69Piece', 'hearts');
     renderS69Suits(null);
     show('s69');
@@ -3096,7 +3322,9 @@
       $('btnS69Resume').textContent =
         T().s69Resume + ' · ' + fmt(T().s69ResumeHint, { n: st.you.position });
       $('btnS69Resume').style.display = '';
-      $('btnS69Resume').onclick = () => { G.code = st.code; enterS69(); };
+      $('btnS69Resume').onclick = () => {
+        G.code = st.code; G.invite = st.invite_url || null; enterS69();
+      };
 
       $('btnS69Restart').textContent = T().s69Restart;
       $('btnS69Restart').style.display = '';
@@ -3120,10 +3348,10 @@
       const st = await coopFetch('/api/steps69', {
         method: 'POST', json: { mode: mode, piece: G.piece }
       });
-      G.code = st.code; G.st = st;
+      G.code = st.code; G.st = st; G.invite = st.invite_url || null;
       store.set('s69Code', st.code);
       if (mode === 'solo') { enterS69(); return; }
-      $('s69Code').textContent = st.code;
+      showInviteLink($('s69Code'), G.invite);
       $('s69Waiting').textContent = T().s69Waiting;
       show('s69Invite');
       startS69Poll(st2 => {
@@ -3136,21 +3364,23 @@
     } catch (e) { s69Error(e); } finally { $('loader').classList.remove('show'); }
   }
 
+  // Reached only through an invite link, so no suit is named: whoever
+  // followed the link never saw the picker, and the server deals them
+  // whichever suit the creator is not wearing.
   async function s69Join(code) {
     haptic('light');
-    store.set('s69Piece', G.piece);
     $('loader').classList.add('show');
     try {
       const st = await coopFetch('/api/steps69/' + code + '/join', {
-        method: 'POST', json: { piece: G.piece }
+        method: 'POST', json: {}
       });
-      G.code = st.code; G.st = st;
+      G.code = st.code; G.st = st; G.invite = st.invite_url || null;
+      G.piece = st.you.piece || G.piece;
       store.set('s69Code', st.code);
+      store.set('s69Piece', G.piece);
       enterS69();
-    } catch (e) {
-      if (e.status === 409) toast(T().s69PieceTaken);
-      else s69Error(e);
-    } finally { $('loader').classList.remove('show'); }
+    } catch (e) { s69Error(e); }
+    finally { $('loader').classList.remove('show'); }
   }
 
   /* ---- the board ---- */
@@ -3162,6 +3392,7 @@
       G.byId = {};
       G.board.cells.forEach(c => { G.byId[c.id] = c; });
       G.st = await coopFetch('/api/steps69/' + G.code);
+      G.invite = G.st.invite_url || G.invite;
       G.opened = null;
       $('s69BoardTitle').textContent = T().s69Title;
       buildS69Map();
@@ -3175,6 +3406,7 @@
     stopS69Poll();
     if (G.settling) { clearTimeout(G.settling); G.settling = null; }
     G.code = null; G.st = null; G.board = null; G.byId = null; G.opened = null;
+    G.invite = null;
     $('s69Finale').classList.remove('show');
     $('s69Done').classList.remove('show');
     show('home');
@@ -3497,25 +3729,10 @@
   $('s69BoardBack').onclick = leaveS69;
   $('btnS69Duo').onclick = () => s69Create('duo');
   $('btnS69Solo').onclick = () => s69Create('solo');
-  $('btnS69Join').onclick = () => {
-    const code = ($('s69CodeInput').value || '').trim().toUpperCase();
-    if (code.length === 6) s69Join(code);
-  };
-  $('s69CodeInput').addEventListener('keydown', e => {
-    if (e.key === 'Enter') $('btnS69Join').click();
-  });
   $('s69Dice').onclick = s69Roll;
   $('s69MapToggle').onclick = () => { haptic('light'); $('s69Map').classList.toggle('folded'); };
-  $('btnS69Share').onclick = () => {
-    // Its own message: all three features draw six-character codes from one
-    // alphabet, so a code entered at the wrong door fails confusingly.
-    const msg = fmt(T().s69InviteMsg, { bot: BOT_URL || 'VECHNOST', code: G.code });
-    try {
-      if (tg) tg.openTelegramLink('https://t.me/share/url?url=' + encodeURIComponent(msg));
-      else navigator.clipboard.writeText(msg);
-      haptic('light');
-    } catch (e) { toast(T().shareError); }
-  };
+  $('btnS69Share').onclick = () => shareInvite(G.invite, T().s69InviteMsg);
+  $('btnS69Copy').onclick = () => copyInvite(G.invite);
   $('s69DoneAgain').onclick = () => { $('s69Done').classList.remove('show'); leaveS69(); openS69(); };
   $('s69DoneHome').onclick = leaveS69;
 
@@ -3534,12 +3751,66 @@
   // Preload content in background for instant start
   loadData();
   renderHomeModules();
-  // The bot's "Библиотека" button opens the app at ?screen=library.
-  try {
-    const screen = new URLSearchParams(location.search).get('screen');
-    if (screen === 'library') openLibrary();
-    else if (screen === 'steps69') openS69();
-  } catch (e) {}
+
+  /* ---------------- arriving through a link ---------------- */
+  // Two shapes reach us, and both end up here:
+  //
+  //  * `t.me/<bot>/<app>?startapp=s69_XXXXXX` opens this page directly and
+  //    Telegram hands the payload over as `start_param` (and, on some
+  //    clients, as `tgWebAppStartParam` in the URL).
+  //  * `t.me/<bot>?start=s69_XXXXXX` opens the chat instead; the bot answers
+  //    with a button pointing at `?screen=steps69&code=XXXXXX`.
+  //
+  // Same destination either way, so the partner never types anything.
+  const INVITE_SCREENS = { s69: 'steps69', cmp: 'compat', duo: 'coop' };
+
+  function bootTarget() {
+    try {
+      const q = new URLSearchParams(location.search);
+      const param = (tg && tg.initDataUnsafe && tg.initDataUnsafe.start_param)
+                    || q.get('tgWebAppStartParam');
+      if (param && param.indexOf('_') > 0) {
+        const kind = param.slice(0, param.indexOf('_'));
+        const code = param.slice(param.indexOf('_') + 1).trim().toUpperCase();
+        if (INVITE_SCREENS[kind] && code.length === 6) {
+          return { screen: INVITE_SCREENS[kind], code: code };
+        }
+      }
+      const screen = q.get('screen');
+      if (screen) {
+        const code = (q.get('code') || '').trim().toUpperCase();
+        return { screen: screen, code: code.length === 6 ? code : null };
+      }
+    } catch (e) {}
+    return null;
+  }
+
+  async function boot() {
+    const target = bootTarget();
+    if (!target) return;
+    if (target.screen === 'library') { openLibrary(); return; }
+
+    if (target.screen === 'steps69') {
+      if (!target.code) { openS69(); return; }
+      show('s69');
+      await s69Join(target.code);
+      return;
+    }
+    if (target.screen === 'compat') {
+      if (!target.code) { show('compat'); return; }
+      show('compat');
+      await compatJoin(target.code);
+      return;
+    }
+    if (target.screen === 'coop') {
+      if (!target.code) { show('coop'); return; }
+      show('coop');
+      await joinCoopRoom(target.code);
+      return;
+    }
+  }
+
+  boot();
 })();
 </script>
 </body>

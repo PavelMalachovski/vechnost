@@ -16,6 +16,7 @@ from typing import Any, Optional
 from fastapi import APIRouter, Depends, Header, HTTPException
 from pydantic import BaseModel, Field
 
+from .. import invites
 from ..config import settings
 from ..freemium import FREE_CARDS_PER_DECK
 from ..i18n import Language
@@ -119,6 +120,9 @@ def _room_state(room, user_id: int, language: Language) -> dict[str, Any]:
             "creator": room.creator_name,
             "guest": room.guest_name,
         },
+        # See compat_api._state: the invite is a link, and the server spells
+        # it, so all three two-partner features send the same shape.
+        "invite_url": invites.invite_url("duo", room.code),
     }
 
 

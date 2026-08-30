@@ -16,6 +16,7 @@ from typing import Any
 from fastapi import APIRouter, Depends, Header, HTTPException
 from pydantic import BaseModel, Field
 
+from .. import invites
 from ..compat import TOTAL_QUESTIONS, build_result, load_spheres, scale_labels
 from ..compat_notify import notify_result_ready
 from ..config import settings
@@ -108,6 +109,10 @@ def _state(test, user_id: int) -> dict[str, Any]:
         "total": TOTAL_QUESTIONS,
         "finished": test.finished_at is not None,
         "players": {"creator": test.creator_name, "guest": test.guest_name},
+        # The link that puts the partner straight into this test. Composed
+        # server-side so the client never has to know how a deep link is
+        # spelled, and so it follows the deployment's own configuration.
+        "invite_url": invites.invite_url("cmp", test.code),
     }
 
 

@@ -350,7 +350,10 @@ class Steps69Game(Base):
     )
 
     def __repr__(self) -> str:
-        return f"<Steps69Game(code='{self.code}', position={self.position})>"
+        return (
+            f"<Steps69Game(code='{self.code}', "
+            f"positions={self.creator_position}/{self.guest_position})>"
+        )
 
 
 class CompatTest(Base):

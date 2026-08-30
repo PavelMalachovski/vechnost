@@ -143,6 +143,7 @@ All settings are read from environment variables (or `.env`). See
 | `TELEGRAM_BOT_TOKEN` | Bot token from @BotFather (**required**) |
 | `BOT_USERNAME` | Bot handle without `@`, used in card watermark & share links |
 | `WEBAPP_URL` | HTTPS URL of the Mini App (`…/app/`); enables the "Play in app" button |
+| `WEBAPP_SHORT_NAME` | Mini App short name from BotFather. Set: invites are one-tap direct links (`t.me/<bot>/<name>?startapp=…`). Unset: invites go through the bot (`?start=…`), which answers with a button into the app |
 | `ENABLE_PAYMENT` | `TRUE`/`FALSE` — gate paid content behind Tribute |
 | `TRIBUTE_API_KEY`, `TRIBUTE_PAYMENT_URL`, `WEBHOOK_SECRET` | Tribute payment integration |
 | `ADMIN_TOKEN` | Bearer token for `/admin/*`. Falls back to `TRIBUTE_API_KEY`; set it separately so an outbound credential is not also an inbound password |

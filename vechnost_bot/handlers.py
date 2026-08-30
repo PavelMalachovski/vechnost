@@ -24,6 +24,37 @@ from .storage import get_session
 logger = logging.getLogger(__name__)
 
 
+async def _send_invite_button(update: Update, screen: str, code: str) -> bool:
+    """Answer an invite link with the button that opens it. False if we can't.
+
+    False means there is no Mini App URL configured to send anyone to, and
+    the caller falls through to the ordinary welcome screen: a partner who
+    followed a link must never end up staring at nothing.
+    """
+    from telegram import InlineKeyboardButton, InlineKeyboardMarkup, WebAppInfo
+
+    from .config import settings
+
+    url = settings.webapp_join_url(screen, code)
+    if not url:
+        logger.warning("Invite link received but WEBAPP_URL is unset")
+        return False
+
+    kind = {"steps69": "s69", "compat": "compat", "coop": "coop"}[screen]
+    language = Language.RUSSIAN
+    text = (
+        f"{get_text(f'invite.{kind}_title', language)}\n\n"
+        f"{get_text('invite.hint', language)}"
+    )
+    keyboard = InlineKeyboardMarkup([[InlineKeyboardButton(
+        get_text(f'invite.{kind}_button', language),
+        web_app=WebAppInfo(url=url),
+    )]])
+    await update.message.reply_text(text, reply_markup=keyboard)
+    logger.info(f"Invite link opened: {screen} {code}")
+    return True
+
+
 @track_performance("start_command")
 async def start_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """Handle the /start command."""
@@ -77,6 +108,19 @@ async def start_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
                     )
             except Exception as e:
                 logger.warning(f"Referral {referral_code} not credited: {e}")
+
+        # An invite link: `?start=s69_XXXXXX` and its two siblings. Whoever
+        # tapped it came to join something, not to read the greeting, so the
+        # answer is one button that opens the app already holding the code.
+        # (With a Mini App short name configured the tap never reaches the
+        # bot at all — Telegram opens the app directly.)
+        from .invites import parse_invite_param
+
+        invite = parse_invite_param(param)
+        if invite:
+            screen, code = invite
+            if await _send_invite_button(update, screen, code):
+                return
 
         if param.startswith("activate_"):
             # Extract certificate code
