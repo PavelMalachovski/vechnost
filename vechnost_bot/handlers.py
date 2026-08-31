@@ -6,7 +6,7 @@ the handler registry in callback_handlers.py.
 
 import logging
 
-from telegram import Update
+from telegram import Message, Update
 from telegram.ext import ContextTypes
 
 from .callback_handlers import welcome_screen
@@ -23,12 +23,16 @@ from .storage import get_session
 logger = logging.getLogger(__name__)
 
 
-async def _send_invite_button(update: Update, screen: str, code: str) -> bool:
+async def _send_invite_button(message: Message, screen: str, code: str) -> bool:
     """Answer an invite link with the button that opens it. False if we can't.
 
     False means there is no Mini App URL configured to send anyone to, and
     the caller falls through to the ordinary welcome screen: a partner who
     followed a link must never end up staring at nothing.
+
+    Takes the message rather than the update: the caller has already
+    established there is one, and reaching back through `message`
+    here only loses that.
     """
     from telegram import InlineKeyboardButton, InlineKeyboardMarkup, WebAppInfo
 
@@ -49,7 +53,7 @@ async def _send_invite_button(update: Update, screen: str, code: str) -> bool:
         get_text(f'invite.{kind}_button', language),
         web_app=WebAppInfo(url=url),
     )]])
-    await update.message.reply_text(text, reply_markup=keyboard)
+    await message.reply_text(text, reply_markup=keyboard)
     logger.info(f"Invite link opened: {screen} {code}")
     return True
 
@@ -57,17 +61,26 @@ async def _send_invite_button(update: Update, screen: str, code: str) -> bool:
 @track_performance("start_command")
 async def start_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """Handle the /start command."""
-    if not update.message:
+    # `effective_user` is not merely a convenience for `message.from_user`:
+    # it is genuinely absent on a message posted on behalf of a channel in a
+    # linked discussion group, where Telegram sends `sender_chat` and no
+    # `from`. Reading `.id` off it was an AttributeError waiting for someone
+    # to type /start as their channel. There is nobody to greet in that case,
+    # so there is nothing to do but return.
+    message = update.message
+    user = update.effective_user
+    chat = update.effective_chat
+    if message is None or user is None or chat is None:
         return
 
-    user_id = update.effective_user.id
-    username = update.effective_user.username
+    user_id = user.id
+    username = user.username
 
     # Set user context for monitoring
     set_user_context(user_id, username)
 
     logger.info(
-        f"Start command received from chat {update.effective_chat.id}, "
+        f"Start command received from chat {chat.id}, "
         f"args: {context.args if context.args else 'None'}"
     )
     log_bot_event("start_command", user_id=user_id, username=username)
@@ -93,16 +106,16 @@ async def start_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
                     await UserRepository.create_or_update(
                         db_session,
                         telegram_user_id=user_id,
-                        username=update.effective_user.username,
-                        first_name=update.effective_user.first_name,
-                        last_name=update.effective_user.last_name,
-                        language=update.effective_user.language_code,
+                        username=user.username,
+                        first_name=user.first_name,
+                        last_name=user.last_name,
+                        language=user.language_code,
                     )
                     credited = await UserRepository.record_referral(
                         db_session, user_id, referral_code
                     )
                 if credited:
-                    await update.message.reply_text(
+                    await message.reply_text(
                         get_text("referral.welcome", Language.RUSSIAN)
                     )
             except Exception as e:
@@ -118,7 +131,7 @@ async def start_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
         invite = parse_invite_param(param)
         if invite:
             screen, code = invite
-            if await _send_invite_button(update, screen, code):
+            if await _send_invite_button(message, screen, code):
                 return
 
         if param.startswith("activate_"):
@@ -132,31 +145,30 @@ async def start_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
             result = await activate_certificate(
                 code=code,
                 telegram_user_id=user_id,
-                username=update.effective_user.username,
-                first_name=update.effective_user.first_name,
-                last_name=update.effective_user.last_name,
+                username=user.username,
+                first_name=user.first_name,
+                last_name=user.last_name,
             )
 
             # Get session to determine language
-            chat_id = update.effective_chat.id
-            session = await get_session(chat_id)
+            session = await get_session(chat.id)
             language = session.language
 
             if result["status"] == "success":
                 success_text = get_text("certificate.activated", language)
-                await update.message.reply_text(success_text, parse_mode="HTML")
+                await message.reply_text(success_text, parse_mode="HTML")
                 # Continue with normal start flow
             elif result.get("code") == 404:
                 error_text = get_text("certificate.not_found", language)
-                await update.message.reply_text(error_text)
+                await message.reply_text(error_text)
                 return
             elif result.get("code") == 409:
                 error_text = get_text("certificate.already_used", language)
-                await update.message.reply_text(error_text)
+                await message.reply_text(error_text)
                 return
             else:
                 error_text = get_text("certificate.error", language)
-                await update.message.reply_text(error_text)
+                await message.reply_text(error_text)
                 return
 
     # There is nothing to choose any more: open straight on the greeting.
@@ -166,12 +178,12 @@ async def start_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
     # /start down, hence the fallback to the greeting alone.
     try:
         with open("assets/images/vechnost_logo.png", "rb") as logo_file:
-            await update.message.reply_photo(photo=logo_file)
+            await message.reply_photo(photo=logo_file)
     except Exception as e:
         logger.warning(f"Failed to load logo image: {e}, sending greeting only")
 
     text, keyboard = welcome_screen(Language.RUSSIAN)
-    await update.message.reply_text(text, reply_markup=keyboard, parse_mode="HTML")
+    await message.reply_text(text, reply_markup=keyboard, parse_mode="HTML")
 
 
 async def invite_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
@@ -219,7 +231,7 @@ async def invite_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
 
 async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """Handle the /help command."""
-    if not update.message:
+    if not update.message or not update.effective_chat:
         return
 
     # Get session to determine language
@@ -234,7 +246,7 @@ async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
 
 async def reset_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """Handle the /reset command."""
-    if not update.message:
+    if not update.message or not update.effective_chat:
         return
 
     # Get session to determine language
@@ -252,7 +264,7 @@ async def reset_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
 
 async def about_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """Handle the /about command - show information about the bot."""
-    if not update.message:
+    if not update.message or not update.effective_chat:
         return
 
     # Get session to determine language
@@ -298,11 +310,14 @@ async def activate_certificate_command(
     update: Update, context: ContextTypes.DEFAULT_TYPE
 ) -> None:
     """Handle the /activate command for certificate activation."""
-    if not update.message:
+    message = update.message
+    user = update.effective_user
+    chat = update.effective_chat
+    if message is None or user is None or chat is None:
         return
 
-    user_id = update.effective_user.id
-    username = update.effective_user.username
+    user_id = user.id
+    username = user.username
 
     # Set user context for monitoring
     set_user_context(user_id, username)
@@ -311,15 +326,14 @@ async def activate_certificate_command(
     log_bot_event("activate_certificate_command", user_id=user_id, username=username)
 
     # Get session to determine language
-    chat_id = update.effective_chat.id
-    session = await get_session(chat_id)
+    session = await get_session(chat.id)
     language = session.language
 
     # Get certificate code from command arguments
     if not context.args or len(context.args) == 0:
         # No code provided
         help_text = get_text("certificate.usage", language)
-        await update.message.reply_text(help_text)
+        await message.reply_text(help_text)
         return
 
     code = context.args[0].strip().upper()
@@ -330,23 +344,23 @@ async def activate_certificate_command(
     result = await activate_certificate(
         code=code,
         telegram_user_id=user_id,
-        username=update.effective_user.username,
-        first_name=update.effective_user.first_name,
-        last_name=update.effective_user.last_name,
+        username=user.username,
+        first_name=user.first_name,
+        last_name=user.last_name,
     )
 
     if result["status"] == "success":
         success_text = get_text("certificate.activated", language)
-        await update.message.reply_text(success_text, parse_mode="HTML")
+        await message.reply_text(success_text, parse_mode="HTML")
     elif result.get("code") == 404:
         error_text = get_text("certificate.not_found", language)
-        await update.message.reply_text(error_text)
+        await message.reply_text(error_text)
     elif result.get("code") == 409:
         error_text = get_text("certificate.already_used", language)
-        await update.message.reply_text(error_text)
+        await message.reply_text(error_text)
     else:
         error_text = get_text("certificate.error", language)
-        await update.message.reply_text(error_text)
+        await message.reply_text(error_text)
 
 
 @track_performance("callback_query")

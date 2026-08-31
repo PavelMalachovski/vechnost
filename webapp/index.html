@@ -1201,6 +1201,9 @@
       s69YourTurn: '✨ Твой ход',
       s69PartnerTurn: 'Ходит {name}. Смотрите.',
       s69NotYourTurn: 'Сейчас ход партнёра',
+      tooMany: 'Слишком много попыток. Подождите несколько минут.',
+      authExpired: 'Сессия истекла. Закройте приложение и откройте заново.',
+      serverError: 'Что-то сломалось на нашей стороне. Мы уже знаем.',
       s69Ladder: 'Стрела любви',
       s69Snake: 'Змея искушения',
       s69Reveal: 'Нажмите, чтобы открыть',
@@ -1330,6 +1333,17 @@
         else if ($('s69').classList.contains('active')) show('home');
       });
     } catch (e) {}
+  }
+
+  // 401, 429 and 5xx used to fall through to "check your connection", which
+  // is a lie in all three cases and, worse, unreportable: a screenshot of it
+  // says nothing about what the server actually refused.
+  function statusMessage(e) {
+    if (e.status === 401) return T().authExpired;
+    if (e.status === 429) return T().tooMany;
+    if (e.status >= 500) return T().serverError;
+    if (!e.status) return T().loadError;   // genuinely no reply: offline
+    return T().loadError + ' (' + e.status + ')';
   }
 
   function toast(msg) {
@@ -1981,14 +1995,23 @@
       headers: coopHeaders(!!opts.json),
       body: opts.json ? JSON.stringify(opts.json) : undefined
     });
-    if (!res.ok) { const e = new Error('http ' + res.status); e.status = res.status; throw e; }
+    if (!res.ok) {
+      const e = new Error('http ' + res.status);
+      e.status = res.status;
+      // The server says what went wrong in `detail`; keep it. Without this
+      // every failure the handlers do not name became "check your
+      // connection", which sent people to their wifi settings over a 429.
+      try { e.detail = (await res.json()).detail; } catch (_) { e.detail = null; }
+      console.error('API', res.status, path, e.detail || '');
+      throw e;
+    }
     return res.json();
   }
 
   function coopError(e) {
     if (e.status === 409) toast(T().coopFull);
     else if (e.status === 404 || e.status === 410) toast(T().coopGone);
-    else toast(T().loadError);
+    else toast(statusMessage(e));
   }
 
   function stopCoopPoll() {
@@ -3278,7 +3301,7 @@
     if (e.status === 409) { toast(T().s69Full); return; }
     if (e.status === 404 || e.status === 410) { toast(T().s69Gone); return; }
     if (e.status === 403) { toast(T().s69NotYourTurn); return; }
-    toast(T().loadError);
+    toast(statusMessage(e));
   }
 
   function showS69Paywall() {

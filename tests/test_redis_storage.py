@@ -2,6 +2,7 @@
 
 import asyncio
 import os
+from pathlib import Path
 from unittest.mock import AsyncMock, patch
 
 import pytest
@@ -119,6 +120,30 @@ class TestRedisStorage:
         # Get cached image
         retrieved_data = await redis_storage_instance.get_cached_image(cache_key)
         assert retrieved_data == image_data
+
+    @pytest.mark.asyncio
+    async def test_caching_an_actual_image(self, redis_storage_instance):
+        """Bytes that are not text survive the round trip.
+
+        The test above passes `b"fake_image_data"` - pure ASCII, which came
+        back intact through a UTF-8 encode and decode by luck, and so the
+        cache looked fine while it had never once returned a real image. The
+        pool is opened with `decode_responses=True`, so a JPEG read straight
+        back died on `'utf-8' codec can't decode byte 0x89` inside the
+        method's own try/except and became a silent None. Every byte from
+        0x80 up is the case that matters, so this uses a real file.
+        """
+        image_data = Path("assets/backgrounds/acq/acq_1.png").read_bytes()
+        assert any(byte > 0x7F for byte in image_data[:16]), "needs non-ASCII bytes"
+
+        await redis_storage_instance.cache_rendered_image("real_png", image_data, ttl=60)
+
+        assert await redis_storage_instance.get_cached_image("real_png") == image_data
+
+    @pytest.mark.asyncio
+    async def test_a_cache_miss_is_none(self, redis_storage_instance):
+        """And a key that was never written is a miss, not an error."""
+        assert await redis_storage_instance.get_cached_image("nothing_here") is None
 
     @pytest.mark.asyncio
     async def test_counter_operations(self, redis_storage_instance):

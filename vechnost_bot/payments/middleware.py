@@ -1,8 +1,6 @@
 """Payment middleware for Telegram bot handlers."""
 
 import logging
-from collections.abc import Callable
-from functools import wraps
 
 from telegram import InlineKeyboardButton, InlineKeyboardMarkup, Update
 from telegram.ext import ContextTypes
@@ -10,31 +8,9 @@ from telegram.ext import ContextTypes
 from ..config import settings
 from .database import get_db
 from .repositories import UserRepository
-from .services import get_products_for_purchase, user_has_access
+from .services import get_products_for_purchase
 
 logger = logging.getLogger(__name__)
-
-
-def get_payment_required_message(language: str = "en") -> str:
-    """Get payment required message in specified language."""
-    messages = {
-        "en": (
-            "🔒 <b>Access Required</b>\n\n"
-            "To use this bot, you need an active subscription or payment.\n\n"
-            "Please choose one of the available options below:"
-        ),
-        "ru": (
-            "🔒 <b>Требуется доступ</b>\n\n"
-            "Для использования этого бота требуется активная подписка или оплата.\n\n"
-            "Пожалуйста, выберите один из доступных вариантов ниже:"
-        ),
-        "cs": (
-            "🔒 <b>Vyžadován přístup</b>\n\n"
-            "Pro použití tohoto bota potřebujete aktivní předplatné nebo platbu.\n\n"
-            "Prosím, vyberte jednu z dostupných možností níže:"
-        ),
-    }
-    return messages.get(language, messages["en"])
 
 
 def get_payment_keyboard_text(language: str = "en") -> dict:
@@ -95,80 +71,6 @@ async def get_payment_keyboard(language: str = "en") -> InlineKeyboardMarkup:
     )
 
     return InlineKeyboardMarkup(keyboard)
-
-
-def require_payment(handler: Callable) -> Callable:
-    """
-    Decorator to require payment for handler access.
-
-    Usage:
-        @require_payment
-        async def my_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
-            # Handler code
-    """
-
-    @wraps(handler)
-    async def wrapper(update: Update, context: ContextTypes.DEFAULT_TYPE):
-        # Skip check if payments are disabled
-        if not settings.enable_payment:
-            return await handler(update, context)
-
-        # Get user ID
-        if not update.effective_user:
-            logger.warning("No effective user in update")
-            return
-
-        telegram_user_id = update.effective_user.id
-
-        # Register/update user in database
-        try:
-            async with get_db() as session:
-                await UserRepository.create_or_update(
-                    session,
-                    telegram_user_id=telegram_user_id,
-                    username=update.effective_user.username,
-                    first_name=update.effective_user.first_name,
-                    last_name=update.effective_user.last_name,
-                    language=update.effective_user.language_code,
-                )
-        except Exception as e:
-            logger.error(f"Error registering user: {e}")
-
-        # Check if user has access
-        has_access = await user_has_access(telegram_user_id)
-
-        if not has_access:
-            logger.info(f"User {telegram_user_id} denied access (no payment)")
-
-            # Get user's language preference (from session or default to English)
-            language = "en"
-            try:
-                from ..storage import get_session
-
-                session = await get_session(update.effective_chat.id if update.effective_chat else telegram_user_id)
-                language = session.language.value if hasattr(session, "language") else "en"
-            except Exception as e:
-                logger.warning(f"Could not get user language: {e}")
-
-            # Send payment required message
-            message = get_payment_required_message(language)
-            keyboard = await get_payment_keyboard(language)
-
-            if update.message:
-                await update.message.reply_text(
-                    message, parse_mode="HTML", reply_markup=keyboard
-                )
-            elif update.callback_query:
-                await update.callback_query.message.reply_text(
-                    message, parse_mode="HTML", reply_markup=keyboard
-                )
-
-            return
-
-        # User has access, proceed with handler
-        return await handler(update, context)
-
-    return wrapper
 
 
 async def check_and_register_user(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:

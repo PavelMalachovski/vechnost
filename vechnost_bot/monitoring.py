@@ -297,8 +297,14 @@ def log_bot_event(event_type: str, **context):
     metrics.increment_counter(f"bot_events_{event_type}")
 
 
-def log_callback_event(callback_data: str, user_id: int, **context):
-    """Log a callback event with structured data."""
+def log_callback_event(callback_data: str | None, user_id: int, **context):
+    """Log a callback event with structured data.
+
+    `str | None`, because a callback query is allowed to carry no data at all
+    and the caller hands `query.data` straight through. The body already
+    guards every use of it; the signature was the only thing claiming
+    otherwise.
+    """
     logger = structlog.get_logger("callback_events")
     logger.info(
         "callback_event",

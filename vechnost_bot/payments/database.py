@@ -4,7 +4,12 @@ import logging
 from collections.abc import AsyncGenerator
 from contextlib import asynccontextmanager
 
-from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
+from sqlalchemy.ext.asyncio import (
+    AsyncEngine,
+    AsyncSession,
+    async_sessionmaker,
+    create_async_engine,
+)
 from sqlalchemy.pool import StaticPool
 
 from ..config import settings
@@ -52,12 +57,24 @@ def init_db() -> None:
     logger.info("Database initialized successfully")
 
 
-async def create_tables() -> None:
-    """Create all tables in the database."""
+def _engine() -> AsyncEngine:
+    """The engine, initialised on first use.
+
+    `init_db()` assigns a module global, which is two statements away from
+    every use of it - so each caller opened with `if engine is None:
+    init_db()` and then reached for `engine` on trust. This makes it one
+    call and one type.
+    """
     if engine is None:
         init_db()
+    if engine is None:
+        raise RuntimeError("Database engine could not be initialised")
+    return engine
 
-    async with engine.begin() as conn:
+
+async def create_tables() -> None:
+    """Create all tables in the database."""
+    async with _engine().begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
         await conn.run_sync(_ensure_user_columns)
         await conn.run_sync(_ensure_steps69_columns)
@@ -135,10 +152,7 @@ def _ensure_steps69_columns(sync_conn) -> None:
 
 async def drop_tables() -> None:
     """Drop all tables from the database (for testing)."""
-    if engine is None:
-        init_db()
-
-    async with engine.begin() as conn:
+    async with _engine().begin() as conn:
         await conn.run_sync(Base.metadata.drop_all)
     logger.info("Database tables dropped successfully")
 
