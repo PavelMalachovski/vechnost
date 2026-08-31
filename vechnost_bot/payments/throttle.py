@@ -37,7 +37,13 @@ logger = logging.getLogger(__name__)
 LIMITS: dict[str, tuple[int, int]] = {
     # (max attempts, window seconds)
     "join": (10, 300),      # guessing someone else's code
-    "create": (20, 3600),   # spinning up rooms/tests/games
+    # Spinning up rooms/tests/games. Sixty an hour, not twenty: this bucket
+    # exists to stop someone allocating rows in bulk, and twenty is inside
+    # what one curious couple does in an evening - open a board, abandon it,
+    # start again, invite the partner, restart when they pick the wrong
+    # suit. Hitting it looked like the game was broken, because a 429 was
+    # not one of the statuses the client had a sentence for.
+    "create": (60, 3600),
     "render": (30, 60),     # /api/card, one Pillow composite each
     "admin": (5, 60),       # the admin bearer token
     "write": (120, 60),     # ordinary in-game writes: dice, answers, reactions

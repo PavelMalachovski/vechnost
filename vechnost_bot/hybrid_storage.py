@@ -100,10 +100,18 @@ class HybridStorage:
         self._redis_checked = False
         self._initialized = False
 
-    async def _ensure_redis_connection(self) -> bool:
-        """Ensure Redis connection is available with auto-start."""
+    async def _redis(self) -> RedisStorage | None:
+        """The connected Redis storage, or None when there is no Redis.
+
+        Returns the storage rather than a bool, so that "Redis is available"
+        and "there is a RedisStorage to call" are the same fact rather than
+        two that have to be kept in step. Every caller below used to test the
+        bool and then reach for `self.redis_storage`, which is typed
+        `RedisStorage | None` - eleven places where nothing but convention
+        said the two agreed.
+        """
         if self._redis_checked:
-            return self._redis_available
+            return self.redis_storage if self._redis_available else None
 
         try:
             # Initialize Redis auto-start if not done yet
@@ -126,13 +134,14 @@ class HybridStorage:
         finally:
             self._redis_checked = True
 
-        return self._redis_available
+        return self.redis_storage if self._redis_available else None
 
     async def get_session(self, chat_id: int) -> SessionState | None:
         """Get session with Redis fallback to memory."""
-        if await self._ensure_redis_connection():
+        redis = await self._redis()
+        if redis is not None:
             try:
-                return await self.redis_storage.get_session(chat_id)
+                return await redis.get_session(chat_id)
             except Exception as e:
                 logger.warning("redis_get_session_failed", error=str(e))
                 return await self.memory_storage.get_session(chat_id)
@@ -141,9 +150,10 @@ class HybridStorage:
 
     async def save_session(self, chat_id: int, session: SessionState, ttl: int = None):
         """Save session with Redis fallback to memory."""
-        if await self._ensure_redis_connection():
+        redis = await self._redis()
+        if redis is not None:
             try:
-                await self.redis_storage.save_session(chat_id, session, ttl)
+                await redis.save_session(chat_id, session, ttl)
             except Exception as e:
                 logger.warning("redis_save_session_failed", error=str(e))
                 await self.memory_storage.save_session(chat_id, session, ttl)
@@ -152,9 +162,10 @@ class HybridStorage:
 
     async def delete_session(self, chat_id: int):
         """Delete session with Redis fallback to memory."""
-        if await self._ensure_redis_connection():
+        redis = await self._redis()
+        if redis is not None:
             try:
-                await self.redis_storage.delete_session(chat_id)
+                await redis.delete_session(chat_id)
             except Exception as e:
                 logger.warning("redis_delete_session_failed", error=str(e))
                 await self.memory_storage.delete_session(chat_id)
@@ -163,9 +174,10 @@ class HybridStorage:
 
     async def get_user_stats(self, chat_id: int) -> dict[str, Any]:
         """Get user stats with Redis fallback to memory."""
-        if await self._ensure_redis_connection():
+        redis = await self._redis()
+        if redis is not None:
             try:
-                return await self.redis_storage.get_user_stats(chat_id)
+                return await redis.get_user_stats(chat_id)
             except Exception as e:
                 logger.warning("redis_get_stats_failed", error=str(e))
                 return await self.memory_storage.get_user_stats(chat_id)
@@ -174,9 +186,10 @@ class HybridStorage:
 
     async def update_user_stats(self, chat_id: int, stats: dict[str, Any]):
         """Update user stats with Redis fallback to memory."""
-        if await self._ensure_redis_connection():
+        redis = await self._redis()
+        if redis is not None:
             try:
-                await self.redis_storage.update_user_stats(chat_id, stats)
+                await redis.update_user_stats(chat_id, stats)
             except Exception as e:
                 logger.warning("redis_update_stats_failed", error=str(e))
                 await self.memory_storage.update_user_stats(chat_id, stats)
@@ -185,9 +198,10 @@ class HybridStorage:
 
     async def cache_rendered_image(self, cache_key: str, image_data: bytes, ttl: int = 3600):
         """Cache image with Redis fallback to memory."""
-        if await self._ensure_redis_connection():
+        redis = await self._redis()
+        if redis is not None:
             try:
-                await self.redis_storage.cache_rendered_image(cache_key, image_data, ttl)
+                await redis.cache_rendered_image(cache_key, image_data, ttl)
             except Exception as e:
                 logger.warning("redis_cache_image_failed", error=str(e))
                 await self.memory_storage.cache_rendered_image(cache_key, image_data, ttl)
@@ -196,9 +210,10 @@ class HybridStorage:
 
     async def get_cached_image(self, cache_key: str) -> bytes | None:
         """Get cached image with Redis fallback to memory."""
-        if await self._ensure_redis_connection():
+        redis = await self._redis()
+        if redis is not None:
             try:
-                return await self.redis_storage.get_cached_image(cache_key)
+                return await redis.get_cached_image(cache_key)
             except Exception as e:
                 logger.warning("redis_get_image_failed", error=str(e))
                 return await self.memory_storage.get_cached_image(cache_key)
@@ -207,9 +222,10 @@ class HybridStorage:
 
     async def increment_counter(self, counter_name: str, increment: int = 1) -> int:
         """Increment counter with Redis fallback to memory."""
-        if await self._ensure_redis_connection():
+        redis = await self._redis()
+        if redis is not None:
             try:
-                return await self.redis_storage.increment_counter(counter_name, increment)
+                return await redis.increment_counter(counter_name, increment)
             except Exception as e:
                 logger.warning("redis_increment_counter_failed", error=str(e))
                 return await self.memory_storage.increment_counter(counter_name, increment)
@@ -218,9 +234,10 @@ class HybridStorage:
 
     async def get_rate_limit_info(self, user_id: int, limit: int, period: int) -> dict[str, Any]:
         """Get rate limit info with Redis fallback to memory."""
-        if await self._ensure_redis_connection():
+        redis = await self._redis()
+        if redis is not None:
             try:
-                return await self.redis_storage.get_rate_limit_info(user_id, limit, period)
+                return await redis.get_rate_limit_info(user_id, limit, period)
             except Exception as e:
                 logger.warning("redis_rate_limit_failed", error=str(e))
                 return await self.memory_storage.get_rate_limit_info(user_id, limit, period)
@@ -229,9 +246,10 @@ class HybridStorage:
 
     async def set_rate_limit(self, user_id: int, count: int, period: int):
         """Set rate limit with Redis fallback to memory."""
-        if await self._ensure_redis_connection():
+        redis = await self._redis()
+        if redis is not None:
             try:
-                await self.redis_storage.set_rate_limit(user_id, count, period)
+                await redis.set_rate_limit(user_id, count, period)
             except Exception as e:
                 logger.warning("redis_set_rate_limit_failed", error=str(e))
                 await self.memory_storage.set_rate_limit(user_id, count, period)
@@ -240,9 +258,10 @@ class HybridStorage:
 
     async def health_check(self) -> bool:
         """Check health of storage system."""
-        if await self._ensure_redis_connection():
+        redis = await self._redis()
+        if redis is not None:
             try:
-                return await self.redis_storage.health_check()
+                return await redis.health_check()
             except Exception as e:
                 logger.warning("redis_health_check_failed", error=str(e))
                 return await self.memory_storage.health_check()

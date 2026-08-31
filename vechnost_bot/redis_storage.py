@@ -1,5 +1,6 @@
 """Redis-based storage implementation for the Vechnost bot."""
 
+import base64
 import json
 from typing import Any
 
@@ -7,6 +8,7 @@ import redis.asyncio as redis
 import structlog
 
 from .config import settings
+from .exceptions import RedisConnectionError
 from .models import Language, SessionState
 
 logger = structlog.get_logger(__name__)
@@ -61,6 +63,24 @@ class RedisStorage:
             logger.error("redis_connection_failed", error=str(e))
             raise
 
+    async def _client(self) -> redis.Redis:
+        """The connected client, connecting on first use.
+
+        Every method below opened with `if not self._redis: await
+        self.connect()` and then used `self._redis` directly - correct, but
+        the connection and the use were two statements apart, so nothing but
+        reading the pair told you the client was really there. Fourteen
+        places relied on that. This makes it one statement and one type.
+        """
+        if self._redis is None:
+            await self.connect()
+        if self._redis is None:
+            # connect() raises rather than returning without a client, so
+            # this is unreachable - and says so out loud instead of letting
+            # a None reach the call below as an AttributeError.
+            raise RedisConnectionError("Redis client is not connected")
+        return self._redis
+
     async def disconnect(self):
         """Close Redis connection and cleanup resources."""
         if self._redis:
@@ -72,11 +92,10 @@ class RedisStorage:
     async def get_session(self, chat_id: int) -> SessionState | None:
         """Get user session from Redis."""
         try:
-            if not self._redis:
-                await self.connect()
+            client = await self._client()
 
             key = f"session:{chat_id}"
-            data = await self._redis.get(key)
+            data = await client.get(key)
 
             if data:
                 session_dict = json.loads(data)
@@ -110,8 +129,7 @@ class RedisStorage:
         if ttl is None:
             ttl = settings.session_ttl
         try:
-            if not self._redis:
-                await self.connect()
+            client = await self._client()
 
             key = f"session:{chat_id}"
             # Convert set to list for JSON serialization
@@ -121,7 +139,7 @@ class RedisStorage:
 
             data = json.dumps(session_dict, default=str)
 
-            await self._redis.setex(key, ttl, data)
+            await client.setex(key, ttl, data)
             logger.debug("session_saved", chat_id=chat_id, ttl=ttl)
 
         except Exception as e:
@@ -130,11 +148,10 @@ class RedisStorage:
     async def delete_session(self, chat_id: int):
         """Delete user session from Redis."""
         try:
-            if not self._redis:
-                await self.connect()
+            client = await self._client()
 
             key = f"session:{chat_id}"
-            await self._redis.delete(key)
+            await client.delete(key)
             logger.debug("session_deleted", chat_id=chat_id)
 
         except Exception as e:
@@ -143,11 +160,10 @@ class RedisStorage:
     async def get_user_stats(self, chat_id: int) -> dict[str, Any]:
         """Get user statistics from Redis."""
         try:
-            if not self._redis:
-                await self.connect()
+            client = await self._client()
 
             key = f"stats:{chat_id}"
-            data = await self._redis.get(key)
+            data = await client.get(key)
 
             if data:
                 return json.loads(data)
@@ -160,24 +176,31 @@ class RedisStorage:
     async def update_user_stats(self, chat_id: int, stats: dict[str, Any]):
         """Update user statistics in Redis."""
         try:
-            if not self._redis:
-                await self.connect()
+            client = await self._client()
 
             key = f"stats:{chat_id}"
             data = json.dumps(stats)
-            await self._redis.setex(key, 86400 * 30, data)  # 30 days TTL
+            await client.setex(key, 86400 * 30, data)  # 30 days TTL
 
         except Exception as e:
             logger.error("redis_update_stats_error", chat_id=chat_id, error=str(e))
 
     async def cache_rendered_image(self, cache_key: str, image_data: bytes, ttl: int = 3600):
-        """Cache rendered image in Redis."""
+        """Cache rendered image in Redis, base64 over a text connection.
+
+        The pool is opened with `decode_responses=True`, because everything
+        else stored here is JSON. That makes the connection UTF-8, and a JPEG
+        is not UTF-8: written raw and read back, every image died on
+        `'utf-8' codec can't decode byte 0x89` inside the read's own
+        try/except, so the cache returned None every single time while still
+        paying for the write. Base64 costs a third more bytes and is the only
+        thing that survives the trip.
+        """
         try:
-            if not self._redis:
-                await self.connect()
+            client = await self._client()
 
             key = f"image:{cache_key}"
-            await self._redis.setex(key, ttl, image_data)
+            await client.setex(key, ttl, base64.b64encode(image_data).decode("ascii"))
             logger.debug("image_cached", cache_key=cache_key, ttl=ttl)
 
         except Exception as e:
@@ -186,12 +209,14 @@ class RedisStorage:
     async def get_cached_image(self, cache_key: str) -> bytes | None:
         """Get cached image from Redis."""
         try:
-            if not self._redis:
-                await self.connect()
+            client = await self._client()
 
             key = f"image:{cache_key}"
-            data = await self._redis.get(key)
-            return data.encode() if data else None
+            data = await client.get(key)
+            # `.encode()` was here, which is not the inverse of anything: it
+            # would have re-encoded the text as UTF-8 rather than recovering
+            # the bytes that went in.
+            return base64.b64decode(data) if data else None
 
         except Exception as e:
             logger.error("redis_get_image_error", cache_key=cache_key, error=str(e))
@@ -200,12 +225,11 @@ class RedisStorage:
     async def increment_counter(self, counter_name: str, increment: int = 1) -> int:
         """Increment a counter in Redis."""
         try:
-            if not self._redis:
-                await self.connect()
+            client = await self._client()
 
             key = f"counter:{counter_name}"
-            result = await self._redis.incrby(key, increment)
-            await self._redis.expire(key, 86400)  # 24 hours TTL
+            result = await client.incrby(key, increment)
+            await client.expire(key, 86400)  # 24 hours TTL
             return result
 
         except Exception as e:
@@ -215,12 +239,11 @@ class RedisStorage:
     async def get_rate_limit_info(self, user_id: int, limit: int, period: int) -> dict[str, Any]:
         """Get rate limit information from Redis."""
         try:
-            if not self._redis:
-                await self.connect()
+            client = await self._client()
 
             key = f"rate_limit:{user_id}"
-            current_count = await self._redis.get(key)
-            ttl = await self._redis.ttl(key)
+            current_count = await client.get(key)
+            ttl = await client.ttl(key)
 
             return {
                 "count": int(current_count) if current_count else 0,
@@ -237,11 +260,10 @@ class RedisStorage:
     async def set_rate_limit(self, user_id: int, count: int, period: int):
         """Set rate limit in Redis."""
         try:
-            if not self._redis:
-                await self.connect()
+            client = await self._client()
 
             key = f"rate_limit:{user_id}"
-            await self._redis.setex(key, period, count)
+            await client.setex(key, period, count)
 
         except Exception as e:
             logger.error("redis_set_rate_limit_error", user_id=user_id, error=str(e))
@@ -249,10 +271,9 @@ class RedisStorage:
     async def health_check(self) -> bool:
         """Check Redis connection health."""
         try:
-            if not self._redis:
-                await self.connect()
+            client = await self._client()
 
-            await self._redis.ping()
+            await client.ping()
             return True
 
         except Exception as e:

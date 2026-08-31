@@ -6,6 +6,7 @@ caller.
 """
 
 import os
+from pathlib import Path
 from unittest.mock import patch
 
 import pytest
@@ -265,3 +266,27 @@ def test_a_failed_product_sync_tells_the_caller_nothing(client):
 
     assert response.status_code == 500
     assert "tok_live_abc123" not in response.text
+
+
+def test_a_throttled_creator_is_told_they_are_throttled_not_that_it_broke():
+    """A 429 must be a status the client has a sentence for.
+
+    `/api/steps69` allows a bounded number of creations per hour. The client
+    turned every unhandled status into «Не удалось загрузить вопросы.
+    Проверьте соединение.», so a couple who had opened and abandoned a few
+    boards in one evening were told to check their wifi and had no way to
+    find out otherwise. The server side of that contract is this: the refusal
+    is a 429 with a detail, not a 500 and not a silent failure.
+    """
+    from vechnost_bot.payments import throttle as _throttle
+
+    limit, _window = _throttle.LIMITS["create"]
+    # Enough headroom for one evening of a curious couple; still a firm cap.
+    assert limit >= 60
+
+    index = Path("webapp/index.html").read_text(encoding="utf-8")
+    assert "function statusMessage(" in index
+    for status in ("401", "429"):
+        assert status in index.split("function statusMessage(")[1].split("}")[0], (
+            f"the client has no sentence for a {status}"
+        )

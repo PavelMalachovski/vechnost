@@ -71,6 +71,14 @@ def _calendar_header(
     branch kept a plain hyphen while its twin in the YAML moved to the middot
     that `_card_footer` above already prints onto the card image.
     """
+    if session.theme is None:
+        # Every caller checks first, so this is a caller's bug rather than a
+        # user's - but it used to be an AttributeError on the line below,
+        # inside a message being composed, which reaches the player as a dead
+        # button rather than as anything they can read.
+        logger.warning("Calendar header asked for with no theme in session")
+        return get_text('errors.no_theme', session.language)
+
     if session.theme == Theme.SEX:
         key = ('calendar.sex_questions' if content_type == ContentType.QUESTIONS
                else 'calendar.sex_tasks')
