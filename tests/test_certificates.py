@@ -1,11 +1,12 @@
 """Tests for certificate functionality."""
 
-import pytest
 from datetime import datetime
 from unittest.mock import AsyncMock, MagicMock, patch
 
+import pytest
+
 from vechnost_bot.payments.models import Certificate, User
-from vechnost_bot.payments.repositories import CertificateRepository, UserRepository
+from vechnost_bot.payments.repositories import CertificateRepository
 from vechnost_bot.payments.services import activate_certificate, user_has_access
 
 

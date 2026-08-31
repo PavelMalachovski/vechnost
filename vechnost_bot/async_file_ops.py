@@ -1,10 +1,9 @@
 """Async file operations for the Vechnost bot."""
 
-import aiofiles
-import asyncio
 import os
 from pathlib import Path
-from typing import Optional, Union, BinaryIO, TextIO
+
+import aiofiles
 import structlog
 
 logger = structlog.get_logger("async_file_ops")
@@ -14,7 +13,7 @@ class AsyncFileManager:
     """Async file operations manager."""
 
     @staticmethod
-    async def read_file(file_path: Union[str, Path], mode: str = 'r') -> Union[str, bytes]:
+    async def read_file(file_path: str | Path, mode: str = 'r') -> str | bytes:
         """
         Read file asynchronously.
 
@@ -39,10 +38,10 @@ class AsyncFileManager:
             raise
         except Exception as e:
             logger.error("file_read_error", file_path=str(file_path), error=str(e))
-            raise IOError(f"Failed to read file {file_path}: {e}")
+            raise OSError(f"Failed to read file {file_path}: {e}") from e
 
     @staticmethod
-    async def write_file(file_path: Union[str, Path], content: Union[str, bytes], mode: str = 'w') -> None:
+    async def write_file(file_path: str | Path, content: str | bytes, mode: str = 'w') -> None:
         """
         Write file asynchronously.
 
@@ -65,10 +64,10 @@ class AsyncFileManager:
                 logger.debug("file_write_success", file_path=str(file_path), mode=mode)
         except Exception as e:
             logger.error("file_write_error", file_path=str(file_path), error=str(e))
-            raise IOError(f"Failed to write file {file_path}: {e}")
+            raise OSError(f"Failed to write file {file_path}: {e}") from e
 
     @staticmethod
-    async def file_exists(file_path: Union[str, Path]) -> bool:
+    async def file_exists(file_path: str | Path) -> bool:
         """
         Check if file exists asynchronously.
 
@@ -85,7 +84,7 @@ class AsyncFileManager:
             return False
 
     @staticmethod
-    async def get_file_size(file_path: Union[str, Path]) -> Optional[int]:
+    async def get_file_size(file_path: str | Path) -> int | None:
         """
         Get file size asynchronously.
 
@@ -104,7 +103,7 @@ class AsyncFileManager:
             return None
 
     @staticmethod
-    async def delete_file(file_path: Union[str, Path]) -> bool:
+    async def delete_file(file_path: str | Path) -> bool:
         """
         Delete file asynchronously.
 
@@ -125,7 +124,7 @@ class AsyncFileManager:
             return False
 
     @staticmethod
-    async def list_directory(dir_path: Union[str, Path]) -> list[str]:
+    async def list_directory(dir_path: str | Path) -> list[str]:
         """
         List directory contents asynchronously.
 
@@ -150,7 +149,7 @@ class AsyncFileManager:
             return []
 
     @staticmethod
-    async def create_directory(dir_path: Union[str, Path]) -> bool:
+    async def create_directory(dir_path: str | Path) -> bool:
         """
         Create directory asynchronously.
 
@@ -173,7 +172,7 @@ class AsyncImageManager:
     """Async image operations manager."""
 
     @staticmethod
-    async def load_image(file_path: Union[str, Path]) -> Optional[bytes]:
+    async def load_image(file_path: str | Path) -> bytes | None:
         """
         Load image file asynchronously.
 
@@ -192,7 +191,7 @@ class AsyncImageManager:
             return None
 
     @staticmethod
-    async def save_image(file_path: Union[str, Path], image_data: bytes) -> bool:
+    async def save_image(file_path: str | Path, image_data: bytes) -> bool:
         """
         Save image file asynchronously.
 
@@ -212,7 +211,7 @@ class AsyncImageManager:
             return False
 
     @staticmethod
-    async def image_exists(file_path: Union[str, Path]) -> bool:
+    async def image_exists(file_path: str | Path) -> bool:
         """
         Check if image file exists.
 
@@ -229,7 +228,7 @@ class AsyncConfigManager:
     """Async configuration file manager."""
 
     @staticmethod
-    async def load_yaml_config(file_path: Union[str, Path]) -> Optional[dict]:
+    async def load_yaml_config(file_path: str | Path) -> dict | None:
         """
         Load YAML configuration file asynchronously.
 
@@ -250,7 +249,7 @@ class AsyncConfigManager:
             return None
 
     @staticmethod
-    async def save_yaml_config(file_path: Union[str, Path], config: dict) -> bool:
+    async def save_yaml_config(file_path: str | Path, config: dict) -> bool:
         """
         Save YAML configuration file asynchronously.
 
@@ -273,27 +272,27 @@ class AsyncConfigManager:
 
 
 # Convenience functions for common operations
-async def read_text_file(file_path: Union[str, Path]) -> str:
+async def read_text_file(file_path: str | Path) -> str:
     """Read text file asynchronously."""
     return await AsyncFileManager.read_file(file_path, 'r')
 
 
-async def read_binary_file(file_path: Union[str, Path]) -> bytes:
+async def read_binary_file(file_path: str | Path) -> bytes:
     """Read binary file asynchronously."""
     return await AsyncFileManager.read_file(file_path, 'rb')
 
 
-async def write_text_file(file_path: Union[str, Path], content: str) -> None:
+async def write_text_file(file_path: str | Path, content: str) -> None:
     """Write text file asynchronously."""
     await AsyncFileManager.write_file(file_path, content, 'w')
 
 
-async def write_binary_file(file_path: Union[str, Path], content: bytes) -> None:
+async def write_binary_file(file_path: str | Path, content: bytes) -> None:
     """Write binary file asynchronously."""
     await AsyncFileManager.write_file(file_path, content, 'wb')
 
 
-async def ensure_directory_exists(dir_path: Union[str, Path]) -> bool:
+async def ensure_directory_exists(dir_path: str | Path) -> bool:
     """Ensure directory exists, create if necessary."""
     return await AsyncFileManager.create_directory(dir_path)
 

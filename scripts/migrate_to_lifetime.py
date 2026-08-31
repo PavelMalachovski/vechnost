@@ -3,6 +3,7 @@
 
 import asyncio
 import os
+
 import asyncpg
 
 
@@ -48,7 +49,7 @@ async def migrate():
         """)
 
         if result:
-            print(f"\n[SUCCESS] Migration complete!")
+            print("\n[SUCCESS] Migration complete!")
             print(f"  User: {result['first_name']} ({result['telegram_user_id']})")
             print(f"  Period: {result['period']}")
             print(f"  Expires: {'LIFETIME (Never)' if result['expires_at'] is None else result['expires_at']}")

@@ -1,8 +1,8 @@
 """Tribute API client for interacting with Tribute payment service."""
 
 import logging
-from typing import List, Optional, Dict, Any
 from dataclasses import dataclass
+from typing import Any
 
 import httpx
 
@@ -20,9 +20,9 @@ class TributeProduct:
     name: str
     amount: int  # in cents
     currency: str
-    stars_amount: Optional[int] = None
-    t_link: Optional[str] = None
-    web_link: Optional[str] = None
+    stars_amount: int | None = None
+    t_link: str | None = None
+    web_link: str | None = None
 
 
 class TributeAPIError(Exception):
@@ -35,7 +35,7 @@ class TributeClient:
     """Client for interacting with Tribute API."""
 
     def __init__(
-        self, api_key: Optional[str] = None, base_url: Optional[str] = None
+        self, api_key: str | None = None, base_url: str | None = None
     ):
         """Initialize Tribute client."""
         self.api_key = api_key or settings.tribute_api_key
@@ -49,7 +49,7 @@ class TributeClient:
             "Content-Type": "application/json",
         }
 
-    async def list_products(self) -> List[TributeProduct]:
+    async def list_products(self) -> list[TributeProduct]:
         """
         Fetch list of products from Tribute API.
 
@@ -103,7 +103,7 @@ class TributeClient:
 
     async def get_subscription_status(
         self, user_ref: str
-    ) -> Optional[Dict[str, Any]]:
+    ) -> dict[str, Any] | None:
         """
         Get subscription status for a user.
 

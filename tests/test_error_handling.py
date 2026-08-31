@@ -1,17 +1,27 @@
 """Comprehensive error handling tests."""
 
+from unittest.mock import AsyncMock, patch
+
 import pytest
-import pytest_asyncio
-from unittest.mock import AsyncMock, MagicMock, patch
-import asyncio
 
 from vechnost_bot.exceptions import (
-    VechnostBotError, ValidationError, StorageError, RedisConnectionError,
-    SessionError, TelegramAPIError, RateLimitError, SecurityError,
-    ContentError, RenderingError, LocalizationError, NetworkError,
-    FileOperationError, ErrorCodes, get_user_error_message
+    ContentError,
+    ErrorCodes,
+    FileOperationError,
+    LocalizationError,
+    NetworkError,
+    RateLimitError,
+    RedisConnectionError,
+    RenderingError,
+    SecurityError,
+    SessionError,
+    StorageError,
+    TelegramAPIError,
+    ValidationError,
+    VechnostBotError,
+    get_user_error_message,
 )
-from vechnost_bot.models import SessionState, Language, Theme, ContentType
+from vechnost_bot.models import SessionState
 
 
 class TestExceptionHierarchy:
@@ -371,7 +381,7 @@ class TestErrorHandlingIntegration:
     @pytest.mark.asyncio
     async def test_error_handling_in_callback_handler(self, mock_update, mock_context, hybrid_storage_with_memory):
         """Test error handling in callback handler."""
-        with patch('vechnost_bot.storage.get_hybrid_storage', return_value=hybrid_storage_with_memory):
+        with patch('vechnost_bot.storage.get_redis_storage', return_value=hybrid_storage_with_memory):
             from vechnost_bot.handlers import handle_callback_query
 
             # Test with invalid callback data
@@ -425,7 +435,12 @@ class TestErrorRecovery:
             mock_get_session.side_effect = [mock_redis_error, SessionState()]
 
             # First call should fail
-            with pytest.raises(Exception):
+            # The storage is mocked to raise redis's own ConnectionError,
+            # which is not the builtin one; asserting on bare Exception would
+            # also pass on a typo in the call below.
+            from redis.exceptions import ConnectionError as RedisConnectionError
+
+            with pytest.raises(RedisConnectionError):
                 await hybrid_storage_with_memory.get_session(12345)
 
             # Second call should succeed

@@ -71,7 +71,7 @@ async def activate_user(telegram_user_id: int, days: int = None):
             # Lifetime subscription
             expires_at = None
             period = 'lifetime'
-            print(f"\n[*] Creating LIFETIME subscription...")
+            print("\n[*] Creating LIFETIME subscription...")
         else:
             # Time-limited subscription
             expires_at = start_date + timedelta(days=days)
@@ -85,13 +85,13 @@ async def activate_user(telegram_user_id: int, days: int = None):
             user['id'], subscription_id, period, 'active', expires_at, start_date
         )
 
-        print(f"\n[OK] SUBSCRIPTION ACTIVATED!")
+        print("\n[OK] SUBSCRIPTION ACTIVATED!")
         print(f"     Created: {start_date}")
         if expires_at:
             print(f"     Expires: {expires_at}")
             print(f"     Duration: {days} days")
         else:
-            print(f"     Expires: NEVER (Lifetime)")
+            print("     Expires: NEVER (Lifetime)")
         print(f"\n[SUCCESS] User {telegram_user_id} now has access to the bot!\n")
 
         await conn.close()

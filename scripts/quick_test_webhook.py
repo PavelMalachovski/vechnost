@@ -1,8 +1,8 @@
 """Quick webhook test - send a test subscription.created event."""
 import asyncio
 import json
+
 import httpx
-from datetime import datetime, timedelta
 
 WEBHOOK_URL = "http://127.0.0.1:8000/webhooks/tribute"
 

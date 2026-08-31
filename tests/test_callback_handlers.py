@@ -1,14 +1,14 @@
 """Tests for callback handlers."""
 
-import pytest
 from unittest.mock import AsyncMock, MagicMock, patch
+
+import pytest
 
 from vechnost_bot.callback_handlers import (
     BackHandler,
     CalendarHandler,
     CallbackHandlerRegistry,
     LevelHandler,
-    NavigationHandler,
     QuestionHandler,
     SimpleActionHandler,
     ThemeHandler,
@@ -19,7 +19,6 @@ from vechnost_bot.callback_models import (
     CalendarCallbackData,
     CallbackAction,
     LevelCallbackData,
-    NavigationCallbackData,
     QuestionCallbackData,
     SimpleCallbackData,
     ThemeCallbackData,
@@ -511,13 +510,17 @@ class TestCallbackHandlerRegistry:
         mock_query.edit_message_text.assert_called_once()
 
     @pytest.mark.asyncio
-    async def test_handle_callback_exception(self, registry, mock_query):
-        """Test handling callback with exception through registry."""
+    async def test_a_failure_to_read_the_session_still_reaches_the_user(self, registry, mock_query):
+        """Storage being down is exactly when the user must be told something.
+
+        The error path used to read the session again, only to pick a
+        language — so when storage was what failed, it failed the same way
+        and the user was left with a tapped button and silence. Russian is
+        the only language the app ships, so the fallback costs nothing.
+        """
         with patch('vechnost_bot.callback_handlers.get_session') as mock_get_session:
             mock_get_session.side_effect = Exception("Test error")
 
             await registry.handle_callback(mock_query, "theme_Acquaintance")
 
-            # The exception is thrown in get_session, so edit_message_text won't be called
-            # because the error handling code also calls get_session which throws an exception
-            mock_query.edit_message_text.assert_not_called()
+            mock_query.edit_message_text.assert_called_once()

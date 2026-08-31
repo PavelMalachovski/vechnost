@@ -1,25 +1,24 @@
 """Tests for security modules."""
 
-import pytest
-from unittest.mock import patch, MagicMock
 
-from vechnost_bot.security import (
-    InputSanitizer,
-    CSRFProtection,
-    SecurityError,
-    secure_callback_data,
-    secure_theme_name,
-    secure_language_code,
-    secure_numeric_input,
-    secure_username,
-    secure_message_text
-)
+import pytest
+
 from vechnost_bot.rate_limiter import (
     RateLimiter,
     RateLimitType,
-    RateLimitConfig,
+    get_rate_limit_info,
     rate_limit,
-    get_rate_limit_info
+)
+from vechnost_bot.security import (
+    CSRFProtection,
+    InputSanitizer,
+    SecurityError,
+    secure_callback_data,
+    secure_language_code,
+    secure_message_text,
+    secure_numeric_input,
+    secure_theme_name,
+    secure_username,
 )
 
 

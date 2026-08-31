@@ -1,8 +1,8 @@
 """Test all webhook types."""
 import asyncio
-import json
-import httpx
 from datetime import datetime, timedelta
+
+import httpx
 
 WEBHOOK_URL = "http://127.0.0.1:8000/webhooks/tribute"
 

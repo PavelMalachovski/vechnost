@@ -3,7 +3,7 @@
 import logging
 from enum import Enum
 from pathlib import Path
-from typing import Any, Dict, Optional
+from typing import Any
 
 import yaml
 from babel import Locale
@@ -44,8 +44,8 @@ class I18nManager:
 
     def __init__(self, data_dir: Path = Path("data")):
         self.data_dir = data_dir
-        self.translations: Dict[Language, Dict[str, Any]] = {}
-        self.formatters: Dict[Language, Format] = {}
+        self.translations: dict[Language, dict[str, Any]] = {}
+        self.formatters: dict[Language, Format] = {}
         self._load_translations()
         self._setup_formatters()
 
@@ -56,7 +56,7 @@ class I18nManager:
                 # Load UI translations
                 ui_file = self.data_dir / f"translations_{language.value}.yaml"
                 if ui_file.exists():
-                    with open(ui_file, 'r', encoding='utf-8') as f:
+                    with open(ui_file, encoding='utf-8') as f:
                         ui_translations = yaml.safe_load(f) or {}
                 else:
                     ui_translations = {}

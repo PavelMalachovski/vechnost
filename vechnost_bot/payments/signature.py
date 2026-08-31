@@ -1,9 +1,9 @@
 """Webhook signature verification for Tribute."""
 
-import hmac
 import hashlib
+import hmac
 import logging
-from typing import Mapping, Optional
+from collections.abc import Mapping
 
 from ..config import settings
 
@@ -26,7 +26,7 @@ def compute_body_sha256(body: bytes) -> str:
 def verify_tribute_signature(
     headers: Mapping[str, str],
     body: bytes,
-    secret: Optional[str] = None,
+    secret: str | None = None,
 ) -> bool:
     """
     Verify Tribute webhook signature.
@@ -111,7 +111,7 @@ def verify_tribute_signature(
 def verify_tribute_signature_alternative(
     headers: Mapping[str, str],
     body: bytes,
-    secret: Optional[str] = None,
+    secret: str | None = None,
 ) -> bool:
     """
     Alternative signature verification method.

@@ -4,10 +4,11 @@
 import asyncio
 from datetime import datetime
 
-from vechnost_bot.payments.database import get_db
-from vechnost_bot.payments.services import user_has_access
 from sqlalchemy import select
-from vechnost_bot.payments.models import User, Subscription
+
+from vechnost_bot.payments.database import get_db
+from vechnost_bot.payments.models import Subscription, User
+from vechnost_bot.payments.services import user_has_access
 
 
 async def list_users():
@@ -56,7 +57,7 @@ async def list_users():
                     days_left = (sub.end_date - datetime.utcnow()).days
                     print(f"      → Expires in {days_left} days ({sub.end_date.strftime('%Y-%m-%d')})")
             else:
-                print(f"   📋 No active subscriptions")
+                print("   📋 No active subscriptions")
 
             print()
 
@@ -68,7 +69,7 @@ async def list_users():
             users
         ))
 
-        print(f"SUMMARY:")
+        print("SUMMARY:")
         print(f"  Total users: {len(users)}")
         print(f"  With access: {users_with_access}")
         print(f"  Without access: {len(users) - users_with_access}")

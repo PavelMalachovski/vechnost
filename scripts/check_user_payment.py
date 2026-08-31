@@ -3,14 +3,10 @@
 
 import asyncio
 import sys
-from datetime import datetime
 
 from vechnost_bot.payments.database import get_db
 from vechnost_bot.payments.repositories import (
     UserRepository,
-    SubscriptionRepository,
-    PaymentRepository,
-    WebhookEventRepository
 )
 
 
@@ -39,6 +35,7 @@ async def check_user(telegram_user_id: int):
 
         # Check subscriptions
         from sqlalchemy import select
+
         from vechnost_bot.payments.models import Subscription
 
         result = await session.execute(

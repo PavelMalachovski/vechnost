@@ -1,19 +1,19 @@
 """Comprehensive tests for message handlers."""
 
+from unittest.mock import AsyncMock, MagicMock, patch
+
 import pytest
-from unittest.mock import MagicMock, patch, AsyncMock
-from telegram import Update, Message, Chat, User, CallbackQuery
+from telegram import CallbackQuery, Chat, Message, Update, User
 from telegram.ext import ContextTypes
 
 from vechnost_bot.handlers import (
-    start_command,
+    generate_welcome_image_with_logo,
+    handle_callback_query,
     help_command,
     reset_command,
-    handle_callback_query,
-    generate_welcome_image_with_logo
+    start_command,
 )
-from vechnost_bot.models import SessionState, Theme, Language
-from vechnost_bot.i18n import get_text
+from vechnost_bot.models import Language, SessionState
 
 
 class TestCommandHandlers:
@@ -30,6 +30,18 @@ class TestCommandHandlers:
         update.message.from_user.id = 12345
         update.message.from_user.username = "testuser"
         update.message.text = "/start"
+        # The command handlers read update.effective_user, which on a real
+        # Update is derived rather than the message's own from_user; on a
+        # MagicMock it has to be given explicitly or every field comes back
+        # as another MagicMock.
+        update.effective_user = MagicMock(spec=User)
+        update.effective_user.id = 12345
+        update.effective_user.username = "testuser"
+        update.effective_user.first_name = "Test"
+        update.effective_user.last_name = None
+        update.effective_user.language_code = "ru"
+        update.effective_chat = MagicMock(spec=Chat)
+        update.effective_chat.id = 12345
         return update
 
     @pytest.fixture
@@ -81,7 +93,7 @@ class TestCommandHandlers:
     async def test_reset_command(self, mock_update, mock_context):
         """Test reset command."""
         with patch('vechnost_bot.handlers.get_session') as mock_get_session, \
-             patch('vechnost_bot.handlers.get_reset_keyboard') as mock_keyboard:
+             patch('vechnost_bot.handlers.get_reset_confirmation_keyboard') as mock_keyboard:
 
             mock_session = MagicMock(spec=SessionState)
             mock_session.language = Language.RUSSIAN
@@ -99,13 +111,19 @@ class TestCallbackHandlers:
 
     @pytest.fixture
     def mock_callback_query(self):
-        """Create a mock callback query."""
+        """An Update carrying a callback query, which is what the handler takes."""
         query = MagicMock(spec=CallbackQuery)
         query.message = MagicMock(spec=Message)
         query.message.chat = MagicMock(spec=Chat)
         query.message.chat.id = 12345
         query.data = "test_callback"
-        return query
+        query.answer = AsyncMock()
+
+        update = MagicMock(spec=Update)
+        update.callback_query = query
+        update.effective_user = MagicMock(spec=User)
+        update.effective_user.id = 12345
+        return update
 
     @pytest.fixture
     def mock_context(self):
@@ -116,26 +134,30 @@ class TestCallbackHandlers:
 
     @pytest.mark.asyncio
     async def test_handle_callback_query_success(self, mock_callback_query, mock_context):
-        """Test successful callback query handling."""
-        with patch('vechnost_bot.handlers.callback_registry') as mock_registry:
+        """The data is handed to the registry, whole and unparsed."""
+        with patch('vechnost_bot.callback_handlers.callback_registry') as mock_registry:
             mock_registry.handle_callback = AsyncMock()
 
             await handle_callback_query(mock_callback_query, mock_context)
 
             mock_registry.handle_callback.assert_called_once_with(
-                mock_callback_query, "test_callback"
+                mock_callback_query.callback_query, "test_callback"
             )
 
     @pytest.mark.asyncio
-    async def test_handle_callback_query_exception(self, mock_callback_query, mock_context):
-        """Test callback query handling with exception."""
-        with patch('vechnost_bot.handlers.callback_registry') as mock_registry:
-            mock_registry.handle_callback.side_effect = Exception("Test error")
-            mock_callback_query.answer = AsyncMock()
+    async def test_the_query_is_answered_before_it_is_handled(self, mock_callback_query, mock_context):
+        """Telegram spins the button until the query is answered.
 
-            await handle_callback_query(mock_callback_query, mock_context)
+        So it is answered first, before anything that can fail — a handler
+        that raises must not leave the user looking at a spinner.
+        """
+        with patch('vechnost_bot.callback_handlers.callback_registry') as mock_registry:
+            mock_registry.handle_callback = AsyncMock(side_effect=Exception("Test error"))
 
-            mock_callback_query.answer.assert_called_once()
+            with pytest.raises(Exception, match="Test error"):
+                await handle_callback_query(mock_callback_query, mock_context)
+
+            mock_callback_query.callback_query.answer.assert_called_once()
 
 
 # NSFW and Reset handlers are now in callback_handlers.py
@@ -144,12 +166,9 @@ class TestCallbackHandlers:
 class TestUtilityFunctions:
     """Test utility functions."""
 
-    @patch('vechnost_bot.handlers.generate_vechnost_logo')
-    def test_generate_welcome_image_with_logo(self, mock_generate_logo):
-        """Test welcome image generation."""
-        mock_generate_logo.return_value = MagicMock()
+    def test_generate_welcome_image_with_logo(self):
+        """The welcome image is drawn for real: text first, language second."""
+        result = generate_welcome_image_with_logo("Добро пожаловать", "ru")
 
-        result = generate_welcome_image_with_logo(Language.RUSSIAN)
-
-        mock_generate_logo.assert_called_once()
         assert result is not None
+        assert result.getvalue(), "an empty image is not an image"

@@ -1,21 +1,21 @@
 """Tests for payment functionality."""
 
-import pytest
 from datetime import datetime, timedelta
-from unittest.mock import AsyncMock, Mock, patch
+from unittest.mock import patch
 
-from vechnost_bot.payments.models import User, Product, Payment, Subscription, WebhookEvent
+import pytest
+
+from vechnost_bot.config import settings
+from vechnost_bot.payments.database import create_tables, drop_tables, get_db, init_db
 from vechnost_bot.payments.repositories import (
-    UserRepository,
-    ProductRepository,
     PaymentRepository,
+    ProductRepository,
     SubscriptionRepository,
+    UserRepository,
     WebhookEventRepository,
 )
-from vechnost_bot.payments.services import user_has_access, apply_webhook_event
+from vechnost_bot.payments.services import apply_webhook_event, user_has_access
 from vechnost_bot.payments.signature import compute_body_sha256, verify_tribute_signature
-from vechnost_bot.payments.database import get_db, init_db, create_tables, drop_tables
-from vechnost_bot.config import settings
 
 
 @pytest.fixture
@@ -270,8 +270,8 @@ def test_verify_tribute_signature_valid():
     settings.webhook_secret = "test_secret"
 
     body = b'{"test": "data"}'
-    import hmac
     import hashlib
+    import hmac
 
     expected_sig = hmac.new(
         b"test_secret", body, hashlib.sha256

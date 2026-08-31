@@ -1,7 +1,6 @@
 #!/usr/bin/env python
 """Script to run the payment webhook server."""
 
-import sys
 import uvicorn
 
 if __name__ == "__main__":

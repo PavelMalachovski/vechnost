@@ -4,12 +4,13 @@ Test script for Tribute webhook endpoint.
 This script simulates Tribute webhook events for testing.
 """
 import asyncio
-import json
-import hmac
 import hashlib
-from datetime import datetime, timedelta
-import httpx
+import hmac
+import json
 import os
+from datetime import datetime, timedelta
+
+import httpx
 from dotenv import load_dotenv
 
 load_dotenv()
@@ -43,7 +44,7 @@ async def send_webhook(event_type: str, payload: dict):
         headers["X-Tribute-Signature"] = signature
         print(f"🔐 Signature: {signature[:20]}...")
 
-    print(f"\n📋 Payload:")
+    print("\n📋 Payload:")
     print(json.dumps(payload, indent=2))
 
     try:
@@ -178,7 +179,7 @@ async def test_lifetime_subscription():
 async def test_health_check():
     """Test health check endpoint."""
     print(f"\n{'='*60}")
-    print(f"🏥 Testing health check...")
+    print("🏥 Testing health check...")
     print(f"{'='*60}")
 
     try:

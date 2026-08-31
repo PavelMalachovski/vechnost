@@ -166,7 +166,8 @@ POST their own `telegram_user_id` and become a paying customer.
 ## Testing
 
 ```bash
-pytest                    # full suite
+pytest                    # full suite, across every core (~10s)
+pytest -n0                # serially, for a debugger or readable output
 pytest tests/test_freemium.py tests/test_webapp_auth.py   # focused
 ```
 

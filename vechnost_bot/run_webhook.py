@@ -1,7 +1,6 @@
 #!/usr/bin/env python3
 """Start both webhook server and Telegram bot."""
 import os
-import subprocess
 import sys
 import time
 

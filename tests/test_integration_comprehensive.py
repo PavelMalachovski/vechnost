@@ -1,15 +1,13 @@
 """Comprehensive integration tests for complete user flows."""
 
-import pytest
-import pytest_asyncio
-from unittest.mock import AsyncMock, MagicMock, patch
 import asyncio
+from unittest.mock import AsyncMock, MagicMock, patch
 
-from vechnost_bot.models import SessionState, Language, Theme, ContentType
-from vechnost_bot.exceptions import VechnostBotError, ErrorCodes
-from vechnost_bot.handlers import start_command, handle_callback_query
-from vechnost_bot.callback_handlers import CallbackHandlerRegistry
-from vechnost_bot.storage import get_session, reset_session
+import pytest
+
+from vechnost_bot.handlers import handle_callback_query, start_command
+from vechnost_bot.models import ContentType, Language, SessionState, Theme
+from vechnost_bot.storage import get_session
 
 
 class TestCompleteUserFlows:
@@ -26,7 +24,7 @@ class TestCompleteUserFlows:
     ):
         """Test complete Acquaintance theme flow."""
         # Mock the storage
-        with patch('vechnost_bot.storage.get_hybrid_storage', return_value=hybrid_storage_with_memory):
+        with patch('vechnost_bot.storage.get_redis_storage', return_value=hybrid_storage_with_memory):
             # Step 1: Start command
             with patch('vechnost_bot.handlers.welcome_screen') as mock_welcome, \
                  patch('vechnost_bot.handlers.set_user_context') as mock_set_context:
@@ -74,14 +72,14 @@ class TestCompleteUserFlows:
             assert session.level == 1
             assert session.content_type == ContentType.QUESTIONS
 
-            # Step 5: Question selection
+            # Step 5: Question selection. The card is a rendered image, so it
+            # arrives as media; only a rendering failure falls back to text.
             mock_update.callback_query.data = "q:acq:1:0"
-            mock_update.callback_query.edit_message_text = AsyncMock()
+            mock_update.callback_query.edit_message_media = AsyncMock()
 
             await handle_callback_query(mock_update, mock_context)
 
-            # Verify question was displayed
-            mock_update.callback_query.edit_message_text.assert_called()
+            mock_update.callback_query.edit_message_media.assert_called()
 
     @pytest.mark.integration
     @pytest.mark.asyncio
@@ -92,7 +90,7 @@ class TestCompleteUserFlows:
         hybrid_storage_with_memory
     ):
         """Test complete Sex theme flow with NSFW confirmation."""
-        with patch('vechnost_bot.storage.get_hybrid_storage', return_value=hybrid_storage_with_memory):
+        with patch('vechnost_bot.storage.get_redis_storage', return_value=hybrid_storage_with_memory):
             # Step 1: Language selection
             mock_update.callback_query.data = "lang_en"
             await handle_callback_query(mock_update, mock_context)
@@ -119,8 +117,9 @@ class TestCompleteUserFlows:
             assert session.is_nsfw_confirmed
             assert session.content_type == ContentType.QUESTIONS
 
-            # Step 4: Toggle to tasks
-            mock_update.callback_query.data = "toggle:tasks"
+            # Step 4: Toggle to tasks. The callback carries the topic, the
+            # page and the category it is switching to, not just a word.
+            mock_update.callback_query.data = "toggle:sex:0:t"
             mock_update.callback_query.edit_message_text = AsyncMock()
 
             await handle_callback_query(mock_update, mock_context)
@@ -138,7 +137,7 @@ class TestCompleteUserFlows:
         hybrid_storage_with_memory
     ):
         """Test complete reset flow."""
-        with patch('vechnost_bot.storage.get_hybrid_storage', return_value=hybrid_storage_with_memory):
+        with patch('vechnost_bot.storage.get_redis_storage', return_value=hybrid_storage_with_memory):
             # Step 1: Create a session with data
             mock_update.callback_query.data = "lang_en"
             await handle_callback_query(mock_update, mock_context)
@@ -181,7 +180,7 @@ class TestCompleteUserFlows:
         hybrid_storage_with_memory
     ):
         """Test complete navigation flow."""
-        with patch('vechnost_bot.storage.get_hybrid_storage', return_value=hybrid_storage_with_memory):
+        with patch('vechnost_bot.storage.get_redis_storage', return_value=hybrid_storage_with_memory):
             # Step 1: Navigate to question
             mock_update.callback_query.data = "lang_en"
             await handle_callback_query(mock_update, mock_context)
@@ -235,7 +234,7 @@ class TestCompleteUserFlows:
     ):
         """A stored `en`/`cs` language callback coerces to Russian, the only
         supported language, rather than raising or sticking."""
-        with patch('vechnost_bot.storage.get_hybrid_storage', return_value=hybrid_storage_with_memory):
+        with patch('vechnost_bot.storage.get_redis_storage', return_value=hybrid_storage_with_memory):
             # Step 1: "lang_en" is a pre-single-language callback; it coerces.
             mock_update.callback_query.data = "lang_en"
             await handle_callback_query(mock_update, mock_context)
@@ -282,7 +281,7 @@ class TestErrorRecoveryScenarios:
         hybrid_storage_with_memory
     ):
         """Test recovery from invalid callback data."""
-        with patch('vechnost_bot.storage.get_hybrid_storage', return_value=hybrid_storage_with_memory):
+        with patch('vechnost_bot.storage.get_redis_storage', return_value=hybrid_storage_with_memory):
             # Step 1: Valid callback
             mock_update.callback_query.data = "lang_en"
             await handle_callback_query(mock_update, mock_context)
@@ -309,7 +308,7 @@ class TestErrorRecoveryScenarios:
         mock_redis_error
     ):
         """Test recovery from storage failures."""
-        with patch('vechnost_bot.storage.get_hybrid_storage') as mock_get_storage:
+        with patch('vechnost_bot.storage.get_redis_storage') as mock_get_storage:
             # Mock storage that fails
             mock_storage = AsyncMock()
             mock_storage.get_session.side_effect = mock_redis_error
@@ -336,7 +335,7 @@ class TestErrorRecoveryScenarios:
         mock_telegram_error
     ):
         """Test recovery from Telegram API failures."""
-        with patch('vechnost_bot.storage.get_hybrid_storage', return_value=hybrid_storage_with_memory):
+        with patch('vechnost_bot.storage.get_redis_storage', return_value=hybrid_storage_with_memory):
             # Mock Telegram API failure
             mock_update.callback_query.edit_message_text.side_effect = mock_telegram_error
             mock_update.message.reply_text = AsyncMock()
@@ -401,7 +400,7 @@ class TestPerformanceScenarios:
         performance_timer
     ):
         """Test rapid callback handling."""
-        with patch('vechnost_bot.storage.get_hybrid_storage', return_value=hybrid_storage_with_memory):
+        with patch('vechnost_bot.storage.get_redis_storage', return_value=hybrid_storage_with_memory):
             callbacks = [
                 "lang_en",
                 "theme_Acquaintance",
@@ -441,7 +440,7 @@ class TestEdgeCases:
         hybrid_storage_with_memory
     ):
         """Test handling of empty sessions."""
-        with patch('vechnost_bot.storage.get_hybrid_storage', return_value=hybrid_storage_with_memory):
+        with patch('vechnost_bot.storage.get_redis_storage', return_value=hybrid_storage_with_memory):
             # Try to navigate without setting up session
             mock_update.callback_query.data = "theme_Acquaintance"
             mock_update.callback_query.edit_message_text = AsyncMock()
@@ -462,7 +461,7 @@ class TestEdgeCases:
         hybrid_storage_with_memory
     ):
         """Test recovery from corrupted session state."""
-        with patch('vechnost_bot.storage.get_hybrid_storage', return_value=hybrid_storage_with_memory):
+        with patch('vechnost_bot.storage.get_redis_storage', return_value=hybrid_storage_with_memory):
             # Create a corrupted session
             corrupted_session = SessionState(
                 language=Language.RUSSIAN,
@@ -521,7 +520,7 @@ class TestDataIntegrity:
         hybrid_storage_with_memory
     ):
         """Test session persistence across multiple operations."""
-        with patch('vechnost_bot.storage.get_hybrid_storage', return_value=hybrid_storage_with_memory):
+        with patch('vechnost_bot.storage.get_redis_storage', return_value=hybrid_storage_with_memory):
             # Step 1: Set up session
             mock_update.callback_query.data = "lang_en"
             await handle_callback_query(mock_update, mock_context)
@@ -577,7 +576,7 @@ class TestDataIntegrity:
 
         # Perform concurrent modifications
         operations = ["set_language", "set_theme", "set_level"]
-        sessions = await asyncio.gather(*[
+        await asyncio.gather(*[
             modify_session(op) for op in operations
         ])
 

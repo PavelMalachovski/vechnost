@@ -1,16 +1,14 @@
 """Redis management system with auto-start and fallback capabilities."""
 
 import asyncio
+import os
+import signal
 import subprocess
 import time
-import signal
-import os
-import sys
-from typing import Optional, Dict, Any
-import structlog
 from pathlib import Path
+from typing import Any
 
-from .config import settings
+import structlog
 
 logger = structlog.get_logger(__name__)
 
@@ -19,7 +17,7 @@ class RedisManager:
     """Manages Redis instance lifecycle with auto-start and health monitoring."""
 
     def __init__(self):
-        self.redis_process: Optional[subprocess.Popen] = None
+        self.redis_process: subprocess.Popen | None = None
         self.redis_port = 6379
         self.redis_host = "localhost"
 
@@ -178,7 +176,7 @@ class RedisManager:
         except Exception:
             return False
 
-    async def get_redis_info(self) -> Dict[str, Any]:
+    async def get_redis_info(self) -> dict[str, Any]:
         """Get Redis server information."""
         try:
             result = subprocess.run(

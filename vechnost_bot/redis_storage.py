@@ -1,14 +1,13 @@
 """Redis-based storage implementation for the Vechnost bot."""
 
 import json
-import asyncio
-from typing import Optional, Dict, Any
+from typing import Any
+
 import redis.asyncio as redis
 import structlog
-from datetime import timedelta
 
-from .models import SessionState, Language, Theme
 from .config import settings
+from .models import Language, SessionState
 
 logger = structlog.get_logger(__name__)
 
@@ -26,8 +25,8 @@ class RedisStorage:
         """
         self.redis_url = redis_url or str(settings.redis_url)
         self.db = db or settings.redis_db
-        self._redis: Optional[redis.Redis] = None
-        self._connection_pool: Optional[redis.ConnectionPool] = None
+        self._redis: redis.Redis | None = None
+        self._connection_pool: redis.ConnectionPool | None = None
 
     async def connect(self):
         """Establish Redis connection with connection pooling."""
@@ -63,7 +62,7 @@ class RedisStorage:
             await self._connection_pool.aclose()
         logger.info("redis_disconnected")
 
-    async def get_session(self, chat_id: int) -> Optional[SessionState]:
+    async def get_session(self, chat_id: int) -> SessionState | None:
         """Get user session from Redis."""
         try:
             if not self._redis:
@@ -134,7 +133,7 @@ class RedisStorage:
         except Exception as e:
             logger.error("redis_delete_session_error", chat_id=chat_id, error=str(e))
 
-    async def get_user_stats(self, chat_id: int) -> Dict[str, Any]:
+    async def get_user_stats(self, chat_id: int) -> dict[str, Any]:
         """Get user statistics from Redis."""
         try:
             if not self._redis:
@@ -151,7 +150,7 @@ class RedisStorage:
             logger.error("redis_get_stats_error", chat_id=chat_id, error=str(e))
             return {}
 
-    async def update_user_stats(self, chat_id: int, stats: Dict[str, Any]):
+    async def update_user_stats(self, chat_id: int, stats: dict[str, Any]):
         """Update user statistics in Redis."""
         try:
             if not self._redis:
@@ -177,7 +176,7 @@ class RedisStorage:
         except Exception as e:
             logger.error("redis_cache_image_error", cache_key=cache_key, error=str(e))
 
-    async def get_cached_image(self, cache_key: str) -> Optional[bytes]:
+    async def get_cached_image(self, cache_key: str) -> bytes | None:
         """Get cached image from Redis."""
         try:
             if not self._redis:
@@ -206,7 +205,7 @@ class RedisStorage:
             logger.error("redis_increment_counter_error", counter=counter_name, error=str(e))
             return 0
 
-    async def get_rate_limit_info(self, user_id: int, limit: int, period: int) -> Dict[str, Any]:
+    async def get_rate_limit_info(self, user_id: int, limit: int, period: int) -> dict[str, Any]:
         """Get rate limit information from Redis."""
         try:
             if not self._redis:

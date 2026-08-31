@@ -1,7 +1,7 @@
 """Check Railway PostgreSQL database directly."""
 import asyncio
 import os
-import sys
+
 import asyncpg
 
 
@@ -50,7 +50,7 @@ async def check_all_users():
             if sub['expires_at']:
                 print(f"    Expires: {sub['expires_at']}")
             else:
-                print(f"    Expires: LIFETIME (Never)")
+                print("    Expires: LIFETIME (Never)")
             print(f"    Last Event: {sub['last_event_at']}")
 
         # Get all payments

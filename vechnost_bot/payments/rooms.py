@@ -11,7 +11,7 @@ import logging
 import random
 import secrets
 from datetime import datetime, timedelta
-from typing import Any, Optional
+from typing import Any
 
 from fastapi import APIRouter, Depends, Header, HTTPException
 from pydantic import BaseModel, Field
@@ -38,7 +38,7 @@ _CODE_ALPHABET = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"
 
 class CreateRoomRequest(BaseModel):
     theme: str
-    level: Optional[int] = None
+    level: int | None = None
     type: str = Field(default="questions", pattern="^(questions|tasks)$")
 
 
@@ -47,7 +47,7 @@ def _generate_room_code() -> str:
 
 
 def _identity(
-    authorization: Optional[str], guest_id: Optional[str]
+    authorization: str | None, guest_id: str | None
 ) -> tuple[int, str]:
     """
     Resolve the caller to a stable (user_id, name).
@@ -64,7 +64,7 @@ def _identity(
             return int(user["id"]), user.get("first_name") or "Player"
         except InitDataError as e:
             logger.warning(f"Room request initData rejected: {e}")
-            raise HTTPException(status_code=401, detail="unauthorized")
+            raise HTTPException(status_code=401, detail="unauthorized") from e
 
     if not settings.enable_payment and guest_id:
         # Stable fake id derived from the client-supplied guest id. Hash the
@@ -80,8 +80,8 @@ def _room_items(room, language: Language) -> list:
     try:
         theme = Theme(room.theme)
         content_type = ContentType(room.content_type)
-    except ValueError:
-        raise HTTPException(status_code=410, detail="room content is gone")
+    except ValueError as e:
+        raise HTTPException(status_code=410, detail="room content is gone") from e
     return localized_game_data.get_content(
         theme, room.level, content_type, language
     ) or []
@@ -148,8 +148,8 @@ def _language(lang: str) -> Language:
 async def create_room(
     body: CreateRoomRequest,
     lang: str = "ru",
-    authorization: Optional[str] = Header(default=None),
-    x_guest_id: Optional[str] = Header(default=None),
+    authorization: str | None = Header(default=None),
+    x_guest_id: str | None = Header(default=None),
 ) -> dict[str, Any]:
     user_id, name = _identity(authorization, x_guest_id)
     language = _language(lang)
@@ -157,8 +157,8 @@ async def create_room(
     try:
         theme = Theme(body.theme)
         content_type = ContentType(body.type)
-    except ValueError:
-        raise HTTPException(status_code=404, detail="unknown deck")
+    except ValueError as e:
+        raise HTTPException(status_code=404, detail="unknown deck") from e
 
     items = localized_game_data.get_content(
         theme, body.level, content_type, language
@@ -194,8 +194,8 @@ async def create_room(
 async def join_room(
     code: str,
     lang: str = "ru",
-    authorization: Optional[str] = Header(default=None),
-    x_guest_id: Optional[str] = Header(default=None),
+    authorization: str | None = Header(default=None),
+    x_guest_id: str | None = Header(default=None),
 ) -> dict[str, Any]:
     user_id, name = _identity(authorization, x_guest_id)
     language = _language(lang)
@@ -218,8 +218,8 @@ async def join_room(
 async def get_room(
     code: str,
     lang: str = "ru",
-    authorization: Optional[str] = Header(default=None),
-    x_guest_id: Optional[str] = Header(default=None),
+    authorization: str | None = Header(default=None),
+    x_guest_id: str | None = Header(default=None),
 ) -> dict[str, Any]:
     user_id, _ = _identity(authorization, x_guest_id)
     language = _language(lang)
@@ -235,8 +235,8 @@ async def get_room(
 async def advance_room(
     code: str,
     lang: str = "ru",
-    authorization: Optional[str] = Header(default=None),
-    x_guest_id: Optional[str] = Header(default=None),
+    authorization: str | None = Header(default=None),
+    x_guest_id: str | None = Header(default=None),
 ) -> dict[str, Any]:
     user_id, _ = _identity(authorization, x_guest_id)
     language = _language(lang)

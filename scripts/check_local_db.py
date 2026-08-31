@@ -1,5 +1,6 @@
 """Check local SQLite database."""
 import asyncio
+
 import aiosqlite
 
 
@@ -48,7 +49,7 @@ async def check_all():
                         if sub[5]:
                             print(f"    Expires: {sub[5]}")
                         else:
-                            print(f"    Expires: LIFETIME (Never)")
+                            print("    Expires: LIFETIME (Never)")
 
             # Get all payments
             async with db.execute('''
@@ -80,7 +81,7 @@ async def check_all():
                 webhooks = await cursor.fetchall()
 
                 print(f"\n{'='*60}")
-                print(f"WEBHOOK EVENTS (last 10)")
+                print("WEBHOOK EVENTS (last 10)")
                 print('='*60)
 
                 if not webhooks:

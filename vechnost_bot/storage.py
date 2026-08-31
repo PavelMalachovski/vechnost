@@ -1,10 +1,8 @@
 """Storage abstraction for user sessions with Redis fallback to in-memory."""
 
-import asyncio
-from typing import Optional
 
-from .models import SessionState
 from .hybrid_storage import get_redis_storage
+from .models import SessionState
 
 
 async def get_session(chat_id: int) -> SessionState:
