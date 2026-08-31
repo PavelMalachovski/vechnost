@@ -11,7 +11,6 @@ from pathlib import Path
 import qrcode
 from PIL import Image, ImageDraw, ImageFont
 
-from vechnost_bot.config import create_bot
 from vechnost_bot.payments.database import get_db
 from vechnost_bot.payments.repositories import CertificateRepository
 
@@ -136,7 +135,7 @@ async def create_certificates(count: int = 5, output_dir: str = "certificates", 
                     break
 
             # Create certificate in database
-            certificate = await CertificateRepository.create(session, code)
+            await CertificateRepository.create(session, code)
             await session.commit()
 
             # Generate QR code with Telegram deep link
@@ -157,9 +156,9 @@ async def create_certificates(count: int = 5, output_dir: str = "certificates", 
     for i, code in enumerate(codes, 1):
         print(f"   {i}. {code}")
 
-    print(f"\n💡 Users can activate certificates by:")
-    print(f"   1. Scanning QR code (opens Telegram bot automatically)")
-    print(f"   2. Using command: /activate <CODE>")
+    print("\n💡 Users can activate certificates by:")
+    print("   1. Scanning QR code (opens Telegram bot automatically)")
+    print("   2. Using command: /activate <CODE>")
     print(f"\n   Example: /activate {codes[0]}")
     print(f"   Or scan QR code to open: https://t.me/{bot_username}?start=activate_{codes[0]}")
 

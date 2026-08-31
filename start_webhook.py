@@ -1,7 +1,6 @@
 #!/usr/bin/env python3
 """Start webhook server using Railway's PORT variable."""
 import os
-import sys
 
 # Get port from environment or use 8000 as default
 port = os.getenv('PORT', '8000')

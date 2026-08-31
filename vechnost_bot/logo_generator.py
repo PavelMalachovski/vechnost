@@ -1,8 +1,8 @@
 """Logo generation for the Vechnost bot."""
 
-from PIL import Image, ImageDraw, ImageFont
 import io
-from typing import Tuple
+
+from PIL import Image, ImageDraw, ImageFont
 
 
 def generate_vechnost_logo(width: int = 400, height: int = 200) -> io.BytesIO:
@@ -17,10 +17,10 @@ def generate_vechnost_logo(width: int = 400, height: int = 200) -> io.BytesIO:
         # Try to use a more elegant font
         font_size = 48
         font = ImageFont.truetype("arial.ttf", font_size)
-    except (OSError, IOError):
+    except OSError:
         try:
             font = ImageFont.truetype("DejaVuSans-Bold.ttf", font_size)
-        except (OSError, IOError):
+        except OSError:
             font = ImageFont.load_default()
 
     # Calculate text position (centered)
@@ -85,11 +85,11 @@ def generate_welcome_image_with_logo(text: str, language: str = "en") -> io.Byte
     try:
         title_font = ImageFont.truetype("arial.ttf", 24)
         body_font = ImageFont.truetype("arial.ttf", 14)
-    except (OSError, IOError):
+    except OSError:
         try:
             title_font = ImageFont.truetype("DejaVuSans-Bold.ttf", 24)
             body_font = ImageFont.truetype("DejaVuSans.ttf", 14)
-        except (OSError, IOError):
+        except OSError:
             title_font = ImageFont.load_default()
             body_font = ImageFont.load_default()
 
@@ -97,12 +97,15 @@ def generate_welcome_image_with_logo(text: str, language: str = "en") -> io.Byte
     lines = text.split('\n')
     y_offset = 160
 
-    for i, line in enumerate(lines):
+    for line in lines:
         if line.strip():  # Skip empty lines
             # Use different fonts for different types of content
+            drawn = line
             if line.startswith('**') and line.endswith('**'):
-                # This is a title
-                clean_line = line.replace('**', '').replace('🎴', '').strip()
+                # A title. The ** are markup: they were stripped into a
+                # variable nobody read, and the raw line was drawn instead,
+                # so every title rendered with its asterisks showing.
+                drawn = line.replace('**', '').replace('🎴', '').strip()
                 font = title_font
                 color = (101, 28, 50)  # Dark maroon
             elif line.startswith('✨'):
@@ -115,10 +118,10 @@ def generate_welcome_image_with_logo(text: str, language: str = "en") -> io.Byte
                 color = (70, 70, 70)
 
             # Calculate text position
-            bbox = draw.textbbox((0, 0), line, font=font)
+            bbox = draw.textbbox((0, 0), drawn, font=font)
             text_width = bbox[2] - bbox[0]
             x = (width - text_width) // 2
-            draw.text((x, y_offset), line, font=font, fill=color)
+            draw.text((x, y_offset), drawn, font=font, fill=color)
             y_offset += 30 if font == title_font else 20
 
     # Convert to BytesIO

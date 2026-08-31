@@ -1002,19 +1002,30 @@ class CallbackHandlerRegistry:
 
         except ValueError as e:
             logger.warning(f"Invalid callback data: {data}, error: {e}")
-            # Get session for error message
-            chat_id = query.message.chat.id
-            session = await get_session(chat_id)
-            await query.edit_message_text(get_text('errors.unknown_callback', session.language))
+            await self._say_it_went_wrong(query)
         except Exception as e:
             logger.error(f"Error handling callback query {data}: {e}", exc_info=True)
-            try:
-                # Get session for error message
-                chat_id = query.message.chat.id
-                session = await get_session(chat_id)
-                await query.edit_message_text(get_text('errors.unknown_callback', session.language))
-            except Exception as edit_error:
-                logger.error(f"Error editing message: {edit_error}")
+            await self._say_it_went_wrong(query)
+
+    async def _say_it_went_wrong(self, query: Any) -> None:
+        """Tell the user something failed, even when storage is what failed.
+
+        The language used to be read from the session — so when the original
+        failure *was* storage, the error path failed the same way and the user
+        was left with a tapped button and silence. Russian is the only
+        language the app ships, so falling back to it costs nothing and is
+        always better than saying nothing.
+        """
+        language = Language.RUSSIAN
+        try:
+            language = (await get_session(query.message.chat.id)).language
+        except Exception as session_error:
+            logger.warning(f"Could not read the session for an error message: {session_error}")
+
+        try:
+            await query.edit_message_text(get_text('errors.unknown_callback', language))
+        except Exception as edit_error:
+            logger.error(f"Error editing message: {edit_error}")
 
 
 def welcome_screen(language: Language) -> tuple[str, InlineKeyboardMarkup]:

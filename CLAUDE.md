@@ -23,15 +23,31 @@ bot in one process.
 pip install -e ".[dev]"                 # install with dev deps
 python -m vechnost_bot                   # run the bot (polling)
 python -m uvicorn vechnost_bot.payments.web:app --reload --port 8000  # web + Mini App
-pytest                                   # run tests
+pytest                                   # run tests (parallel, ~10s)
+pytest -n0                               # ...serially, for a debugger
 pytest tests/test_freemium.py -q         # run one suite
 ```
 
 - Pytest config lives in `pyproject.toml` under `[tool.pytest.ini_options]`
   (`asyncio_mode = "auto"`). Do **not** re-add a `pytest.ini` — a
   `[tool:pytest]` header there silently disables the pyproject config.
-- Redis-dependent tests need `localhost:6379`; they carry the `redis`
-  marker. Absent Redis, they fail — that's environmental, not your change.
+- **The suite runs in parallel by default** (`-n auto --dist load` in
+  addopts) and takes about ten seconds. `-n0` runs it serially, which is
+  what a debugger or readable output needs. Two things make parallel safe
+  and must stay that way: the Redis tests take a database per xdist worker
+  (`_test_db()` in `tests/test_redis_storage.py`), and every test gets its
+  own storage from the autouse fixture rather than sharing the singleton.
+- **No test may touch a real Redis unless it asks to.** `HybridStorage`
+  auto-starts a server on first use and waits about ninety seconds to give
+  up, then caches the answer process-wide — so one arbitrary test paid for
+  it, which test that was depended on collection order, and under `-n auto`
+  every worker paid again. `tests/conftest.py` hands each test its own
+  storage with the fallback already decided. Tests that genuinely need a
+  server carry the `redis` marker: they run against `localhost:6379`, and
+  are **skipped with a reason** when nothing is listening. CI starts a Redis
+  service so they really run there.
+- Nothing needs `TELEGRAM_BOT_TOKEN` exported to run the tests; conftest
+  supplies a fake one before anything imports `config`.
 
 ## Architecture notes
 

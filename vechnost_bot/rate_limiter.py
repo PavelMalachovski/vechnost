@@ -1,8 +1,7 @@
 """Rate limiting implementation for the Vechnost bot."""
 
-import time
 import asyncio
-from typing import Dict, Optional
+import time
 from collections import defaultdict, deque
 from dataclasses import dataclass
 from enum import Enum
@@ -32,8 +31,8 @@ class RateLimiter:
     """Rate limiter implementation using sliding window algorithm."""
 
     def __init__(self):
-        self._windows: Dict[str, Dict[int, deque]] = defaultdict(lambda: defaultdict(deque))
-        self._blocked_users: Dict[int, float] = {}
+        self._windows: dict[str, dict[int, deque]] = defaultdict(lambda: defaultdict(deque))
+        self._blocked_users: dict[int, float] = {}
 
         # Rate limit configurations
         self._configs = {
@@ -89,7 +88,7 @@ class RateLimiter:
             block_until=self._blocked_users[user_id]
         )
 
-    def is_allowed(self, user_id: int, limit_type: RateLimitType) -> tuple[bool, Optional[str]]:
+    def is_allowed(self, user_id: int, limit_type: RateLimitType) -> tuple[bool, str | None]:
         """
         Check if request is allowed for user.
 
@@ -137,7 +136,7 @@ class RateLimiter:
         current_requests = len(self._windows[limit_type.value][user_id])
         return max(0, config.max_requests - current_requests)
 
-    def get_reset_time(self, user_id: int, limit_type: RateLimitType) -> Optional[float]:
+    def get_reset_time(self, user_id: int, limit_type: RateLimitType) -> float | None:
         """Get time when rate limit resets for user."""
         window = self._windows[limit_type.value][user_id]
         if not window:

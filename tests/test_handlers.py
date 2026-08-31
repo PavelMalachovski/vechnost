@@ -1,10 +1,10 @@
 """Tests for bot handlers."""
 
+from unittest.mock import AsyncMock, MagicMock
+
 import pytest
-from unittest.mock import AsyncMock, MagicMock, patch
 
 from vechnost_bot.handlers import handle_callback_query, start_command
-from vechnost_bot.models import Theme
 
 
 class TestHandlers:

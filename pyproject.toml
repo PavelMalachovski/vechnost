@@ -48,6 +48,11 @@ dependencies = [
 dev = [
     "pytest>=7.0.0",
     "pytest-asyncio>=0.21.0",
+    # The suite runs in parallel by default (see addopts); -p no:xdist turns
+    # that off for a run where the output order matters.
+    "pytest-xdist>=3.5.0",
+    # The memory tests measure the process's own RSS.
+    "psutil>=5.9.0",
     "ruff>=0.1.0",
     "mypy>=1.0.0",
     "types-PyYAML>=6.0.0",
@@ -78,10 +83,20 @@ ignore = [
     "E501",  # line too long, handled by black
     "B008",  # do not perform function calls in argument defaults
     "C901",  # too complex
+    # str+Enum -> StrEnum is not a refactor we can make blind: `str(member)`
+    # changes from "CallbackAction.THEME" to "theme", and these enums are
+    # what callback data and stored language codes are built from.
+    "UP042",
 ]
 
 [tool.ruff.lint.per-file-ignores]
 "__init__.py" = ["F401"]
+# These set something up before importing the package, and have to: a
+# sys.path entry for a script run from the repo root, or the environment
+# variable Settings refuses to start without.
+"scripts/*" = ["E402"]
+"start_webhook.py" = ["E402"]
+"tests/*" = ["E402"]
 
 [tool.mypy]
 python_version = "3.11"
@@ -99,6 +114,13 @@ warn_unreachable = true
 strict_equality = true
 
 [tool.pytest.ini_options]
+# The suite runs across every core by default. `--dist load` hands out
+# individual tests rather than whole files, which is what keeps the wall
+# clock down when one file is much heavier than the rest; the Redis tests
+# take a database per worker so that is safe (see tests/test_redis_storage.py).
+# Add `-n0` to run serially — for a debugger, or when interleaved output
+# would be in the way.
+addopts = "-n auto --dist load"
 asyncio_mode = "auto"
 asyncio_default_fixture_loop_scope = "function"
 testpaths = ["tests"]

@@ -1,9 +1,10 @@
 """Tests for monitoring and error tracking."""
 
 import os
-import pytest
 import time
-from unittest.mock import MagicMock, patch
+from unittest.mock import patch
+
+import pytest
 
 from vechnost_bot.monitoring import (
     BotMetrics,
@@ -14,9 +15,9 @@ from vechnost_bot.monitoring import (
     log_image_rendering_event,
     log_session_event,
     set_user_context,
+    track_errors,
     track_operation,
     track_performance,
-    track_errors,
 )
 
 

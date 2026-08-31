@@ -1,10 +1,8 @@
 #!/usr/bin/env python3
 """Script to add existing certificates to production database."""
 
-import asyncio
 import os
 import sys
-from pathlib import Path
 
 from sqlalchemy import create_engine, text
 from sqlalchemy.orm import sessionmaker
@@ -26,7 +24,7 @@ def add_certificates_sync(database_url: str) -> None:
     Args:
         database_url: Database connection URL
     """
-    print(f"🔗 Connecting to database...")
+    print("🔗 Connecting to database...")
     print(f"   URL: {database_url[:20]}...")
 
     # Create engine

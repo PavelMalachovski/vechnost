@@ -1,6 +1,7 @@
 """Start webhook server with proper environment configuration."""
 import os
 import sys
+
 from dotenv import load_dotenv
 
 # Load environment variables

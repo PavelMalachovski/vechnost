@@ -1,23 +1,26 @@
 """Main bot application setup."""
 
 import logging
-import asyncio
+from datetime import UTC
 
 from telegram.error import Conflict, NetworkError, TimedOut
 from telegram.ext import Application, CallbackQueryHandler, CommandHandler, ContextTypes
 
-from .config import create_bot, get_log_level
+from .config import create_bot
 from .handlers import (
+    about_command,
+    activate_certificate_command,
     handle_callback_query,
     help_command,
     invite_command,
     reset_command,
     start_command,
-    about_command,
-    activate_certificate_command,
 )
 from .monitoring import initialize_monitoring, log_bot_event, track_performance
-from .simple_redis_manager import initialize_simple_redis_auto_start, cleanup_simple_redis_auto_start
+from .simple_redis_manager import (
+    cleanup_simple_redis_auto_start,
+    initialize_simple_redis_auto_start,
+)
 
 
 def setup_logging() -> None:
@@ -121,13 +124,13 @@ def create_application() -> Application:
                 "install python-telegram-bot[job-queue]"
             )
         else:
-            from datetime import time, timezone
+            from datetime import time
 
             from .daily_card import daily_card_job
 
             application.job_queue.run_daily(
                 daily_card_job,
-                time=time(hour=settings.daily_card_hour_utc, tzinfo=timezone.utc),
+                time=time(hour=settings.daily_card_hour_utc, tzinfo=UTC),
                 name="daily_card",
             )
             logger.info(f"- Daily card scheduled at {settings.daily_card_hour_utc}:00 UTC")
@@ -139,7 +142,7 @@ def create_application() -> Application:
             application.job_queue.run_daily(
                 steps69_nudge_job,
                 time=time(
-                    hour=(settings.daily_card_hour_utc + 1) % 24, tzinfo=timezone.utc
+                    hour=(settings.daily_card_hour_utc + 1) % 24, tzinfo=UTC
                 ),
                 name="steps69_nudge",
             )

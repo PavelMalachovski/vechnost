@@ -6,8 +6,8 @@ from telegram import Update
 from telegram.ext import ContextTypes
 
 from ..i18n import get_text
+from .middleware import check_and_register_user, get_payment_keyboard
 from .services import user_has_access
-from .middleware import get_payment_keyboard, check_and_register_user
 
 logger = logging.getLogger(__name__)
 

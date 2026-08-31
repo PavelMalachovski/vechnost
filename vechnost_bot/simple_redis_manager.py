@@ -1,11 +1,11 @@
 """Simplified Redis manager without background tasks."""
 
+import os
 import subprocess
 import time
-import os
-from typing import Optional
-import structlog
 from pathlib import Path
+
+import structlog
 
 logger = structlog.get_logger(__name__)
 
@@ -14,7 +14,7 @@ class SimpleRedisManager:
     """Simplified Redis manager without async background tasks."""
 
     def __init__(self):
-        self.redis_process: Optional[subprocess.Popen] = None
+        self.redis_process: subprocess.Popen | None = None
         self.redis_port = 6379
         self.redis_host = "localhost"
 

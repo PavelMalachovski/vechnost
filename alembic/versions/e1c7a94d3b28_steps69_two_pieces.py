@@ -12,6 +12,7 @@ partner stood, so both pieces start again from cell 1.
 from collections.abc import Sequence
 
 import sqlalchemy as sa
+
 from alembic import op
 
 revision: str = 'e1c7a94d3b28'

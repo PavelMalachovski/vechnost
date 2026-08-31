@@ -1,9 +1,8 @@
 """Pydantic models for callback data validation and parsing."""
 
 from enum import Enum
-from typing import Optional
 
-from pydantic import BaseModel, Field, field_validator
+from pydantic import BaseModel, Field
 
 
 class CallbackAction(str, Enum):
@@ -112,8 +111,8 @@ class LevelCallbackData(CallbackData):
         level_str = data.replace("level_", "")
         try:
             level = int(level_str)
-        except ValueError:
-            raise ValueError(f"Invalid level number: {level_str}")
+        except ValueError as e:
+            raise ValueError(f"Invalid level number: {level_str}") from e
 
         if level < 1 or level > 10:  # Reasonable level range
             raise ValueError(f"Level out of range: {level}")
@@ -145,7 +144,7 @@ class CalendarCallbackData(CallbackData):
             level_or_0 = int(parts[2])
             page = int(parts[4])
         except ValueError as e:
-            raise ValueError(f"Invalid numeric values in calendar callback: {e}")
+            raise ValueError(f"Invalid numeric values in calendar callback: {e}") from e
 
         category = parts[3]
         if category not in ["q", "t"]:
@@ -189,7 +188,7 @@ class QuestionCallbackData(CallbackData):
             level_or_0 = int(parts[2])
             index = int(parts[3])
         except ValueError as e:
-            raise ValueError(f"Invalid numeric values in question callback: {e}")
+            raise ValueError(f"Invalid numeric values in question callback: {e}") from e
 
         if level_or_0 < 0 or level_or_0 > 10:
             raise ValueError(f"Level out of range: {level_or_0}")
@@ -228,7 +227,7 @@ class NavigationCallbackData(CallbackData):
             level_or_0 = int(parts[2])
             index = int(parts[3])
         except ValueError as e:
-            raise ValueError(f"Invalid numeric values in navigation callback: {e}")
+            raise ValueError(f"Invalid numeric values in navigation callback: {e}") from e
 
         if level_or_0 < 0 or level_or_0 > 10:
             raise ValueError(f"Level out of range: {level_or_0}")
@@ -313,8 +312,8 @@ class SimpleCallbackData(CallbackData):
         """Parse simple callback data."""
         try:
             action = CallbackAction(data)
-        except ValueError:
-            raise ValueError(f"Unknown simple action: {data}")
+        except ValueError as e:
+            raise ValueError(f"Unknown simple action: {data}") from e
 
         return cls(raw_data=data, action=action)
 

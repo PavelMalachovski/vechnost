@@ -1,39 +1,31 @@
 """Tests for performance optimization modules."""
 
-import pytest
-import asyncio
-import tempfile
 import os
-from pathlib import Path
-from unittest.mock import patch, MagicMock, AsyncMock
+import tempfile
+from unittest.mock import MagicMock, patch
+
+import pytest
 
 from vechnost_bot.async_file_ops import (
+    AsyncConfigManager,
     AsyncFileManager,
     AsyncImageManager,
-    AsyncConfigManager,
-    read_text_file,
-    read_binary_file,
-    write_text_file,
-    write_binary_file,
     ensure_directory_exists,
-    safe_file_operation
+    read_text_file,
+    safe_file_operation,
+    write_text_file,
 )
 from vechnost_bot.connection_pool import (
     ConnectionPool,
+    ExternalServicePool,
     PoolConfig,
     TelegramAPIPool,
-    ExternalServicePool,
-    initialize_telegram_pool,
-    initialize_external_services,
-    cleanup_connections
 )
 from vechnost_bot.optimized_renderer import (
+    BatchRenderer,
+    ImageCache,
     OptimizedRenderer,
     RenderConfig,
-    ImageCache,
-    BatchRenderer,
-    initialize_renderer,
-    cleanup_renderer
 )
 
 
@@ -229,8 +221,9 @@ class TestAsyncImageManager:
         temp_path = "test_save_image.png"
         try:
             # Create test image data
-            from PIL import Image
             import io
+
+            from PIL import Image
             img = Image.new('RGB', (10, 10), color='blue')
             img_bytes = io.BytesIO()
             img.save(img_bytes, format='PNG')

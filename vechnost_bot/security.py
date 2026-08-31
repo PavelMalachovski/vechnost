@@ -1,9 +1,8 @@
 """Security utilities for input sanitization and validation."""
 
-import re
 import html
-from typing import Any, Optional, Union
-from urllib.parse import urlparse
+import re
+
 import structlog
 
 logger = structlog.get_logger("security")
@@ -65,7 +64,7 @@ class InputSanitizer:
     }
 
     @classmethod
-    def sanitize_text(cls, text: str, max_length: Optional[int] = None) -> str:
+    def sanitize_text(cls, text: str, max_length: int | None = None) -> str:
         """
         Sanitize text input by removing dangerous content.
 
@@ -188,7 +187,7 @@ class InputSanitizer:
         return code.lower()
 
     @classmethod
-    def validate_numeric_input(cls, value: Union[str, int], input_type: str) -> int:
+    def validate_numeric_input(cls, value: str | int, input_type: str) -> int:
         """
         Validate numeric input.
 
@@ -219,11 +218,11 @@ class InputSanitizer:
             if int_value < 0:
                 raise SecurityError(f"{input_type} must be non-negative: {int_value}")
             return int_value
-        except ValueError:
-            raise SecurityError(f"Invalid {input_type}: {str_value}")
+        except ValueError as e:
+            raise SecurityError(f"Invalid {input_type}: {str_value}") from e
 
     @classmethod
-    def validate_username(cls, username: Optional[str]) -> Optional[str]:
+    def validate_username(cls, username: str | None) -> str | None:
         """
         Validate username.
 
@@ -252,7 +251,7 @@ class InputSanitizer:
         return username
 
     @classmethod
-    def validate_message_text(cls, text: Optional[str]) -> Optional[str]:
+    def validate_message_text(cls, text: str | None) -> str | None:
         """
         Validate message text.
 
@@ -352,16 +351,16 @@ def secure_language_code(code: str) -> str:
     return input_sanitizer.validate_language_code(code)
 
 
-def secure_numeric_input(value: Union[str, int], input_type: str) -> int:
+def secure_numeric_input(value: str | int, input_type: str) -> int:
     """Secure numeric input validation."""
     return input_sanitizer.validate_numeric_input(value, input_type)
 
 
-def secure_username(username: Optional[str]) -> Optional[str]:
+def secure_username(username: str | None) -> str | None:
     """Secure username validation."""
     return input_sanitizer.validate_username(username)
 
 
-def secure_message_text(text: Optional[str]) -> Optional[str]:
+def secure_message_text(text: str | None) -> str | None:
     """Secure message text validation."""
     return input_sanitizer.validate_message_text(text)

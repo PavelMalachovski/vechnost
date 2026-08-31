@@ -1,30 +1,31 @@
 """Service layer for payment operations."""
 
 import logging
+from collections.abc import Mapping
 from datetime import datetime
-from typing import Mapping, Dict, Any, Optional
+from typing import Any
 
 from sqlalchemy.exc import IntegrityError
 
 from ..config import settings
 from .database import get_db
-from .models import User, Product, Payment, Subscription, WebhookEvent, Certificate
-from .repositories import (
-    UserRepository,
-    ProductRepository,
-    PaymentRepository,
-    SubscriptionRepository,
-    WebhookEventRepository,
-    CertificateRepository,
-)
 from .gifts import (
     create_gift_certificate,
     deliver_gift_certificate,
     gift_language,
     is_gift_purchase,
 )
-from .tribute_client import TributeClient, TributeAPIError
+from .models import Product
+from .repositories import (
+    CertificateRepository,
+    PaymentRepository,
+    ProductRepository,
+    SubscriptionRepository,
+    UserRepository,
+    WebhookEventRepository,
+)
 from .signature import compute_body_sha256, verify_tribute_signature
+from .tribute_client import TributeAPIError, TributeClient
 
 logger = logging.getLogger(__name__)
 
@@ -68,10 +69,10 @@ async def sync_products_from_tribute() -> int:
 
 
 async def apply_webhook_event(
-    payload: Dict[str, Any],
+    payload: dict[str, Any],
     headers: Mapping[str, str],
     raw_body: bytes,
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """
     Process incoming webhook event from Tribute.
 
@@ -487,7 +488,7 @@ def format_price(amount_cents: int, currency: str) -> str:
     return f"{text} {symbol}"
 
 
-async def get_price_label() -> Optional[str]:
+async def get_price_label() -> str | None:
     """Formatted price of the cheapest product, or None if none are synced."""
     products = await get_products_for_purchase()
     for product in products:
@@ -499,10 +500,10 @@ async def get_price_label() -> Optional[str]:
 async def activate_certificate(
     code: str,
     telegram_user_id: int,
-    username: Optional[str] = None,
-    first_name: Optional[str] = None,
-    last_name: Optional[str] = None,
-) -> Dict[str, Any]:
+    username: str | None = None,
+    first_name: str | None = None,
+    last_name: str | None = None,
+) -> dict[str, Any]:
     """
     Activate a certificate code for a user.
 
@@ -541,7 +542,7 @@ async def activate_certificate(
                 }
 
             # Ensure user exists with full information
-            user = await UserRepository.create_or_update(
+            await UserRepository.create_or_update(
                 session,
                 telegram_user_id=telegram_user_id,
                 username=username,

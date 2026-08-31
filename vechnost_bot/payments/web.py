@@ -222,8 +222,8 @@ async def get_card_image(
     try:
         theme_enum = Theme(theme)
         content_type = ContentType(type)
-    except ValueError:
-        raise HTTPException(status_code=404, detail="unknown deck")
+    except ValueError as e:
+        raise HTTPException(status_code=404, detail="unknown deck") from e
 
     language = Language.coerce(lang)
 
@@ -294,7 +294,7 @@ async def tribute_webhook(request: Request) -> JSONResponse:
             payload = await request.json()
         except Exception as e:
             logger.error(f"Invalid JSON payload: {e}")
-            raise HTTPException(status_code=400, detail="Invalid JSON payload")
+            raise HTTPException(status_code=400, detail="Invalid JSON payload") from e
 
         # Get headers
         headers = dict(request.headers)
@@ -328,7 +328,7 @@ async def tribute_webhook(request: Request) -> JSONResponse:
         # exception here carries SQL, driver and path fragments. Log it in
         # full, tell the caller only that it failed.
         logger.error(f"Unexpected error processing webhook: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail="internal error")
+        raise HTTPException(status_code=500, detail="internal error") from e
 
 
 def verify_admin_token(authorization: str = Header(None)) -> bool:
@@ -376,7 +376,7 @@ async def admin_sync_products(
         }
     except Exception as e:
         logger.error(f"Error syncing products: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail="failed to sync products")
+        raise HTTPException(status_code=500, detail="failed to sync products") from e
 
 
 @app.get("/")

@@ -1,21 +1,60 @@
 """Tests for Redis storage implementation."""
 
-import pytest
-import json
-from unittest.mock import AsyncMock, MagicMock, patch
 import asyncio
+import os
+from unittest.mock import AsyncMock, patch
 
-from vechnost_bot.redis_storage import RedisStorage, redis_storage, initialize_redis_storage, cleanup_redis_storage
-from vechnost_bot.models import SessionState, Language, Theme
+import pytest
+import pytest_asyncio
+
+from vechnost_bot.models import Language, SessionState, Theme
+from vechnost_bot.redis_storage import (
+    RedisStorage,
+    cleanup_redis_storage,
+    get_redis_storage,
+    initialize_redis_storage,
+)
+
+# Everything here talks to a real server on localhost:6379. The marker is what
+# lets conftest skip the file when there is none, and what keeps the autouse
+# in-memory fixture off these tests.
+pytestmark = pytest.mark.redis
+
+def _test_db() -> int:
+    """A database of this worker's own, so parallel runs cannot collide.
+
+    Redis ships sixteen numbered databases and the app uses 0, so the tests
+    count down from 15. Under `-n auto` each xdist worker gets its own, which
+    is what makes flushing safe: without this, two workers would flush each
+    other's keys mid-test and the failure would land on whichever was slower.
+    """
+    worker = os.environ.get("PYTEST_XDIST_WORKER", "gw0")
+    index = int(worker[2:]) if worker.startswith("gw") and worker[2:].isdigit() else 0
+    return 15 - min(index, 14)
+
+
+@pytest_asyncio.fixture
+async def redis_storage_instance():
+    """A connected client on the test database, empty at both ends.
+
+    Module-level so every class here can use it — it used to live inside
+    TestRedisStorage, which is why the performance class errored on a missing
+    fixture. Flushing matters: counters and rate limits are keyed by name, so
+    without it a second run of test_counter_operations starts from whatever
+    the first left behind and asserts 13 == 5.
+    """
+    storage = RedisStorage("redis://localhost:6379", db=_test_db())
+    await storage.connect()
+    await storage._redis.flushdb()
+    try:
+        yield storage
+    finally:
+        await storage._redis.flushdb()
+        await storage.disconnect()
 
 
 class TestRedisStorage:
     """Test Redis storage functionality."""
-
-    @pytest.fixture
-    def redis_storage_instance(self):
-        """Create Redis storage instance for testing."""
-        return RedisStorage("redis://localhost:6379", db=15)  # Use test DB
 
     @pytest.mark.asyncio
     async def test_redis_connection(self, redis_storage_instance):
@@ -30,11 +69,9 @@ class TestRedisStorage:
         """Test session save/get/delete operations."""
         chat_id = 12345
         session = SessionState(
-            chat_id=chat_id,
             language=Language.RUSSIAN,
             theme=Theme.ACQUAINTANCE,
             level=1,
-            current_question=5
         )
 
         # Save session
@@ -43,11 +80,9 @@ class TestRedisStorage:
         # Get session
         retrieved_session = await redis_storage_instance.get_session(chat_id)
         assert retrieved_session is not None
-        assert retrieved_session.chat_id == chat_id
         assert retrieved_session.language == Language.RUSSIAN
         assert retrieved_session.theme == Theme.ACQUAINTANCE
         assert retrieved_session.level == 1
-        assert retrieved_session.current_question == 5
 
         # Delete session
         await redis_storage_instance.delete_session(chat_id)
@@ -123,7 +158,7 @@ class TestRedisStorage:
         assert session is None
 
         # Should not raise exception
-        await storage.save_session(12345, SessionState(chat_id=12345), ttl=60)
+        await storage.save_session(12345, SessionState(), ttl=60)
 
     @pytest.mark.asyncio
     async def test_global_storage_functions(self):
@@ -150,7 +185,7 @@ class TestRedisIntegration:
 
             await initialize_redis_storage("redis://localhost:6379", db=1)
 
-            mock_storage_class.assert_called_once_with("redis://localhost:6379", db=1)
+            mock_storage_class.assert_called_once_with("redis://localhost:6379", 1)
             mock_storage.connect.assert_called_once()
 
     @pytest.mark.asyncio
@@ -169,18 +204,26 @@ class TestRedisPerformance:
 
     @pytest.mark.asyncio
     async def test_batch_operations(self, redis_storage_instance):
-        """Test batch operations performance."""
-        chat_ids = list(range(1000, 1100))  # 100 sessions
+        """Many sessions at once, within the pool the app actually runs.
+
+        The pool is capped at `settings.max_connections`, so firing more
+        concurrent operations than that raises "Too many connections" — from
+        the pool, not from Redis. Testing above the cap measured nothing the
+        bot can do; the batch is sized to the pool instead.
+        """
+        from vechnost_bot.config import settings
+
+        first = 1000
+        chat_ids = list(range(first, first + settings.max_connections))
         sessions = [
-            SessionState(chat_id=chat_id, language=Language.RUSSIAN)
-            for chat_id in chat_ids
+            SessionState(language=Language.RUSSIAN) for _ in chat_ids
         ]
 
         # Batch save
         start_time = asyncio.get_event_loop().time()
         tasks = [
             redis_storage_instance.save_session(chat_id, session, ttl=60)
-            for chat_id, session in zip(chat_ids, sessions)
+            for chat_id, session in zip(chat_ids, sessions, strict=True)
         ]
         await asyncio.gather(*tasks)
         save_time = asyncio.get_event_loop().time() - start_time

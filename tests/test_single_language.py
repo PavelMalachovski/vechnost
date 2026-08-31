@@ -21,7 +21,7 @@ DATA = Path(__file__).parent.parent / "data"
 
 
 def test_only_russian_is_supported():
-    assert [l.value for l in Language] == ["ru"]
+    assert [language.value for language in Language] == ["ru"]
 
 
 @pytest.mark.parametrize("code", ["en", "cs", "de", "", None, "RU", "ru-RU"])

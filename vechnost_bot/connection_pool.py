@@ -1,11 +1,12 @@
 """Connection pooling for external services."""
 
 import asyncio
-import aiohttp
 import time
-from typing import Optional, Dict, Any
-from dataclasses import dataclass
 from contextlib import asynccontextmanager
+from dataclasses import dataclass
+from typing import Any
+
+import aiohttp
 import structlog
 
 logger = structlog.get_logger("connection_pool")
@@ -26,9 +27,9 @@ class PoolConfig:
 class ConnectionPool:
     """Async connection pool for HTTP requests."""
 
-    def __init__(self, config: Optional[PoolConfig] = None):
+    def __init__(self, config: PoolConfig | None = None):
         self.config = config or PoolConfig()
-        self._session: Optional[aiohttp.ClientSession] = None
+        self._session: aiohttp.ClientSession | None = None
         self._lock = asyncio.Lock()
         self._stats = {
             'total_requests': 0,
@@ -69,7 +70,7 @@ class ConnectionPool:
         method: str,
         url: str,
         **kwargs
-    ) -> Optional[aiohttp.ClientResponse]:
+    ) -> aiohttp.ClientResponse | None:
         """Make HTTP request with retry logic."""
         session = await self._get_session()
 
@@ -88,7 +89,7 @@ class ConnectionPool:
                             continue
                         return response
 
-            except asyncio.TimeoutError:
+            except TimeoutError:
                 self._stats['timeout_errors'] += 1
                 logger.warning("request_timeout", url=url, attempt=attempt + 1)
                 if attempt < self.config.retry_attempts - 1:
@@ -111,19 +112,19 @@ class ConnectionPool:
 
         return None
 
-    async def get(self, url: str, **kwargs) -> Optional[aiohttp.ClientResponse]:
+    async def get(self, url: str, **kwargs) -> aiohttp.ClientResponse | None:
         """Make GET request."""
         return await self._make_request_with_retry('GET', url, **kwargs)
 
-    async def post(self, url: str, **kwargs) -> Optional[aiohttp.ClientResponse]:
+    async def post(self, url: str, **kwargs) -> aiohttp.ClientResponse | None:
         """Make POST request."""
         return await self._make_request_with_retry('POST', url, **kwargs)
 
-    async def put(self, url: str, **kwargs) -> Optional[aiohttp.ClientResponse]:
+    async def put(self, url: str, **kwargs) -> aiohttp.ClientResponse | None:
         """Make PUT request."""
         return await self._make_request_with_retry('PUT', url, **kwargs)
 
-    async def delete(self, url: str, **kwargs) -> Optional[aiohttp.ClientResponse]:
+    async def delete(self, url: str, **kwargs) -> aiohttp.ClientResponse | None:
         """Make DELETE request."""
         return await self._make_request_with_retry('DELETE', url, **kwargs)
 
@@ -133,7 +134,7 @@ class ConnectionPool:
             await self._session.close()
             logger.debug("connection_pool_closed")
 
-    def get_stats(self) -> Dict[str, Any]:
+    def get_stats(self) -> dict[str, Any]:
         """Get connection pool statistics."""
         uptime = time.time() - self._stats['last_reset']
         success_rate = (
@@ -164,7 +165,7 @@ class ConnectionPool:
 class TelegramAPIPool:
     """Specialized connection pool for Telegram API."""
 
-    def __init__(self, bot_token: str, config: Optional[PoolConfig] = None):
+    def __init__(self, bot_token: str, config: PoolConfig | None = None):
         self.bot_token = bot_token
         self.base_url = f"https://api.telegram.org/bot{bot_token}"
         self.pool = ConnectionPool(config)
@@ -178,7 +179,7 @@ class TelegramAPIPool:
             logger.warning("telegram_rate_limit", retry_after=retry_after)
             await asyncio.sleep(retry_after)
 
-    async def make_request(self, method: str, **kwargs) -> Optional[Dict[str, Any]]:
+    async def make_request(self, method: str, **kwargs) -> dict[str, Any] | None:
         """Make request to Telegram API."""
         url = f"{self.base_url}/{method}"
 
@@ -214,16 +215,16 @@ class ExternalServicePool:
     """Connection pool for external services."""
 
     def __init__(self):
-        self._pools: Dict[str, ConnectionPool] = {}
-        self._configs: Dict[str, PoolConfig] = {}
+        self._pools: dict[str, ConnectionPool] = {}
+        self._configs: dict[str, PoolConfig] = {}
 
-    def register_service(self, service_name: str, config: Optional[PoolConfig] = None):
+    def register_service(self, service_name: str, config: PoolConfig | None = None):
         """Register external service."""
         self._configs[service_name] = config or PoolConfig()
         self._pools[service_name] = ConnectionPool(self._configs[service_name])
         logger.debug("external_service_registered", service_name=service_name)
 
-    async def get_pool(self, service_name: str) -> Optional[ConnectionPool]:
+    async def get_pool(self, service_name: str) -> ConnectionPool | None:
         """Get connection pool for service."""
         return self._pools.get(service_name)
 
@@ -233,7 +234,7 @@ class ExternalServicePool:
         method: str,
         url: str,
         **kwargs
-    ) -> Optional[aiohttp.ClientResponse]:
+    ) -> aiohttp.ClientResponse | None:
         """Make request to external service."""
         pool = await self.get_pool(service_name)
         if not pool:
@@ -253,11 +254,11 @@ class ExternalServicePool:
 
 
 # Global instances
-telegram_pool: Optional[TelegramAPIPool] = None
+telegram_pool: TelegramAPIPool | None = None
 external_pool = ExternalServicePool()
 
 
-async def initialize_telegram_pool(bot_token: str, config: Optional[PoolConfig] = None):
+async def initialize_telegram_pool(bot_token: str, config: PoolConfig | None = None):
     """Initialize Telegram API connection pool."""
     global telegram_pool
     telegram_pool = TelegramAPIPool(bot_token, config)

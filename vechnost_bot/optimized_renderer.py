@@ -4,11 +4,12 @@ import asyncio
 import hashlib
 import io
 import os
-from pathlib import Path
-from typing import Optional, Dict, Any, Tuple
 from dataclasses import dataclass
-from PIL import Image, ImageDraw, ImageFont
+from pathlib import Path
+from typing import Any
+
 import structlog
+from PIL import Image, ImageDraw, ImageFont
 
 from vechnost_bot.async_file_ops import AsyncFileManager, AsyncImageManager
 from vechnost_bot.monitoring import track_performance
@@ -37,7 +38,7 @@ class ImageCache:
     def __init__(self, max_size: int = 1000, ttl: int = 3600):
         self.max_size = max_size
         self.ttl = ttl
-        self._cache: Dict[str, Tuple[bytes, float]] = {}
+        self._cache: dict[str, tuple[bytes, float]] = {}
         self._access_order: list = []
 
     def _cleanup_expired(self):
@@ -65,7 +66,7 @@ class ImageCache:
             lru_key = self._access_order[0]
             self._remove_key(lru_key)
 
-    def get(self, key: str) -> Optional[bytes]:
+    def get(self, key: str) -> bytes | None:
         """Get cached image."""
         if key not in self._cache:
             return None
@@ -110,7 +111,7 @@ class ImageCache:
         self._cache.clear()
         self._access_order.clear()
 
-    def get_stats(self) -> Dict[str, Any]:
+    def get_stats(self) -> dict[str, Any]:
         """Get cache statistics."""
         return {
             'size': len(self._cache),
@@ -123,13 +124,13 @@ class ImageCache:
 class OptimizedRenderer:
     """Optimized image renderer with caching and performance improvements."""
 
-    def __init__(self, config: Optional[RenderConfig] = None):
+    def __init__(self, config: RenderConfig | None = None):
         self.config = config or RenderConfig()
         self.cache = ImageCache(
             max_size=self.config.cache_max_size,
             ttl=self.config.cache_ttl
         )
-        self._font_cache: Dict[int, ImageFont.FreeTypeFont] = {}
+        self._font_cache: dict[int, ImageFont.FreeTypeFont] = {}
         self._cache_dir = Path("cache/images")
         self._ensure_cache_dir()
 
@@ -147,10 +148,10 @@ class OptimizedRenderer:
         if size not in self._font_cache:
             try:
                 font = ImageFont.truetype("DejaVuSans-Bold.ttf", size)
-            except IOError:
+            except OSError:
                 try:
                     font = ImageFont.truetype("arialbd.ttf", size)
-                except IOError:
+                except OSError:
                     font = ImageFont.load_default()
                     logger.warning("using_default_font", size=size)
 
@@ -221,7 +222,6 @@ class OptimizedRenderer:
 
         # Calculate text area
         text_width = int(self.config.card_width * self.config.text_margin)
-        text_height = self.config.card_height - (2 * self.config.padding)
 
         # Wrap text
         lines = self._wrap_text_optimized(text, font, text_width)
@@ -300,7 +300,7 @@ class OptimizedRenderer:
         self.cache.clear()
         logger.info("render_cache_cleared")
 
-    def get_cache_stats(self) -> Dict[str, Any]:
+    def get_cache_stats(self) -> dict[str, Any]:
         """Get cache statistics."""
         return self.cache.get_stats()
 
@@ -370,7 +370,7 @@ renderer = OptimizedRenderer()
 batch_renderer = BatchRenderer(renderer)
 
 
-async def initialize_renderer(config: Optional[RenderConfig] = None):
+async def initialize_renderer(config: RenderConfig | None = None):
     """Initialize global renderer."""
     global renderer, batch_renderer
     renderer = OptimizedRenderer(config)

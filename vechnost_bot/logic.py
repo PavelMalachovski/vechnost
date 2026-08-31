@@ -1,17 +1,17 @@
 """Game logic for the Vechnost bot."""
 
 import random
-from typing import Dict, Any
+from typing import Any
 
-from .models import GameData, SessionState, Theme, ContentType
 from .i18n import Language
+from .models import ContentType, GameData, SessionState, Theme
 
 
 class LocalizedGameData:
     """Game data that loads content based on language."""
 
     def __init__(self):
-        self._cached_data: Dict[Language, GameData] = {}
+        self._cached_data: dict[Language, GameData] = {}
 
     def get_game_data(self, language: Language = Language.RUSSIAN) -> GameData:
         """Get game data for a specific language."""
@@ -28,6 +28,7 @@ class LocalizedGameData:
         could not be taken.
         """
         from pathlib import Path
+
         import yaml
 
         yaml_path = Path(__file__).parent.parent / "data" / "questions.yaml"
@@ -35,7 +36,7 @@ class LocalizedGameData:
             data = yaml.safe_load(f)
         return self._create_game_data_from_yaml(data)
 
-    def _create_game_data_from_yaml(self, data: Dict[str, Any]) -> GameData:
+    def _create_game_data_from_yaml(self, data: dict[str, Any]) -> GameData:
         """Create GameData from YAML data."""
         themes = {}
         for theme_name, theme_data in data.get("themes", {}).items():

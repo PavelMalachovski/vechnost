@@ -1,39 +1,37 @@
 """Comprehensive tests for callback handlers."""
 
+from unittest.mock import AsyncMock, MagicMock, patch
+
 import pytest
-from unittest.mock import MagicMock, patch, AsyncMock
-from telegram import Update, Message, Chat, User, CallbackQuery
+from telegram import CallbackQuery, Chat, Message
 
 from vechnost_bot.callback_handlers import (
-    CallbackHandlerRegistry,
-    ThemeHandler,
-    LevelHandler,
-    CalendarHandler,
-    QuestionHandler,
-    NavigationHandler,
-    ToggleHandler,
     BackHandler,
+    CalendarHandler,
+    CallbackHandlerRegistry,
     LanguageHandler,
-    LanguageConfirmHandler,
+    LevelHandler,
+    NavigationHandler,
+    QuestionHandler,
     SimpleActionHandler,
-    welcome_screen
+    ThemeHandler,
+    ToggleHandler,
+    welcome_screen,
 )
 from vechnost_bot.callback_models import (
-    CallbackData,
-    ThemeCallbackData,
-    LevelCallbackData,
-    CalendarCallbackData,
-    QuestionCallbackData,
-    NavigationCallbackData,
-    ToggleCallbackData,
     BackCallbackData,
+    CalendarCallbackData,
+    CallbackAction,
+    CallbackData,
     LanguageCallbackData,
-    LanguageConfirmCallbackData,
+    LevelCallbackData,
+    NavigationCallbackData,
+    QuestionCallbackData,
     SimpleCallbackData,
-    CallbackAction
+    ThemeCallbackData,
+    ToggleCallbackData,
 )
-from vechnost_bot.models import SessionState, Theme, Language, ContentType
-from vechnost_bot.i18n import get_text
+from vechnost_bot.models import ContentType, Language, SessionState, Theme
 
 
 class TestCallbackHandlerRegistry:
@@ -142,27 +140,46 @@ class TestThemeHandler:
         callback_data = ThemeCallbackData(
             action=CallbackAction.THEME,
             raw_data="theme_Acquaintance",
-            theme="Acquaintance"
+            theme_name="Acquaintance"
         )
 
-        with patch('vechnost_bot.callback_handlers._show_level_selection') as mock_show_level:
+        with patch.object(handler, "_show_level_selection") as mock_show_level:
             await handler.handle(mock_query, callback_data, mock_session)
 
             mock_show_level.assert_called_once()
 
     @pytest.mark.asyncio
-    async def test_handle_sex_theme(self, handler, mock_query, mock_session):
-        """Test handling Sex theme."""
+    async def test_handle_sex_theme_asks_about_age_first(self, handler, mock_query):
+        """Sex is 18+, so an unconfirmed session gets the gate, not the deck."""
+        session = SessionState(language=Language.RUSSIAN)
         callback_data = ThemeCallbackData(
             action=CallbackAction.THEME,
             raw_data="theme_Sex",
-            theme="Sex"
+            theme_name="Sex"
         )
 
-        with patch('vechnost_bot.callback_handlers._show_calendar') as mock_show_calendar:
-            await handler.handle(mock_query, callback_data, mock_session)
+        with patch.object(handler, "_show_calendar") as mock_show_calendar:
+            await handler.handle(mock_query, callback_data, session)
 
-            mock_show_calendar.assert_called_once()
+        mock_show_calendar.assert_not_called()
+        mock_query.edit_message_text.assert_called_once()
+        assert session.theme == Theme.SEX
+
+    @pytest.mark.asyncio
+    async def test_handle_sex_theme_opens_the_calendar_once_confirmed(self, handler, mock_query):
+        """Sex has no levels: past the gate it goes straight to the calendar."""
+        session = SessionState(language=Language.RUSSIAN, is_nsfw_confirmed=True)
+        callback_data = ThemeCallbackData(
+            action=CallbackAction.THEME,
+            raw_data="theme_Sex",
+            theme_name="Sex"
+        )
+
+        with patch.object(handler, "_show_calendar") as mock_show_calendar:
+            await handler.handle(mock_query, callback_data, session)
+
+        mock_show_calendar.assert_called_once()
+        assert session.content_type == ContentType.QUESTIONS
 
 
 class TestLevelHandler:
@@ -197,7 +214,7 @@ class TestLevelHandler:
             level=1
         )
 
-        with patch('vechnost_bot.callback_handlers._show_calendar') as mock_show_calendar:
+        with patch.object(handler, "_show_calendar") as mock_show_calendar:
             await handler.handle(mock_query, callback_data, mock_session)
 
             assert mock_session.level == 1
@@ -230,21 +247,44 @@ class TestCalendarHandler:
         return session
 
     @pytest.mark.asyncio
-    async def test_handle_calendar_selection(self, handler, mock_query, mock_session):
-        """Test calendar selection handling."""
+    async def test_handle_calendar_selection(self, handler, mock_query):
+        """The page is rendered, and the session remembers what it is showing."""
+        session = SessionState(language=Language.RUSSIAN)
+        callback_data = CalendarCallbackData(
+            action=CallbackAction.CALENDAR,
+            raw_data="cal:acq:1:q:0",
+            topic="acq",
+            level_or_0=1,
+            category="q",
+            page=0
+        )
+
+        with patch.object(handler, "_show_calendar") as mock_show_calendar:
+            await handler.handle(mock_query, callback_data, session)
+
+        mock_show_calendar.assert_called_once()
+        assert session.theme == Theme.ACQUAINTANCE
+        assert session.level == 1
+        assert session.content_type == ContentType.QUESTIONS
+
+    @pytest.mark.asyncio
+    async def test_a_topic_that_is_not_a_code_is_refused(self, handler, mock_query):
+        """The topic slot carries `acq`, never `Acquaintance`."""
+        session = SessionState(language=Language.RUSSIAN)
         callback_data = CalendarCallbackData(
             action=CallbackAction.CALENDAR,
             raw_data="cal:Acquaintance:1:q:0",
             topic="Acquaintance",
-            level=1,
-            content_type="q",
+            level_or_0=1,
+            category="q",
             page=0
         )
 
-        with patch('vechnost_bot.callback_handlers._show_question') as mock_show_question:
-            await handler.handle(mock_query, callback_data, mock_session)
+        with patch.object(handler, "_show_calendar") as mock_show_calendar:
+            await handler.handle(mock_query, callback_data, session)
 
-            mock_show_question.assert_called_once()
+        mock_show_calendar.assert_not_called()
+        mock_query.edit_message_text.assert_called_once()
 
 
 class TestQuestionHandler:
@@ -273,20 +313,27 @@ class TestQuestionHandler:
         return session
 
     @pytest.mark.asyncio
-    async def test_handle_question_selection(self, handler, mock_query, mock_session):
-        """Test question selection handling."""
+    async def test_handle_question_selection(self, handler, mock_query):
+        """The card is rendered and put on screen, in place of the calendar.
+
+        There is no `_show_question` helper to spy on: the handler composites
+        the card and edits the message itself, so what is worth asserting is
+        that the card reached the user.
+        """
+        session = SessionState(language=Language.RUSSIAN)
         callback_data = QuestionCallbackData(
             action=CallbackAction.QUESTION,
-            raw_data="q:Acquaintance:1:0",
-            topic="Acquaintance",
-            level=1,
-            question_idx=0
+            raw_data="q:acq:1:0",
+            topic="acq",
+            level_or_0=1,
+            index=0
         )
 
-        with patch('vechnost_bot.callback_handlers._show_question') as mock_show_question:
-            await handler.handle(mock_query, callback_data, mock_session)
+        await handler.handle(mock_query, callback_data, session)
 
-            mock_show_question.assert_called_once()
+        mock_query.edit_message_media.assert_called_once()
+        assert session.theme == Theme.ACQUAINTANCE
+        assert session.level == 1
 
 
 class TestNavigationHandler:
@@ -315,20 +362,21 @@ class TestNavigationHandler:
         return session
 
     @pytest.mark.asyncio
-    async def test_handle_navigation(self, handler, mock_query, mock_session):
-        """Test navigation handling."""
+    async def test_handle_navigation(self, handler, mock_query):
+        """Stepping to the next card renders it the same way."""
+        session = SessionState(language=Language.RUSSIAN)
         callback_data = NavigationCallbackData(
             action=CallbackAction.NAVIGATION,
-            raw_data="nav:Acquaintance:1:1",
-            topic="Acquaintance",
-            level=1,
-            question_idx=1
+            raw_data="nav:acq:1:1",
+            topic="acq",
+            level_or_0=1,
+            index=1
         )
 
-        with patch('vechnost_bot.callback_handlers._show_question') as mock_show_question:
-            await handler.handle(mock_query, callback_data, mock_session)
+        await handler.handle(mock_query, callback_data, session)
 
-            mock_show_question.assert_called_once()
+        mock_query.edit_message_media.assert_called_once()
+        assert session.theme == Theme.ACQUAINTANCE
 
 
 class TestToggleHandler:
@@ -367,7 +415,7 @@ class TestToggleHandler:
             category="t"
         )
 
-        with patch('vechnost_bot.callback_handlers._show_sex_calendar') as mock_show_calendar:
+        with patch.object(handler, "_show_sex_calendar") as mock_show_calendar:
             await handler.handle(mock_query, callback_data, mock_session)
 
             assert mock_session.content_type == ContentType.TASKS
@@ -407,7 +455,7 @@ class TestBackHandler:
             destination="themes"
         )
 
-        with patch('vechnost_bot.callback_handlers._show_theme_selection') as mock_show_theme:
+        with patch.object(handler, "_show_theme_selection") as mock_show_theme:
             await handler.handle(mock_query, callback_data, mock_session)
 
             mock_show_theme.assert_called_once()
@@ -421,7 +469,7 @@ class TestBackHandler:
             destination="calendar"
         )
 
-        with patch('vechnost_bot.callback_handlers._show_calendar') as mock_show_calendar:
+        with patch.object(handler, "_show_calendar") as mock_show_calendar:
             await handler.handle(mock_query, callback_data, mock_session)
 
             mock_show_calendar.assert_called_once()
@@ -455,7 +503,7 @@ class TestLanguageHandler:
         callback_data = LanguageCallbackData(
             action=CallbackAction.LANGUAGE,
             raw_data="lang_en",
-            language="en"
+            language_code="en"
         )
 
         with patch('vechnost_bot.callback_handlers.get_text') as mock_get_text, \
@@ -606,7 +654,7 @@ class TestSimpleActionHandler:
             raw_data="nsfw_confirm"
         )
 
-        with patch('vechnost_bot.callback_handlers._handle_nsfw_confirmation') as mock_handle:
+        with patch.object(handler, "_handle_nsfw_confirmation") as mock_handle:
             await handler.handle(mock_query, callback_data, mock_session)
 
             mock_handle.assert_called_once_with(mock_query, mock_session)
@@ -619,7 +667,7 @@ class TestSimpleActionHandler:
             raw_data="nsfw_deny"
         )
 
-        with patch('vechnost_bot.callback_handlers._handle_nsfw_denial') as mock_handle:
+        with patch.object(handler, "_handle_nsfw_denial") as mock_handle:
             await handler.handle(mock_query, callback_data, mock_session)
 
             mock_handle.assert_called_once_with(mock_query, mock_session)
@@ -632,7 +680,7 @@ class TestSimpleActionHandler:
             raw_data="reset_game"
         )
 
-        with patch('vechnost_bot.callback_handlers._handle_reset_request') as mock_handle:
+        with patch.object(handler, "_handle_reset_request") as mock_handle:
             await handler.handle(mock_query, callback_data, mock_session)
 
             mock_handle.assert_called_once_with(mock_query, mock_session)
@@ -645,7 +693,7 @@ class TestSimpleActionHandler:
             raw_data="reset_confirm"
         )
 
-        with patch('vechnost_bot.callback_handlers._handle_reset_confirmation') as mock_handle:
+        with patch.object(handler, "_handle_reset_confirmation") as mock_handle:
             await handler.handle(mock_query, callback_data, mock_session)
 
             mock_handle.assert_called_once_with(mock_query, mock_session)
@@ -658,7 +706,7 @@ class TestSimpleActionHandler:
             raw_data="reset_cancel"
         )
 
-        with patch('vechnost_bot.callback_handlers._handle_reset_cancellation') as mock_handle:
+        with patch.object(handler, "_handle_reset_cancel") as mock_handle:
             await handler.handle(mock_query, callback_data, mock_session)
 
             mock_handle.assert_called_once_with(mock_query, mock_session)

@@ -1,16 +1,17 @@
 """Simple user payment checker without emoji (Windows-friendly)."""
 import asyncio
-import os
 import sys
+
 from dotenv import load_dotenv
 
 load_dotenv()
 
 # Import payment modules
-from vechnost_bot.payments.database import get_db, init_db
-from vechnost_bot.payments.repositories import UserRepository
 from sqlalchemy import select
-from vechnost_bot.payments.models import Subscription, Payment
+
+from vechnost_bot.payments.database import get_db, init_db
+from vechnost_bot.payments.models import Payment, Subscription
+from vechnost_bot.payments.repositories import UserRepository
 
 
 async def check_user(telegram_user_id: int):
@@ -57,7 +58,7 @@ async def check_user(telegram_user_id: int):
                 if sub.expires_at:
                     print(f"      Expires: {sub.expires_at}")
                 else:
-                    print(f"      Expires: LIFETIME (Never)")
+                    print("      Expires: LIFETIME (Never)")
                 print(f"      Last Event: {sub.last_event_at}")
         else:
             print("[X] NO SUBSCRIPTIONS FOUND")
@@ -88,7 +89,6 @@ async def check_user(telegram_user_id: int):
         print(f"\n{'='*60}\n")
 
         # Check active access
-        from datetime import datetime
         from vechnost_bot.payments.repositories import SubscriptionRepository
 
         active_subs = await SubscriptionRepository.get_active_subscriptions_for_user(
@@ -96,7 +96,7 @@ async def check_user(telegram_user_id: int):
         )
 
         if active_subs:
-            print(f"[SUCCESS] USER HAS ACTIVE ACCESS")
+            print("[SUCCESS] USER HAS ACTIVE ACCESS")
             print(f"          Active subscriptions: {len(active_subs)}")
             for sub in active_subs:
                 if sub.is_lifetime:
@@ -104,7 +104,7 @@ async def check_user(telegram_user_id: int):
                 else:
                     print(f"          - Subscription #{sub.id}: Expires {sub.expires_at}")
         else:
-            print(f"[WARNING] NO ACTIVE ACCESS")
+            print("[WARNING] NO ACTIVE ACCESS")
 
         print(f"\n{'='*60}")
 

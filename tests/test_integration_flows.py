@@ -1,12 +1,12 @@
 """Integration tests for complete user flows."""
 
-import pytest
-from unittest.mock import MagicMock, patch, AsyncMock
-from telegram import Update, Message, Chat, User, CallbackQuery
+from unittest.mock import AsyncMock, MagicMock, patch
 
-from vechnost_bot.handlers import start_command, handle_callback_query
-from vechnost_bot.callback_handlers import CallbackHandlerRegistry
-from vechnost_bot.models import SessionState, Theme, ContentType
+import pytest
+from telegram import CallbackQuery, Chat, Message, Update, User
+
+from vechnost_bot.handlers import handle_callback_query, start_command
+from vechnost_bot.models import SessionState
 from vechnost_bot.storage import get_session, reset_session
 
 
@@ -53,7 +53,7 @@ class TestCompleteUserFlows:
         """Test complete Acquaintance theme flow."""
         # Step 1: Start command
         with patch('vechnost_bot.handlers.welcome_screen') as mock_welcome, \
-             patch('vechnost_bot.handlers.set_user_context') as mock_set_context:
+             patch('vechnost_bot.handlers.set_user_context'):
 
             mock_welcome.return_value = ("добро пожаловать", MagicMock())
             mock_update.message.reply_text = AsyncMock()
@@ -62,7 +62,7 @@ class TestCompleteUserFlows:
             await start_command(mock_update, mock_context)
 
             # Verify session was created
-            session = get_session(12345)
+            session = await get_session(12345)
             assert isinstance(session, SessionState)
 
         # Step 2: Language selection
@@ -130,7 +130,7 @@ class TestCompleteUserFlows:
         """Test complete Sex theme flow with NSFW confirmation."""
         # Step 1: Start command
         with patch('vechnost_bot.handlers.welcome_screen') as mock_welcome, \
-             patch('vechnost_bot.handlers.set_user_context') as mock_set_context:
+             patch('vechnost_bot.handlers.set_user_context'):
 
             mock_welcome.return_value = ("добро пожаловать", MagicMock())
             mock_update.message.reply_text = AsyncMock()
@@ -191,7 +191,7 @@ class TestCompleteUserFlows:
         """Test complete reset flow."""
         # Step 1: Start command
         with patch('vechnost_bot.handlers.welcome_screen') as mock_welcome, \
-             patch('vechnost_bot.handlers.set_user_context') as mock_set_context:
+             patch('vechnost_bot.handlers.set_user_context'):
 
             mock_welcome.return_value = ("добро пожаловать", MagicMock())
             mock_update.message.reply_text = AsyncMock()
@@ -228,7 +228,7 @@ class TestCompleteUserFlows:
         """Test complete navigation flow with back buttons."""
         # Step 1: Start command
         with patch('vechnost_bot.handlers.welcome_screen') as mock_welcome, \
-             patch('vechnost_bot.handlers.set_user_context') as mock_set_context:
+             patch('vechnost_bot.handlers.set_user_context'):
 
             mock_welcome.return_value = ("добро пожаловать", MagicMock())
             mock_update.message.reply_text = AsyncMock()
@@ -289,7 +289,7 @@ class TestCompleteUserFlows:
         """Test error handling in user flows."""
         # Step 1: Start command
         with patch('vechnost_bot.handlers.welcome_screen') as mock_welcome, \
-             patch('vechnost_bot.handlers.set_user_context') as mock_set_context:
+             patch('vechnost_bot.handlers.set_user_context'):
 
             mock_welcome.return_value = ("добро пожаловать", MagicMock())
             mock_update.message.reply_text = AsyncMock()
