@@ -1008,26 +1008,28 @@ class CallbackHandlerRegistry:
 
         except ValueError as e:
             logger.warning(f"Invalid callback data: {data}, error: {e}")
-            await self._say_it_failed(query)
+            await self._say_it_went_wrong(query)
         except Exception as e:
             logger.error(f"Error handling callback query {data}: {e}", exc_info=True)
-            await self._say_it_failed(query)
+            await self._say_it_went_wrong(query)
 
-    @staticmethod
-    async def _say_it_failed(query: Any) -> None:
-        """Tell the player the button did not work.
+    async def _say_it_went_wrong(self, query: Any) -> None:
+        """Tell the user something failed, even when storage is what failed.
 
-        Deliberately touches no storage. Both error paths used to re-read the
-        session here purely to pick a language, so whenever the failure *was*
-        the storage - a Redis outage, the commonest case by far - the recovery
-        raised the same error again and the player got nothing at all: every
-        button silently dead, no message, no spinner, no hint. There is one
-        language now, so there is nothing to look up.
+        The language used to be read from the session — so when the original
+        failure *was* storage, the error path failed the same way and the user
+        was left with a tapped button and silence. Russian is the only
+        language the app ships, so falling back to it costs nothing and is
+        always better than saying nothing.
         """
+        language = Language.RUSSIAN
         try:
-            await query.edit_message_text(
-                get_text('errors.unknown_callback', Language.RUSSIAN)
-            )
+            language = (await get_session(query.message.chat.id)).language
+        except Exception as session_error:
+            logger.warning(f"Could not read the session for an error message: {session_error}")
+
+        try:
+            await query.edit_message_text(get_text('errors.unknown_callback', language))
         except Exception as edit_error:
             logger.error(f"Error editing message: {edit_error}")
 

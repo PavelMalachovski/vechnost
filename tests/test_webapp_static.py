@@ -82,10 +82,8 @@ def test_the_mini_app_suits_match_the_printed_cards():
     art = html.split("const CARD_ART = {", 1)[1].split("\n  };", 1)[0]
     for theme, folder in (("Acquaintance", "acq"), ("For Couples", "couples"),
                           ("Sex", "sex"), ("Provocation", "prov")):
-        line = next(
-            row for row in art.splitlines()
-            if row.lstrip().startswith(f"'{theme}'")
-        )
+        line = next(row for row in art.splitlines()
+                    if row.lstrip().startswith(f"'{theme}'"))
         faces = re.findall(r"'([a-z_]+)/[a-z_0-9]+\.png'", line)
         assert faces, f"{theme} names no card face"
         assert set(faces) == {folder}, f"{theme} wears {set(faces)}, not {folder}"
@@ -380,3 +378,22 @@ def test_the_pose_drawings_show_which_way_the_body_faces():
     # Every pose names the view its caption will print.
     poses = html.split("const ART_POSES = {")[1].split("\n  };")[0]
     assert poses.count("view:") == poses.count("light:")
+
+
+def test_the_back_of_the_card_never_takes_a_touch():
+    """The back face was eating the scroll gesture.
+
+    `backface-visibility: hidden` hides the back from the eye, but not from
+    the compositor's touch hit test: both faces are clip layers and the back
+    is later in the DOM, so a finger in the middle of a card landed on it —
+    and behind the back there is no scroller. Long questions were readable
+    only by script: `elementFromPoint` returns `.q-text` and disagrees with
+    what a real touch does, which is why this survived a browser check.
+
+    Verified with real touch input (CDP `Input.dispatchTouchEvent`) in a
+    mobile Chromium: without the rule the zone's scrollTop stays 0; with it
+    the card scrolls its full range and the swipe still works.
+    """
+    html = INDEX.read_text(encoding="utf-8")
+    back = html.split("  .card .back {")[1].split("}")[0]
+    assert "pointer-events: none" in back

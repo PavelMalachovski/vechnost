@@ -2,7 +2,7 @@
 
 The three two-partner features used to hand out six-character codes drawn
 from one alphabet, typed at three different doors. These cover the link that
-replaced them, in both shapes it can take.
+replaced them, in all three shapes it can take.
 """
 
 import os
@@ -20,20 +20,33 @@ CODE = "AB23CD"
 
 @pytest.fixture
 def bot_only():
-    """A deployment with a bot username but no Mini App short name."""
+    """A deployment with a bot username and no Mini App configured at all."""
     with (
         patch.object(settings, "bot_username", "vechnost_bot"),
         patch.object(settings, "webapp_short_name", None),
+        patch.object(settings, "webapp_main_app", False),
     ):
         yield
 
 
 @pytest.fixture
 def direct_link():
-    """A deployment where BotFather knows the Mini App by name."""
+    """A deployment where BotFather knows the Mini App by name (/newapp)."""
     with (
         patch.object(settings, "bot_username", "vechnost_bot"),
         patch.object(settings, "webapp_short_name", "app"),
+        patch.object(settings, "webapp_main_app", False),
+    ):
+        yield
+
+
+@pytest.fixture
+def main_app():
+    """A deployment with a Main Mini App: Configure Mini App, no short name."""
+    with (
+        patch.object(settings, "bot_username", "vechnost_bot"),
+        patch.object(settings, "webapp_short_name", None),
+        patch.object(settings, "webapp_main_app", True),
     ):
         yield
 
@@ -49,6 +62,27 @@ def test_with_a_short_name_the_link_opens_the_app_itself(direct_link):
     assert invites.invite_url("cmp", CODE) == (
         f"https://t.me/vechnost_bot/app?startapp=cmp_{CODE}"
     )
+
+
+def test_the_main_mini_app_answers_on_the_bare_username(main_app):
+    """A Main Mini App has no short name, so the link carries none.
+
+    This is its own shape rather than a value in WEBAPP_SHORT_NAME because
+    the named-app link with anything in the name slot opens nothing at all.
+    """
+    assert invites.invite_url("s69", CODE) == (
+        f"https://t.me/vechnost_bot?startapp=s69_{CODE}"
+    )
+
+
+def test_a_named_app_wins_over_a_main_one():
+    """Both configured is a contradiction; the more specific one stands."""
+    with (
+        patch.object(settings, "bot_username", "vechnost_bot"),
+        patch.object(settings, "webapp_short_name", "app"),
+        patch.object(settings, "webapp_main_app", True),
+    ):
+        assert "/app?startapp=" in invites.invite_url("s69", CODE)
 
 
 def test_no_bot_username_means_no_link_rather_than_a_broken_one():

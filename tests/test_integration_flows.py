@@ -61,8 +61,7 @@ class TestCompleteUserFlows:
 
             await start_command(mock_update, mock_context)
 
-            # Verify session was created. get_session is a coroutine now;
-            # the un-awaited call asserted on a coroutine object and failed.
+            # Verify session was created
             session = await get_session(12345)
             assert isinstance(session, SessionState)
 

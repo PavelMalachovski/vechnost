@@ -24,7 +24,8 @@ bot in one process.
 pip install -e ".[dev]"                 # install with dev deps
 python -m vechnost_bot                   # run the bot (polling)
 python -m uvicorn vechnost_bot.payments.web:app --reload --port 8000  # web + Mini App
-pytest                                   # run tests
+pytest                                   # run tests (parallel, ~10s)
+pytest -n0                               # ...serially, for a debugger
 pytest tests/test_freemium.py -q         # run one suite
 ruff check .                             # lint (CI gates on this)
 ./scripts/typecheck.sh                   # types (CI gates on this)
@@ -45,14 +46,23 @@ ruff check .                             # lint (CI gates on this)
 - Pytest config lives in `pyproject.toml` under `[tool.pytest.ini_options]`
   (`asyncio_mode = "auto"`). Do **not** re-add a `pytest.ini` — a
   `[tool:pytest]` header there silently disables the pyproject config.
-- The rootdir `conftest.py` exists to set `TELEGRAM_BOT_TOKEN` before
-  anything imports `config.py`, which builds its `Settings` at import time.
-  Without it the suite cannot be collected at all on a machine with no
-  `.env` — which is every CI runner.
-- Redis-dependent tests need `localhost:6379`; they carry the `redis`
-  marker. Absent Redis they do not skip: the hybrid storage spends its
-  auto-start retry budget on every call, and the suite goes from under a
-  minute to several. CI runs a `redis:7-alpine` service for this.
+- **The suite runs in parallel by default** (`-n auto --dist load` in
+  addopts) and takes about ten seconds. `-n0` runs it serially, which is
+  what a debugger or readable output needs. Two things make parallel safe
+  and must stay that way: the Redis tests take a database per xdist worker
+  (`_test_db()` in `tests/test_redis_storage.py`), and every test gets its
+  own storage from the autouse fixture rather than sharing the singleton.
+- **No test may touch a real Redis unless it asks to.** `HybridStorage`
+  auto-starts a server on first use and waits about ninety seconds to give
+  up, then caches the answer process-wide — so one arbitrary test paid for
+  it, which test that was depended on collection order, and under `-n auto`
+  every worker paid again. `tests/conftest.py` hands each test its own
+  storage with the fallback already decided. Tests that genuinely need a
+  server carry the `redis` marker: they run against `localhost:6379`, and
+  are **skipped with a reason** when nothing is listening. CI starts a Redis
+  service so they really run there.
+- Nothing needs `TELEGRAM_BOT_TOKEN` exported to run the tests; conftest
+  supplies a fake one before anything imports `config`.
 
 ## Architecture notes
 
@@ -86,10 +96,14 @@ ruff check .                             # lint (CI gates on this)
   the wrong door failed confusingly and a mistyped character simply refused
   the partner. `invites.py` mints the link and the server puts it in the
   state payload as `invite_url` — the client never spells one, because only
-  the server knows whether `WEBAPP_SHORT_NAME` is set and therefore which
-  shape works: `t.me/<bot>/<app>?startapp=<kind>_<CODE>` (one tap, needs a
-  Mini App short name in BotFather) or `t.me/<bot>?start=<kind>_<CODE>`
-  (the bot answers with a button into the app, nothing to configure). The
+  the server knows how BotFather is configured and therefore which of three
+  shapes works: `t.me/<bot>/<app>?startapp=<kind>_<CODE>` for a named Mini
+  App (`WEBAPP_SHORT_NAME`, made with `/newapp`), `t.me/<bot>?startapp=…`
+  for a **Main** Mini App (`WEBAPP_MAIN_APP`, made under Bot Settings ->
+  Configure Mini App — it has no short name at all, which is why it is its
+  own shape rather than a value in the other variable), and
+  `t.me/<bot>?start=…` when neither exists, where the bot answers with a
+  button into the app. The
   prefixes are `s69`, `cmp`, `duo`. The Mini App reads both `start_param`
   and `?screen=&code=` on boot and joins by itself; there are no code
   fields left anywhere in it.
@@ -195,6 +209,15 @@ ruff check .                             # lint (CI gates on this)
   crosses the chest to reach its own hand), and a body seen edge-on gets a
   narrow torso, because shoulders spread in depth there, not across the
   picture.
+- **Nothing but the front of a card may take a touch.** `.card .back`
+  carries `pointer-events: none`. `backface-visibility: hidden` hides the
+  back face from the eye but not from the compositor's touch hit test — both
+  faces are clip layers and the back is later in the DOM — so a finger in
+  the middle of a card landed on the back, behind which there is no
+  scroller, and long questions could not be scrolled at all. `elementFromPoint`
+  returns `.q-text` and disagrees, so this is invisible to any check made
+  from script: it takes real touch input to see. `tests/test_webapp_static.py`
+  holds the rule.
 - **A fade must never be a mask on a scroller.** `.q-zone` used to carry a
   `mask-image`, and a mask makes its element invisible to hit testing:
   `elementFromPoint` in the middle of a card returned `.front`, so a finger

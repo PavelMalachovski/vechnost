@@ -500,39 +500,38 @@ class TestLoadTesting:
     @pytest.mark.slow
     @pytest.mark.asyncio
     async def test_sustained_load_scenario(self, hybrid_storage_with_memory):
-        """Test sustained load scenario."""
-        async def sustained_operation():
-            """Perform sustained operations."""
-            for i in range(100):
+        """Storage survives a long run of write/read/delete without leaking.
+
+        This used to spin for thirty seconds and then assert that thirty
+        seconds had passed — the clock was the only thing it measured, and it
+        was a full half of the suite's runtime. What is worth asserting is
+        that every cycle round-trips correctly and that nothing is left
+        behind at the end, which a bounded number of rounds shows just as
+        well.
+        """
+        rounds, per_round = 20, 25
+
+        async def sustained_operation(offset: int):
+            for i in range(per_round):
+                chat_id = offset * per_round + i
                 session = SessionState(
                     language=Language.RUSSIAN,
                     theme=Theme.ACQUAINTANCE,
                     level=1
                 )
-                await hybrid_storage_with_memory.save_session(i, session)
-                await hybrid_storage_with_memory.get_session(i)
-                await hybrid_storage_with_memory.delete_session(i)
+                await hybrid_storage_with_memory.save_session(chat_id, session)
+                restored = await hybrid_storage_with_memory.get_session(chat_id)
+                assert restored is not None and restored.level == 1
+                await hybrid_storage_with_memory.delete_session(chat_id)
 
-        # Run sustained operations for 30 seconds
         start_time = time.time()
-        end_time = start_time + 30  # 30 seconds
+        await asyncio.gather(*[sustained_operation(r) for r in range(rounds)])
+        elapsed = time.time() - start_time
 
-        tasks = []
-        while time.time() < end_time:
-            task = asyncio.create_task(sustained_operation())
-            tasks.append(task)
-
-            # Limit concurrent tasks
-            if len(tasks) >= 10:
-                await asyncio.gather(*tasks)
-                tasks = []
-
-        # Wait for remaining tasks
-        if tasks:
-            await asyncio.gather(*tasks)
-
-        # Should complete successfully
-        assert time.time() - start_time >= 30
+        # Nothing survives its own delete: a store that grows under load is
+        # the failure this test exists to catch.
+        assert await hybrid_storage_with_memory.get_session(0) is None
+        assert elapsed < 10.0, f"{rounds * per_round} cycles took {elapsed:.1f}s"
 
 
 class TestPerformanceMonitoring:

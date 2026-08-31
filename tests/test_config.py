@@ -46,7 +46,8 @@ class TestSettings:
             assert settings.telegram_bot_token == "prod_token"
             assert settings.log_level == "DEBUG"
             assert settings.environment == "production"
-            # RedisDsn normalises a URL with no database path onto /0.
+            # RedisDsn normalises the database onto the URL, the same way the
+            # default above comes back as .../0.
             assert str(settings.redis_url) == "redis://prod-redis:6379/0"
             assert settings.redis_db == 1
             assert settings.chat_id == "12345"
@@ -124,24 +125,23 @@ class TestSettingsIntegration:
     """Test settings integration with other components."""
 
     def test_a_prefixed_variable_is_not_read(self):
-        """Settings has no env_prefix, so VECHNOST_* names mean nothing.
+        """There is no prefix scheme, and adding one silently would be worse.
 
-        This asserted the opposite and passed only when the plain names
-        happened to be exported too. Naming what the product actually does
-        is the point: someone reading the config for the first time should
-        not be told a prefix works.
+        Every field names its own variable through `validation_alias`, so
+        VECHNOST_LOG_LEVEL is simply not a setting. This pins that: a
+        deployment that sets the prefixed name gets the default, not a value
+        it thinks it configured.
         """
         env_vars = {
-            "VECHNOST_TELEGRAM_BOT_TOKEN": "prefixed_token",
-            "VECHNOST_LOG_LEVEL": "WARNING",
             "TELEGRAM_BOT_TOKEN": "plain_token",
+            "VECHNOST_LOG_LEVEL": "WARNING",
         }
 
-        with patch.dict(os.environ, env_vars, clear=True):
+        with patch.dict(os.environ, env_vars):
             settings = Settings()
 
             assert settings.telegram_bot_token == "plain_token"
-            assert settings.log_level == "INFO", "the prefixed name was ignored"
+            assert settings.log_level == "INFO"
 
     def test_settings_case_insensitive(self):
         """Test case insensitive environment variables."""
@@ -244,6 +244,7 @@ class TestSettingsErrorHandling:
     def test_missing_required_field(self):
         """Test missing required field handling."""
         with patch.dict(os.environ, {}, clear=True):
-            # Reported by validation alias, which is the upper-case env name.
-            with pytest.raises(ValueError, match="(?i)telegram_bot_token"):
+            # Pydantic reports the alias, which is the name a deployment
+            # actually has to set.
+            with pytest.raises(ValueError, match="TELEGRAM_BOT_TOKEN"):
                 Settings()

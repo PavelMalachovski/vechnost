@@ -400,11 +400,23 @@
        These are those fractions of the 340x470 card. */
     padding: 103px 41px 103px;
   }
+  /* The back of the card is decoration, and it must never be touchable.
+     `backface-visibility: hidden` hides it from the eye but not from the
+     compositor's touch hit test: both faces are clip layers (`.face` is
+     `overflow: hidden`), the back is later in the DOM, so a finger in the
+     middle of a card was landing on the back — behind which there is no
+     scroller — and a long question could not be scrolled at all. Note that
+     `elementFromPoint` disagrees and returns `.q-text`, so this is invisible
+     to any check made from script; it takes a real touch to see it.
+
+     pointer-events: none passes the touch through to the front, which is
+     where the scrolling text and the swipe both live. */
   .card .back {
     transform: rotateY(180deg);
     background: #4A0A38 url('/assets/backgrounds/card_back.png') no-repeat;
     background-size: 100% 100%;
     box-shadow: 0 18px 44px rgba(0,0,0,.5);
+    pointer-events: none;
   }
 
   /* The text area scrolls on its own. A long question keeps its readable

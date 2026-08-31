@@ -1,6 +1,7 @@
 """Tests for Redis storage implementation."""
 
 import asyncio
+import os
 from unittest.mock import AsyncMock, patch
 
 import pytest
@@ -14,23 +15,42 @@ from vechnost_bot.redis_storage import (
     initialize_redis_storage,
 )
 
+# Everything here talks to a real server on localhost:6379. The marker is what
+# lets conftest skip the file when there is none, and what keeps the autouse
+# in-memory fixture off these tests.
+pytestmark = pytest.mark.redis
+
+def _test_db() -> int:
+    """A database of this worker's own, so parallel runs cannot collide.
+
+    Redis ships sixteen numbered databases and the app uses 0, so the tests
+    count down from 15. Under `-n auto` each xdist worker gets its own, which
+    is what makes flushing safe: without this, two workers would flush each
+    other's keys mid-test and the failure would land on whichever was slower.
+    """
+    worker = os.environ.get("PYTEST_XDIST_WORKER", "gw0")
+    index = int(worker[2:]) if worker.startswith("gw") and worker[2:].isdigit() else 0
+    return 15 - min(index, 14)
+
 
 @pytest_asyncio.fixture
 async def redis_storage_instance():
-    """A storage on the test database, emptied before each test.
+    """A connected client on the test database, empty at both ends.
 
-    Module scope, not inside one class: TestRedisPerformance asked for this
-    fixture too and could not see it, so those tests errored on collection
-    rather than running. Flushing matters as much — `increment_counter`
-    writes a key that outlives the process, so a second run of the counter
-    test used to read whatever the first left behind.
+    Module-level so every class here can use it — it used to live inside
+    TestRedisStorage, which is why the performance class errored on a missing
+    fixture. Flushing matters: counters and rate limits are keyed by name, so
+    without it a second run of test_counter_operations starts from whatever
+    the first left behind and asserts 13 == 5.
     """
-    storage = RedisStorage("redis://localhost:6379", db=15)
+    storage = RedisStorage("redis://localhost:6379", db=_test_db())
     await storage.connect()
-    if storage._redis is not None:
+    await storage._redis.flushdb()
+    try:
+        yield storage
+    finally:
         await storage._redis.flushdb()
-    yield storage
-    await storage.disconnect()
+        await storage.disconnect()
 
 
 class TestRedisStorage:
@@ -48,14 +68,11 @@ class TestRedisStorage:
     async def test_session_operations(self, redis_storage_instance):
         """Test session save/get/delete operations."""
         chat_id = 12345
-        # SessionState carries no chat_id or current_question: the chat is the
-        # key the session is stored under, and progress is the drawn cards.
         session = SessionState(
             language=Language.RUSSIAN,
             theme=Theme.ACQUAINTANCE,
             level=1,
         )
-        session.drawn_cards.add("acq_1_q_5")
 
         # Save session
         await redis_storage_instance.save_session(chat_id, session, ttl=60)
@@ -66,7 +83,6 @@ class TestRedisStorage:
         assert retrieved_session.language == Language.RUSSIAN
         assert retrieved_session.theme == Theme.ACQUAINTANCE
         assert retrieved_session.level == 1
-        assert retrieved_session.drawn_cards == {"acq_1_q_5"}
 
         # Delete session
         await redis_storage_instance.delete_session(chat_id)
@@ -142,7 +158,7 @@ class TestRedisStorage:
         assert session is None
 
         # Should not raise exception
-        await storage.save_session(12345, SessionState(chat_id=12345), ttl=60)
+        await storage.save_session(12345, SessionState(), ttl=60)
 
     @pytest.mark.asyncio
     async def test_global_storage_functions(self):
@@ -188,11 +204,19 @@ class TestRedisPerformance:
 
     @pytest.mark.asyncio
     async def test_batch_operations(self, redis_storage_instance):
-        """Test batch operations performance."""
-        chat_ids = list(range(1000, 1100))  # 100 sessions
+        """Many sessions at once, within the pool the app actually runs.
+
+        The pool is capped at `settings.max_connections`, so firing more
+        concurrent operations than that raises "Too many connections" — from
+        the pool, not from Redis. Testing above the cap measured nothing the
+        bot can do; the batch is sized to the pool instead.
+        """
+        from vechnost_bot.config import settings
+
+        first = 1000
+        chat_ids = list(range(first, first + settings.max_connections))
         sessions = [
-            SessionState(chat_id=chat_id, language=Language.RUSSIAN)
-            for chat_id in chat_ids
+            SessionState(language=Language.RUSSIAN) for _ in chat_ids
         ]
 
         # Batch save

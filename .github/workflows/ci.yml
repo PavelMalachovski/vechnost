@@ -1,13 +1,12 @@
 name: CI
 
-# `master` is the only long-lived branch. This used to say `main, develop`,
-# neither of which exists in this repository, so CI had never run on a single
-# push or pull request.
+# The default branch here is `master`. This used to say `main, develop`, which
+# exist in no clone of this repository — so nothing ever ran, on any pull
+# request or any push, and every merge went in unchecked.
 on:
   push:
     branches: [ master ]
   pull_request:
-    branches: [ master ]
 
 jobs:
   lint:
@@ -28,24 +27,32 @@ jobs:
     - name: Run ruff
       run: ruff check .
 
+    # Strict, and blocking, on the modules that can hold the line today: the
+    # domain layer and the loaders around it. See scripts/typecheck.sh for
+    # what is on the list and why. A wholly advisory mypy gates on nothing,
+    # and new domain code should not be allowed to arrive untyped.
     - name: Type-check the domain layer
       run: ./scripts/typecheck.sh
 
-    - name: Type-check everything else (informational)
+    # The rest is not blocking yet: the codebase has a few hundred missing
+    # annotations, and fixing those is its own piece of work rather than
+    # something to smuggle into whatever PR happens to turn CI on. The output
+    # is here so the size of that job stays visible.
+    - name: Run mypy (advisory)
       continue-on-error: true
-      run: python -m mypy vechnost_bot
+      run: mypy vechnost_bot
 
   test:
     runs-on: ubuntu-latest
 
-    # The suite's storage tests talk to a real Redis. Without one they do not
-    # skip - the hybrid storage spends its auto-start retry budget on every
-    # call, which took a single test file from half a second to three minutes.
+    # The Redis suite is a real integration test against a real server.
+    # Without one it skips itself (see tests/conftest.py), which is right on a
+    # laptop and wrong here — in CI it should actually run.
     services:
       redis:
-        image: redis:7-alpine
+        image: redis:7
         ports:
-        - 6379:6379
+          - 6379:6379
         options: >-
           --health-cmd "redis-cli ping"
           --health-interval 10s
@@ -65,9 +72,10 @@ jobs:
         python -m pip install --upgrade pip
         pip install .[dev]
 
+    # Runs across every core: `-n auto --dist load` is in pyproject's addopts.
+    # No environment to set up — conftest supplies a fake bot token, and
+    # nothing here talks to Telegram.
     - name: Run tests
-      env:
-        REDIS_URL: redis://localhost:6379/0
       run: pytest -q
 
   docker:

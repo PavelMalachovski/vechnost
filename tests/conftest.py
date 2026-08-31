@@ -8,6 +8,13 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 import pytest_asyncio
+
+# Settings are constructed when vechnost_bot.config is imported, and the token
+# has no default — so without this the whole suite fails to collect on a
+# machine (or a CI runner) that has not exported one. A fake token is right:
+# nothing here talks to Telegram.
+os.environ.setdefault("TELEGRAM_BOT_TOKEN", "1234567890:TEST_TOKEN_FOR_UNIT_TESTS")
+
 from telegram import CallbackQuery, Chat, Message, Update, User
 from telegram.ext import ContextTypes
 
@@ -32,6 +39,35 @@ def _reset_request_throttle():
     _throttle.reset()
     yield
     _throttle.reset()
+
+
+@pytest.fixture(autouse=True)
+def _storage_stays_in_memory(request):
+    """Never let a test try to start a real Redis server.
+
+    `HybridStorage` auto-starts Redis on first use and waits for it to come
+    up before falling back to memory. On a machine without Redis that wait is
+    around a minute and a half, and it is paid by whichever test happens to
+    touch storage first — so the suite's runtime, and which test looked slow,
+    depended on collection order. It also cached the answer process-wide,
+    which under `-n auto` means every worker pays it again.
+
+    Each test gets its own storage with the fallback already decided, so the
+    cost is zero and no state leaks between tests. Tests that genuinely need
+    a server carry the `redis` marker and are left alone.
+    """
+    if request.node.get_closest_marker("redis"):
+        yield
+        return
+
+    from vechnost_bot import hybrid_storage as _hybrid
+
+    storage = HybridStorage()
+    storage._redis_available = False
+    storage._redis_checked = True
+    storage._initialized = True
+    with patch.object(_hybrid, "hybrid_storage", storage):
+        yield
 
 
 # ============================================================================
@@ -577,8 +613,35 @@ def pytest_configure(config):
     )
 
 
+def _redis_is_reachable() -> bool:
+    import socket
+
+    try:
+        with socket.create_connection(("localhost", 6379), timeout=0.25):
+            return True
+    except OSError:
+        return False
+
+
 def pytest_collection_modifyitems(config, items):
-    """Modify test collection."""
+    """Modify test collection.
+
+    Also skips the Redis suite when there is no server to talk to. Those are
+    real integration tests against localhost:6379 — worth keeping real, and
+    they do run in CI, where the workflow starts a Redis service. On a machine
+    without one they would fail for a reason that has nothing to do with the
+    change under test, so the reason is said out loud instead.
+    """
+    skip_redis = None
+    if any(item.get_closest_marker("redis") for item in items) and not _redis_is_reachable():
+        skip_redis = pytest.mark.skip(
+            reason="no Redis on localhost:6379 (start one to run these)"
+        )
+
+    for item in items:
+        if skip_redis is not None and item.get_closest_marker("redis"):
+            item.add_marker(skip_redis)
+
     for item in items:
         # Add integration marker to tests in integration_flows.py
         if "integration_flows" in item.nodeid:
