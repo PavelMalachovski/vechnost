@@ -65,10 +65,14 @@ pytest tests/test_freemium.py -q         # run one suite
   the wrong door failed confusingly and a mistyped character simply refused
   the partner. `invites.py` mints the link and the server puts it in the
   state payload as `invite_url` — the client never spells one, because only
-  the server knows whether `WEBAPP_SHORT_NAME` is set and therefore which
-  shape works: `t.me/<bot>/<app>?startapp=<kind>_<CODE>` (one tap, needs a
-  Mini App short name in BotFather) or `t.me/<bot>?start=<kind>_<CODE>`
-  (the bot answers with a button into the app, nothing to configure). The
+  the server knows how BotFather is configured and therefore which of three
+  shapes works: `t.me/<bot>/<app>?startapp=<kind>_<CODE>` for a named Mini
+  App (`WEBAPP_SHORT_NAME`, made with `/newapp`), `t.me/<bot>?startapp=…`
+  for a **Main** Mini App (`WEBAPP_MAIN_APP`, made under Bot Settings ->
+  Configure Mini App — it has no short name at all, which is why it is its
+  own shape rather than a value in the other variable), and
+  `t.me/<bot>?start=…` when neither exists, where the bot answers with a
+  button into the app. The
   prefixes are `s69`, `cmp`, `duo`. The Mini App reads both `start_param`
   and `?screen=&code=` on boot and joins by itself; there are no code
   fields left anywhere in it.

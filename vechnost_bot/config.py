@@ -133,12 +133,23 @@ class Settings(BaseSettings):
     webapp_short_name: str | None = Field(
         default=None,
         validation_alias="WEBAPP_SHORT_NAME",
-        description="The Mini App short name set in BotFather "
-                    "(Bot Settings -> Configure Mini App). With it, an invite "
-                    "is a direct link (t.me/<bot>/<short name>?startapp=...) "
-                    "that opens the app on the right screen in one tap. "
-                    "Without it, invites fall back to t.me/<bot>?start=..., "
-                    "where the bot answers with a button into the app."
+        description="The short name of a *named* Mini App, made in BotFather "
+                    "with /newapp. With it, an invite is a direct link "
+                    "(t.me/<bot>/<short name>?startapp=...) that opens the app "
+                    "on the right screen in one tap."
+    )
+
+    webapp_main_app: bool = Field(
+        default=False,
+        validation_alias="WEBAPP_MAIN_APP",
+        description="Set when the bot has a Main Mini App (BotFather -> Bot "
+                    "Settings -> Configure Mini App). Its direct link carries "
+                    "no short name at all — t.me/<bot>?startapp=... — which is "
+                    "why this is its own switch rather than a value in "
+                    "WEBAPP_SHORT_NAME. One tap, same as a named app; the "
+                    "short name wins if somehow both are configured. With "
+                    "neither, invites fall back to t.me/<bot>?start=..., where "
+                    "the bot answers with a button into the app."
     )
 
     # Gift certificates
