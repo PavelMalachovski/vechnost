@@ -510,17 +510,29 @@ class TestCallbackHandlerRegistry:
         mock_query.edit_message_text.assert_called_once()
 
     @pytest.mark.asyncio
-    async def test_a_failure_to_read_the_session_still_reaches_the_user(self, registry, mock_query):
-        """Storage being down is exactly when the user must be told something.
+    async def test_handle_callback_exception(self, registry, mock_query):
+        """A storage outage still gets an answer back to the player.
 
-        The error path used to read the session again, only to pick a
-        language — so when storage was what failed, it failed the same way
-        and the user was left with a tapped button and silence. Russian is
-        the only language the app ships, so the fallback costs nothing.
+        The recovery path used to re-read the session purely to pick a
+        language, so when storage was what had failed it failed again and the
+        player got nothing at all - every button silently dead. This test
+        asserted that as the expected behaviour, comment and all.
         """
         with patch('vechnost_bot.callback_handlers.get_session') as mock_get_session:
             mock_get_session.side_effect = Exception("Test error")
 
             await registry.handle_callback(mock_query, "theme_Acquaintance")
 
-            mock_query.edit_message_text.assert_called_once()
+        mock_query.edit_message_text.assert_called_once()
+
+    @pytest.mark.asyncio
+    async def test_a_dead_telegram_message_does_not_raise(self, registry, mock_query):
+        """Neither the handler nor the apology can reach Telegram."""
+        mock_query.edit_message_text.side_effect = Exception("message is gone")
+
+        with patch('vechnost_bot.callback_handlers.get_session') as mock_get_session:
+            mock_get_session.side_effect = Exception("Test error")
+
+            await registry.handle_callback(mock_query, "theme_Acquaintance")
+
+        mock_query.edit_message_text.assert_called_once()

@@ -837,7 +837,13 @@ class SimpleActionHandler(CallbackHandler):
             # For other themes, show level selection
             available_levels = localized_game_data.get_available_levels(session.theme, session.language)
             if available_levels:
-                await self._show_level_selection(query, session.theme, available_levels)
+                # `session` is not optional: without it this raises TypeError
+                # rather than showing anyone a level menu. Unreachable while
+                # Sex is the only NSFW theme and Sex has no levels, but one
+                # content edit away from being a live crash.
+                await self._show_level_selection(
+                    query, session.theme, available_levels, session
+                )
             else:
                 await self._show_theme_selection(query, session)
 

@@ -10,7 +10,7 @@ os.environ.setdefault("TELEGRAM_BOT_TOKEN", "1234567890:TEST_TOKEN_FOR_UNIT_TEST
 from fastapi.testclient import TestClient
 
 import vechnost_bot.payments.database as database
-from vechnost_bot import steps69
+from vechnost_bot import invites, steps69
 from vechnost_bot.config import settings
 from vechnost_bot.payments.web import app
 
@@ -84,7 +84,7 @@ def test_both_pieces_start_on_cell_one(client):
     assert game["partner"]["position"] == 1
     assert game["you"]["cell"]["kind"] == "start"
     assert game["finished"] is False
-    assert len(game["code"]) == 6
+    assert len(game["code"]) == invites.CODE_LENGTH
 
 
 def test_the_creator_wears_the_suit_they_picked(client):
@@ -147,8 +147,6 @@ def test_two_phones_play_a_whole_game_through_the_invite_link(client):
     stop at the door: both ends defaulted to the same suit and the join came
     back 409.
     """
-    from vechnost_bot import invites
-
     game = create(client, piece="hearts")
     link = game["invite_url"]
     screen, code = invites.parse_invite_param(link.split("=")[-1])

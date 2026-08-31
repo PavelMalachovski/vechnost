@@ -51,8 +51,6 @@ dev = [
     # The suite runs in parallel by default (see addopts); -p no:xdist turns
     # that off for a run where the output order matters.
     "pytest-xdist>=3.5.0",
-    # The memory tests measure the process's own RSS.
-    "psutil>=5.9.0",
     "ruff>=0.1.0",
     "mypy>=1.0.0",
     "types-PyYAML>=6.0.0",

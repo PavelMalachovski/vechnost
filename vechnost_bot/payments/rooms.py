@@ -9,7 +9,6 @@ and an unpaid guest still sees every card of a paid creator's room.
 import hashlib
 import logging
 import random
-import secrets
 from datetime import datetime, timedelta
 from typing import Any
 
@@ -33,9 +32,6 @@ logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/api/rooms", tags=["rooms"])
 
 ROOM_TTL = timedelta(hours=24)
-_CODE_ALPHABET = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"
-
-
 class CreateRoomRequest(BaseModel):
     theme: str
     level: int | None = None
@@ -43,7 +39,8 @@ class CreateRoomRequest(BaseModel):
 
 
 def _generate_room_code() -> str:
-    return "".join(secrets.choice(_CODE_ALPHABET) for _ in range(6))
+    """A fresh code, from the one generator in `invites`."""
+    return invites.new_code()
 
 
 def _identity(

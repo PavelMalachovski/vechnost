@@ -394,28 +394,6 @@ def mock_translations():
 # ============================================================================
 
 @pytest_asyncio.fixture
-def mock_file_operations():
-    """Mock file operations."""
-    with patch('vechnost_bot.async_file_ops.aiofiles.open') as mock_open, \
-         patch('vechnost_bot.async_file_ops.Path.exists') as mock_exists, \
-         patch('vechnost_bot.async_file_ops.Path.mkdir') as mock_mkdir:
-
-        mock_exists.return_value = True
-        mock_mkdir.return_value = None
-
-        # Mock file content
-        mock_file_content = b"Mock file content"
-        mock_open.return_value.__aenter__.return_value.read = AsyncMock(return_value=mock_file_content)
-        mock_open.return_value.__aenter__.return_value.write = AsyncMock()
-
-        yield {
-            "open": mock_open,
-            "exists": mock_exists,
-            "mkdir": mock_mkdir
-        }
-
-
-@pytest_asyncio.fixture
 def mock_environment():
     """Mock environment variables."""
     env_vars = {
@@ -508,22 +486,39 @@ def mock_logger():
 
 @pytest_asyncio.fixture
 def mock_metrics():
-    """Mock metrics collector."""
+    """The metrics collector `vechnost_bot.monitoring` actually calls.
+
+    Patched into the module rather than merely returned: a free-standing
+    MagicMock records nothing, so `assert_called()` on it can only ever fail,
+    which is exactly what it did.
+    """
     metrics = MagicMock()
     metrics.increment_counter = MagicMock()
     metrics.record_timer = MagicMock()
     metrics.record_gauge = MagicMock()
-    return metrics
+    with patch('vechnost_bot.monitoring.metrics', metrics):
+        yield metrics
 
 
 @pytest_asyncio.fixture
 def mock_sentry():
-    """Mock Sentry client."""
-    sentry = MagicMock()
-    sentry.capture_exception = MagicMock()
-    sentry.set_tag = MagicMock()
-    sentry.set_context = MagicMock()
-    return sentry
+    """The Sentry entry points `monitoring` imported by name.
+
+    `monitoring.py` does `from sentry_sdk import capture_exception, set_tag,
+    ...`, so each one is a separate name in that module's namespace and there
+    is no client object to stand in for them - hence a dict of patches rather
+    than one mock with attributes.
+    """
+    with patch('vechnost_bot.monitoring.capture_exception') as capture, \
+         patch('vechnost_bot.monitoring.set_tag') as set_tag, \
+         patch('vechnost_bot.monitoring.set_context') as set_context, \
+         patch('vechnost_bot.monitoring.set_user') as set_user:
+        yield {
+            "capture_exception": capture,
+            "set_tag": set_tag,
+            "set_context": set_context,
+            "set_user": set_user,
+        }
 
 
 # ============================================================================

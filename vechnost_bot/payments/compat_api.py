@@ -9,7 +9,6 @@ the result carries zones, verdicts and question numbers.
 
 import hashlib
 import logging
-import secrets
 from datetime import datetime
 from typing import Any
 
@@ -31,8 +30,6 @@ logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api/compat", tags=["compat"])
 
-_CODE_ALPHABET = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"
-
 
 class AnswerRequest(BaseModel):
     index: int = Field(ge=0, lt=TOTAL_QUESTIONS)
@@ -40,7 +37,8 @@ class AnswerRequest(BaseModel):
 
 
 def _generate_code() -> str:
-    return "".join(secrets.choice(_CODE_ALPHABET) for _ in range(6))
+    """A fresh code, from the one generator in `invites`."""
+    return invites.new_code()
 
 
 def _language(lang: str) -> Language:

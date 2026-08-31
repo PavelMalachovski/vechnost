@@ -4,10 +4,11 @@ import os
 from unittest.mock import AsyncMock, patch
 
 import pytest
+from telegram.error import InvalidToken
 from telegram.ext import Application
 
 from vechnost_bot.bot import create_application, run_bot, setup_logging
-from vechnost_bot.config import Settings
+from vechnost_bot.config import Settings, settings
 
 
 class TestBotSetup:
@@ -44,6 +45,18 @@ class TestBotSetup:
         with patch.dict(os.environ, {}, clear=True):
             with pytest.raises(ValueError, match="TELEGRAM_BOT_TOKEN"):
                 Settings()
+
+    def test_create_application_rejects_a_token_that_is_not_one(self):
+        """And an empty token that somehow got past import is refused too.
+
+        A deployment that sets `TELEGRAM_BOT_TOKEN=` gets a Settings object
+        that validates - the variable is present, it is just empty - so the
+        refusal has to come from python-telegram-bot, at the point a Bot is
+        built. It does, and it names the token.
+        """
+        with patch.object(settings, "telegram_bot_token", ""):
+            with pytest.raises(InvalidToken):
+                create_application()
 
     # run_bot() opens with initialize_redis_sync(), which tries to auto-start
     # a real Redis. Unpatched, these two hang for as long as that takes to

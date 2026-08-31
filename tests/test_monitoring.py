@@ -1,5 +1,6 @@
 """Tests for monitoring and error tracking."""
 
+import asyncio
 import os
 import time
 from unittest.mock import patch
@@ -274,6 +275,3 @@ class TestSentryIntegration:
 
                 mock_init.assert_not_called()
 
-
-# Import asyncio for async tests
-import asyncio

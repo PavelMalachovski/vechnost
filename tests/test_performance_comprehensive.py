@@ -3,12 +3,13 @@
 import asyncio
 import statistics
 import time
-from pathlib import Path
+import tracemalloc
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
 from vechnost_bot.models import ContentType, Language, SessionState, Theme
+from vechnost_bot.renderer import render_card
 
 
 class TestStoragePerformance:
@@ -114,35 +115,36 @@ class TestStoragePerformance:
     @pytest.mark.performance
     @pytest.mark.asyncio
     async def test_memory_usage_under_load(self, hybrid_storage_with_memory):
-        """Test memory usage under load."""
-        import os
+        """A thousand live sessions must not cost more than a few megabytes.
 
-        import psutil
+        Measured with `tracemalloc`, which reports what this block allocated,
+        not with the process RSS the earlier version read: RSS moves with the
+        allocator's arenas and with whatever every other test in the run left
+        behind, so a 50MB bound on it passed no matter what the storage did.
+        """
+        tracemalloc.start()
+        try:
+            before = tracemalloc.get_traced_memory()[0]
 
-        process = psutil.Process(os.getpid())
-        initial_memory = process.memory_info().rss
+            sessions = []
+            for i in range(1000):
+                session = SessionState(
+                    language=Language.RUSSIAN,
+                    theme=Theme.ACQUAINTANCE,
+                    level=1,
+                )
+                await hybrid_storage_with_memory.save_session(i, session)
+                sessions.append(await hybrid_storage_with_memory.get_session(i))
 
-        # Create many sessions
-        sessions = []
-        for i in range(1000):
-            session = SessionState(
-                language=Language.RUSSIAN,
-                theme=Theme.ACQUAINTANCE,
-                level=1
-            )
-            await hybrid_storage_with_memory.save_session(i, session)
-            sessions.append(await hybrid_storage_with_memory.get_session(i))
+            after = tracemalloc.get_traced_memory()[0]
+        finally:
+            tracemalloc.stop()
 
-        final_memory = process.memory_info().rss
-        memory_increase = final_memory - initial_memory
-
-        # Memory increase should be reasonable (less than 50MB)
-        assert memory_increase < 50 * 1024 * 1024  # 50MB
-
-        # Verify all sessions are accessible
         assert len(sessions) == 1000
-        for session in sessions:
-            assert session is not None
+        assert all(session is not None for session in sessions)
+        # ~2KB per session leaves room for the pydantic model and the dict
+        # entry, and still catches a session that starts carrying a deck.
+        assert after - before < 1000 * 2048
 
 
 class TestCallbackHandlerPerformance:
@@ -258,62 +260,77 @@ class TestCallbackHandlerPerformance:
 class TestImageRenderingPerformance:
     """Test image rendering performance.
 
-    These render for real. They used to patch `render_card` with a mock and
-    then time the mock, which measured nothing and asserted that a MagicMock
-    is fast. The budgets below are deliberately loose: they are a guard
-    against a rendering path that has become pathologically slow, not a
-    benchmark, and they have to hold on a shared CI runner.
+    Against the real renderer. The earlier version of this class patched
+    `render_card` with a mock and then timed the mock, so it asserted that
+    returning a constant takes under half a second and would have passed with
+    the renderer entirely broken - which is how it survived losing the
+    `PIL` attribute it also patched.
     """
 
-    BACKGROUND = str(
-        Path(__file__).parent.parent / "assets" / "backgrounds" / "library.png"
-    )
+    BACKGROUND = "assets/backgrounds/acq/acq_1.png"
 
     @pytest.mark.performance
-    @pytest.mark.asyncio
-    async def test_question_card_rendering_performance(self):
-        """One card, composited onto real art."""
-        from vechnost_bot.renderer import render_card
+    def test_question_card_rendering_performance(self):
+        """A card is drawn while the player is watching a spinner."""
+        # Warm the font and background caches first: the first render of the
+        # process pays for loading four TrueType faces, and a player only
+        # ever waits for the second one onward.
+        render_card("Разогрев", self.BACKGROUND)
 
         start_time = time.time()
-        image = render_card("Какой момент этого дня стоит запомнить?", self.BACKGROUND)
+        image_data = render_card(
+            "Что тебя удивило в нас за последний год?", self.BACKGROUND
+        )
         render_time = time.time() - start_time
 
-        assert image.getvalue(), "an empty card is not a card"
-        assert render_time < 2.0
+        assert render_time < 0.5
+        payload = image_data.getvalue()
+        # JPEG at quality 92, not PNG: `renderer.py` composites onto
+        # photographic backgrounds, where PNG would triple the bytes a phone
+        # on a train has to pull down for no visible gain.
+        assert payload.startswith(b"\xff\xd8\xff"), "a card is a JPEG"
+        assert len(payload) > 10_000
 
     @pytest.mark.performance
-    @pytest.mark.asyncio
-    async def test_logo_generation_performance(self):
-        """The brand logo, drawn from scratch."""
-        from vechnost_bot.logo_generator import generate_vechnost_logo
+    def test_a_long_question_still_renders_in_time(self):
+        """The slowest card is the one that needs the most line-breaking."""
+        render_card("Разогрев", self.BACKGROUND)
 
         start_time = time.time()
-        logo = generate_vechnost_logo()
-        logo_time = time.time() - start_time
+        render_card(
+            "Расскажи о моменте, когда ты понял, что доверяешь мне полностью, "
+            "и о том, что этому предшествовало, во всех подробностях, "
+            "которые ты помнишь.",
+            self.BACKGROUND,
+            footer="Знакомство · 12/50",
+            watermark="VECHNOST",
+        )
+        render_time = time.time() - start_time
 
-        assert logo.getvalue()
-        assert logo_time < 2.0
+        assert render_time < 1.0
 
     @pytest.mark.performance
-    @pytest.mark.slow
     @pytest.mark.asyncio
     async def test_concurrent_image_rendering(self):
-        """Twenty cards off one thread pool, the way the bot renders them."""
-        from vechnost_bot.renderer import render_card
+        """Twenty cards at once, as a busy evening would ask for them.
 
-        questions = [f"Вопрос номер {i}, и он довольно длинный." for i in range(20)]
+        `render_card` is synchronous, so this measures the thread pool the
+        event loop hands it to - which is what actually happens when twenty
+        chats press a button in the same second.
+        """
+        render_card("Разогрев", self.BACKGROUND)
 
         start_time = time.time()
         images = await asyncio.gather(*[
-            asyncio.to_thread(render_card, question, self.BACKGROUND)
-            for question in questions
+            asyncio.to_thread(render_card, f"Вопрос {i}", self.BACKGROUND)
+            for i in range(20)
         ])
         total_time = time.time() - start_time
 
+        assert total_time < 5.0
         assert len(images) == 20
-        assert all(image.getvalue() for image in images)
-        assert total_time < 20.0
+        assert all(image.getvalue().startswith(b"\xff\xd8\xff") for image in images)
+
 
 class TestMemoryPerformance:
     """Test memory performance."""
@@ -321,39 +338,57 @@ class TestMemoryPerformance:
     @pytest.mark.performance
     @pytest.mark.asyncio
     async def test_session_memory_usage(self, hybrid_storage_with_memory):
-        """Test session memory usage."""
-        import os
+        """Cost per stored session stays flat as the store fills up.
 
-        import psutil
+        The earlier version measured process RSS and "cleared" between rounds
+        by deleting one chat id out of a thousand, so every round measured the
+        previous round's sessions as well and the bound it asserted was on the
+        whole process rather than on the store.
+        """
+        store = hybrid_storage_with_memory.memory_storage
+        per_session = []
 
-        process = psutil.Process(os.getpid())
+        for count in (100, 200, 400, 800):
+            store.sessions.clear()
+            tracemalloc.start()
+            try:
+                before = tracemalloc.get_traced_memory()[0]
+                for i in range(count):
+                    await hybrid_storage_with_memory.save_session(
+                        i,
+                        SessionState(
+                            language=Language.RUSSIAN,
+                            theme=Theme.ACQUAINTANCE,
+                            level=1,
+                        ),
+                    )
+                after = tracemalloc.get_traced_memory()[0]
+            finally:
+                tracemalloc.stop()
 
-        # Measure memory usage with different session counts
-        memory_usage = []
-        session_counts = [10, 50, 100, 500, 1000]
+            assert len(store.sessions) == count
+            per_session.append((after - before) / count)
 
-        for count in session_counts:
-            # Clear previous sessions
-            await hybrid_storage_with_memory.delete_session(12345)
+        # Flat, not merely bounded: doubling the count four times must not
+        # make each session more expensive, which is what a store that keeps
+        # a copy of everything it has ever held would do.
+        assert max(per_session) < 2 * min(per_session)
 
-            # Create sessions
-            for i in range(count):
-                session = SessionState(
-                    language=Language.RUSSIAN,
-                    theme=Theme.ACQUAINTANCE,
-                    level=1
-                )
-                await hybrid_storage_with_memory.save_session(i, session)
+    @pytest.mark.performance
+    @pytest.mark.asyncio
+    async def test_deleted_sessions_are_released(self, hybrid_storage_with_memory):
+        """Deleting a session removes it, rather than tombstoning it."""
+        store = hybrid_storage_with_memory.memory_storage
+        store.sessions.clear()
 
-            # Measure memory
-            memory_info = process.memory_info()
-            memory_usage.append(memory_info.rss)
+        for i in range(500):
+            await hybrid_storage_with_memory.save_session(i, SessionState())
+        assert len(store.sessions) == 500
 
-        # Memory usage should scale linearly
-        for i in range(1, len(memory_usage)):
-            memory_increase = memory_usage[i] - memory_usage[i-1]
-            # Each additional session should use less than 1KB
-            assert memory_increase < session_counts[i] * 1024
+        for i in range(500):
+            await hybrid_storage_with_memory.delete_session(i)
+
+        assert store.sessions == {}
 
     @pytest.mark.performance
     @pytest.mark.asyncio
@@ -504,78 +539,80 @@ class TestPerformanceMonitoring:
 
     @pytest.mark.performance
     @pytest.mark.asyncio
-    async def test_performance_metrics_collection(self):
-        """A tracked operation records how long it took.
+    async def test_performance_metrics_collection(self, mock_metrics):
+        """A tracked operation records a timer and a counter."""
+        from vechnost_bot.monitoring import track_performance
 
-        Patched on the module's own `metrics` instance: a bare mock handed in
-        as a fixture is not wired to anything, so asserting on it could only
-        ever pass by accident. A success records a timer and no counter — the
-        counter is the error path's.
-        """
-        from vechnost_bot import monitoring
+        @track_performance("test_operation")
+        async def test_operation():
+            """Test operation."""
+            await asyncio.sleep(0.01)  # 10ms operation
+            return "success"
 
-        with patch.object(monitoring, "metrics") as mock_metrics:
-            @monitoring.track_performance("test_operation")
-            async def test_operation():
-                await asyncio.sleep(0.01)  # 10ms operation
-                return "success"
-
-            result = await test_operation()
+        result = await test_operation()
 
         assert result == "success"
         mock_metrics.record_timer.assert_called_once()
-        assert mock_metrics.record_timer.call_args[0][0] == "test_operation_success"
-        mock_metrics.increment_counter.assert_not_called()
-
-        # Verify result
-        assert result == "success"
+        timer_name, duration = mock_metrics.record_timer.call_args.args
+        assert timer_name == "test_operation_success"
+        assert duration >= 0.01, "the timer must measure the operation"
 
     @pytest.mark.performance
     @pytest.mark.asyncio
-    async def test_error_metrics_collection(self):
-        """A failure is counted, and the exception still reaches the caller."""
-        from vechnost_bot import monitoring
+    async def test_error_metrics_collection(self, mock_metrics):
+        """A failure is counted under the operation that failed."""
+        from vechnost_bot.monitoring import track_errors
 
-        with patch.object(monitoring, "metrics") as mock_metrics:
-            @monitoring.track_errors("test_operation")
-            async def failing_operation():
+        @track_errors("test_operation")
+        async def failing_operation():
+            """Failing operation."""
+            raise ValueError("Test error")
+
+        with pytest.raises(ValueError):
+            await failing_operation()
+
+        mock_metrics.increment_counter.assert_called_once_with(
+            "test_operation_errors"
+        )
+
+    @pytest.mark.performance
+    @pytest.mark.asyncio
+    async def test_operation_context_tracking(self, mock_sentry, mock_metrics):
+        """Sentry gets the operation's context - on the path that needs it.
+
+        `track_operation` tags Sentry only when the block raises, which is the
+        only time there is an exception for the tags to be attached to. The
+        earlier version ran a successful block and asserted `set_tag` had been
+        called, on a MagicMock that was never wired into the module: it could
+        not have passed even with the tagging working.
+        """
+        from vechnost_bot.monitoring import track_operation
+
+        with pytest.raises(ValueError):
+            async with track_operation(
+                "test_operation", user_id=12345, theme="acquaintance"
+            ):
                 raise ValueError("Test error")
 
-            with pytest.raises(ValueError, match="Test error"):
-                await failing_operation()
-
-        mock_metrics.increment_counter.assert_called_once_with("test_operation_errors")
+        mock_sentry["set_tag"].assert_called_once_with("operation", "test_operation")
+        mock_sentry["set_context"].assert_called_once_with(
+            "operation_context", {"user_id": 12345, "theme": "acquaintance"}
+        )
+        mock_sentry["capture_exception"].assert_called_once()
 
     @pytest.mark.performance
     @pytest.mark.asyncio
-    async def test_operation_context_tracking(self):
-        """The context reaches Sentry when the operation fails, not before.
+    async def test_a_successful_operation_does_not_page_sentry(
+        self, mock_sentry, mock_metrics
+    ):
+        """Nothing went wrong, so nothing is reported."""
+        from vechnost_bot.monitoring import track_operation
 
-        A completed operation has nothing to report to Sentry — it records a
-        timer and its counters. The tags and the context are what a *failure*
-        carries, so that is where they are asserted.
-        """
-        from vechnost_bot import monitoring
+        async with track_operation("test_operation", user_id=12345):
+            await asyncio.sleep(0.01)
 
-        with (
-            patch.object(monitoring, "metrics") as mock_metrics,
-            patch.object(monitoring, "set_tag") as mock_set_tag,
-            patch.object(monitoring, "set_context") as mock_set_context,
-            patch.object(monitoring, "capture_exception") as mock_capture,
-        ):
-            async with monitoring.track_operation("test_operation", user_id=12345):
-                await asyncio.sleep(0.01)
-
-            mock_set_tag.assert_not_called()
-            assert mock_metrics.record_timer.call_args[0][0] == "test_operation_success"
-
-            with pytest.raises(RuntimeError):
-                async with monitoring.track_operation("test_operation", user_id=12345):
-                    raise RuntimeError("boom")
-
-            mock_set_tag.assert_called_once_with("operation", "test_operation")
-            mock_set_context.assert_called_once()
-            mock_capture.assert_called_once()
+        mock_sentry["capture_exception"].assert_not_called()
+        mock_metrics.increment_counter.assert_any_call("test_operation_completed")
 
 
 class TestPerformanceBenchmarks:

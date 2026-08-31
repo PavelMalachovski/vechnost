@@ -11,6 +11,7 @@ from fastapi.testclient import TestClient
 
 import vechnost_bot.payments.compat_api as compat_api
 import vechnost_bot.payments.database as database
+from vechnost_bot import invites
 from vechnost_bot.config import settings
 from vechnost_bot.payments.web import app
 
@@ -65,7 +66,7 @@ def _answer_all(client, code, headers, value):
 
 def test_create_returns_a_six_character_code(client):
     body = _create(client)
-    assert len(body["code"]) == 6
+    assert len(body["code"]) == invites.CODE_LENGTH
     assert body["answered"] == 0
     assert body["partner_answered"] == 0
     assert body["finished"] is False

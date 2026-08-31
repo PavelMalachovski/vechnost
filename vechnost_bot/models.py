@@ -88,14 +88,18 @@ class GameData(BaseModel):
 
         # For themes without levels (Sex, Provocation), get content directly
         if not self._has_levels_structure(theme):
-            return self.themes[theme].get(content_type.value, [])
+            items: list[str] = self.themes[theme].get(content_type.value, [])
+            return items
 
         # For themes with levels (Acquaintance, For Couples)
         if "levels" not in self.themes[theme]:
             return []
         if level is None or level not in self.themes[theme]["levels"]:
             return []
-        return self.themes[theme]["levels"][level].get(content_type.value, [])
+        leveled: list[str] = self.themes[theme]["levels"][level].get(
+            content_type.value, []
+        )
+        return leveled
 
     def get_available_content_types(self, theme: Theme, level: int | None) -> list[ContentType]:
         """Get available content types for a theme and level."""

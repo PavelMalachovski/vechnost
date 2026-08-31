@@ -151,6 +151,17 @@ def create_application() -> Application:
                 f"{(settings.daily_card_hour_utc + 1) % 24}:00 UTC"
             )
 
+            # Deleting rows is not urgent and should not share a minute with
+            # anything that messages a user, so it runs in the small hours.
+            from .retention import retention_job
+
+            application.job_queue.run_daily(
+                retention_job,
+                time=time(hour=3, minute=30, tzinfo=UTC),
+                name="retention_sweep",
+            )
+            logger.info("- Retention sweep scheduled at 03:30 UTC")
+
     return application
 
 

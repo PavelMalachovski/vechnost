@@ -27,10 +27,17 @@ jobs:
     - name: Run ruff
       run: ruff check .
 
-    # Not blocking yet: the codebase has a few hundred missing annotations,
-    # and fixing those is its own piece of work rather than something to
-    # smuggle into whatever PR happens to turn CI on. The output is here so
-    # the size of that job stays visible.
+    # Strict, and blocking, on the modules that can hold the line today: the
+    # domain layer and the loaders around it. See scripts/typecheck.sh for
+    # what is on the list and why. A wholly advisory mypy gates on nothing,
+    # and new domain code should not be allowed to arrive untyped.
+    - name: Type-check the domain layer
+      run: ./scripts/typecheck.sh
+
+    # The rest is not blocking yet: the codebase has a few hundred missing
+    # annotations, and fixing those is its own piece of work rather than
+    # something to smuggle into whatever PR happens to turn CI on. The output
+    # is here so the size of that job stays visible.
     - name: Run mypy (advisory)
       continue-on-error: true
       run: mypy vechnost_bot

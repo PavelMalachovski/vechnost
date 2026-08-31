@@ -7,6 +7,8 @@ from pathlib import Path
 from typing import Any
 
 from fastapi import Depends, FastAPI, Header, HTTPException, Request
+from fastapi.middleware.cors import CORSMiddleware
+from fastapi.middleware.trustedhost import TrustedHostMiddleware
 from fastapi.responses import JSONResponse, Response
 from fastapi.staticfiles import StaticFiles
 
@@ -62,6 +64,64 @@ app = FastAPI(
     version="1.0.0",
     lifespan=lifespan,
 )
+
+
+@app.middleware("http")
+async def security_headers(request: Request, call_next):
+    """Headers the app had none of.
+
+    The Mini App runs inside Telegram's own webview, which frames it itself,
+    so `X-Frame-Options: DENY` would break the product. `SAMEORIGIN` refuses
+    everyone else, which is the part that matters: nothing here should be
+    embedded in a stranger's page and clicked through.
+
+    `nosniff` stops a browser second-guessing a content type, and the
+    referrer policy keeps a room code out of the Referer header on any link
+    a user follows out of the app.
+    """
+    response = await call_next(request)
+    response.headers.setdefault("X-Content-Type-Options", "nosniff")
+    response.headers.setdefault("X-Frame-Options", "SAMEORIGIN")
+    response.headers.setdefault("Referrer-Policy", "strict-origin-when-cross-origin")
+    return response
+
+
+# The API authenticates with an `Authorization` header, never a cookie, so a
+# cross-site request cannot ride along on a session the browser holds and
+# there is no CSRF to block. What CORS still decides is who may *read* a
+# response from script: without it a page anywhere could fetch the deck, the
+# board or the compatibility questions and use them as its own. The Mini App
+# is same-origin with this server and needs no allowance at all, so the
+# allowlist is empty unless a deployment sets one.
+_ALLOWED_ORIGINS = [
+    origin.strip()
+    for origin in (settings.cors_allow_origins or "").split(",")
+    if origin.strip()
+]
+if _ALLOWED_ORIGINS:
+    app.add_middleware(
+        CORSMiddleware,
+        allow_origins=_ALLOWED_ORIGINS,
+        allow_credentials=False,
+        allow_methods=["GET", "POST", "DELETE"],
+        allow_headers=["Authorization", "Content-Type", "X-Guest-Id"],
+    )
+    logger.info(f"CORS enabled for {_ALLOWED_ORIGINS}")
+
+# Refuse a request that arrived claiming a hostname this deployment does not
+# answer to. Left open by default because the platform hostname is not known
+# here; set ALLOWED_HOSTS in production and a host-header forgery stops being
+# able to poison a link the bot builds.
+_ALLOWED_HOSTS = [
+    host.strip()
+    for host in (settings.allowed_hosts or "").split(",")
+    if host.strip()
+]
+if _ALLOWED_HOSTS:
+    app.add_middleware(TrustedHostMiddleware, allowed_hosts=_ALLOWED_HOSTS)
+    logger.info(f"Host header restricted to {_ALLOWED_HOSTS}")
+
+
 app.include_router(rooms_router)
 app.include_router(library_router)
 app.include_router(compat_router)

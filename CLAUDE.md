@@ -8,8 +8,9 @@ VECHNOST is a Telegram card game for couples. Two front-ends share one
 content set and one payment/access model:
 
 1. **Bot** (`python-telegram-bot`, long polling) — inline keyboards; each
-   card is a rendered PNG (Pillow). `/start` opens straight on the welcome
-   screen (logo photo, then the greeting) — there is no language chooser.
+   card is a JPEG composited by Pillow onto a PNG background. `/start` opens
+   straight on the welcome screen (logo photo, then the greeting) — there is
+   no language chooser.
 2. **Mini App** (`webapp/index.html`, served by FastAPI at `/app`) — a
    swipeable card deck; content comes from `GET /api/questions`.
 
@@ -26,8 +27,22 @@ python -m uvicorn vechnost_bot.payments.web:app --reload --port 8000  # web + Mi
 pytest                                   # run tests (parallel, ~10s)
 pytest -n0                               # ...serially, for a debugger
 pytest tests/test_freemium.py -q         # run one suite
+ruff check .                             # lint (CI gates on this)
+./scripts/typecheck.sh                   # types (CI gates on this)
 ```
 
+- **The three CI gates are `pytest -q`, `ruff check .` and
+  `scripts/typecheck.sh`, and all three pass.** Keep them passing. CI runs on
+  `master` only; it used to name `main` and `develop`, neither of which
+  exists here, so it had never run at all.
+- **`scripts/typecheck.sh` is mypy on a list, not on the repo.** The strict
+  settings in `[tool.mypy]` are real but the repo does not satisfy them yet
+  (`python -m mypy vechnost_bot` shows the backlog; CI prints it without
+  failing). The script names the modules that *do* — the domain layer plus
+  the loaders around it — and `--follow-imports=silent` keeps their
+  dependencies' errors out. Add a new domain module to that list.
+  Note `python -m mypy`: a standalone mypy runs on its own interpreter and
+  reports every third-party import as missing.
 - Pytest config lives in `pyproject.toml` under `[tool.pytest.ini_options]`
   (`asyncio_mode = "auto"`). Do **not** re-add a `pytest.ini` — a
   `[tool:pytest]` header there silently disables the pyproject config.
@@ -250,6 +265,35 @@ pytest tests/test_freemium.py -q         # run one suite
   `/admin/*` authenticates against `settings.admin_secret` (`ADMIN_TOKEN`,
   falling back to `TRIBUTE_API_KEY`) with `compare_digest`, and returns 503
   rather than 401 when neither is configured.
+- **One code generator, in `invites.py`.** `new_code()` mints the sixteen
+  characters that a room, a compat test and a «69 ступеней» game are all
+  addressed by; `valid_code()` says what may travel in a link. Codes used to
+  be six characters because a partner typed them; they only ever ride inside
+  a link now, and 32^6 was a space a patient sweep could cross for a seat in
+  a stranger's game. Six-character codes stay valid — they are in the
+  database and in links already sent — so the length check is a range, in
+  `webapp/index.html` too.
+- **Nothing keeps a room or an abandoned test forever.** `retention.py` runs
+  a daily sweep at 03:30 UTC (`bot.py` schedules it) that drops rooms past
+  `ROOM_KEEP` and compat tests and games that were never finished past
+  `ABANDONED_KEEP`. It deliberately never touches a *completed* compat test
+  or a finished game: those have no TTL on purpose and a couple is meant to
+  re-read them months later.
+- **The web app sets its own security headers.** `payments/web.py`'s
+  `security_headers` middleware adds `nosniff`, `X-Frame-Options:
+  SAMEORIGIN` (not `DENY` — Telegram frames the Mini App itself) and a
+  referrer policy that keeps a room code out of the `Referer`. CORS and
+  trusted hosts are configured only when `CORS_ALLOW_ORIGINS` /
+  `ALLOWED_HOSTS` are set, so a default deployment is not locked out of
+  itself.
+- **A module nothing imports is a trap, not an asset.** `security.py`,
+  `rate_limiter.py`, `logo_generator.py`, `optimized_renderer.py`,
+  `connection_pool.py` and `async_file_ops.py` were all deleted: each was
+  reachable only from its own tests, and `optimized_renderer.py` in
+  particular was a second renderer sitting beside the wired-up one, waiting
+  for someone to tune the wrong file. `throttle.py` is the live rate
+  limiter; `renderer.py` is the live renderer. They are one revert away in
+  git history if a use for them ever appears.
 - **Card rendering** (`renderer.py`) draws only the question text, and
   auto-picks between **Inter** (the card and UI face) and **DejaVu** (the
   last-resort fallback) per string, so a text in an alphabet Inter lacks

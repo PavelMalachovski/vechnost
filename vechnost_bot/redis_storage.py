@@ -31,12 +31,19 @@ class RedisStorage:
     async def connect(self):
         """Establish Redis connection with connection pooling."""
         try:
-            # Create connection pool with optimal settings
-            self._connection_pool = redis.ConnectionPool.from_url(
+            # BlockingConnectionPool, not ConnectionPool. A plain pool raises
+            # "Too many connections" the moment demand passes max_connections,
+            # so a burst of concurrent chats did not queue — it lost sessions,
+            # silently, with the error swallowed by the caller's try/except.
+            # Blocking makes the twentieth caller wait for a free connection
+            # instead, which is what a pool is for; `timeout` keeps a wait
+            # from becoming a hang.
+            self._connection_pool = redis.BlockingConnectionPool.from_url(
                 self.redis_url,
                 db=self.db,
                 decode_responses=True,
                 max_connections=settings.max_connections,
+                timeout=5,
                 retry_on_timeout=True,
                 socket_keepalive=True,
                 socket_keepalive_options={},

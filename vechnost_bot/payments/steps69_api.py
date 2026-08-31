@@ -22,7 +22,6 @@ partner gets only the one line written for them.
 
 import hashlib
 import logging
-import secrets
 from datetime import datetime
 from typing import Any, Literal
 
@@ -43,8 +42,6 @@ from .webapp_auth import InitDataError, validate_init_data
 logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api/steps69", tags=["steps69"])
-
-_CODE_ALPHABET = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"
 
 # The four suits the deck already uses, so a piece on the board belongs to
 # the same world as the cards. Both partners must pick different ones.
@@ -72,7 +69,8 @@ class FinaleRequest(BaseModel):
 
 
 def _generate_code() -> str:
-    return "".join(secrets.choice(_CODE_ALPHABET) for _ in range(6))
+    """A fresh code, from the one generator in `invites`."""
+    return invites.new_code()
 
 
 def _language(lang: str) -> Language:
