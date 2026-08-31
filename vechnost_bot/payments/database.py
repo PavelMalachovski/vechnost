@@ -74,10 +74,19 @@ def _engine() -> AsyncEngine:
 
 async def create_tables() -> None:
     """Create all tables in the database."""
+    # One transaction each, on purpose. Postgres aborts a whole transaction
+    # on the first failing statement, so sharing one means a single bad DDL
+    # silently discards the work that already succeeded - and `get_db()`
+    # swallows the exception and never retries, which would make that
+    # permanent for the life of the process.
     async with _engine().begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
+    async with _engine().begin() as conn:
         await conn.run_sync(_ensure_user_columns)
+    async with _engine().begin() as conn:
         await conn.run_sync(_ensure_steps69_columns)
+    async with _engine().begin() as conn:
+        await conn.run_sync(_release_dropped_columns)
     logger.info("Database tables created successfully")
 
 
@@ -148,6 +157,59 @@ def _ensure_steps69_columns(sync_conn) -> None:
         if column not in existing:
             sync_conn.execute(text(ddl))
             logger.info(f"Added steps69_games.{column} column")
+
+
+def _release_dropped_columns(sync_conn) -> None:
+    """Let go of NOT NULL on columns the model no longer has.
+
+    This is the other half of "create_all never alters an existing table",
+    and it is the half that bit. When «69 ступеней» went from one piece to
+    two, `position`, `turns`, `joker_task_id` and `reactions` left the model.
+    create_all does not drop a column, and the step above only adds - so a
+    deployment that had already created the table kept three columns that are
+    NOT NULL and that nothing fills any more, and **every INSERT failed**:
+
+        null value in column "position" of relation "steps69_games"
+        violates not-null constraint
+
+    Reads were fine, which is why the game looked alive right up to the
+    moment anyone pressed «Играть»: the board screen drew, and creating a
+    board was a 500.
+
+    Note this could not happen with the alembic revision, which writes
+    `server_default='1'`. `create_all` reads a model's `default=1` as a
+    Python-side default and emits a bare NOT NULL, so the two ways of
+    building the same schema disagree exactly here.
+
+    Dropping the constraint rather than the column: the column is dead
+    either way, and this is the reversible half. Removing them outright is a
+    separate, deliberate migration.
+    """
+    from sqlalchemy import inspect, text
+
+    if sync_conn.dialect.name == "sqlite":
+        # SQLite has no ALTER COLUMN, and a local file is rebuilt rather than
+        # migrated. Saying so beats a syntax error inside a transaction that
+        # is also creating tables.
+        return
+
+    inspector = inspect(sync_conn)
+    tables = set(inspector.get_table_names())
+    for table, model_table in Base.metadata.tables.items():
+        if table not in tables:
+            continue
+        model_columns = {c.name for c in model_table.columns}
+        for column in inspector.get_columns(table):
+            name = column["name"]
+            if name in model_columns or column.get("nullable", True):
+                continue
+            sync_conn.execute(
+                text(f'ALTER TABLE {table} ALTER COLUMN "{name}" DROP NOT NULL')
+            )
+            logger.warning(
+                f"Dropped NOT NULL on {table}.{name}: the column is not in "
+                "the model any more, and it was blocking every insert"
+            )
 
 
 async def drop_tables() -> None:
