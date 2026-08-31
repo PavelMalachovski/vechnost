@@ -174,6 +174,15 @@ pytest tests/test_freemium.py -q         # run one suite
   crosses the chest to reach its own hand), and a body seen edge-on gets a
   narrow torso, because shoulders spread in depth there, not across the
   picture.
+- **Nothing but the front of a card may take a touch.** `.card .back`
+  carries `pointer-events: none`. `backface-visibility: hidden` hides the
+  back face from the eye but not from the compositor's touch hit test — both
+  faces are clip layers and the back is later in the DOM — so a finger in
+  the middle of a card landed on the back, behind which there is no
+  scroller, and long questions could not be scrolled at all. `elementFromPoint`
+  returns `.q-text` and disagrees, so this is invisible to any check made
+  from script: it takes real touch input to see. `tests/test_webapp_static.py`
+  holds the rule.
 - **A fade must never be a mask on a scroller.** `.q-zone` used to carry a
   `mask-image`, and a mask makes its element invisible to hit testing:
   `elementFromPoint` in the middle of a card returned `.front`, so a finger
