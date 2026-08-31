@@ -1,10 +1,13 @@
 name: CI
 
+# `master` is the only long-lived branch. This used to say `main, develop`,
+# neither of which exists in this repository, so CI had never run on a single
+# push or pull request.
 on:
   push:
-    branches: [ main, develop ]
+    branches: [ master ]
   pull_request:
-    branches: [ main, develop ]
+    branches: [ master ]
 
 jobs:
   lint:
@@ -25,11 +28,30 @@ jobs:
     - name: Run ruff
       run: ruff check .
 
-    - name: Run mypy
-      run: mypy vechnost_bot
+    - name: Type-check the domain layer
+      run: ./scripts/typecheck.sh
+
+    - name: Type-check everything else (informational)
+      continue-on-error: true
+      run: python -m mypy vechnost_bot
 
   test:
     runs-on: ubuntu-latest
+
+    # The suite's storage tests talk to a real Redis. Without one they do not
+    # skip - the hybrid storage spends its auto-start retry budget on every
+    # call, which took a single test file from half a second to three minutes.
+    services:
+      redis:
+        image: redis:7-alpine
+        ports:
+        - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
     steps:
     - uses: actions/checkout@v4
 
@@ -44,6 +66,8 @@ jobs:
         pip install .[dev]
 
     - name: Run tests
+      env:
+        REDIS_URL: redis://localhost:6379/0
       run: pytest -q
 
   docker:

@@ -11,6 +11,7 @@ os.environ.setdefault("TELEGRAM_BOT_TOKEN", "1234567890:TEST_TOKEN_FOR_UNIT_TEST
 from fastapi.testclient import TestClient
 
 import vechnost_bot.payments.database as database
+from vechnost_bot import invites
 from vechnost_bot.config import settings
 from vechnost_bot.freemium import FREE_CARDS_PER_DECK
 from vechnost_bot.payments.web import app
@@ -46,7 +47,7 @@ def create_room(client, headers=ALICE, theme="Acquaintance", level=1):
 
 def test_create_room_returns_full_deck_state(client):
     state = create_room(client)
-    assert len(state["code"]) == 6
+    assert len(state["code"]) == invites.CODE_LENGTH
     assert state["total"] == 30  # payments disabled = full deck
     assert state["started"] is False
     assert state["your_role"] == "creator"

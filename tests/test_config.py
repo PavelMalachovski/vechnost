@@ -1,10 +1,11 @@
 """Tests for configuration management."""
 
-import pytest
 import os
-from unittest.mock import patch, MagicMock
+from unittest.mock import patch
 
-from vechnost_bot.config import Settings, create_bot, get_log_level, get_chat_id
+import pytest
+
+from vechnost_bot.config import Settings, create_bot, get_chat_id, get_log_level
 
 
 class TestSettings:
@@ -45,7 +46,8 @@ class TestSettings:
             assert settings.telegram_bot_token == "prod_token"
             assert settings.log_level == "DEBUG"
             assert settings.environment == "production"
-            assert str(settings.redis_url) == "redis://prod-redis:6379"
+            # RedisDsn normalises a URL with no database path onto /0.
+            assert str(settings.redis_url) == "redis://prod-redis:6379/0"
             assert settings.redis_db == 1
             assert settings.chat_id == "12345"
             assert settings.sentry_dsn == "https://sentry.io/project"
@@ -121,20 +123,25 @@ class TestConfigFunctions:
 class TestSettingsIntegration:
     """Test settings integration with other components."""
 
-    def test_settings_with_prefix(self):
-        """Test settings with environment prefix."""
+    def test_a_prefixed_variable_is_not_read(self):
+        """Settings has no env_prefix, so VECHNOST_* names mean nothing.
+
+        This asserted the opposite and passed only when the plain names
+        happened to be exported too. Naming what the product actually does
+        is the point: someone reading the config for the first time should
+        not be told a prefix works.
+        """
         env_vars = {
             "VECHNOST_TELEGRAM_BOT_TOKEN": "prefixed_token",
             "VECHNOST_LOG_LEVEL": "WARNING",
-            "VECHNOST_REDIS_URL": "redis://prefixed-redis:6379"
+            "TELEGRAM_BOT_TOKEN": "plain_token",
         }
 
-        with patch.dict(os.environ, env_vars):
+        with patch.dict(os.environ, env_vars, clear=True):
             settings = Settings()
 
-            assert settings.telegram_bot_token == "prefixed_token"
-            assert settings.log_level == "WARNING"
-            assert str(settings.redis_url) == "redis://prefixed-redis:6379"
+            assert settings.telegram_bot_token == "plain_token"
+            assert settings.log_level == "INFO", "the prefixed name was ignored"
 
     def test_settings_case_insensitive(self):
         """Test case insensitive environment variables."""
@@ -237,5 +244,6 @@ class TestSettingsErrorHandling:
     def test_missing_required_field(self):
         """Test missing required field handling."""
         with patch.dict(os.environ, {}, clear=True):
-            with pytest.raises(ValueError, match="telegram_bot_token"):
+            # Reported by validation alias, which is the upper-case env name.
+            with pytest.raises(ValueError, match="(?i)telegram_bot_token"):
                 Settings()

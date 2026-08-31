@@ -7,10 +7,10 @@ os.environ.setdefault("TELEGRAM_BOT_TOKEN", "1234567890:TEST_TOKEN_FOR_UNIT_TEST
 
 from fastapi.testclient import TestClient
 
+from tests.test_webapp_auth import BOT_TOKEN, make_init_data
 from vechnost_bot.config import settings
 from vechnost_bot.freemium import FREE_CARDS_PER_DECK
 from vechnost_bot.payments.web import app
-from tests.test_webapp_auth import BOT_TOKEN, make_init_data
 
 client = TestClient(app)
 

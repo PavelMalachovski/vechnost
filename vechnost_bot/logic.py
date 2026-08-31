@@ -1,17 +1,17 @@
 """Game logic for the Vechnost bot."""
 
 import random
-from typing import Dict, Any
+from typing import Any
 
-from .models import GameData, SessionState, Theme, ContentType
 from .i18n import Language
+from .models import ContentType, GameData, SessionState, Theme
 
 
 class LocalizedGameData:
     """Game data that loads content based on language."""
 
-    def __init__(self):
-        self._cached_data: Dict[Language, GameData] = {}
+    def __init__(self) -> None:
+        self._cached_data: dict[Language, GameData] = {}
 
     def get_game_data(self, language: Language = Language.RUSSIAN) -> GameData:
         """Get game data for a specific language."""
@@ -28,6 +28,7 @@ class LocalizedGameData:
         could not be taken.
         """
         from pathlib import Path
+
         import yaml
 
         yaml_path = Path(__file__).parent.parent / "data" / "questions.yaml"
@@ -35,7 +36,7 @@ class LocalizedGameData:
             data = yaml.safe_load(f)
         return self._create_game_data_from_yaml(data)
 
-    def _create_game_data_from_yaml(self, data: Dict[str, Any]) -> GameData:
+    def _create_game_data_from_yaml(self, data: dict[str, Any]) -> GameData:
         """Create GameData from YAML data."""
         themes = {}
         for theme_name, theme_data in data.get("themes", {}).items():
@@ -56,11 +57,6 @@ class LocalizedGameData:
         """Get available levels for a theme in the specified language."""
         game_data = self.get_game_data(language)
         return game_data.get_available_levels(theme)
-
-    def get_total_cards_in_level(self, theme: Theme, level: int, content_type: ContentType, language: Language = Language.RUSSIAN) -> int:
-        """Get total number of cards in a level for the specified language."""
-        game_data = self.get_game_data(language)
-        return game_data.get_total_cards_in_level(theme, level, content_type)
 
     def has_nsfw_content(self, theme: Theme, language: Language = Language.RUSSIAN) -> bool:
         """Check if theme has NSFW content."""

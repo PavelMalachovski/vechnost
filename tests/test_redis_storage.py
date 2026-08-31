@@ -1,21 +1,40 @@
 """Tests for Redis storage implementation."""
 
-import pytest
-import json
-from unittest.mock import AsyncMock, MagicMock, patch
 import asyncio
+from unittest.mock import AsyncMock, patch
 
-from vechnost_bot.redis_storage import RedisStorage, redis_storage, initialize_redis_storage, cleanup_redis_storage
-from vechnost_bot.models import SessionState, Language, Theme
+import pytest
+import pytest_asyncio
+
+from vechnost_bot.models import Language, SessionState, Theme
+from vechnost_bot.redis_storage import (
+    RedisStorage,
+    cleanup_redis_storage,
+    get_redis_storage,
+    initialize_redis_storage,
+)
+
+
+@pytest_asyncio.fixture
+async def redis_storage_instance():
+    """A storage on the test database, emptied before each test.
+
+    Module scope, not inside one class: TestRedisPerformance asked for this
+    fixture too and could not see it, so those tests errored on collection
+    rather than running. Flushing matters as much — `increment_counter`
+    writes a key that outlives the process, so a second run of the counter
+    test used to read whatever the first left behind.
+    """
+    storage = RedisStorage("redis://localhost:6379", db=15)
+    await storage.connect()
+    if storage._redis is not None:
+        await storage._redis.flushdb()
+    yield storage
+    await storage.disconnect()
 
 
 class TestRedisStorage:
     """Test Redis storage functionality."""
-
-    @pytest.fixture
-    def redis_storage_instance(self):
-        """Create Redis storage instance for testing."""
-        return RedisStorage("redis://localhost:6379", db=15)  # Use test DB
 
     @pytest.mark.asyncio
     async def test_redis_connection(self, redis_storage_instance):
@@ -29,13 +48,14 @@ class TestRedisStorage:
     async def test_session_operations(self, redis_storage_instance):
         """Test session save/get/delete operations."""
         chat_id = 12345
+        # SessionState carries no chat_id or current_question: the chat is the
+        # key the session is stored under, and progress is the drawn cards.
         session = SessionState(
-            chat_id=chat_id,
             language=Language.RUSSIAN,
             theme=Theme.ACQUAINTANCE,
             level=1,
-            current_question=5
         )
+        session.drawn_cards.add("acq_1_q_5")
 
         # Save session
         await redis_storage_instance.save_session(chat_id, session, ttl=60)
@@ -43,11 +63,10 @@ class TestRedisStorage:
         # Get session
         retrieved_session = await redis_storage_instance.get_session(chat_id)
         assert retrieved_session is not None
-        assert retrieved_session.chat_id == chat_id
         assert retrieved_session.language == Language.RUSSIAN
         assert retrieved_session.theme == Theme.ACQUAINTANCE
         assert retrieved_session.level == 1
-        assert retrieved_session.current_question == 5
+        assert retrieved_session.drawn_cards == {"acq_1_q_5"}
 
         # Delete session
         await redis_storage_instance.delete_session(chat_id)
@@ -150,7 +169,7 @@ class TestRedisIntegration:
 
             await initialize_redis_storage("redis://localhost:6379", db=1)
 
-            mock_storage_class.assert_called_once_with("redis://localhost:6379", db=1)
+            mock_storage_class.assert_called_once_with("redis://localhost:6379", 1)
             mock_storage.connect.assert_called_once()
 
     @pytest.mark.asyncio
@@ -180,7 +199,7 @@ class TestRedisPerformance:
         start_time = asyncio.get_event_loop().time()
         tasks = [
             redis_storage_instance.save_session(chat_id, session, ttl=60)
-            for chat_id, session in zip(chat_ids, sessions)
+            for chat_id, session in zip(chat_ids, sessions, strict=True)
         ]
         await asyncio.gather(*tasks)
         save_time = asyncio.get_event_loop().time() - start_time

@@ -6,7 +6,7 @@ import sys
 from datetime import datetime, timedelta
 
 from vechnost_bot.payments.database import get_db
-from vechnost_bot.payments.repositories import UserRepository, SubscriptionRepository
+from vechnost_bot.payments.repositories import SubscriptionRepository, UserRepository
 
 
 async def activate_user(telegram_user_id: int, duration_days: int = 30):
@@ -26,6 +26,7 @@ async def activate_user(telegram_user_id: int, duration_days: int = 30):
 
         # Check existing active subscriptions
         from sqlalchemy import select
+
         from vechnost_bot.payments.models import Subscription
 
         result = await session.execute(
@@ -62,7 +63,7 @@ async def activate_user(telegram_user_id: int, duration_days: int = 30):
             end_date=end_date,
         )
 
-        print(f"\n✅ SUBSCRIPTION ACTIVATED!")
+        print("\n✅ SUBSCRIPTION ACTIVATED!")
         print(f"   Subscription ID: {subscription.id}")
         print(f"   Start: {start_date}")
         print(f"   End: {end_date}")

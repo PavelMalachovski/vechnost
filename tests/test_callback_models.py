@@ -1,7 +1,6 @@
 """Tests for callback data models."""
 
 import pytest
-from pydantic import ValidationError
 
 from vechnost_bot.callback_models import (
     BackCallbackData,

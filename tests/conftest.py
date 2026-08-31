@@ -1,23 +1,20 @@
 """Comprehensive test fixtures for Vechnost bot."""
 
 import asyncio
+import os
+import tempfile
+from pathlib import Path
+from unittest.mock import AsyncMock, MagicMock, patch
+
 import pytest
 import pytest_asyncio
-from unittest.mock import AsyncMock, MagicMock, patch
-from typing import Dict, Any, Optional
-import json
-import tempfile
-import os
-from pathlib import Path
-
-from telegram import Update, CallbackQuery, Message, User, Chat
+from telegram import CallbackQuery, Chat, Message, Update, User
 from telegram.ext import ContextTypes
 
-from vechnost_bot.models import SessionState, Language, Theme, ContentType
-from vechnost_bot.exceptions import VechnostBotError, ErrorCodes
+from vechnost_bot.exceptions import ErrorCodes
 from vechnost_bot.hybrid_storage import HybridStorage, InMemoryStorage
+from vechnost_bot.models import ContentType, Language, SessionState, Theme
 from vechnost_bot.payments import throttle as _throttle
-
 
 # ============================================================================
 # Autouse fixtures
@@ -361,61 +358,6 @@ def mock_translations():
 # ============================================================================
 
 @pytest_asyncio.fixture
-def mock_file_operations():
-    """Mock file operations."""
-    with patch('vechnost_bot.async_file_ops.aiofiles.open') as mock_open, \
-         patch('vechnost_bot.async_file_ops.Path.exists') as mock_exists, \
-         patch('vechnost_bot.async_file_ops.Path.mkdir') as mock_mkdir:
-
-        mock_exists.return_value = True
-        mock_mkdir.return_value = None
-
-        # Mock file content
-        mock_file_content = b"Mock file content"
-        mock_open.return_value.__aenter__.return_value.read = AsyncMock(return_value=mock_file_content)
-        mock_open.return_value.__aenter__.return_value.write = AsyncMock()
-
-        yield {
-            "open": mock_open,
-            "exists": mock_exists,
-            "mkdir": mock_mkdir
-        }
-
-
-@pytest_asyncio.fixture
-def mock_image_operations():
-    """Mock image operations."""
-    with patch('vechnost_bot.renderer.PIL.Image.open') as mock_pil_open, \
-         patch('vechnost_bot.renderer.PIL.Image.new') as mock_pil_new, \
-         patch('vechnost_bot.renderer.PIL.ImageDraw.Draw') as mock_draw:
-
-        # Mock PIL Image
-        mock_image = MagicMock()
-        mock_image.size = (800, 600)
-        mock_image.save = MagicMock()
-        mock_pil_open.return_value = mock_image
-        mock_pil_new.return_value = mock_image
-
-        # Mock ImageDraw
-        mock_draw_instance = MagicMock()
-        mock_draw_instance.text = MagicMock()
-        mock_draw_instance.rectangle = MagicMock()
-        mock_draw.return_value = mock_draw_instance
-
-        yield {
-            "pil_open": mock_pil_open,
-            "pil_new": mock_pil_new,
-            "draw": mock_draw,
-            "image": mock_image,
-            "draw_instance": mock_draw_instance
-        }
-
-
-# ============================================================================
-# Environment fixtures
-# ============================================================================
-
-@pytest_asyncio.fixture
 def mock_environment():
     """Mock environment variables."""
     env_vars = {
@@ -508,22 +450,39 @@ def mock_logger():
 
 @pytest_asyncio.fixture
 def mock_metrics():
-    """Mock metrics collector."""
+    """The metrics collector `vechnost_bot.monitoring` actually calls.
+
+    Patched into the module rather than merely returned: a free-standing
+    MagicMock records nothing, so `assert_called()` on it can only ever fail,
+    which is exactly what it did.
+    """
     metrics = MagicMock()
     metrics.increment_counter = MagicMock()
     metrics.record_timer = MagicMock()
     metrics.record_gauge = MagicMock()
-    return metrics
+    with patch('vechnost_bot.monitoring.metrics', metrics):
+        yield metrics
 
 
 @pytest_asyncio.fixture
 def mock_sentry():
-    """Mock Sentry client."""
-    sentry = MagicMock()
-    sentry.capture_exception = MagicMock()
-    sentry.set_tag = MagicMock()
-    sentry.set_context = MagicMock()
-    return sentry
+    """The Sentry entry points `monitoring` imported by name.
+
+    `monitoring.py` does `from sentry_sdk import capture_exception, set_tag,
+    ...`, so each one is a separate name in that module's namespace and there
+    is no client object to stand in for them - hence a dict of patches rather
+    than one mock with attributes.
+    """
+    with patch('vechnost_bot.monitoring.capture_exception') as capture, \
+         patch('vechnost_bot.monitoring.set_tag') as set_tag, \
+         patch('vechnost_bot.monitoring.set_context') as set_context, \
+         patch('vechnost_bot.monitoring.set_user') as set_user:
+        yield {
+            "capture_exception": capture,
+            "set_tag": set_tag,
+            "set_context": set_context,
+            "set_user": set_user,
+        }
 
 
 # ============================================================================

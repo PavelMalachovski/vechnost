@@ -157,6 +157,23 @@ class Settings(BaseSettings):
                     "gift product link is available."
     )
 
+    # HTTP hardening
+    cors_allow_origins: str | None = Field(
+        default=None,
+        validation_alias="CORS_ALLOW_ORIGINS",
+        description="Comma-separated origins allowed to read API responses "
+                    "from script. The Mini App is same-origin and needs none, "
+                    "so the default is no allowance at all."
+    )
+
+    allowed_hosts: str | None = Field(
+        default=None,
+        validation_alias="ALLOWED_HOSTS",
+        description="Comma-separated hostnames this deployment answers to. "
+                    "Set it in production: unset, a forged Host header is "
+                    "accepted."
+    )
+
     # Referrals
     referral_payment_url: str | None = Field(
         default=None,
@@ -223,8 +240,10 @@ class Settings(BaseSettings):
         return self._webapp_screen_url("steps69")
 
 
-# Global settings instance
-settings = Settings()
+# Global settings instance. pydantic-settings reads every field from the
+# environment, which mypy cannot see, so it reports the one required field as
+# a missing argument.
+settings = Settings()  # type: ignore[call-arg]
 
 
 def create_bot() -> Bot:

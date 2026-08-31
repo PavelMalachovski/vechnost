@@ -1,39 +1,37 @@
 """Comprehensive tests for callback handlers."""
 
+from unittest.mock import AsyncMock, MagicMock, patch
+
 import pytest
-from unittest.mock import MagicMock, patch, AsyncMock
-from telegram import Update, Message, Chat, User, CallbackQuery
+from telegram import CallbackQuery, Chat, Message
 
 from vechnost_bot.callback_handlers import (
-    CallbackHandlerRegistry,
-    ThemeHandler,
-    LevelHandler,
-    CalendarHandler,
-    QuestionHandler,
-    NavigationHandler,
-    ToggleHandler,
     BackHandler,
+    CalendarHandler,
+    CallbackHandlerRegistry,
     LanguageHandler,
-    LanguageConfirmHandler,
+    LevelHandler,
+    NavigationHandler,
+    QuestionHandler,
     SimpleActionHandler,
-    welcome_screen
+    ThemeHandler,
+    ToggleHandler,
+    welcome_screen,
 )
 from vechnost_bot.callback_models import (
-    CallbackData,
-    ThemeCallbackData,
-    LevelCallbackData,
-    CalendarCallbackData,
-    QuestionCallbackData,
-    NavigationCallbackData,
-    ToggleCallbackData,
     BackCallbackData,
+    CalendarCallbackData,
+    CallbackAction,
+    CallbackData,
     LanguageCallbackData,
-    LanguageConfirmCallbackData,
+    LevelCallbackData,
+    NavigationCallbackData,
+    QuestionCallbackData,
     SimpleCallbackData,
-    CallbackAction
+    ThemeCallbackData,
+    ToggleCallbackData,
 )
-from vechnost_bot.models import SessionState, Theme, Language, ContentType
-from vechnost_bot.i18n import get_text
+from vechnost_bot.models import ContentType, Language, SessionState, Theme
 
 
 class TestCallbackHandlerRegistry:
@@ -114,6 +112,51 @@ class TestCallbackHandlerRegistry:
             mock_query.edit_message_text.assert_called_once()
 
 
+def _make_query():
+    """A callback query that records what the handler sent it.
+
+    Not `spec=CallbackQuery`: these handlers reach for `query.message.chat.id`
+    and for `reply_photo`, and a spec'd mock of a class whose attributes are
+    read-only properties makes those awkward to set up without saying anything
+    about the handler under test.
+    """
+    query = MagicMock()
+    query.edit_message_text = AsyncMock()
+    query.edit_message_media = AsyncMock()
+    query.message = MagicMock()
+    query.message.chat.id = 12345
+    query.message.reply_text = AsyncMock()
+    query.message.reply_photo = AsyncMock()
+    query.message.delete = AsyncMock()
+    return query
+
+
+def _keyboard_of(mock_call):
+    """The `reply_markup` of the last call, keyword or positional."""
+    assert mock_call.call_args is not None, "nothing was sent"
+    keyboard = mock_call.call_args.kwargs.get("reply_markup")
+    if keyboard is None and len(mock_call.call_args.args) > 1:
+        keyboard = mock_call.call_args.args[1]
+    return keyboard
+
+
+def _callback_targets(keyboard):
+    """Every callback_data on a keyboard, in reading order.
+
+    Asserting on these rather than on the name of some private function the
+    handler was expected to call: the button a player can press is the part
+    that has to keep working, and it survives the handlers being refactored
+    into classes, which the previous version of these tests did not.
+    """
+    assert keyboard is not None, "no keyboard was attached"
+    return [
+        button.callback_data
+        for row in keyboard.inline_keyboard
+        for button in row
+        if button.callback_data
+    ]
+
+
 class TestThemeHandler:
     """Test theme handler."""
 
@@ -125,44 +168,70 @@ class TestThemeHandler:
     @pytest.fixture
     def mock_query(self):
         """Create mock callback query."""
-        query = MagicMock(spec=CallbackQuery)
-        query.edit_message_text = AsyncMock()
-        return query
+        return _make_query()
 
     @pytest.fixture
-    def mock_session(self):
-        """Create mock session."""
-        session = MagicMock(spec=SessionState)
-        session.language = Language.RUSSIAN
-        return session
+    def session(self):
+        return SessionState(language=Language.RUSSIAN)
 
     @pytest.mark.asyncio
-    async def test_handle_acquaintance_theme(self, handler, mock_query, mock_session):
-        """Test handling Acquaintance theme."""
+    async def test_handle_acquaintance_theme(self, handler, mock_query, session):
+        """A levelled theme opens its level menu."""
         callback_data = ThemeCallbackData(
             action=CallbackAction.THEME,
             raw_data="theme_Acquaintance",
-            theme="Acquaintance"
+            theme_name="Acquaintance",
         )
 
-        with patch('vechnost_bot.callback_handlers._show_level_selection') as mock_show_level:
-            await handler.handle(mock_query, callback_data, mock_session)
+        await handler.handle(mock_query, callback_data, session)
 
-            mock_show_level.assert_called_once()
+        assert session.theme == Theme.ACQUAINTANCE
+        levels = _callback_targets(_keyboard_of(mock_query.edit_message_text))
+        assert levels == ["level_1", "level_2", "level_3", "back:themes"]
 
     @pytest.mark.asyncio
-    async def test_handle_sex_theme(self, handler, mock_query, mock_session):
-        """Test handling Sex theme."""
+    async def test_handle_sex_theme_asks_for_nsfw_confirmation_first(
+        self, handler, mock_query, session
+    ):
+        """Sex is the one NSFW theme: the warning comes before the cards."""
         callback_data = ThemeCallbackData(
-            action=CallbackAction.THEME,
-            raw_data="theme_Sex",
-            theme="Sex"
+            action=CallbackAction.THEME, raw_data="theme_Sex", theme_name="Sex"
         )
 
-        with patch('vechnost_bot.callback_handlers._show_calendar') as mock_show_calendar:
-            await handler.handle(mock_query, callback_data, mock_session)
+        await handler.handle(mock_query, callback_data, session)
 
-            mock_show_calendar.assert_called_once()
+        assert session.theme == Theme.SEX
+        targets = _callback_targets(_keyboard_of(mock_query.edit_message_text))
+        assert "nsfw_confirm" in targets and "nsfw_deny" in targets
+
+    @pytest.mark.asyncio
+    async def test_handle_sex_theme_once_confirmed_opens_the_calendar(
+        self, handler, mock_query, session
+    ):
+        session.is_nsfw_confirmed = True
+        callback_data = ThemeCallbackData(
+            action=CallbackAction.THEME, raw_data="theme_Sex", theme_name="Sex"
+        )
+
+        await handler.handle(mock_query, callback_data, session)
+
+        assert session.content_type == ContentType.QUESTIONS
+        targets = _callback_targets(_keyboard_of(mock_query.edit_message_text))
+        assert any(t.startswith("q:sex:") for t in targets)
+
+    @pytest.mark.asyncio
+    async def test_handle_unknown_theme(self, handler, mock_query, session):
+        """A theme name that is not one of ours is refused, not raised."""
+        callback_data = ThemeCallbackData(
+            action=CallbackAction.THEME,
+            raw_data="theme_Nonsense",
+            theme_name="Nonsense",
+        )
+
+        await handler.handle(mock_query, callback_data, session)
+
+        assert session.theme is None
+        mock_query.edit_message_text.assert_called_once()
 
 
 class TestLevelHandler:
@@ -176,32 +245,38 @@ class TestLevelHandler:
     @pytest.fixture
     def mock_query(self):
         """Create mock callback query."""
-        query = MagicMock(spec=CallbackQuery)
-        query.edit_message_text = AsyncMock()
-        return query
+        return _make_query()
 
     @pytest.fixture
-    def mock_session(self):
-        """Create mock session."""
-        session = MagicMock(spec=SessionState)
-        session.language = Language.RUSSIAN
-        session.theme = Theme.ACQUAINTANCE
-        return session
+    def session(self):
+        return SessionState(language=Language.RUSSIAN, theme=Theme.ACQUAINTANCE)
 
     @pytest.mark.asyncio
-    async def test_handle_level_selection(self, handler, mock_query, mock_session):
-        """Test level selection handling."""
+    async def test_handle_level_selection(self, handler, mock_query, session):
+        """Picking a level opens that level's calendar."""
         callback_data = LevelCallbackData(
-            action=CallbackAction.LEVEL,
-            raw_data="level_1",
-            level=1
+            action=CallbackAction.LEVEL, raw_data="level_1", level=1
         )
 
-        with patch('vechnost_bot.callback_handlers._show_calendar') as mock_show_calendar:
-            await handler.handle(mock_query, callback_data, mock_session)
+        await handler.handle(mock_query, callback_data, session)
 
-            assert mock_session.level == 1
-            mock_show_calendar.assert_called_once()
+        assert session.level == 1
+        assert session.content_type == ContentType.QUESTIONS
+        targets = _callback_targets(_keyboard_of(mock_query.edit_message_text))
+        assert any(t.startswith("q:acq:1:") for t in targets)
+
+    @pytest.mark.asyncio
+    async def test_level_without_a_theme_is_refused(self, handler, mock_query):
+        """A stale button from a reset session must not open a calendar."""
+        session = SessionState(language=Language.RUSSIAN)
+        callback_data = LevelCallbackData(
+            action=CallbackAction.LEVEL, raw_data="level_1", level=1
+        )
+
+        await handler.handle(mock_query, callback_data, session)
+
+        mock_query.edit_message_text.assert_called_once()
+        assert _keyboard_of(mock_query.edit_message_text) is None
 
 
 class TestCalendarHandler:
@@ -215,36 +290,33 @@ class TestCalendarHandler:
     @pytest.fixture
     def mock_query(self):
         """Create mock callback query."""
-        query = MagicMock(spec=CallbackQuery)
-        query.edit_message_text = AsyncMock()
-        return query
+        return _make_query()
 
     @pytest.fixture
-    def mock_session(self):
-        """Create mock session."""
-        session = MagicMock(spec=SessionState)
-        session.language = Language.RUSSIAN
-        session.theme = Theme.ACQUAINTANCE
-        session.level = 1
-        session.content_type = ContentType.QUESTIONS
-        return session
+    def session(self):
+        return SessionState(language=Language.RUSSIAN)
 
     @pytest.mark.asyncio
-    async def test_handle_calendar_selection(self, handler, mock_query, mock_session):
-        """Test calendar selection handling."""
-        callback_data = CalendarCallbackData(
-            action=CallbackAction.CALENDAR,
-            raw_data="cal:Acquaintance:1:q:0",
-            topic="Acquaintance",
-            level=1,
-            content_type="q",
-            page=0
-        )
+    async def test_handle_calendar_selection(self, handler, mock_query, session):
+        """A calendar callback restores theme, level and content type."""
+        callback_data = CalendarCallbackData.parse("cal:acq:1:q:0")
 
-        with patch('vechnost_bot.callback_handlers._show_question') as mock_show_question:
-            await handler.handle(mock_query, callback_data, mock_session)
+        await handler.handle(mock_query, callback_data, session)
 
-            mock_show_question.assert_called_once()
+        assert session.theme == Theme.ACQUAINTANCE
+        assert session.level == 1
+        assert session.content_type == ContentType.QUESTIONS
+        targets = _callback_targets(_keyboard_of(mock_query.edit_message_text))
+        assert any(t.startswith("q:acq:1:") for t in targets)
+
+    @pytest.mark.asyncio
+    async def test_unknown_topic_is_refused(self, handler, mock_query, session):
+        callback_data = CalendarCallbackData.parse("cal:nope:1:q:0")
+
+        await handler.handle(mock_query, callback_data, session)
+
+        assert session.theme is None
+        mock_query.edit_message_text.assert_called_once()
 
 
 class TestQuestionHandler:
@@ -258,35 +330,35 @@ class TestQuestionHandler:
     @pytest.fixture
     def mock_query(self):
         """Create mock callback query."""
-        query = MagicMock(spec=CallbackQuery)
-        query.edit_message_text = AsyncMock()
-        return query
+        return _make_query()
 
     @pytest.fixture
-    def mock_session(self):
-        """Create mock session."""
-        session = MagicMock(spec=SessionState)
-        session.language = Language.RUSSIAN
-        session.theme = Theme.ACQUAINTANCE
-        session.level = 1
-        session.content_type = ContentType.QUESTIONS
-        return session
+    def session(self):
+        return SessionState(language=Language.RUSSIAN)
 
     @pytest.mark.asyncio
-    async def test_handle_question_selection(self, handler, mock_query, mock_session):
-        """Test question selection handling."""
-        callback_data = QuestionCallbackData(
-            action=CallbackAction.QUESTION,
-            raw_data="q:Acquaintance:1:0",
-            topic="Acquaintance",
-            level=1,
-            question_idx=0
-        )
+    async def test_handle_question_selection(self, handler, mock_query, session):
+        """The first card is free, and arrives as a rendered photo."""
+        callback_data = QuestionCallbackData.parse("q:acq:1:0")
 
-        with patch('vechnost_bot.callback_handlers._show_question') as mock_show_question:
-            await handler.handle(mock_query, callback_data, mock_session)
+        await handler.handle(mock_query, callback_data, session)
 
-            mock_show_question.assert_called_once()
+        assert session.theme == Theme.ACQUAINTANCE
+        assert session.level == 1
+        mock_query.edit_message_media.assert_called_once()
+        targets = _callback_targets(_keyboard_of(mock_query.edit_message_media))
+        assert "nav:acq:1:1" in targets
+
+    @pytest.mark.asyncio
+    async def test_an_index_past_the_deck_is_refused(
+        self, handler, mock_query, session
+    ):
+        callback_data = QuestionCallbackData.parse("q:acq:1:9999")
+
+        await handler.handle(mock_query, callback_data, session)
+
+        mock_query.edit_message_media.assert_not_called()
+        mock_query.edit_message_text.assert_called_once()
 
 
 class TestNavigationHandler:
@@ -300,35 +372,24 @@ class TestNavigationHandler:
     @pytest.fixture
     def mock_query(self):
         """Create mock callback query."""
-        query = MagicMock(spec=CallbackQuery)
-        query.edit_message_text = AsyncMock()
-        return query
+        return _make_query()
 
     @pytest.fixture
-    def mock_session(self):
-        """Create mock session."""
-        session = MagicMock(spec=SessionState)
-        session.language = Language.RUSSIAN
-        session.theme = Theme.ACQUAINTANCE
-        session.level = 1
-        session.content_type = ContentType.QUESTIONS
-        return session
+    def session(self):
+        return SessionState(language=Language.RUSSIAN)
 
     @pytest.mark.asyncio
-    async def test_handle_navigation(self, handler, mock_query, mock_session):
-        """Test navigation handling."""
-        callback_data = NavigationCallbackData(
-            action=CallbackAction.NAVIGATION,
-            raw_data="nav:Acquaintance:1:1",
-            topic="Acquaintance",
-            level=1,
-            question_idx=1
-        )
+    async def test_handle_navigation(self, handler, mock_query, session):
+        """Stepping to the next card keeps the deck and moves the index."""
+        callback_data = NavigationCallbackData.parse("nav:acq:1:1")
 
-        with patch('vechnost_bot.callback_handlers._show_question') as mock_show_question:
-            await handler.handle(mock_query, callback_data, mock_session)
+        await handler.handle(mock_query, callback_data, session)
 
-            mock_show_question.assert_called_once()
+        assert session.theme == Theme.ACQUAINTANCE
+        assert session.level == 1
+        mock_query.edit_message_media.assert_called_once()
+        targets = _callback_targets(_keyboard_of(mock_query.edit_message_media))
+        assert "nav:acq:1:0" in targets and "nav:acq:1:2" in targets
 
 
 class TestToggleHandler:
@@ -342,36 +403,41 @@ class TestToggleHandler:
     @pytest.fixture
     def mock_query(self):
         """Create mock callback query."""
-        query = MagicMock(spec=CallbackQuery)
-        query.edit_message_text = AsyncMock()
-        return query
+        return _make_query()
 
     @pytest.fixture
-    def mock_session(self):
-        """Create mock session."""
-        session = MagicMock(spec=SessionState)
-        session.language = Language.RUSSIAN
-        session.theme = Theme.SEX
-        session.level = 0
-        session.content_type = ContentType.QUESTIONS
-        return session
-
-    @pytest.mark.asyncio
-    async def test_handle_toggle_questions_to_tasks(self, handler, mock_query, mock_session):
-        """Test toggle from questions to tasks."""
-        callback_data = ToggleCallbackData(
-            action=CallbackAction.TOGGLE,
-            raw_data="toggle:sex:0:t",
-            topic="sex",
-            page=0,
-            category="t"
+    def session(self):
+        return SessionState(
+            language=Language.RUSSIAN,
+            theme=Theme.SEX,
+            content_type=ContentType.QUESTIONS,
         )
 
-        with patch('vechnost_bot.callback_handlers._show_sex_calendar') as mock_show_calendar:
-            await handler.handle(mock_query, callback_data, mock_session)
+    @pytest.mark.asyncio
+    async def test_handle_toggle_questions_to_tasks(
+        self, handler, mock_query, session
+    ):
+        """The toggle switches the deck and redraws the calendar on it."""
+        callback_data = ToggleCallbackData.parse("toggle:sex:0:t")
 
-            assert mock_session.content_type == ContentType.TASKS
-            mock_show_calendar.assert_called_once()
+        await handler.handle(mock_query, callback_data, session)
+
+        assert session.content_type == ContentType.TASKS
+        targets = _callback_targets(_keyboard_of(mock_query.edit_message_text))
+        assert any(t.startswith("q:sex:") for t in targets)
+        # The toggle itself is still on screen, now pointing back at questions.
+        assert any(t.startswith("toggle:sex:") and t.endswith(":q") for t in targets)
+
+    @pytest.mark.asyncio
+    async def test_toggle_only_applies_to_sex(self, handler, mock_query, session):
+        """No other theme has two decks, so no other topic may toggle."""
+        callback_data = ToggleCallbackData.parse("toggle:acq:0:t")
+
+        await handler.handle(mock_query, callback_data, session)
+
+        assert session.content_type == ContentType.QUESTIONS
+        mock_query.edit_message_text.assert_called_once()
+        assert _keyboard_of(mock_query.edit_message_text) is None
 
 
 class TestBackHandler:
@@ -385,50 +451,63 @@ class TestBackHandler:
     @pytest.fixture
     def mock_query(self):
         """Create mock callback query."""
-        query = MagicMock(spec=CallbackQuery)
-        query.edit_message_text = AsyncMock()
-        return query
+        return _make_query()
 
     @pytest.fixture
-    def mock_session(self):
-        """Create mock session."""
-        session = MagicMock(spec=SessionState)
-        session.language = Language.RUSSIAN
-        session.theme = Theme.ACQUAINTANCE
-        session.level = 1
-        return session
-
-    @pytest.mark.asyncio
-    async def test_handle_back_to_themes(self, handler, mock_query, mock_session):
-        """Test back to themes."""
-        callback_data = BackCallbackData(
-            action=CallbackAction.BACK,
-            raw_data="back:themes",
-            destination="themes"
+    def session(self):
+        return SessionState(
+            language=Language.RUSSIAN, theme=Theme.ACQUAINTANCE, level=1
         )
 
-        with patch('vechnost_bot.callback_handlers._show_theme_selection') as mock_show_theme:
-            await handler.handle(mock_query, callback_data, mock_session)
+    @pytest.mark.asyncio
+    async def test_handle_back_to_themes(self, handler, mock_query, session):
+        callback_data = BackCallbackData.parse("back:themes")
 
-            mock_show_theme.assert_called_once()
+        await handler.handle(mock_query, callback_data, session)
+
+        targets = _callback_targets(_keyboard_of(mock_query.edit_message_text))
+        assert any(t.startswith("theme_") for t in targets)
 
     @pytest.mark.asyncio
-    async def test_handle_back_to_calendar(self, handler, mock_query, mock_session):
-        """Test back to calendar."""
-        callback_data = BackCallbackData(
-            action=CallbackAction.BACK,
-            raw_data="back:calendar",
-            destination="calendar"
-        )
+    async def test_handle_back_to_calendar(self, handler, mock_query, session):
+        callback_data = BackCallbackData.parse("back:calendar")
 
-        with patch('vechnost_bot.callback_handlers._show_calendar') as mock_show_calendar:
-            await handler.handle(mock_query, callback_data, mock_session)
+        await handler.handle(mock_query, callback_data, session)
 
-            mock_show_calendar.assert_called_once()
+        targets = _callback_targets(_keyboard_of(mock_query.edit_message_text))
+        assert any(t.startswith("q:acq:1:") for t in targets)
+
+    @pytest.mark.asyncio
+    async def test_back_without_a_theme_lands_on_the_themes(
+        self, handler, mock_query
+    ):
+        """Every destination needs a theme; without one, go up, not nowhere."""
+        session = SessionState(language=Language.RUSSIAN)
+        callback_data = BackCallbackData.parse("back:calendar")
+
+        await handler.handle(mock_query, callback_data, session)
+
+        targets = _callback_targets(_keyboard_of(mock_query.edit_message_text))
+        assert any(t.startswith("theme_") for t in targets)
+
+    @pytest.mark.asyncio
+    async def test_unknown_destination_is_refused(self, handler, mock_query, session):
+        callback_data = BackCallbackData.parse("back:elsewhere")
+
+        await handler.handle(mock_query, callback_data, session)
+
+        mock_query.edit_message_text.assert_called_once()
+        assert _keyboard_of(mock_query.edit_message_text) is None
 
 
 class TestLanguageHandler:
-    """Test language handler."""
+    """Test language handler.
+
+    There is one language left, so this handler no longer chooses anything:
+    it is the landing point for every `lang_*` button still sitting in a
+    user's chat history, and its job is to put them back on the welcome
+    screen instead of failing.
+    """
 
     @pytest.fixture
     def handler(self):
@@ -438,36 +517,19 @@ class TestLanguageHandler:
     @pytest.fixture
     def mock_query(self):
         """Create mock callback query."""
-        query = MagicMock(spec=CallbackQuery)
-        query.edit_message_text = AsyncMock()
-        return query
+        return _make_query()
 
-    @pytest.fixture
-    def mock_session(self):
-        """Create mock session."""
-        session = MagicMock(spec=SessionState)
-        session.language = Language.RUSSIAN
-        return session
-
+    @pytest.mark.parametrize("code", ["ru", "en", "cs", "back"])
     @pytest.mark.asyncio
-    async def test_handle_language_selection(self, handler, mock_query, mock_session):
-        """Test language selection."""
-        callback_data = LanguageCallbackData(
-            action=CallbackAction.LANGUAGE,
-            raw_data="lang_en",
-            language="en"
-        )
+    async def test_handle_language_selection(self, handler, mock_query, code):
+        """Any stored code reads as Russian and lands on the welcome screen."""
+        session = SessionState(language=Language.RUSSIAN)
+        callback_data = LanguageCallbackData.parse(f"lang_{code}")
 
-        with patch('vechnost_bot.callback_handlers.get_text') as mock_get_text, \
-             patch('vechnost_bot.callback_handlers.get_theme_keyboard') as mock_keyboard:
+        await handler.handle(mock_query, callback_data, session)
 
-            mock_get_text.return_value = "Welcome"
-            mock_keyboard.return_value = MagicMock()
-
-            await handler.handle(mock_query, callback_data, mock_session)
-
-            assert mock_session.language == Language.RUSSIAN
-            mock_query.edit_message_text.assert_called_once()
+        assert session.language == Language.RUSSIAN
+        mock_query.edit_message_text.assert_called_once()
 
 
 class TestWelcomeScreen:
@@ -587,89 +649,111 @@ class TestSimpleActionHandler:
     @pytest.fixture
     def mock_query(self):
         """Create mock callback query."""
-        query = MagicMock(spec=CallbackQuery)
-        query.edit_message_text = AsyncMock()
-        return query
-
-    @pytest.fixture
-    def mock_session(self):
-        """Create mock session."""
-        session = MagicMock(spec=SessionState)
-        session.language = Language.RUSSIAN
-        return session
+        return _make_query()
 
     @pytest.mark.asyncio
-    async def test_handle_nsfw_confirm(self, handler, mock_query, mock_session):
-        """Test NSFW confirmation."""
-        callback_data = SimpleCallbackData(
-            action=CallbackAction.NSFW_CONFIRM,
-            raw_data="nsfw_confirm"
-        )
+    async def test_handle_nsfw_confirm(self, handler, mock_query):
+        """Confirming lands the player on the deck the warning was guarding."""
+        session = SessionState(language=Language.RUSSIAN, theme=Theme.SEX)
+        callback_data = SimpleCallbackData.parse("nsfw_confirm")
 
-        with patch('vechnost_bot.callback_handlers._handle_nsfw_confirmation') as mock_handle:
-            await handler.handle(mock_query, callback_data, mock_session)
+        await handler.handle(mock_query, callback_data, session)
 
-            mock_handle.assert_called_once_with(mock_query, mock_session)
-
-    @pytest.mark.asyncio
-    async def test_handle_nsfw_deny(self, handler, mock_query, mock_session):
-        """Test NSFW denial."""
-        callback_data = SimpleCallbackData(
-            action=CallbackAction.NSFW_DENY,
-            raw_data="nsfw_deny"
-        )
-
-        with patch('vechnost_bot.callback_handlers._handle_nsfw_denial') as mock_handle:
-            await handler.handle(mock_query, callback_data, mock_session)
-
-            mock_handle.assert_called_once_with(mock_query, mock_session)
+        assert session.is_nsfw_confirmed is True
+        targets = _callback_targets(_keyboard_of(mock_query.edit_message_text))
+        assert any(t.startswith("q:sex:") for t in targets)
 
     @pytest.mark.asyncio
-    async def test_handle_reset_game(self, handler, mock_query, mock_session):
-        """Test reset game."""
-        callback_data = SimpleCallbackData(
-            action=CallbackAction.RESET_GAME,
-            raw_data="reset_game"
-        )
+    async def test_nsfw_confirm_on_a_levelled_theme_shows_its_levels(
+        self, handler, mock_query
+    ):
+        """The branch for an NSFW theme that has levels.
 
-        with patch('vechnost_bot.callback_handlers._handle_reset_request') as mock_handle:
-            await handler.handle(mock_query, callback_data, mock_session)
+        Sex is the only NSFW theme today and it has no levels, so nothing
+        reaches this branch in production - which is exactly why it once
+        called `_show_level_selection` with an argument missing and nobody
+        noticed. One `nsfw: true` in a levelled theme's YAML would have made
+        that a TypeError in front of a player.
+        """
+        session = SessionState(language=Language.RUSSIAN, theme=Theme.ACQUAINTANCE)
+        callback_data = SimpleCallbackData.parse("nsfw_confirm")
 
-            mock_handle.assert_called_once_with(mock_query, mock_session)
+        await handler.handle(mock_query, callback_data, session)
 
-    @pytest.mark.asyncio
-    async def test_handle_reset_confirm(self, handler, mock_query, mock_session):
-        """Test reset confirmation."""
-        callback_data = SimpleCallbackData(
-            action=CallbackAction.RESET_CONFIRM,
-            raw_data="reset_confirm"
-        )
-
-        with patch('vechnost_bot.callback_handlers._handle_reset_confirmation') as mock_handle:
-            await handler.handle(mock_query, callback_data, mock_session)
-
-            mock_handle.assert_called_once_with(mock_query, mock_session)
+        targets = _callback_targets(_keyboard_of(mock_query.edit_message_text))
+        assert targets == ["level_1", "level_2", "level_3", "back:themes"]
 
     @pytest.mark.asyncio
-    async def test_handle_reset_cancel(self, handler, mock_query, mock_session):
-        """Test reset cancellation."""
-        callback_data = SimpleCallbackData(
-            action=CallbackAction.RESET_CANCEL,
-            raw_data="reset_cancel"
-        )
+    async def test_nsfw_confirm_without_a_theme_is_refused(self, handler, mock_query):
+        session = SessionState(language=Language.RUSSIAN)
+        callback_data = SimpleCallbackData.parse("nsfw_confirm")
 
-        with patch('vechnost_bot.callback_handlers._handle_reset_cancellation') as mock_handle:
-            await handler.handle(mock_query, callback_data, mock_session)
+        await handler.handle(mock_query, callback_data, session)
 
-            mock_handle.assert_called_once_with(mock_query, mock_session)
+        mock_query.edit_message_text.assert_called_once()
+        assert _keyboard_of(mock_query.edit_message_text) is None
 
     @pytest.mark.asyncio
-    async def test_handle_noop(self, handler, mock_query, mock_session):
-        """Test no-op action."""
-        callback_data = SimpleCallbackData(
-            action=CallbackAction.NOOP,
-            raw_data="noop"
-        )
+    async def test_handle_nsfw_deny(self, handler, mock_query):
+        """Declining goes back to the themes, not to a dead end."""
+        session = SessionState(language=Language.RUSSIAN, theme=Theme.SEX)
+        callback_data = SimpleCallbackData.parse("nsfw_deny")
 
-        # Should not raise any exceptions
-        await handler.handle(mock_query, callback_data, mock_session)
+        await handler.handle(mock_query, callback_data, session)
+
+        assert session.is_nsfw_confirmed is False
+        targets = _callback_targets(_keyboard_of(mock_query.edit_message_text))
+        assert any(t.startswith("theme_") for t in targets)
+
+    @pytest.mark.asyncio
+    async def test_handle_reset_game(self, handler, mock_query):
+        """Reset asks first: the confirmation is the whole point of the step."""
+        session = SessionState(language=Language.RUSSIAN)
+        callback_data = SimpleCallbackData.parse("reset_game")
+
+        await handler.handle(mock_query, callback_data, session)
+
+        targets = _callback_targets(_keyboard_of(mock_query.edit_message_text))
+        assert targets == ["reset_confirm", "reset_cancel"]
+
+    @pytest.mark.asyncio
+    async def test_handle_reset_confirm(self, handler, mock_query):
+        """Confirming actually clears the stored session, not just the screen."""
+        session = SessionState(language=Language.RUSSIAN, theme=Theme.SEX, level=2)
+        callback_data = SimpleCallbackData.parse("reset_confirm")
+
+        with patch(
+            "vechnost_bot.callback_handlers.reset_session", new_callable=AsyncMock
+        ) as mock_reset:
+            await handler.handle(mock_query, callback_data, session)
+
+        mock_reset.assert_awaited_once_with(12345)
+        targets = _callback_targets(_keyboard_of(mock_query.edit_message_text))
+        assert any(t.startswith("theme_") for t in targets)
+
+    @pytest.mark.asyncio
+    async def test_handle_reset_cancel(self, handler, mock_query):
+        """Cancelling touches no stored state and returns to the themes."""
+        session = SessionState(language=Language.RUSSIAN, theme=Theme.SEX, level=2)
+        callback_data = SimpleCallbackData.parse("reset_cancel")
+
+        with patch(
+            "vechnost_bot.callback_handlers.reset_session", new_callable=AsyncMock
+        ) as mock_reset:
+            await handler.handle(mock_query, callback_data, session)
+
+        mock_reset.assert_not_awaited()
+        assert session.theme == Theme.SEX
+        targets = _callback_targets(_keyboard_of(mock_query.edit_message_text))
+        assert any(t.startswith("theme_") for t in targets)
+
+    @pytest.mark.asyncio
+    async def test_handle_noop(self, handler, mock_query):
+        """The filler buttons on a calendar page must do nothing at all."""
+        session = SessionState(language=Language.RUSSIAN)
+        callback_data = SimpleCallbackData.parse("noop")
+
+        await handler.handle(mock_query, callback_data, session)
+
+        mock_query.edit_message_text.assert_not_called()
+        mock_query.edit_message_media.assert_not_called()

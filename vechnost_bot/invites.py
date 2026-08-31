@@ -19,6 +19,8 @@ not, and an invite works either way. This module imports neither FastAPI nor
 python-telegram-bot, so the web API, the bot and the tests all use it.
 """
 
+import secrets
+
 from .config import settings
 
 # The three doors, and the app screen each one opens. The prefix is what
@@ -30,13 +32,40 @@ INVITE_SCREENS: dict[str, str] = {
     "duo": "coop",
 }
 
-# Codes are six characters of `ABCDEFGHJKLMNPQRSTUVWXYZ23456789`. Nothing
-# else may travel in a link, so a hostile `?start=` cannot smuggle a path.
-_CODE_ALPHABET = set("ABCDEFGHJKLMNPQRSTUVWXYZ23456789")
+# What a code is made of. Nothing else may travel in a link, so a hostile
+# `?start=` cannot smuggle a path.
+CODE_ALPHABET = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"
+_CODE_ALPHABET = set(CODE_ALPHABET)
+
+# Sixteen characters, not six. A code used to be typed by hand at one of
+# three doors, so it was kept short; now it only ever travels inside a link,
+# and length is free. Six was 32^6, about a billion — enough that a sweep of
+# the space needed patience but not enough that it needed luck, and a hit
+# handed the attacker a seat in a stranger's game: the couple's compatibility
+# answers, or their board. Sixteen is 32^16, about 10^24, which no amount of
+# patience reaches.
+CODE_LENGTH = 16
+
+# Codes minted before that, still in the database and still in links already
+# sent. They stay valid; they simply stop being issued.
+LEGACY_CODE_LENGTH = 6
 
 
-def _valid_code(code: str) -> bool:
-    return len(code) == 6 and set(code) <= _CODE_ALPHABET
+def new_code() -> str:
+    """A fresh code. One generator, so three doors cannot drift apart."""
+    return "".join(secrets.choice(CODE_ALPHABET) for _ in range(CODE_LENGTH))
+
+
+def valid_code(code: str) -> bool:
+    """Whether this could be one of our codes, new or legacy."""
+    return (
+        LEGACY_CODE_LENGTH <= len(code) <= CODE_LENGTH
+        and set(code) <= _CODE_ALPHABET
+    )
+
+
+# Kept as the private name the module used before `valid_code` was public.
+_valid_code = valid_code
 
 
 def invite_param(kind: str, code: str) -> str:

@@ -1,6 +1,6 @@
 """Custom exception hierarchy for Vechnost bot."""
 
-from typing import Optional, Dict, Any
+from typing import Any
 
 
 class VechnostBotError(Exception):
@@ -9,9 +9,9 @@ class VechnostBotError(Exception):
     def __init__(
         self,
         message: str,
-        error_code: Optional[str] = None,
-        user_message: Optional[str] = None,
-        context: Optional[Dict[str, Any]] = None
+        error_code: str | None = None,
+        user_message: str | None = None,
+        context: dict[str, Any] | None = None
     ):
         super().__init__(message)
         self.message = message
@@ -19,7 +19,7 @@ class VechnostBotError(Exception):
         self.user_message = user_message or message
         self.context = context or {}
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Convert exception to dictionary for logging."""
         return {
             "error_type": self.__class__.__name__,
@@ -36,8 +36,8 @@ class ValidationError(VechnostBotError):
     def __init__(
         self,
         message: str,
-        field: Optional[str] = None,
-        value: Optional[Any] = None,
+        field: str | None = None,
+        value: Any | None = None,
         **kwargs
     ):
         super().__init__(message, **kwargs)
@@ -60,8 +60,8 @@ class StorageError(VechnostBotError):
     def __init__(
         self,
         message: str,
-        operation: Optional[str] = None,
-        storage_type: Optional[str] = None,
+        operation: str | None = None,
+        storage_type: str | None = None,
         **kwargs
     ):
         super().__init__(message, **kwargs)
@@ -86,8 +86,8 @@ class SessionError(VechnostBotError):
     def __init__(
         self,
         message: str,
-        chat_id: Optional[int] = None,
-        session_state: Optional[str] = None,
+        chat_id: int | None = None,
+        session_state: str | None = None,
         **kwargs
     ):
         super().__init__(message, **kwargs)
@@ -105,8 +105,8 @@ class TelegramAPIError(VechnostBotError):
     def __init__(
         self,
         message: str,
-        api_method: Optional[str] = None,
-        status_code: Optional[int] = None,
+        api_method: str | None = None,
+        status_code: int | None = None,
         **kwargs
     ):
         super().__init__(message, **kwargs)
@@ -124,9 +124,9 @@ class RateLimitError(VechnostBotError):
     def __init__(
         self,
         message: str,
-        user_id: Optional[int] = None,
-        limit: Optional[int] = None,
-        period: Optional[int] = None,
+        user_id: int | None = None,
+        limit: int | None = None,
+        period: int | None = None,
         **kwargs
     ):
         super().__init__(message, **kwargs)
@@ -147,8 +147,8 @@ class SecurityError(VechnostBotError):
     def __init__(
         self,
         message: str,
-        security_type: Optional[str] = None,
-        user_id: Optional[int] = None,
+        security_type: str | None = None,
+        user_id: int | None = None,
         **kwargs
     ):
         super().__init__(message, **kwargs)
@@ -166,9 +166,9 @@ class ContentError(VechnostBotError):
     def __init__(
         self,
         message: str,
-        content_type: Optional[str] = None,
-        theme: Optional[str] = None,
-        level: Optional[int] = None,
+        content_type: str | None = None,
+        theme: str | None = None,
+        level: int | None = None,
         **kwargs
     ):
         super().__init__(message, **kwargs)
@@ -189,7 +189,7 @@ class RenderingError(VechnostBotError):
     def __init__(
         self,
         message: str,
-        render_type: Optional[str] = None,
+        render_type: str | None = None,
         **kwargs
     ):
         super().__init__(message, **kwargs)
@@ -204,8 +204,8 @@ class LocalizationError(VechnostBotError):
     def __init__(
         self,
         message: str,
-        language: Optional[str] = None,
-        key: Optional[str] = None,
+        language: str | None = None,
+        key: str | None = None,
         **kwargs
     ):
         super().__init__(message, **kwargs)
@@ -223,8 +223,8 @@ class NetworkError(VechnostBotError):
     def __init__(
         self,
         message: str,
-        url: Optional[str] = None,
-        timeout: Optional[float] = None,
+        url: str | None = None,
+        timeout: float | None = None,
         **kwargs
     ):
         super().__init__(message, **kwargs)
@@ -242,8 +242,8 @@ class FileOperationError(VechnostBotError):
     def __init__(
         self,
         message: str,
-        file_path: Optional[str] = None,
-        operation: Optional[str] = None,
+        file_path: str | None = None,
+        operation: str | None = None,
         **kwargs
     ):
         super().__init__(message, **kwargs)

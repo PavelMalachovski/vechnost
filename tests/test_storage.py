@@ -1,8 +1,10 @@
 """Tests for storage module."""
 
-import pytest
 from unittest.mock import AsyncMock, patch
-from vechnost_bot.models import SessionState, Language
+
+import pytest
+
+from vechnost_bot.models import Language, SessionState
 from vechnost_bot.storage import delete_session, get_session, reset_session
 
 

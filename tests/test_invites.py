@@ -157,3 +157,54 @@ def test_without_a_mini_app_an_invite_still_lands_on_the_welcome_screen():
 
     text = update.message.reply_text.await_args.kwargs.get("parse_mode")
     assert text == "HTML", "the welcome screen, not the invite button"
+
+
+# ---------------------------------------------------------------------------
+# The code is the credential
+# ---------------------------------------------------------------------------
+
+def test_a_code_is_long_enough_that_guessing_is_not_a_strategy():
+    """A code is the whole credential for joining: whoever holds one takes
+    the second seat, sees the couple's board or their compatibility answers,
+    and locks the real partner out. Six characters was 32^6, about a billion
+    — patience, not luck. Nobody types a code any more, so length is free."""
+    assert invites.CODE_LENGTH >= 16
+    assert len(invites.new_code()) == invites.CODE_LENGTH
+    assert len(invites.CODE_ALPHABET) == 32
+
+
+def test_two_codes_are_not_the_same_code():
+    assert len({invites.new_code() for _ in range(200)}) == 200
+
+
+def test_a_code_avoids_the_characters_people_misread():
+    """Nobody types one now, but a code still gets read off a screen when
+    something has gone wrong and someone is describing it out loud. The
+    alphabet drops the four that get confused in pairs: 0/O and 1/I."""
+    assert not (set(invites.CODE_ALPHABET) & set("01OI"))
+
+
+def test_codes_minted_before_the_change_still_work():
+    """They are in the database and in links already sent."""
+    assert invites.valid_code("AB23CD") is True
+    assert invites.parse_invite_param("s69_AB23CD") == ("steps69", "AB23CD")
+
+
+def test_nothing_but_a_code_travels_in_a_link():
+    assert invites.valid_code("ABC") is False
+    assert invites.valid_code("A" * 17) is False
+    assert invites.valid_code("AB12CD") is False        # 1 is not in the alphabet
+    assert invites.valid_code("../../etc") is False
+    assert invites.parse_invite_param("s69_../../etc") is None
+
+
+def test_all_three_doors_mint_from_the_same_generator():
+    """Three copies of one generator drift. They already differed from the
+    one in referrals.py, which is a separate thing and stays separate."""
+    from vechnost_bot.payments import compat_api, rooms, steps69_api
+
+    for mint in (rooms._generate_room_code, compat_api._generate_code,
+                 steps69_api._generate_code):
+        code = mint()
+        assert len(code) == invites.CODE_LENGTH
+        assert invites.valid_code(code)

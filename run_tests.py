@@ -1,10 +1,9 @@
 #!/usr/bin/env python3
 """Comprehensive test runner for Vechnost bot."""
 
-import sys
-import subprocess
 import argparse
-import os
+import subprocess
+import sys
 from pathlib import Path
 
 
@@ -16,7 +15,7 @@ def run_command(cmd: list, description: str) -> bool:
     print(f"{'='*60}")
 
     try:
-        result = subprocess.run(cmd, check=True, capture_output=False)
+        subprocess.run(cmd, check=True, capture_output=False)
         print(f"✅ {description} completed successfully")
         return True
     except subprocess.CalledProcessError as e:

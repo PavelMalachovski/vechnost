@@ -1,8 +1,8 @@
 """Tests for main application entry point."""
 
+from unittest.mock import patch
+
 import pytest
-import sys
-from unittest.mock import patch, MagicMock
 
 from vechnost_bot.main import main
 

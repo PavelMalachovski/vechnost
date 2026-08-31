@@ -1,14 +1,13 @@
 """Hybrid storage implementation with Redis auto-start and fallback to in-memory storage."""
 
-import asyncio
-from typing import Optional, Dict, Any
-import structlog
 from datetime import datetime, timedelta
+from typing import Any
 
-from .models import SessionState, Language, Theme
+import structlog
+
+from .models import SessionState
 from .redis_storage import RedisStorage
-from .simple_redis_manager import simple_redis_auto_start_manager, get_simple_redis_connection_url
-from .config import settings
+from .simple_redis_manager import get_simple_redis_connection_url, simple_redis_auto_start_manager
 
 logger = structlog.get_logger(__name__)
 
@@ -17,13 +16,13 @@ class InMemoryStorage:
     """In-memory storage fallback when Redis is unavailable."""
 
     def __init__(self):
-        self.sessions: Dict[int, SessionState] = {}
-        self.user_stats: Dict[int, Dict[str, Any]] = {}
-        self.image_cache: Dict[str, bytes] = {}
-        self.counters: Dict[str, int] = {}
-        self.rate_limits: Dict[int, Dict[str, Any]] = {}
+        self.sessions: dict[int, SessionState] = {}
+        self.user_stats: dict[int, dict[str, Any]] = {}
+        self.image_cache: dict[str, bytes] = {}
+        self.counters: dict[str, int] = {}
+        self.rate_limits: dict[int, dict[str, Any]] = {}
 
-    async def get_session(self, chat_id: int) -> Optional[SessionState]:
+    async def get_session(self, chat_id: int) -> SessionState | None:
         """Get session from memory."""
         return self.sessions.get(chat_id)
 
@@ -37,11 +36,11 @@ class InMemoryStorage:
         self.sessions.pop(chat_id, None)
         logger.debug("session_deleted_from_memory", chat_id=chat_id)
 
-    async def get_user_stats(self, chat_id: int) -> Dict[str, Any]:
+    async def get_user_stats(self, chat_id: int) -> dict[str, Any]:
         """Get user stats from memory."""
         return self.user_stats.get(chat_id, {})
 
-    async def update_user_stats(self, chat_id: int, stats: Dict[str, Any]):
+    async def update_user_stats(self, chat_id: int, stats: dict[str, Any]):
         """Update user stats in memory."""
         self.user_stats[chat_id] = stats
 
@@ -50,7 +49,7 @@ class InMemoryStorage:
         self.image_cache[cache_key] = image_data
         logger.debug("image_cached_in_memory", cache_key=cache_key)
 
-    async def get_cached_image(self, cache_key: str) -> Optional[bytes]:
+    async def get_cached_image(self, cache_key: str) -> bytes | None:
         """Get cached image from memory."""
         return self.image_cache.get(cache_key)
 
@@ -60,7 +59,7 @@ class InMemoryStorage:
         self.counters[counter_name] = current + increment
         return self.counters[counter_name]
 
-    async def get_rate_limit_info(self, user_id: int, limit: int, period: int) -> Dict[str, Any]:
+    async def get_rate_limit_info(self, user_id: int, limit: int, period: int) -> dict[str, Any]:
         """Get rate limit info from memory."""
         user_data = self.rate_limits.get(user_id, {})
         current_count = user_data.get('count', 0)
@@ -95,7 +94,7 @@ class HybridStorage:
     """Hybrid storage with Redis auto-start and fallback to in-memory."""
 
     def __init__(self):
-        self.redis_storage: Optional[RedisStorage] = None
+        self.redis_storage: RedisStorage | None = None
         self.memory_storage = InMemoryStorage()
         self._redis_available = False
         self._redis_checked = False
@@ -129,7 +128,7 @@ class HybridStorage:
 
         return self._redis_available
 
-    async def get_session(self, chat_id: int) -> Optional[SessionState]:
+    async def get_session(self, chat_id: int) -> SessionState | None:
         """Get session with Redis fallback to memory."""
         if await self._ensure_redis_connection():
             try:
@@ -162,7 +161,7 @@ class HybridStorage:
         else:
             await self.memory_storage.delete_session(chat_id)
 
-    async def get_user_stats(self, chat_id: int) -> Dict[str, Any]:
+    async def get_user_stats(self, chat_id: int) -> dict[str, Any]:
         """Get user stats with Redis fallback to memory."""
         if await self._ensure_redis_connection():
             try:
@@ -173,7 +172,7 @@ class HybridStorage:
         else:
             return await self.memory_storage.get_user_stats(chat_id)
 
-    async def update_user_stats(self, chat_id: int, stats: Dict[str, Any]):
+    async def update_user_stats(self, chat_id: int, stats: dict[str, Any]):
         """Update user stats with Redis fallback to memory."""
         if await self._ensure_redis_connection():
             try:
@@ -195,7 +194,7 @@ class HybridStorage:
         else:
             await self.memory_storage.cache_rendered_image(cache_key, image_data, ttl)
 
-    async def get_cached_image(self, cache_key: str) -> Optional[bytes]:
+    async def get_cached_image(self, cache_key: str) -> bytes | None:
         """Get cached image with Redis fallback to memory."""
         if await self._ensure_redis_connection():
             try:
@@ -217,7 +216,7 @@ class HybridStorage:
         else:
             return await self.memory_storage.increment_counter(counter_name, increment)
 
-    async def get_rate_limit_info(self, user_id: int, limit: int, period: int) -> Dict[str, Any]:
+    async def get_rate_limit_info(self, user_id: int, limit: int, period: int) -> dict[str, Any]:
         """Get rate limit info with Redis fallback to memory."""
         if await self._ensure_redis_connection():
             try:

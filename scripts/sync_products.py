@@ -2,8 +2,8 @@
 """Script to sync products from Tribute API."""
 
 import asyncio
-import sys
 import logging
+import sys
 
 from vechnost_bot.payments.services import sync_products_from_tribute
 

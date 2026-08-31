@@ -12,7 +12,6 @@ from telegram.ext import ContextTypes
 from .callback_handlers import welcome_screen
 from .i18n import Language, get_text
 from .keyboards import get_reset_confirmation_keyboard
-from .logo_generator import generate_welcome_image_with_logo  # noqa: F401  (re-exported)
 from .monitoring import (
     log_bot_event,
     log_callback_event,

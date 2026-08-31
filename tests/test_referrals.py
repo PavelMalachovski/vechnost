@@ -46,11 +46,12 @@ def test_two_users_get_two_codes():
 
 
 def test_a_code_avoids_the_characters_people_misread():
-    """No 0/O and no 1/I/L: the code is read off one phone and typed on
-    another, or spoken out loud."""
-    code = referrals.code_from_seed("whatever:0")
-    assert len(code) == referrals.CODE_LENGTH
-    assert not (set(code) & set("01OIL"))
+    """0/O and 1/I are the pairs that get confused; the alphabet drops all
+    four. Asserted on the alphabet, not on one generated code: a code that
+    happens not to contain an L passes either way, so the old form was
+    testing the seed rather than the rule."""
+    assert len(referrals.code_from_seed("whatever:0")) == referrals.CODE_LENGTH
+    assert not (set(referrals.CODE_ALPHABET) & set("01OI"))
 
 
 def test_a_code_gives_nothing_away_about_the_account():

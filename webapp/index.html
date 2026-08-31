@@ -3772,14 +3772,16 @@
       if (param && param.indexOf('_') > 0) {
         const kind = param.slice(0, param.indexOf('_'));
         const code = param.slice(param.indexOf('_') + 1).trim().toUpperCase();
-        if (INVITE_SCREENS[kind] && code.length === 6) {
+        // 6 to 16: codes are minted at 16 now, and the short ones live on
+        // in links already sent.
+        if (INVITE_SCREENS[kind] && code.length >= 6 && code.length <= 16) {
           return { screen: INVITE_SCREENS[kind], code: code };
         }
       }
       const screen = q.get('screen');
       if (screen) {
         const code = (q.get('code') || '').trim().toUpperCase();
-        return { screen: screen, code: code.length === 6 ? code : null };
+        return { screen: screen, code: (code.length >= 6 && code.length <= 16) ? code : null };
       }
     } catch (e) {}
     return null;

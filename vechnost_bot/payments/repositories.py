@@ -635,6 +635,62 @@ class Steps69Repository:
         return list(result.scalars().all())
 
 
+class RetentionRepository:
+    """Deleting what nobody is coming back for.
+
+    Every row here is about somebody's sex life. A room is unreachable the
+    moment its TTL passes and the row is then only a record nobody asked us
+    to keep; an unfinished compatibility test or an abandoned board past
+    three months is the same. Finished tests and finished games are left
+    alone deliberately: those are meant to be re-read months later, and that
+    is the whole reason they have no TTL.
+    """
+
+    @staticmethod
+    async def delete_expired_rooms(session: AsyncSession, before: datetime) -> int:
+        """Rooms last touched before `before`. They already 410 on read."""
+        result = await session.execute(
+            delete(Room).where(Room.updated_at < before)
+        )
+        return result.rowcount or 0
+
+    @staticmethod
+    async def delete_abandoned_compat_tests(
+        session: AsyncSession, before: datetime
+    ) -> int:
+        """Unfinished tests nobody has touched since `before`.
+
+        `finished_at is None` is the whole condition that matters: a
+        completed test is a result the pair may come back to, and deleting
+        one because it is old would take away the thing they answered eighty
+        questions for.
+        """
+        result = await session.execute(
+            delete(CompatTest).where(
+                CompatTest.finished_at.is_(None),
+                CompatTest.updated_at < before,
+            )
+        )
+        return result.rowcount or 0
+
+    @staticmethod
+    async def delete_abandoned_games(
+        session: AsyncSession, before: datetime
+    ) -> int:
+        """Unfinished boards nobody has touched since `before`.
+
+        The resume nudge gives up after a week; three months later the pair
+        are not coming back to that board, and a finished one is kept.
+        """
+        result = await session.execute(
+            delete(Steps69Game).where(
+                Steps69Game.finished.is_(False),
+                Steps69Game.updated_at < before,
+            )
+        )
+        return result.rowcount or 0
+
+
 class CompatTestRepository:
     """Repository for compatibility-test sessions."""
 

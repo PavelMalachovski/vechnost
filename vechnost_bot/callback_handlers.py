@@ -837,7 +837,13 @@ class SimpleActionHandler(CallbackHandler):
             # For other themes, show level selection
             available_levels = localized_game_data.get_available_levels(session.theme, session.language)
             if available_levels:
-                await self._show_level_selection(query, session.theme, available_levels)
+                # `session` is not optional: without it this raises TypeError
+                # rather than showing anyone a level menu. Unreachable while
+                # Sex is the only NSFW theme and Sex has no levels, but one
+                # content edit away from being a live crash.
+                await self._show_level_selection(
+                    query, session.theme, available_levels, session
+                )
             else:
                 await self._show_theme_selection(query, session)
 
@@ -1002,19 +1008,28 @@ class CallbackHandlerRegistry:
 
         except ValueError as e:
             logger.warning(f"Invalid callback data: {data}, error: {e}")
-            # Get session for error message
-            chat_id = query.message.chat.id
-            session = await get_session(chat_id)
-            await query.edit_message_text(get_text('errors.unknown_callback', session.language))
+            await self._say_it_failed(query)
         except Exception as e:
             logger.error(f"Error handling callback query {data}: {e}", exc_info=True)
-            try:
-                # Get session for error message
-                chat_id = query.message.chat.id
-                session = await get_session(chat_id)
-                await query.edit_message_text(get_text('errors.unknown_callback', session.language))
-            except Exception as edit_error:
-                logger.error(f"Error editing message: {edit_error}")
+            await self._say_it_failed(query)
+
+    @staticmethod
+    async def _say_it_failed(query: Any) -> None:
+        """Tell the player the button did not work.
+
+        Deliberately touches no storage. Both error paths used to re-read the
+        session here purely to pick a language, so whenever the failure *was*
+        the storage - a Redis outage, the commonest case by far - the recovery
+        raised the same error again and the player got nothing at all: every
+        button silently dead, no message, no spinner, no hint. There is one
+        language now, so there is nothing to look up.
+        """
+        try:
+            await query.edit_message_text(
+                get_text('errors.unknown_callback', Language.RUSSIAN)
+            )
+        except Exception as edit_error:
+            logger.error(f"Error editing message: {edit_error}")
 
 
 def welcome_screen(language: Language) -> tuple[str, InlineKeyboardMarkup]:

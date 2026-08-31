@@ -3,7 +3,7 @@
 import logging
 from enum import Enum
 from pathlib import Path
-from typing import Any, Dict, Optional
+from typing import Any
 
 import yaml
 from babel import Locale
@@ -44,8 +44,8 @@ class I18nManager:
 
     def __init__(self, data_dir: Path = Path("data")):
         self.data_dir = data_dir
-        self.translations: Dict[Language, Dict[str, Any]] = {}
-        self.formatters: Dict[Language, Format] = {}
+        self.translations: dict[Language, dict[str, Any]] = {}
+        self.formatters: dict[Language, Format] = {}
         self._load_translations()
         self._setup_formatters()
 
@@ -56,7 +56,7 @@ class I18nManager:
                 # Load UI translations
                 ui_file = self.data_dir / f"translations_{language.value}.yaml"
                 if ui_file.exists():
-                    with open(ui_file, 'r', encoding='utf-8') as f:
+                    with open(ui_file, encoding='utf-8') as f:
                         ui_translations = yaml.safe_load(f) or {}
                 else:
                     ui_translations = {}
@@ -85,7 +85,9 @@ class I18nManager:
                 # Fallback to English
                 self.formatters[language] = Format(Locale('en'))
 
-    def get_text(self, key: str, language: Language = Language.RUSSIAN, **kwargs) -> str:
+    def get_text(
+        self, key: str, language: Language = Language.RUSSIAN, **kwargs: object
+    ) -> str:
         """Get translated text for a key."""
         try:
             # Navigate through nested keys (e.g., "welcome.title")
@@ -96,12 +98,12 @@ class I18nManager:
                 if isinstance(value, dict) and k in value:
                     value = value[k]
                 else:
-                    # Fallback to Russian if key not found
-                    if language != Language.RUSSIAN:
-                        return self.get_text(key, Language.RUSSIAN, **kwargs)
-                    else:
-                        logger.warning(f"Translation key not found: {key}")
-                        return key
+                    # There used to be a fallback to Russian here for a key
+                    # missing from another language's file. Russian is the
+                    # only language left, so it was a branch that could not
+                    # run; a missing key is now simply a missing key.
+                    logger.warning(f"Translation key not found: {key}")
+                    return key
 
             # Format the text if it's a string and kwargs are provided
             if isinstance(value, str) and kwargs:
@@ -134,7 +136,9 @@ i18n_manager = I18nManager()
 
 
 # Convenience functions
-def get_text(key: str, language: Language = Language.RUSSIAN, **kwargs) -> str:
+def get_text(
+    key: str, language: Language = Language.RUSSIAN, **kwargs: object
+) -> str:
     """Get translated text for a key."""
     return i18n_manager.get_text(key, language, **kwargs)
 

@@ -1,17 +1,28 @@
 """Comprehensive error handling tests."""
 
+from unittest.mock import AsyncMock, patch
+
 import pytest
-import pytest_asyncio
-from unittest.mock import AsyncMock, MagicMock, patch
-import asyncio
+import redis.exceptions
 
 from vechnost_bot.exceptions import (
-    VechnostBotError, ValidationError, StorageError, RedisConnectionError,
-    SessionError, TelegramAPIError, RateLimitError, SecurityError,
-    ContentError, RenderingError, LocalizationError, NetworkError,
-    FileOperationError, ErrorCodes, get_user_error_message
+    ContentError,
+    ErrorCodes,
+    FileOperationError,
+    LocalizationError,
+    NetworkError,
+    RateLimitError,
+    RedisConnectionError,
+    RenderingError,
+    SecurityError,
+    SessionError,
+    StorageError,
+    TelegramAPIError,
+    ValidationError,
+    VechnostBotError,
+    get_user_error_message,
 )
-from vechnost_bot.models import SessionState, Language, Theme, ContentType
+from vechnost_bot.models import SessionState
 
 
 class TestExceptionHierarchy:
@@ -371,7 +382,13 @@ class TestErrorHandlingIntegration:
     @pytest.mark.asyncio
     async def test_error_handling_in_callback_handler(self, mock_update, mock_context, hybrid_storage_with_memory):
         """Test error handling in callback handler."""
-        with patch('vechnost_bot.storage.get_hybrid_storage', return_value=hybrid_storage_with_memory):
+        # `storage.get_hybrid_storage` has not existed for some time; the
+        # handler reaches storage through `get_session`, which is what a
+        # test has to stand in for.
+        from vechnost_bot.models import SessionState
+
+        with patch('vechnost_bot.callback_handlers.get_session',
+                   new=AsyncMock(return_value=SessionState())):
             from vechnost_bot.handlers import handle_callback_query
 
             # Test with invalid callback data
@@ -424,8 +441,12 @@ class TestErrorRecovery:
         with patch.object(hybrid_storage_with_memory, 'get_session') as mock_get_session:
             mock_get_session.side_effect = [mock_redis_error, SessionState()]
 
-            # First call should fail
-            with pytest.raises(Exception):
+            # First call should fail. Named, not a bare `Exception`: the
+            # fixture raises redis's own ConnectionError - not the
+            # `RedisConnectionError` this file imports from
+            # `vechnost_bot.exceptions` - and a blind assert would also have
+            # passed on a TypeError from the mock being set up wrong.
+            with pytest.raises(redis.exceptions.ConnectionError):
                 await hybrid_storage_with_memory.get_session(12345)
 
             # Second call should succeed

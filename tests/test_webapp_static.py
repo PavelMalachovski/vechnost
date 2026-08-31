@@ -82,7 +82,10 @@ def test_the_mini_app_suits_match_the_printed_cards():
     art = html.split("const CARD_ART = {", 1)[1].split("\n  };", 1)[0]
     for theme, folder in (("Acquaintance", "acq"), ("For Couples", "couples"),
                           ("Sex", "sex"), ("Provocation", "prov")):
-        line = next(l for l in art.splitlines() if l.lstrip().startswith(f"'{theme}'"))
+        line = next(
+            row for row in art.splitlines()
+            if row.lstrip().startswith(f"'{theme}'")
+        )
         faces = re.findall(r"'([a-z_]+)/[a-z_0-9]+\.png'", line)
         assert faces, f"{theme} names no card face"
         assert set(faces) == {folder}, f"{theme} wears {set(faces)}, not {folder}"

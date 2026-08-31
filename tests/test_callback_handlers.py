@@ -1,14 +1,14 @@
 """Tests for callback handlers."""
 
-import pytest
 from unittest.mock import AsyncMock, MagicMock, patch
+
+import pytest
 
 from vechnost_bot.callback_handlers import (
     BackHandler,
     CalendarHandler,
     CallbackHandlerRegistry,
     LevelHandler,
-    NavigationHandler,
     QuestionHandler,
     SimpleActionHandler,
     ThemeHandler,
@@ -19,7 +19,6 @@ from vechnost_bot.callback_models import (
     CalendarCallbackData,
     CallbackAction,
     LevelCallbackData,
-    NavigationCallbackData,
     QuestionCallbackData,
     SimpleCallbackData,
     ThemeCallbackData,
@@ -512,12 +511,28 @@ class TestCallbackHandlerRegistry:
 
     @pytest.mark.asyncio
     async def test_handle_callback_exception(self, registry, mock_query):
-        """Test handling callback with exception through registry."""
+        """A storage outage still gets an answer back to the player.
+
+        The recovery path used to re-read the session purely to pick a
+        language, so when storage was what had failed it failed again and the
+        player got nothing at all - every button silently dead. This test
+        asserted that as the expected behaviour, comment and all.
+        """
         with patch('vechnost_bot.callback_handlers.get_session') as mock_get_session:
             mock_get_session.side_effect = Exception("Test error")
 
             await registry.handle_callback(mock_query, "theme_Acquaintance")
 
-            # The exception is thrown in get_session, so edit_message_text won't be called
-            # because the error handling code also calls get_session which throws an exception
-            mock_query.edit_message_text.assert_not_called()
+        mock_query.edit_message_text.assert_called_once()
+
+    @pytest.mark.asyncio
+    async def test_a_dead_telegram_message_does_not_raise(self, registry, mock_query):
+        """Neither the handler nor the apology can reach Telegram."""
+        mock_query.edit_message_text.side_effect = Exception("message is gone")
+
+        with patch('vechnost_bot.callback_handlers.get_session') as mock_get_session:
+            mock_get_session.side_effect = Exception("Test error")
+
+            await registry.handle_callback(mock_query, "theme_Acquaintance")
+
+        mock_query.edit_message_text.assert_called_once()

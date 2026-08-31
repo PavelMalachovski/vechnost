@@ -1,16 +1,16 @@
 """Payment middleware for Telegram bot handlers."""
 
 import logging
+from collections.abc import Callable
 from functools import wraps
-from typing import Callable, Optional
 
-from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
+from telegram import InlineKeyboardButton, InlineKeyboardMarkup, Update
 from telegram.ext import ContextTypes
 
 from ..config import settings
-from .services import user_has_access, get_products_for_purchase
 from .database import get_db
 from .repositories import UserRepository
+from .services import get_products_for_purchase, user_has_access
 
 logger = logging.getLogger(__name__)
 

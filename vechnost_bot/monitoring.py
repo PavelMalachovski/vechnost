@@ -7,11 +7,12 @@ import sys
 import time
 from contextlib import asynccontextmanager
 from functools import wraps
-from typing import Any, Dict, Optional
+from typing import Any
 
 import structlog
-from sentry_sdk import capture_exception, capture_message, set_context, set_tag, set_user
+from sentry_sdk import capture_exception, set_context, set_tag, set_user
 from sentry_sdk.integrations.logging import LoggingIntegration
+
 
 # Configure structlog
 def configure_logging() -> None:
@@ -103,8 +104,8 @@ class BotMetrics:
 
     def __init__(self):
         self.logger = structlog.get_logger("bot_metrics")
-        self._counters: Dict[str, int] = {}
-        self._timers: Dict[str, float] = {}
+        self._counters: dict[str, int] = {}
+        self._timers: dict[str, float] = {}
 
     def increment_counter(self, name: str, value: int = 1, **context) -> None:
         """Increment a counter metric."""
@@ -116,7 +117,7 @@ class BotMetrics:
         self._timers[name] = duration
         self.logger.info("timer_recorded", timer=name, duration=duration, **context)
 
-    def get_metrics(self) -> Dict[str, Any]:
+    def get_metrics(self) -> dict[str, Any]:
         """Get current metrics."""
         return {
             "counters": self._counters.copy(),
@@ -139,7 +140,7 @@ def track_performance(operation_name: str):
                 duration = time.time() - start_time
                 metrics.record_timer(f"{operation_name}_success", duration)
                 return result
-            except Exception as e:
+            except Exception:
                 duration = time.time() - start_time
                 metrics.record_timer(f"{operation_name}_error", duration)
                 metrics.increment_counter(f"{operation_name}_errors")
@@ -153,7 +154,7 @@ def track_performance(operation_name: str):
                 duration = time.time() - start_time
                 metrics.record_timer(f"{operation_name}_success", duration)
                 return result
-            except Exception as e:
+            except Exception:
                 duration = time.time() - start_time
                 metrics.record_timer(f"{operation_name}_error", duration)
                 metrics.increment_counter(f"{operation_name}_errors")
@@ -275,7 +276,7 @@ async def track_operation(operation_name: str, **context):
         raise
 
 
-def set_user_context(user_id: int, username: Optional[str] = None, **extra_context):
+def set_user_context(user_id: int, username: str | None = None, **extra_context):
     """Set user context for Sentry and logging."""
     set_user({
         "id": str(user_id),
@@ -370,7 +371,7 @@ def initialize_monitoring() -> None:
 
 
 # Health check endpoint
-def get_health_status() -> Dict[str, Any]:
+def get_health_status() -> dict[str, Any]:
     """Get health status for monitoring."""
     return {
         "status": "healthy",

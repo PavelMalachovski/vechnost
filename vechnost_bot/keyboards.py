@@ -3,7 +3,7 @@
 from telegram import InlineKeyboardButton, InlineKeyboardMarkup
 
 from .i18n import Language, get_text
-from .models import ContentType, Theme
+from .models import Theme
 
 
 def get_theme_keyboard(language: Language = Language.RUSSIAN) -> InlineKeyboardMarkup:
@@ -106,12 +106,12 @@ def get_calendar_keyboard(
         if category == "q":
             toggle_row.append(InlineKeyboardButton(
                 f"📝 {get_text('navigation.toggle_tasks', language)}",
-                callback_data=f"toggle:sex:0:t"
+                callback_data="toggle:sex:0:t"
             ))
         else:
             toggle_row.append(InlineKeyboardButton(
                 f"❓ {get_text('navigation.toggle_questions', language)}",
-                callback_data=f"toggle:sex:0:q"
+                callback_data="toggle:sex:0:q"
             ))
         keyboard.append(toggle_row)
 
