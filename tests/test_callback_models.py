@@ -76,6 +76,33 @@ class TestCallbackData:
         assert callback_data.index == 6
         assert callback_data.raw_data == data
 
+    def test_parse_question_callback_with_category(self):
+        """The questions/tasks split rides in the callback itself.
+
+        Sessions expire, and recovering the split from a fresh default
+        session served question 7 where task 7 was tapped."""
+        callback_data = CallbackData.parse("q:sex:0:5:t")
+        assert isinstance(callback_data, QuestionCallbackData)
+        assert callback_data.category == "t"
+
+        # Buttons minted before the field existed still parse, category-less.
+        legacy = CallbackData.parse("q:sex:0:5")
+        assert legacy.category is None
+
+        with pytest.raises(ValueError):
+            CallbackData.parse("q:sex:0:5:x")
+
+    def test_parse_navigation_callback_with_category(self):
+        callback_data = CallbackData.parse("nav:sex:0:6:q")
+        assert isinstance(callback_data, NavigationCallbackData)
+        assert callback_data.category == "q"
+
+        legacy = CallbackData.parse("nav:sex:0:6")
+        assert legacy.category is None
+
+        with pytest.raises(ValueError):
+            CallbackData.parse("nav:sex:0:6:z")
+
     def test_parse_toggle_callback(self):
         """Test parsing toggle callback data."""
         data = "toggle:sex:0:t"

@@ -39,6 +39,7 @@ class TestThemeHandler:
         query = MagicMock()
         query.edit_message_text = AsyncMock()
         query.message = MagicMock()
+        query.message.photo = ()  # a text message, not a photo card
         query.message.reply_text = AsyncMock()
         query.message.delete = AsyncMock()
         return query
@@ -204,6 +205,7 @@ class TestQuestionHandler:
         query.edit_message_text = AsyncMock()
         query.edit_message_media = AsyncMock()
         query.message = MagicMock()
+        query.message.photo = ()  # a text message, not a photo card
         query.message.reply_photo = AsyncMock()
         return query
 
@@ -334,6 +336,7 @@ class TestBackHandler:
         query = MagicMock()
         query.edit_message_text = AsyncMock()
         query.message = MagicMock()
+        query.message.photo = ()  # a text message, not a photo card
         query.message.reply_text = AsyncMock()
         query.message.delete = AsyncMock()
         return query
@@ -409,6 +412,7 @@ class TestSimpleActionHandler:
         query = MagicMock()
         query.edit_message_text = AsyncMock()
         query.message = MagicMock()
+        query.message.photo = ()  # a text message, not a photo card
         query.message.chat = MagicMock()
         query.message.chat.id = 12345
         return query
@@ -486,6 +490,7 @@ class TestCallbackHandlerRegistry:
         query = MagicMock()
         query.edit_message_text = AsyncMock()
         query.message = MagicMock()
+        query.message.photo = ()  # a text message, not a photo card
         query.message.chat = MagicMock()
         query.message.chat.id = 12345
         return query

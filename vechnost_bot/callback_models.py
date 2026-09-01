@@ -172,6 +172,11 @@ class QuestionCallbackData(CallbackData):
     topic: str = Field(..., description="Topic code")
     level_or_0: int = Field(..., description="Level number or 0")
     index: int = Field(..., description="Question index")
+    # "q" or "t". Carried in the callback itself because sessions expire:
+    # recovering the questions/tasks split from a stale session served
+    # question 7 to someone who tapped task 7. None on messages minted
+    # before the field existed; those still fall back to the session.
+    category: str | None = Field(default=None, description="Content category (q/t)")
 
     @classmethod
     def parse(cls, data: str) -> "QuestionCallbackData":
@@ -180,7 +185,7 @@ class QuestionCallbackData(CallbackData):
             raise ValueError(f"Invalid question callback data: {data}")
 
         parts = data.split(":")
-        if len(parts) != 4:
+        if len(parts) not in (4, 5):
             raise ValueError(f"Invalid question callback format: {data}")
 
         topic = parts[1]
@@ -189,6 +194,10 @@ class QuestionCallbackData(CallbackData):
             index = int(parts[3])
         except ValueError as e:
             raise ValueError(f"Invalid numeric values in question callback: {e}") from e
+
+        category = parts[4] if len(parts) == 5 else None
+        if category is not None and category not in ("q", "t"):
+            raise ValueError(f"Invalid category in question callback: {category}")
 
         if level_or_0 < 0 or level_or_0 > 10:
             raise ValueError(f"Level out of range: {level_or_0}")
@@ -200,7 +209,8 @@ class QuestionCallbackData(CallbackData):
             raw_data=data,
             topic=topic,
             level_or_0=level_or_0,
-            index=index
+            index=index,
+            category=category
         )
 
 
@@ -211,6 +221,9 @@ class NavigationCallbackData(CallbackData):
     topic: str = Field(..., description="Topic code")
     level_or_0: int = Field(..., description="Level number or 0")
     index: int = Field(..., description="Question index")
+    # Same contract as QuestionCallbackData.category: the questions/tasks
+    # split travels with the button, not with the expiring session.
+    category: str | None = Field(default=None, description="Content category (q/t)")
 
     @classmethod
     def parse(cls, data: str) -> "NavigationCallbackData":
@@ -219,7 +232,7 @@ class NavigationCallbackData(CallbackData):
             raise ValueError(f"Invalid navigation callback data: {data}")
 
         parts = data.split(":")
-        if len(parts) != 4:
+        if len(parts) not in (4, 5):
             raise ValueError(f"Invalid navigation callback format: {data}")
 
         topic = parts[1]
@@ -228,6 +241,10 @@ class NavigationCallbackData(CallbackData):
             index = int(parts[3])
         except ValueError as e:
             raise ValueError(f"Invalid numeric values in navigation callback: {e}") from e
+
+        category = parts[4] if len(parts) == 5 else None
+        if category is not None and category not in ("q", "t"):
+            raise ValueError(f"Invalid category in navigation callback: {category}")
 
         if level_or_0 < 0 or level_or_0 > 10:
             raise ValueError(f"Level out of range: {level_or_0}")
@@ -239,7 +256,8 @@ class NavigationCallbackData(CallbackData):
             raw_data=data,
             topic=topic,
             level_or_0=level_or_0,
-            index=index
+            index=index,
+            category=category
         )
 
 

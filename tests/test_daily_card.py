@@ -68,6 +68,29 @@ def _run_send(bot, recipients, repo_extra=None):
             return asyncio.run(send_daily_cards(bot))
 
 
+def test_a_render_failure_does_not_kill_the_push():
+    """The render sits inside the per-user loop's own try.
+
+    It used to run before it, so a broken font or a bad day index killed the
+    whole job before the first send.
+    """
+    users = [
+        MagicMock(telegram_user_id=1, language="ru"),
+        MagicMock(telegram_user_id=2, language="ru"),
+    ]
+    bot = MagicMock()
+    bot.send_photo = AsyncMock()
+
+    with patch(
+        "vechnost_bot.daily_card.render_daily_card",
+        side_effect=RuntimeError("font gone"),
+    ):
+        sent = _run_send(bot, users)
+
+    assert sent == 0
+    bot.send_photo.assert_not_awaited()
+
+
 def test_healthy_recipient_gets_the_card():
     user = MagicMock(telegram_user_id=42, language="ru")
     bot = MagicMock()

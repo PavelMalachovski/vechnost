@@ -40,10 +40,24 @@ if __name__ == '__main__':
 
     print("[*] Both webhook server and bot are running!")
 
-    # Wait for processes
+    # Supervise both children: if either dies, take the other down and exit
+    # non-zero so the platform's restart policy brings the pair back.
+    # Joining them one after the other used to leave the deployment running
+    # half-alive - a dead bot behind a healthy web server, invisibly.
     try:
-        webhook_process.join()
-        bot_process.join()
+        while True:
+            for process, name in (
+                (webhook_process, "webhook server"),
+                (bot_process, "bot"),
+            ):
+                if not process.is_alive():
+                    print(f"[!] The {name} died (exit code {process.exitcode}), stopping the other")
+                    for other in (webhook_process, bot_process):
+                        if other is not process and other.is_alive():
+                            other.terminate()
+                            other.join(timeout=10)
+                    sys.exit(process.exitcode or 1)
+            time.sleep(5)
     except KeyboardInterrupt:
         print("\n[*] Stopping services...")
         webhook_process.terminate()

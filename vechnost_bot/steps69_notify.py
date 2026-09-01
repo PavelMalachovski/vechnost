@@ -31,12 +31,6 @@ IDLE_BEFORE_NUDGE = timedelta(hours=20)
 GIVE_UP_AFTER = timedelta(days=7)
 
 
-def _bot() -> Bot | None:
-    if not settings.telegram_bot_token:
-        return None
-    return Bot(token=settings.telegram_bot_token)
-
-
 def _keyboard(language: Language) -> InlineKeyboardMarkup | None:
     """The "continue" button, or None when WEBAPP_URL is unset.
 
@@ -75,18 +69,19 @@ async def nudge_stalled_games(bot: Bot) -> int:
         # least one of them, and telling someone their piece waits on a cell
         # it has never stood on is worse than saying nothing.
         pending = [
-            [
-                (user_id, position)
-                for user_id, position in (
-                    (game.creator_telegram_user_id, game.creator_position),
-                    (game.guest_telegram_user_id, game.guest_position),
-                )
-                if user_id
-            ]
+            (
+                game.id,
+                [
+                    (user_id, position)
+                    for user_id, position in (
+                        (game.creator_telegram_user_id, game.creator_position),
+                        (game.guest_telegram_user_id, game.guest_position),
+                    )
+                    if user_id
+                ],
+            )
             for game in games
         ]
-        for game in games:
-            game.resume_notified_at = now
 
     if not pending:
         return 0
@@ -94,7 +89,7 @@ async def nudge_stalled_games(bot: Bot) -> int:
     languages: dict[int, Language] = {}
     try:
         async with get_db() as session:
-            for recipients in pending:
+            for _, recipients in pending:
                 for user_id, _ in recipients:
                     user = await UserRepository.get_by_telegram_id(session, user_id)
                     languages[user_id] = Language.coerce(user.language if user else None)
@@ -103,7 +98,8 @@ async def nudge_stalled_games(bot: Bot) -> int:
         logger.warning(f"Steps69 nudge: language lookup failed: {e}")
 
     nudged = 0
-    for recipients in pending:
+    reached_ids: list[int] = []
+    for game_id, recipients in pending:
         reached = False
         for user_id, position in recipients:
             language = languages.get(user_id, Language.RUSSIAN)
@@ -115,11 +111,24 @@ async def nudge_stalled_games(bot: Bot) -> int:
                 )
                 reached = True
             except Forbidden:
-                logger.info(f"Steps69 nudge: user {user_id} blocked the bot")
+                logger.info(
+                    f"Steps69 nudge: user {user_id} has no chat with the bot "
+                    f"or blocked it"
+                )
             except Exception as e:
                 logger.warning(f"Steps69 nudge failed for {user_id}: {e}")
         if reached:
             nudged += 1
+            reached_ids.append(game_id)
+
+    # Flagged only after somebody was actually reached. Flagging before the
+    # sends meant a pair the bot could not message that day (say, a guest
+    # who joined through the Mini App and never opened a chat with the bot)
+    # was written off forever; now the job simply tries again tomorrow,
+    # until the give-up window closes over the game.
+    if reached_ids:
+        async with get_db() as session:
+            await Steps69Repository.mark_resume_notified(session, reached_ids, now)
 
     logger.info(f"Steps69 nudge: reminded {nudged}/{len(pending)} stalled games")
     return nudged

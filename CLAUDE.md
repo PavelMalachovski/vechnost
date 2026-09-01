@@ -15,8 +15,9 @@ content set and one payment/access model:
    swipeable card deck; content comes from `GET /api/questions`.
 
 The FastAPI app in `vechnost_bot/payments/web.py` also handles Tribute
-payment webhooks. In production `run_webhook.py` runs the web server and the
-bot in one process.
+payment webhooks. In production `run_webhook.py` supervises the web server
+and the bot as two child processes and exits when either dies, so the
+platform's restart policy restarts the pair together.
 
 ## Commands
 
@@ -274,7 +275,8 @@ ruff check .                             # lint (CI gates on this)
   dependencies: `throttle("join")` on anything that takes a six-character
   code, `throttle("render")` on `/api/card`, `throttle("admin")` on the
   admin routes, `throttle("write")` on in-game writes. Windows are
-  in-process (bot and web run in one process), and the `join` bucket also
+  in-process (every throttled endpoint lives in the single web process;
+  the bot runs beside it as a second process), and the `join` bucket also
   has a **global** ceiling because `X-Forwarded-For` is client-settable and
   a per-client budget alone would not bound a code sweep. `tests/conftest.py`
   resets it between tests; without that a suite creating more rooms than the

@@ -444,3 +444,69 @@ def test_the_back_of_the_card_never_takes_a_touch():
     html = INDEX.read_text(encoding="utf-8")
     back = html.split("  .card .back {")[1].split("}")[0]
     assert "pointer-events: none" in back
+
+
+def test_the_paywall_leaves_a_live_card_on_the_stage():
+    """Closing the paywall must land on a working deck, not a frozen one.
+
+    `finishDeck`'s paywall branch used to return without rebuilding the
+    stage: the last free card had already flown off, `deckDirty` stayed
+    set, and closing the paywall left a dead screen where nothing —
+    buttons, swipes, even the paywall itself — responded until the user
+    left the deck. Reproduced with a real unpaid session in Chromium; the
+    rebuild is what makes the last free card come back and stay swipeable.
+    """
+    html = INDEX.read_text(encoding="utf-8")
+    branch = html.split("if (!ACCESS.paid && full > freeN) {")[1].split("}")[0]
+    assert "renderStage" in branch
+    assert branch.index("renderStage") < branch.index("showPaywall")
+
+
+def test_a_screen_switch_dismisses_overlays():
+    """Back must not leave «Колода пройдена!» floating over the home screen.
+
+    Overlays are absolutely positioned siblings of the screens, so they
+    survive `show()` unless it clears them — and the finished-deck banner,
+    the paywall and the 18+ gate all did, because only `leaveS69` cleaned
+    up after itself. The rule now lives in `show()`, once, for all of them.
+    """
+    html = INDEX.read_text(encoding="utf-8")
+    body = html.split("function show(id) {")[1].split("\n  }")[0]
+    assert ".overlay.show" in body
+
+
+def test_the_compat_resume_offer_is_rewired_on_every_visit():
+    """The «Продолжить тест» button must never outlive the code it offers.
+
+    Its text and click handler used to be wired only from the home-screen
+    button, so after a delete or a second test every other route back to
+    the entry screen showed a button that 404s forever.
+    """
+    html = INDEX.read_text(encoding="utf-8")
+    body = html.split("function show(id) {")[1].split("\n  }")[0]
+    assert "refreshCompatResume" in body
+    assert "function refreshCompatResume()" in html
+
+
+def test_the_pollers_keep_one_request_in_flight():
+    """A bare interval stacks requests on a slow link.
+
+    Answers landing out of order repainted newer state with older — in «69
+    ступеней» the piece visibly jumped backwards and the portal toast fired
+    twice. Each poller carries its own in-flight guard.
+    """
+    html = INDEX.read_text(encoding="utf-8")
+    for fn in ("function startCoopPoll", "function startCompatPoll", "function startS69Poll"):
+        body = html.split(fn)[1].split("\n  }")[0]
+        assert "busy" in body, f"{fn} lost its in-flight guard"
+
+
+def test_the_finale_overlay_is_not_rebuilt_under_a_tap():
+    """Every poll tick lands in showS69Finale while the pair read the text.
+
+    Rebuilding the open overlay reset its scroll and could swallow the tap
+    that chooses the finale; once shown, it stays as built.
+    """
+    html = INDEX.read_text(encoding="utf-8")
+    body = html.split("function showS69Finale(st) {")[1].split("\n  }")[0]
+    assert "contains('show')) return" in body

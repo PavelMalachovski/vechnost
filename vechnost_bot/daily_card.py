@@ -5,7 +5,7 @@ user receives it rendered in their own language.
 """
 
 import logging
-from datetime import date
+from datetime import UTC, date, datetime
 from pathlib import Path
 
 from telegram import Bot, InlineKeyboardButton, InlineKeyboardMarkup, WebAppInfo
@@ -91,17 +91,30 @@ async def send_daily_cards(bot: Bot) -> int:
         logger.info("Daily card: no recipients")
         return 0
 
-    today = date.today()
+    # The job fires on a UTC clock, so the calendar date is read from the
+    # same clock: `date.today()` is server-local and rolls the prompt at the
+    # wrong moment on any non-UTC host.
+    today = datetime.now(UTC).date()
     # Render once per language, reuse the bytes for every user.
     rendered: dict[Language, tuple[bytes, str]] = {}
+    render_failed: set[Language] = set()
     sent = 0
 
     for user in recipients:
         language = _user_language(user.language)
-        if language not in rendered:
-            image, caption = render_daily_card(today, language)
-            rendered[language] = (image.getvalue(), caption)
-        image_bytes, caption = rendered[language]
+        if language in render_failed:
+            continue
+        try:
+            # Inside the per-user try on purpose: a render failure used to
+            # kill the whole job before the first send.
+            if language not in rendered:
+                image, caption = render_daily_card(today, language)
+                rendered[language] = (image.getvalue(), caption)
+            image_bytes, caption = rendered[language]
+        except Exception as e:
+            logger.error(f"Daily card: render failed for {language}: {e}")
+            render_failed.add(language)
+            continue
 
         try:
             await bot.send_photo(

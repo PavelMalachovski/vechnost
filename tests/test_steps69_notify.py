@@ -137,6 +137,30 @@ async def test_a_game_nobody_could_be_reached_about_is_not_counted(db):
     assert await nudge_stalled_games(bot) == 0
 
 
+async def test_an_unreachable_pair_is_tried_again_next_time(db):
+    """The notified flag is set after a send lands, not before.
+
+    It used to be committed before the loop, so a guest who joined through
+    the Mini App and never opened a chat with the bot was written off
+    forever on the first attempt.
+    """
+    await _game("IIIIII", position=45, idle=IDLE_BEFORE_NUDGE * 2)
+    bot = _bot()
+    bot.send_message.side_effect = Forbidden("no chat with the bot yet")
+
+    assert await nudge_stalled_games(bot) == 0
+
+    # Next run one partner has opened the chat: the nudge lands and the
+    # game is marked, so the run after that stays quiet.
+    bot.send_message.side_effect = None
+    bot.send_message.reset_mock()
+    assert await nudge_stalled_games(bot) == 1
+
+    bot.send_message.reset_mock()
+    assert await nudge_stalled_games(bot) == 0
+    bot.send_message.assert_not_awaited()
+
+
 async def test_rolling_again_makes_a_game_eligible_for_a_later_nudge(db):
     """The flag records "we nudged about this stall", not "this game is
     spent": a pair who come back, play on and stall again deserve another."""

@@ -1197,6 +1197,8 @@
       shuffled: 'Колода перемешана', ordered: 'По порядку',
       cardWord: 'Карта', resumed: 'Продолжаем с места остановки',
       loadError: 'Не удалось загрузить вопросы. Проверьте соединение.',
+      netError: 'Нет связи с сервером. Проверьте интернет и попробуйте ещё раз.',
+      inviteBroken: 'Ссылка-приглашение не сработала. Попросите партнёра прислать её ещё раз.',
       practicesBtn: '🌿 Практики',
       inviteNoLink: 'Ссылку не удалось собрать. Обновите приложение.',
       paywallTitle: 'Бесплатные карты закончились',
@@ -1245,6 +1247,7 @@
       compatInviteMsg: 'Пройдём тест совместимости в VECHNOST? 💞 Нажми на ссылку, и тест откроется:',
       compatResume: 'Продолжаем с вопроса {n}',
       compatResumeBtn: 'Продолжить тест',
+      compatNotStarted: 'Партнёр ещё не присоединился',
       compatDelete: 'Удалить результат и ответы',
       compatDeleteConfirm: 'Удалить тест? Ваши ответы и ответы партнёра будут стёрты навсегда.',
       compatDeleted: 'Тест удалён',
@@ -1289,6 +1292,7 @@
       s69Milestone: 'Каждая десятая',
       s69FinaleTitle: 'Клетка 69',
       s69FinaleWait: 'Партнёр выбирает финал…',
+      s69FinaleTaken: 'Партнёр уже выбрал финал',
       s69Done: 'Вы прошли этот путь',
       s69Again: 'Повторим?',
       s69ToHome: 'На главную',
@@ -1298,6 +1302,9 @@
       s69Gone: 'Игра не найдена',
       s69Full: 'В этой игре уже двое',
       s69SoloJoin: 'Эта игра идёт на одном телефоне',
+      s69NotPlayer: 'Эта ссылка от чужой игры',
+      s69NoPartner: 'Партнёр ещё не присоединился',
+      s69Over: 'Игра уже завершена',
       s69Paywall: '«69 ступеней» входят в полный доступ',
       s69Seat: { creator: 'Партнёр 1', guest: 'Партнёр 2' },
       themes: {
@@ -1383,6 +1390,15 @@
   /* ---------------- navigation ---------------- */
   function show(id) {
     document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+    // A screen switch dismisses whatever overlay rode on the old screen:
+    // the finished-deck banner, the paywall and the 18+ gate all used to
+    // survive Back and sit over the home screen (leaveS69 already cleared
+    // its own three — this is that rule, for every overlay, in one place).
+    document.querySelectorAll('.overlay.show').forEach(o => o.classList.remove('show'));
+    // The compat entry screen re-wires its resume offer on every visit,
+    // whichever path led here: the button used to keep a stale closure and
+    // 404 forever after a delete or a second test.
+    if (id === 'compat') refreshCompatResume();
     $(id).classList.add('active');
     try {
       if (tg && tg.BackButton) {
@@ -1420,8 +1436,11 @@
     if (e.status === 401) return T().authExpired;
     if (e.status === 429) return T().tooMany;
     if (e.status >= 500) return T().serverError;
-    if (!e.status) return T().loadError;   // genuinely no reply: offline
-    return T().loadError + ' (' + e.status + ')';
+    // Neutral wording: this fallback fires on the dice, on an answer, on an
+    // advance — «не удалось загрузить вопросы» was a lie everywhere but the
+    // question loader, which reports T().loadError itself.
+    if (!e.status) return T().netError;   // genuinely no reply: offline
+    return T().netError + ' (' + e.status + ')';
   }
 
   function toast(msg) {
@@ -1981,6 +2000,12 @@
     const freeN = S.order.length;
     const full = deckTotalFull();
     if (!ACCESS.paid && full > freeN) {
+      // Rebuild the stage before showing the paywall: the last free card
+      // has already flown off, and returning without a render left an
+      // empty stage with deckDirty stuck on — closing the paywall landed
+      // on a frozen deck where nothing responded until the user left the
+      // screen. Now the last free card comes back and stays swipeable.
+      renderStage(false);
       showPaywall(freeN, full);
       return;
     }
@@ -2098,8 +2123,13 @@
 
   function startCoopPoll(onState) {
     stopCoopPoll();
+    // One request in flight at a time (same rule in all three pollers): on
+    // a slow link a bare interval stacks requests, and answers landing out
+    // of order repaint newer state with older.
+    let busy = false;
     C.timer = setInterval(async () => {
-      if (!C.code) return;
+      if (!C.code || busy) return;
+      busy = true;
       try {
         const st = await coopFetch('/api/rooms/' + C.code);
         onState(st);
@@ -2109,7 +2139,7 @@
           toast(T().coopGone);
           leaveCoop();
         }
-      }
+      } finally { busy = false; }
     }, 2500);
   }
 
@@ -2598,15 +2628,25 @@
 
   function startCompatPoll() {
     stopCompatPoll();
+    let busy = false;  // one request in flight; see startCoopPoll
     CT.timer = setInterval(async () => {
-      if (!CT.code) return;
+      if (!CT.code || busy) return;
+      busy = true;
       try {
         const st = await coopFetch('/api/compat/' + CT.code);
         CT.st = st;
         onCompatState(st);
       } catch (e) {
-        if (e.status === 404) { stopCompatPoll(); toast(T().coopGone); show('compat'); }
-      }
+        if (e.status === 404) {
+          stopCompatPoll();
+          // Deleted by the partner or swept: forget the code, or the entry
+          // screen keeps offering a test that no longer exists.
+          if (store.get('compatCode', null) === CT.code) store.set('compatCode', null);
+          CT.code = null;
+          toast(T().coopGone);
+          show('compat');
+        }
+      } finally { busy = false; }
     }, 2500);
   }
 
@@ -2670,8 +2710,11 @@
     try {
       const st = await coopFetch('/api/compat/' + code + '/join', { method: 'POST', json: {} });
       adoptCompatState(st);
-      startCompatPoll();
+      // A finished test never gets a poll: the poll used to be started
+      // first, see `finished` on its next tick and force the result screen
+      // a second time, yanking back a user who had already pressed back.
       if (st.finished) { loadCompatResult(st.code); return; }
+      startCompatPoll();
       // The creator re-opening their own test before the partner has joined
       // belongs on the invite screen, not in a quiz they cannot answer yet.
       if (!st.started) {
@@ -2684,8 +2727,14 @@
       enterCompatQuiz();
     } catch (e) {
       if (e.status === 409) toast(T().coopFull);
-      else if (e.status === 404) toast(T().coopGone);
-      else toast(T().loadError);
+      else if (e.status === 404) {
+        // The partner deleted it, or retention swept it: stop offering the
+        // dead code back on every visit to the entry screen.
+        if (store.get('compatCode', null) === code) store.set('compatCode', null);
+        refreshCompatResume();
+        toast(T().coopGone);
+      }
+      else toast(statusMessage(e));
     } finally { $('loader').classList.remove('show'); }
   }
 
@@ -2740,12 +2789,25 @@
       setCompatScaleEnabled(true);
     } catch (e) {
       CT.pending = false;
-      // Completed under us, or the partner has not joined yet; the poll or
-      // the result screen will catch up. Re-enable so the screen is not stuck.
-      if (e.status === 409) { setCompatScaleEnabled(true); return; }
+      if (e.status === 409) {
+        // Two different 409s. "Test is already complete": a retake finished
+        // under us, so go read the result rather than answering into a
+        // void — the poll used to be the only rescue, and it is not always
+        // running. "Partner has not joined yet": step back and say so.
+        if ((e.detail || '').indexOf('complete') >= 0) {
+          stopCompatPoll();
+          loadCompatResult(CT.code);
+          return;
+        }
+        CT.idx = index;
+        renderCompatQuestion();
+        setCompatScaleEnabled(true);
+        toast(T().compatNotStarted);
+        return;
+      }
       CT.idx = index;
       renderCompatQuestion();
-      toast(T().loadError);
+      toast(statusMessage(e));
     }
   }
 
@@ -2885,17 +2947,25 @@
       <button class="btn btn-second compat-danger" id="compatDeleteBtn">${escapeHTML(T().compatDelete)}</button>`;
   }
 
-  $('btnCompat').onclick = () => {
-    haptic('light');
-    // Offer the last test back so an interrupted run is one tap from
-    // resuming. It used to be offered as a code prefilled into a field the
-    // user then had to submit; the field is gone, so it is a button.
+  // Offer the last test back so an interrupted run is one tap from
+  // resuming. Re-wired on every visit to the entry screen, not only from
+  // the home button: the button used to keep a stale closure after a
+  // delete or a second test and 404 forever. The click re-reads the store,
+  // so the offer can never outlive the code it points at.
+  function refreshCompatResume() {
     const saved = store.get('compatCode', null);
     const resume = $('btnCompatResume');
     resume.textContent = T().compatResumeBtn;
     resume.style.display = saved ? '' : 'none';
-    resume.onclick = () => compatJoin(saved);
-    show('compat');
+    resume.onclick = () => {
+      const code = store.get('compatCode', null);
+      if (code) compatJoin(code);
+    };
+  }
+
+  $('btnCompat').onclick = () => {
+    haptic('light');
+    show('compat');  // show() re-wires the resume offer itself
   };
   $('compatBack').onclick = () => { stopCompatPoll(); show('home'); };
   $('compatInviteBack').onclick = () => { stopCompatPoll(); CT.code = null; show('compat'); };
@@ -3670,9 +3740,23 @@
 
   function s69Error(e) {
     if (e.status === 402) { showS69Paywall(); return; }
-    if (e.status === 409) { toast(T().s69Full); return; }
+    // coopFetch keeps the server's `detail`, and one status covers several
+    // different situations: a 409 on join can mean "full" or "this game is
+    // played on one phone", a 403 can mean "not your turn" or "not a player
+    // at all". A stranger with a stale link used to be told it was not
+    // their turn.
+    const d = (e.detail || '');
+    if (e.status === 409) {
+      if (d.indexOf('one phone') >= 0) { toast(T().s69SoloJoin); return; }
+      if (d.indexOf('joined') >= 0) { toast(T().s69NoPartner); return; }
+      if (d.indexOf('over') >= 0 || d.indexOf('dice') >= 0) { toast(T().s69Over); return; }
+      toast(T().s69Full); return;
+    }
     if (e.status === 404 || e.status === 410) { toast(T().s69Gone); return; }
-    if (e.status === 403) { toast(T().s69NotYourTurn); return; }
+    if (e.status === 403) {
+      toast(d.indexOf('player') >= 0 ? T().s69NotPlayer : T().s69NotYourTurn);
+      return;
+    }
     toast(statusMessage(e));
   }
 
@@ -3736,15 +3820,27 @@
       $('btnS69Restart').textContent = T().s69Restart;
       $('btnS69Restart').style.display = '';
       $('btnS69Restart').onclick = async () => {
-        if (!confirm(T().s69RestartConfirm)) return;
+        // Telegram's native confirm where it exists: clients that suppress
+        // window.confirm made this button do nothing at all.
+        if (!await compatConfirm(T().s69RestartConfirm)) return;
         haptic('medium');
         try { await coopFetch('/api/steps69/' + st.code, { method: 'DELETE' }); }
-        catch (e) { /* already gone is the outcome we wanted */ }
+        catch (e) {
+          // Already gone is the outcome we wanted; anything else means the
+          // game still exists, and saying «Игра удалена» would be a lie
+          // the returning Resume button immediately exposes.
+          if (e.status !== 404 && e.status !== 410) { s69Error(e); return; }
+        }
         store.set('s69Code', null);
         toast(T().s69Deleted);
         s69OfferResume();
       };
-    } catch (e) { /* no game in play, which is the common case */ }
+    } catch (e) {
+      // 404 is the common case: no game in play. Any other failure must not
+      // masquerade as "no game" — hiding both buttons on a network hiccup
+      // sent a pair mid-game off to start a second board.
+      if (e.status !== 404 && e.status !== 410) toast(statusMessage(e));
+    }
   }
 
   async function s69Create(mode) {
@@ -3824,12 +3920,14 @@
 
   function startS69Poll(onState) {
     stopS69Poll();
+    let busy = false;  // one request in flight; see startCoopPoll
     G.timer = setInterval(async () => {
-      if (!G.code) return;
+      if (!G.code || busy) return;
+      busy = true;
       try { onState(await coopFetch('/api/steps69/' + G.code)); }
       catch (e) {
         if (e.status === 404 || e.status === 410) { stopS69Poll(); toast(T().s69Gone); leaveS69(); }
-      }
+      } finally { busy = false; }
     }, 2200);
   }
 
@@ -4115,6 +4213,11 @@
 
   function showS69Finale(st) {
     if (!st.finale) return;
+    // Every poll tick lands here while the pair read the finale. Rebuilding
+    // the open overlay each time reset its scroll and could swallow a tap
+    // whose down and up straddled the rebuild — "I chose and nothing
+    // happened". Once shown, it stays as built.
+    if ($('s69Finale').classList.contains('show')) return;
     $('s69FinaleTitle').textContent = st.finale.title;
     $('s69FinaleIntro').textContent = st.finale.intro;
     const box = $('s69FinaleChoices');
@@ -4144,7 +4247,14 @@
       $('s69Finale').classList.remove('show');
       renderS69(st, false);
     } catch (e) {
-      if (e.status === 409) { toast(T().s69FinaleWait); $('s69Finale').classList.remove('show'); }
+      if (e.status === 409) {
+        // Two different 409s: the partner already fixed the finale (the
+        // next poll opens it as chosen), or a piece is somehow not home.
+        const detail = (e.detail || '').indexOf('already') >= 0
+          ? T().s69FinaleTaken : T().s69FinaleWait;
+        toast(detail);
+        $('s69Finale').classList.remove('show');
+      }
       else s69Error(e);
     }
   }
@@ -4229,6 +4339,11 @@
         if (INVITE_SCREENS[kind] && code.length >= 6 && code.length <= 16) {
           return { screen: INVITE_SCREENS[kind], code: code };
         }
+        // A recognised kind with a mangled code: the partner tapped a
+        // truncated or mistyped link. Landing them silently on the home
+        // screen told them nothing; say the link is broken. An unknown
+        // kind stays silent on purpose - it may be someone else's payload.
+        if (INVITE_SCREENS[kind]) return { broken: true };
       }
       const screen = q.get('screen');
       if (screen) {
@@ -4242,6 +4357,7 @@
   async function boot() {
     const target = bootTarget();
     if (!target) return;
+    if (target.broken) { toast(T().inviteBroken); return; }
     if (target.screen === 'library') { openLibrary(); return; }
 
     if (target.screen === 'steps69') {

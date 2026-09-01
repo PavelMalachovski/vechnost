@@ -189,6 +189,7 @@ def mock_message(mock_user, mock_chat):
     message.from_user = mock_user
     message.chat = mock_chat
     message.text = "Hello"
+    message.photo = ()  # a text message; photo cards set this themselves
     message.reply_text = AsyncMock()
     message.reply_photo = AsyncMock()
     message.edit_text = AsyncMock()
