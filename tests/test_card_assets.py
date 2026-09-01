@@ -15,7 +15,9 @@ REPO_ROOT = Path(__file__).parent.parent
 FONTS = REPO_ROOT / "assets" / "fonts"
 WEBAPP_FONTS = REPO_ROOT / "webapp" / "fonts"
 BACKGROUNDS = REPO_ROOT / "assets" / "backgrounds"
+SUITS = REPO_ROOT / "assets" / "suits"
 CARD_SIZE = (1080, 1350)
+SUIT_NAMES = ["hearts", "spades", "clubs", "diamonds"]
 
 # One representative letter per alphabet the cards actually set.
 CYRILLIC = "Ж"
@@ -78,11 +80,54 @@ CARD_SHA256 = {
     "card_back.png": "125e5d7ba10c74fd6444af60b9970271cc78862d81288aa10a573931388bbc12",
 }
 
+# The same pinning, for the four emblems on their own. These carry no text at
+# all — the generator only crops and resamples the deck art to make them —
+# which is why they can be pinned somewhere the two cards above cannot: a
+# machine whose FreeType sets the VECHNOST wordmark a hair differently still
+# cuts byte-identical suits.
+SUIT_SHA256 = {
+    "hearts": "b53273779e0474ec42bdee57ce805dd78c4c5fe833af5ef904396b247043fc3f",
+    "spades": "3abe1239cd68fef9a078ca1b46834088a7447531862768b931b8e6b21613cebe",
+    "clubs": "190bec99e71b4ee2484d21633ceaffe2d46ccc8fcd4521c9c94a860f87740b9b",
+    "diamonds": "ef47f4b0a897a6a8e0ece925e4ded2a68c58b9973d549280e2adc92ea17ba6c3",
+}
+
 
 @pytest.mark.parametrize("name", ["library.png", "card_back.png"])
 def test_generated_card_is_the_art_the_generator_produces(name):
     digest = hashlib.sha256((BACKGROUNDS / name).read_bytes()).hexdigest()
     assert digest == CARD_SHA256[name], (
         f"{name} is not the committed art. If you meant to change it, "
+        f"regenerate and pin: {digest}"
+    )
+
+
+@pytest.mark.parametrize("name", SUIT_NAMES)
+def test_suit_emblem_is_a_square_tile_with_a_cut_out_alpha(name):
+    """The Mini App's home fan sets these as an Ace's centre pip.
+
+    Square, because all four are cut from one box so a single background-size
+    scales the set alike; RGBA with a real hole around the emblem, because the
+    pip sits on the deck card's own ground and a baked-in background would
+    show as a paler rectangle on it.
+    """
+    path = SUITS / f"{name}.png"
+    assert path.exists(), f"missing emblem {name}.png"
+    with Image.open(path) as img:
+        assert img.mode == "RGBA", f"{name}.png is {img.mode}, not RGBA"
+        assert img.size[0] == img.size[1], f"{name}.png is not square: {img.size}"
+        alpha = img.getchannel("A")
+        assert alpha.getextrema() == (0, 255), (
+            f"{name}.png has no cut-out: alpha runs {alpha.getextrema()}"
+        )
+        # The emblem must not fill the tile, or the crop caught the card edge.
+        assert img.getbbox()[2] - img.getbbox()[0] < img.size[0]
+
+
+@pytest.mark.parametrize("name", SUIT_NAMES)
+def test_suit_emblem_is_the_art_the_generator_produces(name):
+    digest = hashlib.sha256((SUITS / f"{name}.png").read_bytes()).hexdigest()
+    assert digest == SUIT_SHA256[name], (
+        f"{name}.png is not the committed art. If you meant to change it, "
         f"regenerate and pin: {digest}"
     )

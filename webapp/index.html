@@ -142,8 +142,22 @@
      it advertises. */
   .deck-fan { display: flex; justify-content: center; margin: 20px 0 4px; height: 108px; }
   .deck-fan i {
-    display: block; width: 72px; height: 108px; margin: 0 -14px;
-    border-radius: 8px; background-size: cover; background-position: center;
+    /* The overlap used to be -14px, which hid a third of each card. That was
+       fine while the only mark was a corner one, and clipped the centre pip
+       of every card but the top one. -7px still reads as a hand of cards and
+       leaves all four suits whole. */
+    display: block; width: 72px; height: 108px; margin: 0 -7px;
+    border-radius: 8px;
+    /* Two layers: the suit's own emblem over the deck card it belongs to.
+       The card art carries its mark in the corner, which is about six pixels
+       at this size and reads as a smudge – four cards that look blank. So
+       each also gets a centre pip, the way an Ace does. The emblems are
+       square tiles cut from one box by scripts/generate_card_assets.py, so
+       this percentage sizes all four alike rather than one suit at a time:
+       58% of 72px puts the mark itself at about 30px. */
+    background-size: 58% auto, cover;
+    background-position: center, center;
+    background-repeat: no-repeat, no-repeat;
     box-shadow: 0 8px 20px rgba(0,0,0,.45);
     animation: fan-float 3.2s ease-in-out infinite;
   }
@@ -858,11 +872,13 @@
   <section class="screen active" id="home">
     <div class="logo">Vechnost</div>
     <div class="tagline" data-i18n="tagline"></div>
+    <!-- Each card is its deck's real art with its own suit as the centre
+         pip: ♥ Знакомство, ♠ Для пар, ♣ Секс, ♦ Провокации. -->
     <div class="deck-fan">
-      <i style="background-image:url(/assets/backgrounds/acq/acq_1.png)"></i>
-      <i style="background-image:url(/assets/backgrounds/couples/couples_1.png)"></i>
-      <i style="background-image:url(/assets/backgrounds/sex/questions.png)"></i>
-      <i style="background-image:url(/assets/backgrounds/prov/prov.png)"></i>
+      <i style="background-image:url(/assets/suits/hearts.png),url(/assets/backgrounds/acq/acq_1.png)"></i>
+      <i style="background-image:url(/assets/suits/spades.png),url(/assets/backgrounds/couples/couples_1.png)"></i>
+      <i style="background-image:url(/assets/suits/clubs.png),url(/assets/backgrounds/sex/questions.png)"></i>
+      <i style="background-image:url(/assets/suits/diamonds.png),url(/assets/backgrounds/prov/prov.png)"></i>
     </div>
     <button class="btn btn-play" id="btnPlay" data-i18n="play"></button>
     <button class="btn btn-second" id="btnCoop" data-i18n="coopBtn"></button>
@@ -2365,9 +2381,12 @@
     try {
       const data = await libFetch('/api/library?lang=' + lang + libNsfwParam());
       const featured = data.modules.filter(m => HOME_MODULES.indexOf(m.id) !== -1);
+      // The module's own emoji, the one «Практики» already shows it under.
+      // Every other button on this screen carries one, so the masterclass
+      // was the single unmarked row in the column.
       box.innerHTML = featured.map(m => `
         <button class="btn btn-second home-mod" data-module="${m.id}">
-          ${escapeHTML(m.title)}${m.locked ? ' 🔒' : ''}
+          ${escapeHTML(m.emoji)} ${escapeHTML(m.title)}${m.locked ? ' 🔒' : ''}
         </button>`).join('') + practices();
       wire();
     } catch (e) {

@@ -1,7 +1,10 @@
-"""Generate the two cards the deck art doesn't already provide.
+"""Generate the art the deck cards don't already provide.
 
 `library.png` — the face every Library item and the daily prompt is set on.
 `card_back.png` — the shared back the Mini App flips.
+`suits/*.png` — the four emblems on their own, transparent, for anywhere a
+suit has to be shown at a size the corner mark cannot survive: the Mini App's
+home-screen fan renders them as an Ace's centre pip.
 
 The suits are *cropped from the existing deck cards* rather than redrawn:
 they are shaded illustrations, not glyphs, and any redraw would drift from
@@ -18,6 +21,7 @@ from PIL import Image, ImageDraw, ImageFont
 
 ROOT = Path(__file__).parent.parent
 BG = ROOT / "assets" / "backgrounds"
+SUITS_DIR = ROOT / "assets" / "suits"
 FONTS = ROOT / "assets" / "fonts"
 
 CARD = (1080, 1350)
@@ -55,6 +59,16 @@ _SRC_SUIT = (49.5 / 600, 127 / 900, 119.5 / 600, 197 / 900)
 # The crop is 70 source px wide and holds a 50px emblem, so a cell of this
 # size renders the emblem at SUIT_W.
 SUIT_BOX = round(SUIT_W * 70 / 50)
+
+# Which deck card each suit is cut from. One mapping, because the back and the
+# standalone emblems must show the same four marks; the deck's own suits are
+# Acquaintance ♥, For Couples ♠, Sex ♣, Provocation ♦.
+SUIT_SOURCES = {
+    "hearts": "acq/acq_1.png",
+    "spades": "couples/couples_1.png",
+    "clubs": "sex/tasks.png",
+    "diamonds": "prov/prov.png",
+}
 
 _GROUND_TOL = 30   # channel-sum distance still counted as bare card
 _FRINGE = 2        # px of source ring blended toward the pale ground
@@ -250,10 +264,10 @@ def build_card_back() -> Image.Image:
     card = Image.new("RGB", CARD, DARK)
     _wordmark(card, 104, PINK)
 
-    heart = _suit("acq/acq_1.png", SUIT_BOX)
-    spade = _suit("couples/couples_1.png", SUIT_BOX)
-    club = _suit("sex/tasks.png", SUIT_BOX)
-    diamond = _suit("prov/prov.png", SUIT_BOX)
+    heart, spade, club, diamond = (
+        _suit(SUIT_SOURCES[name], SUIT_BOX)
+        for name in ("hearts", "spades", "clubs", "diamonds")
+    )
 
     v = _letter("V", LETTER_CAP, PINK)
     lam = _letter("V", LETTER_CAP, PINK, rotate=180)
@@ -271,10 +285,28 @@ def build_card_back() -> Image.Image:
     return card
 
 
+def build_suit_emblems() -> dict[str, Image.Image]:
+    """Each suit alone on transparency, at the size the card back uses.
+
+    Square tiles, all four cut from the same 70x70 box, so a caller that sizes
+    one tile has sized all four alike – the heart and the club keep their own
+    proportions inside it instead of being stretched to a common outline. The
+    source emblem is 50px in the 600x900 deck art, so SUIT_BOX is as much
+    resolution as there is; asking for a larger tile would only add blur.
+    """
+    return {name: _suit(source, SUIT_BOX)
+            for name, source in SUIT_SOURCES.items()}
+
+
 def main() -> None:
     build_library_card().save(BG / "library.png")
     build_card_back().save(BG / "card_back.png")
-    print("wrote library.png and card_back.png")
+    SUITS_DIR.mkdir(parents=True, exist_ok=True)
+    emblems = build_suit_emblems()
+    for name, tile in emblems.items():
+        tile.save(SUITS_DIR / f"{name}.png")
+    print("wrote library.png, card_back.png and "
+          + ", ".join(f"suits/{n}.png" for n in emblems))
 
 
 if __name__ == "__main__":
