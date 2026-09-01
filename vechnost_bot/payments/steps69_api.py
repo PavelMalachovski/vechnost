@@ -15,9 +15,10 @@ payment covers both. Three things differ, and each is deliberate:
 
 Each partner has their own piece and walks their own board. A player who
 reaches 69 stops rolling and waits; the finale unlocks when both are home.
-Secrets and Joker tasks are not in the board payload: a cell's instruction
-reaches the player standing on it through `steps69.cell_view`, and their
-partner gets only the one line written for them.
+The board payload is the printed game — every cell's title and action —
+but secrets and Joker tasks are not in it: a deal reaches the player
+standing on the cell through `steps69.cell_view`, and their partner gets
+only the one line written for them, never the other player's task.
 """
 
 import hashlib

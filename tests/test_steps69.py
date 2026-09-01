@@ -227,17 +227,24 @@ def test_a_joker_task_can_be_found_by_id():
 # What each player is allowed to see
 # ---------------------------------------------------------------------------
 
-def test_the_map_carries_titles_and_arrows_but_no_instructions():
-    """The board is the paid content. Titles make it legible; the text of a
-    square you have not reached would let a client read the deck ahead."""
+def test_the_map_shows_every_cells_action_but_never_a_deal():
+    """A printed board lets both players read every cell, so the map
+    carries each cell's action text. What must never be in it is a *deal*:
+    a secret's instruction, its partner line, or any Joker task."""
     view = steps69.board_view()
     assert view["size"] == 69
     assert len(view["cells"]) == 69
+    by_id = {c["id"]: c for c in view["cells"]}
     flat = repr(view)
     for c in steps69.load_cells():
-        assert c.text not in flat or not c.text
+        assert by_id[c.id]["text"] == c.text
         if c.secret:
             assert c.secret not in flat
+        if c.partner:
+            assert c.partner not in flat
+    for tasks in steps69.load_jokers().values():
+        for task in tasks:
+            assert task.text not in flat
     assert view["cells"][3]["to"] == 18
 
 
@@ -250,6 +257,19 @@ def test_the_mover_reads_the_secret_and_the_partner_does_not():
     assert mover["partner"] is None
     assert partner["secret"] is None
     assert partner["partner"] == secret_cell.partner
+
+
+def test_the_partner_audience_gets_no_task_of_the_other_player():
+    """On two devices each partner reads only their own tasks: the other
+    player's cell arrives as a title (and the partner line of a secret),
+    never as the instruction or the Joker task they were dealt."""
+    ordinary = next(c for c in steps69.load_cells() if c.kind == "step")
+    assert steps69.cell_view(ordinary.id, "partner")["text"] == ""
+    assert steps69.cell_view(ordinary.id, "mover")["text"] == ordinary.text
+
+    task = steps69.load_jokers()["tender"][0]
+    watched = steps69.cell_view(9, "partner", joker_task_id=task.id)
+    assert watched["joker"] is None
 
 
 def test_one_phone_gets_both_halves():

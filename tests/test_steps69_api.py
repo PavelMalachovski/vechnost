@@ -329,6 +329,18 @@ def test_the_partners_secret_never_reaches_the_wire(client):
     assert steps69.cell(5).secret not in watcher.text
 
 
+def test_the_partner_cell_arrives_without_its_instruction(client):
+    """Each phone is dealt only its own tasks. The map already prints every
+    cell's action; the *state* still must not hand one player the card the
+    other is holding."""
+    code = started_game(client)
+    with patch.object(steps69, "roll_dice", return_value=1):  # alice 1 -> 2, a step
+        roll(client, code, ALICE)
+    watcher = client.get(f"/api/steps69/{code}", headers=BOB).json()
+    assert watcher["partner"]["cell"]["kind"] == "step"
+    assert watcher["partner"]["cell"]["text"] == ""
+
+
 def test_one_phone_shows_both_halves(client):
     game = create(client, mode="solo")
     with patch.object(steps69, "roll_dice", return_value=4):
@@ -340,7 +352,7 @@ def test_one_phone_shows_both_halves(client):
 # The Joker
 # ---------------------------------------------------------------------------
 
-def test_a_joker_deals_one_task_and_both_phones_see_the_same_one(client):
+def test_a_joker_deals_one_task_and_it_stays_with_its_player(client):
     code = started_game(client)
     with patch.object(steps69, "roll_dice", return_value=6):
         roll(client, code, ALICE)   # alice 1 -> 7
@@ -351,10 +363,27 @@ def test_a_joker_deals_one_task_and_both_phones_see_the_same_one(client):
     watcher = client.get(f"/api/steps69/{code}", headers=BOB).json()
     assert mover["you"]["cell"]["kind"] == "joker"
     assert mover["you"]["cell"]["joker"]["text"]
-    assert watcher["partner"]["cell"]["joker"] == mover["you"]["cell"]["joker"]
+    # The deal is Alice's: Bob sees her standing on a Joker, not the task.
+    assert watcher["partner"]["cell"]["kind"] == "joker"
+    assert watcher["partner"]["cell"]["joker"] is None
     # Polling again must not redraw.
     assert client.get(f"/api/steps69/{code}", headers=ALICE).json()["you"]["cell"]["joker"] \
         == mover["you"]["cell"]["joker"]
+
+
+def test_the_partners_joker_task_never_reaches_the_wire(client):
+    """Same promise as the secret: each partner is dealt only their own
+    tasks, asserted on the raw body of the watcher's poll."""
+    code = started_game(client)
+    with patch.object(steps69, "roll_dice", return_value=6):
+        roll(client, code, ALICE)
+        roll(client, code, BOB)
+    with patch.object(steps69, "roll_dice", return_value=2):
+        mover = roll(client, code, ALICE).json()   # alice 7 -> 9, a joker
+
+    dealt = mover["you"]["cell"]["joker"]["text"]
+    watcher = client.get(f"/api/steps69/{code}", headers=BOB)
+    assert dealt not in watcher.text
 
 
 def test_each_piece_carries_its_own_joker(client):
@@ -366,11 +395,12 @@ def test_each_piece_carries_its_own_joker(client):
     with patch.object(steps69, "roll_dice", return_value=2):
         roll(client, code, ALICE)   # alice -> 9, joker
         state = roll(client, code, BOB).json()   # bob -> 9, joker
+    alice = client.get(f"/api/steps69/{code}", headers=ALICE).json()
 
     assert state["you"]["cell"]["kind"] == "joker"
-    assert state["partner"]["cell"]["kind"] == "joker"
-    # Same game never deals one task twice.
-    assert state["you"]["cell"]["joker"]["id"] != state["partner"]["cell"]["joker"]["id"]
+    assert alice["you"]["cell"]["kind"] == "joker"
+    # Same game never deals one task twice; each player reads their own.
+    assert state["you"]["cell"]["joker"]["id"] != alice["you"]["cell"]["joker"]["id"]
 
 
 def test_the_joker_clears_when_the_piece_moves_on(client):
@@ -391,7 +421,10 @@ def test_the_joker_clears_when_the_piece_moves_on(client):
 # The map
 # ---------------------------------------------------------------------------
 
-def test_the_board_is_legible_but_gives_nothing_away(client):
+def test_the_board_shows_every_action_but_never_a_deal(client):
+    """The map is the printed game: every cell carries its title and its
+    action text, so a tap on any square can say what happens there. The
+    deals stay out of it: no secret, no partner line, no Joker task."""
     code = started_game(client)
     board = client.get(f"/api/steps69/{code}/board", headers=BOB)
     assert board.status_code == 200
@@ -399,13 +432,18 @@ def test_the_board_is_legible_but_gives_nothing_away(client):
     assert payload["size"] == 69
     assert len(payload["cells"]) == 69
     assert all(c["title"] for c in payload["cells"])
+    by_id = {c["id"]: c for c in payload["cells"]}
 
     body = board.text
     for c in steps69.load_cells():
+        assert by_id[c.id]["text"] == c.text
         if c.secret:
             assert c.secret not in body, f"cell {c.id} secret leaked into the map"
-        if c.text:
-            assert c.text not in body, f"cell {c.id} instruction leaked into the map"
+        if c.partner:
+            assert c.partner not in body, f"cell {c.id} partner line leaked into the map"
+    for tasks in steps69.load_jokers().values():
+        for task in tasks:
+            assert task.text not in body, f"joker {task.id} leaked into the map"
 
 
 def test_the_map_carries_the_portal_arrows(client):

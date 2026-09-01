@@ -132,6 +132,25 @@ def test_question_numbers_are_one_based_and_global():
     assert result.spheres[7].divergent == [40]
 
 
+def test_divergent_questions_carry_their_texts():
+    """«Обсудите вопросы №12, 14» is not actionable when neither partner
+    remembers what question 12 asked. The result carries the text of every
+    divergent question, keyed by its global number — texts only, no answers."""
+    a = [4] * 40
+    b = [4] * 40
+    b[0] = 1                      # question 1
+    b[39] = 1                     # question 40
+    result = build_result(a, b)
+    flat = [q for s in load_spheres(Language.RUSSIAN) for q in s.questions]
+    assert set(result.questions) == {1, 40}
+    assert result.questions[1] == flat[0]
+    assert result.questions[40] == flat[39]
+
+
+def test_no_divergence_means_no_question_texts():
+    assert build_result([5] * 40, [5] * 40).questions == {}
+
+
 def test_recommendation_lists_the_divergent_numbers():
     a = [4] * 40
     b = [4] * 40

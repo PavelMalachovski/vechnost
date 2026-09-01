@@ -179,6 +179,21 @@ def test_a_partner_cannot_reconstruct_the_others_sphere_sums(client):
         ), f"sphere {sphere_index}: partner's sum recoverable from the payload"
 
 
+def test_the_result_carries_the_text_of_every_divergent_question(client):
+    """The client shows the question under its number without a second
+    request, so the texts have to arrive with the result."""
+    code = _create(client)["code"]
+    client.post(f"/api/compat/{code}/join", headers=HEAD_B)
+    _answer_all(client, code, HEAD_A, 4)
+    _answer_all(client, code, HEAD_B, 1)
+
+    result = client.get(f"/api/compat/{code}/result", headers=HEAD_A).json()
+    assert result["divergent_all"] == list(range(1, 41))
+    # JSON object keys are strings; every divergent number has its text.
+    assert set(result["questions"]) == {str(n) for n in result["divergent_all"]}
+    assert all(text.strip() for text in result["questions"].values())
+
+
 def test_a_third_party_is_refused(client):
     code = _create(client)["code"]
     client.post(f"/api/compat/{code}/join", headers=HEAD_B)

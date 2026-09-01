@@ -380,6 +380,53 @@ def test_the_pose_drawings_show_which_way_the_body_faces():
     assert poses.count("view:") == poses.count("light:")
 
 
+def test_the_compat_result_reads_in_the_agreed_order():
+    """Team spheres first, then the questions to discuss, then the three
+    zones from strong to critical. The flat «По всем сферам» list and the
+    separate attention block are gone — every sphere now sits under the
+    zone it landed in, with the attention framing riding on its card."""
+    html = INDEX.read_text(encoding="utf-8")
+    body = html.split("function renderCompatResult(")[1].split("\n  }")[0]
+    # The last template in the function is the assembled screen; the earlier
+    # `return \`` belongs to the zoneSection helper.
+    ret = body.split("return `")[-1]
+    order = [
+        ret.index("compatStrengths"),
+        ret.index("${discuss}"),
+        ret.index("${zoneSection('strength')}"),
+        ret.index("${zoneSection('growth')}"),
+        ret.index("${crisis}"),
+    ]
+    assert order == sorted(order)
+    assert "compatAll" not in html
+    assert "compatAttention" not in html
+
+
+def test_a_divergent_question_number_opens_its_text_on_a_tap():
+    """«Обсудите вопросы №12» is only actionable with question 12 under it.
+    The number is a <details> summary, so the text opens on a tap with no
+    script to break, and the texts come with the result payload."""
+    html = INDEX.read_text(encoding="utf-8")
+    fn = html.split("function compatQuestionsHTML(")[1].split("\n  }")[0]
+    assert "<details" in fn and "<summary" in fn
+    body = html.split("function renderCompatResult(")[1].split("\n  }")[0]
+    assert body.count("compatQuestionsHTML(") >= 2  # sphere cards and the discuss block
+    assert "r.questions" in body
+
+
+def test_every_board_cell_opens_its_action():
+    """The «69 ступеней» map is the printed game: a tap on any square shows
+    what it does. The detail card reads from the board payload, which
+    carries titles and action texts but never a secret or a Joker task."""
+    html = INDEX.read_text(encoding="utf-8")
+    build = html.split("function buildS69Map(")[1].split("\n  }")[0]
+    assert "showS69CellInfo" in build
+    assert 'id="s69CellInfo"' in html
+    info = html.split("function showS69CellInfo(")[1].split("\n  }")[0]
+    assert "c.text" in info
+    assert "c.to" in info  # a portal says where it throws the piece
+
+
 def test_the_back_of_the_card_never_takes_a_touch():
     """The back face was eating the scroll gesture.
 
