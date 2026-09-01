@@ -252,9 +252,20 @@ ruff check .                             # lint (CI gates on this)
   payment pages a user sees. With `REFERRAL_PAYMENT_URL` unset the codes are
   still minted and invites still recorded, and nobody is promised a discount
   that does not exist.
-- **A broadcast is a script, never a bot command.** `scripts/broadcast.py`
-  sends nothing without `--confirm`, and lives outside the bot so no stray
-  callback can ever reach it.
+- **A broadcast has two doors and one delivery loop.** `broadcast.py` owns
+  the loop — the pause between sends, the retry that honours Telegram's own
+  `retry_after`, and the rule that a user who blocked the bot is opted out
+  of the daily push too, since that is the same signal. `scripts/broadcast.py`
+  is the deliberate door and still sends nothing without `--confirm`;
+  `/broadcast` in the bot is the convenient one, and it is registered **only**
+  where `ADMIN_IDS` names somebody. That gate is the whole safety story the
+  script's separateness used to provide: with the variable unset there is no
+  command to type and no button for a stray callback to reach, and with it
+  set every entry point re-checks the id rather than trusting the flow that
+  led there. The draft is `copy_message`d, never re-typed, so a voice note
+  or a video broadcasts as well as text; the confirm callback is registered
+  ahead of the game's catch-all and with `block=False`, or a send to
+  thousands of people would hold every other update behind it.
 - **The daily push has one button into the app.** «Играть» and «Библиотека»
   were the same app opened at two screens, and the choice came before the
   reader had seen either. It is one «Зайти в приложение» now, with the
@@ -270,7 +281,10 @@ ruff check .                             # lint (CI gates on this)
   Mini App button; the Library and «69 ступеней» rows were removed, because
   the app's own navigation belongs in the app. The chat menu button and the
   command list are published at startup by `bot.py::_publish_entry_points`,
-  which is what a user with a cleared history has left to tap.
+  which is what a user with a cleared history has left to tap. `/broadcast`
+  is published there too but **per chat**, scoped to each admin: the global
+  list is every user's «/» menu, and an admin command sitting in it invites
+  taps that can only ever be refused.
 - **Rate limiting lives in `payments/throttle.py`**, as FastAPI
   dependencies: `throttle("join")` on anything that takes a six-character
   code, `throttle("render")` on `/api/card`, `throttle("admin")` on the

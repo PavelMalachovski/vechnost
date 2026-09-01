@@ -1,9 +1,12 @@
 """Configuration management for the bot using Pydantic Settings."""
 
+import logging
 
 from pydantic import Field, RedisDsn
 from pydantic_settings import BaseSettings, SettingsConfigDict
 from telegram import Bot
+
+logger = logging.getLogger(__name__)
 
 
 class Settings(BaseSettings):
@@ -96,6 +99,15 @@ class Settings(BaseSettings):
         default=None,
         validation_alias="WEBHOOK_SECRET",
         description="Webhook signature secret"
+    )
+
+    admin_ids: str | None = Field(
+        default=None,
+        validation_alias="ADMIN_IDS",
+        description="Comma-separated Telegram user ids allowed to run the "
+                    "bot's admin commands (/broadcast). Unset means nobody "
+                    "is: the commands are not registered at all, which is "
+                    "the safe default for a bot that can message everyone."
     )
 
     admin_token: str | None = Field(
@@ -222,6 +234,28 @@ class Settings(BaseSettings):
     def admin_secret(self) -> str | None:
         """The secret /admin authenticates against, or None when unset."""
         return self.admin_token or self.tribute_api_key
+
+    @property
+    def admin_user_ids(self) -> frozenset[int]:
+        """The Telegram ids ADMIN_IDS names, as numbers.
+
+        A malformed entry is dropped with a warning rather than raised: this
+        is read at import, so one typo in a deployment variable would
+        otherwise take the whole bot down, and dropping it fails closed —
+        that id is simply not an admin until the value is fixed.
+        """
+        if not self.admin_ids:
+            return frozenset()
+        ids: set[int] = set()
+        for part in self.admin_ids.split(","):
+            part = part.strip()
+            if not part:
+                continue
+            try:
+                ids.add(int(part))
+            except ValueError:
+                logger.warning(f"ADMIN_IDS: ignoring {part!r}, not a Telegram id")
+        return frozenset(ids)
 
     def _webapp_screen_url(self, screen: str) -> str | None:
         """The Mini App URL that opens straight on one screen."""
