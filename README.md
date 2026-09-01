@@ -69,7 +69,7 @@ inside a polished Telegram Mini App.
 vechnost/
 ├── vechnost_bot/          # Bot + web server
 │   ├── bot.py             # Application wiring, JobQueue (daily card, 69-steps nudge)
-│   ├── handlers.py        # /start /help /about /reset /activate
+│   ├── handlers.py        # /start /help /about /reset /activate /invite
 │   ├── callback_handlers.py  # Inline-keyboard game flow
 │   ├── keyboards.py, callback_models.py
 │   ├── logic.py, models.py, i18n.py
@@ -77,6 +77,7 @@ vechnost/
 │   ├── freemium.py        # Free-preview rules (shared bot + Mini App)
 │   ├── library.py         # Library content loader
 │   ├── daily_card.py      # Daily self-reflection push
+│   ├── broadcast.py       # Admin broadcast: /broadcast and scripts/broadcast.py
 │   ├── compat.py          # Compatibility test: scoring, result assembly
 │   ├── referrals.py       # Invite codes and the discounted payment page
 │   ├── compat_notify.py   # "Your result is ready" push to both partners
@@ -147,6 +148,7 @@ All settings are read from environment variables (or `.env`). See
 | `WEBAPP_SHORT_NAME` | Short name of a **named** Mini App (BotFather `/newapp`). Invites become `t.me/<bot>/<name>?startapp=…`. Wins over `WEBAPP_MAIN_APP` if both are set |
 | `ENABLE_PAYMENT` | `TRUE`/`FALSE` — gate paid content behind Tribute |
 | `TRIBUTE_API_KEY`, `TRIBUTE_PAYMENT_URL`, `WEBHOOK_SECRET` | Tribute payment integration |
+| `ADMIN_IDS` | Comma-separated Telegram user ids allowed to run `/broadcast` in the bot. Unset: the command is not registered at all |
 | `ADMIN_TOKEN` | Bearer token for `/admin/*`. Falls back to `TRIBUTE_API_KEY`; set it separately so an outbound credential is not also an inbound password |
 | `GIFT_PRODUCT_ID`, `GIFT_PAYMENT_URL` | Gift-certificate product (optional) |
 | `REFERRAL_PAYMENT_URL`, `REFERRAL_DISCOUNT_PERCENT` | Discounted Tribute product shown to users who arrived on someone's invite link. Unset: referrals are tracked, everyone pays the same |
@@ -156,6 +158,31 @@ All settings are read from environment variables (or `.env`). See
 
 When `ENABLE_PAYMENT=FALSE` (the default for local dev) everything is
 unlocked and no Tribute setup is needed.
+
+## Broadcasts
+
+One message to every registered user, through either of two doors onto the
+same delivery loop in `vechnost_bot/broadcast.py`.
+
+**From the bot**, for whoever writes the announcement. Set `ADMIN_IDS` to
+the Telegram ids that may use it — with it unset the command does not exist.
+Then `/broadcast`, send the message (text, photo, video, voice note: it is
+copied, so whatever it is made of survives), check the preview, confirm.
+`/cancel` drops a draft. Progress is edited into the confirmation message and
+a report follows it, naming the ids that failed so they can be messaged by
+hand. Admins get `/broadcast` in their own `/` menu; nobody else sees it.
+
+**From a shell**, when a rehearsal or a dry run is wanted:
+
+```bash
+python scripts/broadcast.py --message-file msg.txt --dry-run
+python scripts/broadcast.py --message-file msg.txt --limit 5   # a rehearsal
+python scripts/broadcast.py --message-file msg.txt --confirm
+```
+
+Nothing is sent without `--confirm`. Either way a user who has blocked the
+bot is counted as blocked and opted out of the daily push, since that is the
+same signal, and Telegram's own `retry_after` is honoured rather than raced.
 
 **`WEBHOOK_SECRET` is required in production.** A Tribute webhook grants
 lifetime access, so with `ENABLE_PAYMENT=TRUE` and no secret configured the

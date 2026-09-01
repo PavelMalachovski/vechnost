@@ -4,9 +4,24 @@ import logging
 from datetime import UTC
 
 from telegram.error import Conflict, NetworkError, TimedOut
-from telegram.ext import Application, CallbackQueryHandler, CommandHandler, ContextTypes
+from telegram.ext import (
+    Application,
+    CallbackQueryHandler,
+    CommandHandler,
+    ContextTypes,
+    MessageHandler,
+    filters,
+)
 
-from .config import create_bot
+from .broadcast import (
+    CANCEL,
+    CONFIRM,
+    broadcast_callback,
+    broadcast_cancel_command,
+    broadcast_command,
+    broadcast_message,
+)
+from .config import create_bot, settings
 from .handlers import (
     about_command,
     activate_certificate_command,
@@ -62,20 +77,26 @@ async def _publish_entry_points(application: Application) -> None:
     Neither is worth taking the bot down for, so a failure is logged and the
     bot starts anyway.
     """
-    from telegram import BotCommand, MenuButtonCommands, MenuButtonWebApp, WebAppInfo
+    from telegram import (
+        BotCommand,
+        BotCommandScopeChat,
+        MenuButtonCommands,
+        MenuButtonWebApp,
+        WebAppInfo,
+    )
 
-    from .config import settings
     from .i18n import Language, get_text
 
     language = Language.RUSSIAN
+    commands = [
+        BotCommand("start", get_text("commands.start", language)),
+        BotCommand("help", get_text("commands.help", language)),
+        BotCommand("about", get_text("commands.about", language)),
+        BotCommand("invite", get_text("commands.invite", language)),
+        BotCommand("reset", get_text("commands.reset", language)),
+    ]
     try:
-        await application.bot.set_my_commands([
-            BotCommand("start", get_text("commands.start", language)),
-            BotCommand("help", get_text("commands.help", language)),
-            BotCommand("about", get_text("commands.about", language)),
-            BotCommand("invite", get_text("commands.invite", language)),
-            BotCommand("reset", get_text("commands.reset", language)),
-        ])
+        await application.bot.set_my_commands(commands)
         if settings.webapp_url:
             await application.bot.set_chat_menu_button(
                 menu_button=MenuButtonWebApp(
@@ -89,6 +110,22 @@ async def _publish_entry_points(application: Application) -> None:
             await application.bot.set_chat_menu_button(menu_button=MenuButtonCommands())
     except Exception as e:
         logging.getLogger(__name__).warning(f"Could not publish entry points: {e}")
+
+    # /broadcast is published per chat, not globally: the global list is what
+    # every user's "/" menu offers, and an admin command sitting in it invites
+    # taps that can only ever be refused. Each admin gets their own list, and
+    # a failure for one (most likely: they have never pressed /start, so there
+    # is no chat to scope to) must not cost the others theirs.
+    for admin_id in sorted(settings.admin_user_ids):
+        try:
+            await application.bot.set_my_commands(
+                [*commands, BotCommand("broadcast", get_text("commands.broadcast", language))],
+                scope=BotCommandScopeChat(chat_id=admin_id),
+            )
+        except Exception as e:
+            logging.getLogger(__name__).warning(
+                f"Could not publish /broadcast to admin {admin_id}: {e}"
+            )
 
 
 def create_application() -> Application:
@@ -104,6 +141,26 @@ def create_application() -> Application:
     application.add_handler(CommandHandler("activate", activate_certificate_command))
     application.add_handler(CommandHandler("invite", invite_command))
 
+    # The admin broadcast, and only where ADMIN_IDS names somebody. With it
+    # unset none of this exists: no command to type, and no button for a
+    # stray callback to reach. Its callback handler is registered *before*
+    # the game's catch-all, so `broadcast_*` never reaches the callback
+    # registry, and with `block=False` so a send to thousands of people runs
+    # as its own task instead of holding every other update behind it.
+    admin_ids = sorted(settings.admin_user_ids)
+    if admin_ids:
+        application.add_handler(CommandHandler("broadcast", broadcast_command))
+        application.add_handler(CommandHandler("cancel", broadcast_cancel_command))
+        application.add_handler(MessageHandler(
+            filters.ChatType.PRIVATE & filters.User(admin_ids) & ~filters.COMMAND,
+            broadcast_message,
+        ))
+        application.add_handler(CallbackQueryHandler(
+            broadcast_callback,
+            pattern=f"^({CONFIRM}|{CANCEL})$",
+            block=False,
+        ))
+
     # Add callback query handler
     application.add_handler(CallbackQueryHandler(handle_callback_query))
 
@@ -112,14 +169,17 @@ def create_application() -> Application:
 
     logger = logging.getLogger(__name__)
     logger.info("Application created with handlers:")
-    logger.info("- Command handlers: start, help, reset, about, activate")
+    logger.info("- Command handlers: start, help, reset, about, activate, invite")
     logger.info("- Callback query handler: handle_callback_query")
+    if admin_ids:
+        logger.info(f"- Admin broadcast enabled for {len(admin_ids)} admin(s)")
+    else:
+        logger.info("- Admin broadcast disabled (ADMIN_IDS is unset)")
 
     # Scheduled jobs. DAILY_CARD_ENABLED governs only the daily card itself:
     # the retention sweep is the one thing that ever deletes rooms and
     # abandoned tests, and the «69 ступеней» nudge belongs to that game, so
     # both run whenever a JobQueue exists at all.
-    from .config import settings
     if application.job_queue is None:
         logger.warning(
             "JobQueue is unavailable — the daily card, the 69 steps nudge "
