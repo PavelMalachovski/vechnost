@@ -199,16 +199,24 @@ ruff check .                             # lint (CI gates on this)
   path data, so twenty-nine schematics stay consistent and a pose is nudged
   by moving one number. An unpaid caller gets the first step only.
 - **A pose drawing has to say which way the body faces.** The figures are
-  silhouettes — thick rounded limbs, a filled torso, a head carrying a nose
-  bump in profile or a mass of hair for a back view — and each carries a
-  `view` and a `face`, printed under the drawing as «вид сбоку · свет
-  слева». As stick figures, «спиной к камере» and «боком к окну» came out as
-  the same scribble. Two things in `artFigure` are load-bearing: the
-  perpendicular across the spine is signed so `L` is the frame's left (the
-  other sign hangs every left limb off the right shoulder, and each arm
-  crosses the chest to reach its own hand), and a body seen edge-on gets a
-  narrow torso, because shoulders spread in depth there, not across the
-  picture.
+  silhouettes — a torso of two masses joined at a waist, tapered limbs, a
+  nose wedge in profile or a mass of hair for a back view (`face:
+  'away-left'` is a back view with the head turned) — and each pose carries
+  a `view` and a `face`, printed under the drawing as «вид сбоку · свет
+  слева». Three things in `artFigure` are load-bearing: the perpendicular
+  across the spine is signed so `L` is the frame's left (the other sign
+  hangs every left limb off the right shoulder), a body seen edge-on gets a
+  narrow torso because shoulders spread in depth there, and **every limb
+  rides on a dark seam** (`art-seam`) — without it an arm crossing the
+  torso or a leg crossing a leg melts into one mass, which is what a whole
+  fresh-eyes audit of these drawings kept finding. The light is drawn as
+  the light: a translucent cone from the lamp (`aim` says what it falls
+  on), a glowing window pane, stripes lying on the body; a source at the
+  viewer's own position (`light: 'front'`, `cam: 'front'`) is named in the
+  caption and never drawn, because a glyph between the feet reads as a
+  third leg. A figure lit only from behind sets `dark: true` and renders as
+  a dark shape with a yellow rim — the rim is the lesson of those two
+  cards, not a decoration.
 - **Nothing but the front of a card may take a touch.** `.card .back`
   carries `pointer-events: none`. `backface-visibility: hidden` hides the
   back face from the eye but not from the compositor's touch hit test — both

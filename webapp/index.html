@@ -3120,7 +3120,7 @@
       view: 'back', face: 'away-left', j: {
       head: [58, 26], neck: [57, 41], hip: [63, 80],
       elbowL: [37, 32], handL: [51, 18], elbowR: [81, 32], handR: [67, 18],
-      kneeL: [54, 98], footL: [51, 117], kneeR: [72, 98], footR: [75, 117] } },
+      kneeL: [57, 99], footL: [52, 117], kneeR: [69, 99], footR: [74, 117] } },
     // Сидит на полу, завернувшись в простыню, обхватив колени; открыто
     // одно плечо.
     'her-4': { sex: 'f', light: 'topleft', cam: [106, 84], sight: [60, 78],
@@ -3370,6 +3370,8 @@
        <circle class="art-seam" style="stroke-width:2.2" fill="none" cx="60" cy="${HEAD_Y}" r="7.6"/>
        <circle class="${dark ? 'art-shadow' : 'art-skull'}" cx="60" cy="${HEAD_Y}" r="6.8"
          ${dark ? 'style="opacity:.95"' : ''}/>
+       <path class="art-hair" d="M53.5 ${HEAD_Y - 3} A6.8 6.8 0 0 1 66.5 ${HEAD_Y - 3}
+         A9 9 0 0 0 53.5 ${HEAD_Y - 3} Z"/>
        <path class="art-skull" d="M56 ${HEAD_Y + 6} L60 ${HEAD_Y + 11} L64 ${HEAD_Y + 6} Z"/>`;
     const phone = artCamera(60, 106, 60, HEAD_Y + 12);
     const lampAt = (x, y) => artLampAt([x, y]);
@@ -3383,33 +3385,37 @@
         'схема сверху · лампа сбоку под 90°');
     }
     if (key === 'light-rim') {
-      // Свет строго сзади: светится контур, само тело тёмное.
+      // Свет строго сзади: светится контур, само тело тёмное. Телефон чуть
+      // в стороне от оси, как и советует подсказка.
       return artFramed(lampAt(60, 14) +
         `<path class="art-cone" d="M60 14 L40 50 L80 50 Z"/>` +
-        `<path class="art-halo" d="M44 ${YOU_Y} A16 7 0 0 1 76 ${YOU_Y}"/>` +
-        you(true) + phone,
+        `<path class="art-halo" d="M44 ${YOU_Y + 2} A16 8.4 0 0 1 76 ${YOU_Y + 2}"/>` +
+        you(true) + artCamera(70, 106, 62, HEAD_Y + 10),
         'схема сверху · лампа строго сзади');
     }
     if (key === 'light-soft') {
-      // Лампа накрыта тканью: свет становится рассеянным мягким пятном.
+      // Лампа накрыта тканью: свет становится рассеянным мягким пятном,
+      // которое дотягивается до тела.
       return artFramed(
         `<circle class="art-diffuse" cx="24" cy="24" r="20"/>` + lampAt(24, 24) +
-        `<path class="art-cloth" style="opacity:.5" d="M8 16 Q24 4 40 16 L42 28
+        `<path fill="#F4C9A2" opacity=".65" d="M8 16 Q24 4 40 16 L42 28
            Q38 34 34 31 Q30 36 26 32 Q22 37 18 32 Q13 35 10 30 Z"/>
-         <path class="art-cone" style="opacity:.14" d="M24 24 L64 40 L40 78 Z"/>` +
+         <path class="art-cone" style="opacity:.15" d="M24 24 L76 46 L48 84 Z"/>` +
         you(false) + phone,
         'схема сверху · лампа накрыта тканью');
     }
     if (key === 'light-stripes') {
-      // Между лампой и тобой жалюзи: свет доходит до тела полосами.
+      // Между лампой и тобой жалюзи: свет доходит до тела полосами, и
+      // полосы лежат на самом теле, а не позади него.
       return artFramed(lampAt(14, 58) +
-        `<path class="art-cone" style="opacity:.14" d="M14 58 L30 40 L30 76 Z"/>
-         <path class="art-prop" d="M30 34 V84 M35 34 V84"/>` +
-        [44, 52, 60, 68].map(y =>
-          `<rect class="art-stripe" x="36" y="${y}" width="24" height="3.6" rx="1.8"/>`).join('') +
+        `<path class="art-cone" style="opacity:.14" d="M14 58 L30 38 L30 78 Z"/>
+         <path class="art-prop" d="M30 32 V86 M34 32 V86 M38 32 V86 M42 32 V86"/>` +
+        [44, 52, 68, 76].map(y =>
+          `<rect class="art-stripe" x="44" y="${y}" width="18" height="3.4" rx="1.7"/>`).join('') +
         you(false) +
-        [52, 58, 64].map(y =>
-          `<rect class="art-stripe" x="46" y="${y}" width="28" height="3.6" rx="1.8"/>`).join('') +
+        [53, 59, 65, 71].map(y =>
+          `<rect class="art-stripe" style="opacity:.55" x="46" y="${y}"
+             width="28" height="3.4" rx="1.7"/>`).join('') +
         phone,
         'схема сверху · свет через жалюзи');
     }
