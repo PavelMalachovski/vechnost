@@ -574,31 +574,59 @@
     font-size: 10.5px; line-height: 1.3; text-align: center;
     color: var(--muted-on-dark); opacity: .85;
   }
-  /* A silhouette, not a stick figure: limbs are thick rounded strokes and
-     the torso and head are filled, so a pose reads as a body at 124px. */
+  /* A silhouette, not a stick figure: the torso is two masses joined at a
+     waist, limbs are tapered strokes, and hair marks the sex and the back
+     of a head, so a pose reads as a body at 124px. */
   .art-limb {
-    fill: none; stroke: currentColor; stroke-width: 6.4;
-    stroke-linecap: round; stroke-linejoin: round; opacity: .92;
+    fill: none; stroke: currentColor;
+    stroke-linecap: round; stroke-linejoin: round; opacity: .93;
   }
-  .art-torso, .art-skull { fill: currentColor; stroke: none; opacity: .92; }
-  .art-cloth { fill: currentColor; opacity: .45; stroke: none; }
-  .art-lamp, .art-cam, .art-focus {
-    fill: none; stroke: currentColor; stroke-width: 3.2;
+  /* A dark seam drawn under every limb, so an arm crossing the torso or a
+     leg crossing a leg stays two shapes instead of melting into one mass.
+     This was the single most repeated finding of the fresh-eyes audit. */
+  .art-seam {
+    fill: none; stroke: #1C0414; opacity: .55;
     stroke-linecap: round; stroke-linejoin: round;
+  }
+  .art-torso, .art-skull { fill: currentColor; stroke: none; opacity: .93; }
+  .art-hair { fill: currentColor; stroke: none; opacity: .8; }
+  .art-cloth { fill: currentColor; opacity: .38; stroke: none; }
+  /* A figure lit only from behind is a silhouette on purpose: everything in
+     the group drops to the shadow colour, which is the whole lesson of the
+     контровой card. */
+  .art-dark .art-limb { stroke: #1C0414; opacity: .96; }
+  .art-dark .art-torso, .art-dark .art-skull, .art-dark .art-hair {
+    fill: #1C0414; opacity: .96;
+    /* The rim itself: a hairline of the light's colour around the dark
+       body. Without it the silhouette dissolved into the dark shell, and
+       the rim is literally what these two cards teach. */
+    stroke: #FFD96E; stroke-width: 1.1;
+  }
+  .art-dark .art-seam { stroke: #FFD96E; opacity: .8; stroke-width: 1.4 !important; }
+  .art-lamp, .art-cam, .art-focus {
+    fill: none; stroke-linecap: round; stroke-linejoin: round;
   }
   .art-lamp { stroke: #FFD96E; stroke-width: 1.8; }
   .art-cam  { stroke: #9FEFC4; stroke-width: 1.8; }
   .art-focus { stroke: #9FEFC4; stroke-width: 1.6; stroke-dasharray: 3 3; }
-  .art-ray  { stroke: #FFD96E; stroke-width: 1.4; stroke-dasharray: 4 4; fill: none; }
-  .art-prop { stroke: currentColor; stroke-width: 1.4; opacity: .35; fill: none; }
-  .art-crop { stroke: #9FEFC4; stroke-width: 1.6; stroke-dasharray: 5 4; fill: none; opacity: .8; }
-  .art-shade { fill: currentColor; opacity: .18; stroke: none; }
-  /* The half of a body the light does not reach. It is painted in the
-     shell's own colour rather than as a wash of currentColor: the body is a
-     filled silhouette now, and a light wash over a light shape is nothing. */
-  .art-shadow { fill: #1C0414; opacity: .6; stroke: none; }
-  .art-diffuse { fill: #FFD96E; opacity: .12; stroke: none; }
-  .art-note { fill: currentColor; opacity: .55; font-size: 9px; font-weight: 600; }
+  .art-sight { stroke: #9FEFC4; stroke-width: 1.2; stroke-dasharray: 3 4; fill: none; opacity: .8; }
+  /* The light itself: a soft cone from the lamp, a glowing window pane, a
+     stripe of light through the blinds. Yellow, translucent, behind the
+     body — the light falls onto the figure rather than pointing at it. */
+  .art-cone { fill: #FFE49A; opacity: .24; stroke: none; }
+  .art-glow { fill: #FFD96E; opacity: .2; stroke: none; }
+  .art-stripe { fill: #FFE49A; opacity: .38; stroke: none; }
+  .art-halo { fill: none; stroke: #FFD96E; stroke-width: 2.4; opacity: .8; }
+  .art-prop { stroke: currentColor; stroke-width: 1.6; opacity: .4; fill: none; }
+  .art-propfill { fill: currentColor; opacity: .14; stroke: none; }
+  .art-shade { fill: currentColor; opacity: .16; stroke: none; }
+  /* The half of a body the light does not reach, and the whole of a body
+     drawn against the light. Painted in the shell's own dark, because a
+     wash of currentColor over a currentColor shape is nothing. */
+  .art-shadow { fill: #1C0414; opacity: .65; stroke: none; }
+  .art-diffuse { fill: #FFD96E; opacity: .14; stroke: none; }
+  .art-censor { fill: #1C0414; opacity: .9; stroke: none; }
+  .art-note { fill: currentColor; opacity: .6; font-size: 9px; font-weight: 600; }
 
   .guide-item-title { font-size: 16px; font-weight: 700; margin-bottom: 5px; }
   .guide-item-text { font-size: 14px; line-height: 1.5; }
@@ -2881,281 +2909,426 @@
 
   const ART_W = 120, ART_H = 130, ART_FLOOR = 118;
 
-  // Where a lamp sits, and which way it throws. `to` is the point it aims at.
+  // Where a lamp glyph sits for each named light direction. 'front' has no
+  // entry on purpose: a light at the viewer's own position has nowhere to be
+  // drawn but between the figure's feet, so it is named in the caption
+  // instead, exactly like a camera at the viewer's position.
   const ART_LIGHTS = {
-    left:   [14, 46], right:  [106, 46],
-    back:   [60, 16], front:  [60, 116],
-    top:    [60, 12], topleft: [20, 18]
+    left: [16, 38], right: [104, 38], back: [60, 14], top: [60, 12],
+    topleft: [17, 15], topright: [103, 15]
   };
 
-  // The caption under a drawing. A schematic can show that a body is bent
-  // without showing which way it is turned, and "встань спиной к камере" and
-  // "встань боком" draw nearly the same outline: the words settle it.
   const ART_VIEW_LABEL = {
     side: 'вид сбоку', back: 'вид со спины', front: 'вид спереди',
     top: 'вид сверху', plan: 'схема сверху', crop: 'кадр крупным планом'
   };
   const ART_LIGHT_LABEL = {
     left: 'свет слева', right: 'свет справа', back: 'свет сзади',
-    front: 'свет спереди', top: 'свет сверху', topleft: 'свет сверху слева'
+    front: 'свет спереди', top: 'свет сверху', topleft: 'свет сверху слева',
+    topright: 'свет сверху справа'
   };
+
+  function artLampAt(at) {
+    const rays = [0, 45, 90, 135, 180, 225, 270, 315].map(deg => {
+      const r = deg * Math.PI / 180;
+      return `<line x1="${(at[0] + Math.cos(r) * 6.5).toFixed(1)}" y1="${(at[1] + Math.sin(r) * 6.5).toFixed(1)}"
+                    x2="${(at[0] + Math.cos(r) * 10).toFixed(1)}" y2="${(at[1] + Math.sin(r) * 10).toFixed(1)}"/>`;
+    }).join('');
+    return `<g class="art-lamp"><circle cx="${at[0]}" cy="${at[1]}" r="4.6"/>${rays}</g>`;
+  }
 
   function artLamp(where, aimX, aimY) {
     const at = ART_LIGHTS[where];
+    return at ? artLampAt(at) : '';
+  }
+
+  // The light itself, as a soft cone from the source toward the body. A
+  // dashed ray said "these two things are related"; a cone says "the light
+  // falls from here to there", which is the actual instruction.
+  function artConeFrom(at, aim, spread) {
+    const dx = aim[0] - at[0], dy = aim[1] - at[1];
+    const len = Math.hypot(dx, dy) || 1;
+    const px = -dy / len, py = dx / len, s = spread || 24;
+    return `<path class="art-cone" d="M${at[0]} ${at[1]}
+      L${(aim[0] + px * s).toFixed(1)} ${(aim[1] + py * s).toFixed(1)}
+      L${(aim[0] - px * s).toFixed(1)} ${(aim[1] - py * s).toFixed(1)} Z"/>`;
+  }
+
+  function artCone(where, aimX, aimY, spread) {
+    const at = ART_LIGHTS[where];
     if (!at) return '';
-    const rays = [0, 60, 120, 180, 240, 300].map(deg => {
-      const r = deg * Math.PI / 180;
-      return `<line x1="${(at[0] + Math.cos(r) * 7).toFixed(1)}" y1="${(at[1] + Math.sin(r) * 7).toFixed(1)}"
-                    x2="${(at[0] + Math.cos(r) * 11).toFixed(1)}" y2="${(at[1] + Math.sin(r) * 11).toFixed(1)}"/>`;
-    }).join('');
-    return `<g class="art-lamp">
-        <circle cx="${at[0]}" cy="${at[1]}" r="5.5"/>${rays}
-        <line class="art-ray" x1="${at[0]}" y1="${at[1]}" x2="${aimX}" y2="${aimY}"/>
+    return artConeFrom(at, [aimX, aimY], spread);
+  }
+
+  // The phone. `sight` draws a dashed line to what it is pointed at.
+  function artCamera(x, y, sightX, sightY) {
+    const sight = (sightX != null)
+      ? `<line class="art-sight" x1="${x}" y1="${y}" x2="${sightX}" y2="${sightY}"/>` : '';
+    return sight + `<g class="art-cam">
+        <rect x="${x - 6}" y="${y - 9}" width="12" height="18" rx="2.6"/>
+        <circle cx="${x}" cy="${y - 3.5}" r="2.6"/>
       </g>`;
   }
 
-  // The phone, with a mark for the height it is held at.
-  function artCamera(x, y) {
-    return `<g class="art-cam">
-        <rect x="${x - 7}" y="${y - 10}" width="14" height="20" rx="3"/>
-        <circle cx="${x}" cy="${y - 3}" r="3.2"/>
-      </g>`;
-  }
-
-  // A body, drawn as a silhouette rather than as a stick figure.
-  //
-  // The stick version drew every pose as the same hairline scribble: you
-  // could see that a limb was bent but not which way the person faced, and
-  // "спиной к камере" and "боком к окну" came out as the same picture. So
-  // limbs are thick rounded strokes, the torso is a filled slab, and the
-  // head carries the one mark that settles the question at this size — a
-  // nose bump in profile, a mass of hair for a back view, neither for a
-  // face-on one. The caption under the drawing names the view outright.
-  //
-  // Joints stay named coordinates: twenty-nine drawings stay consistent
-  // with each other, and a pose is nudged by moving one number.
-  const ART_SHOULDER = 9.5, ART_HIP = 7.5, ART_HEAD_R = 8;
-
-  // Which way the head is turned, as a unit vector on the frame.
+  const ART_HEAD_R = 8;
   const ART_FACE_DIR = {
     left: [-1, 0], right: [1, 0], up: [0, -1], down: [0, 1],
     upleft: [-0.71, -0.71], upright: [0.71, -0.71],
     downleft: [-0.71, 0.71], downright: [0.71, 0.71]
   };
 
-  function artHead(head, face) {
+  // The head: a skull, a nose wedge pointing where the person looks, and
+  // hair. Hair is what tells a female figure from a male one and the back
+  // of a head from the front of one, so it is drawn, not implied.
+  function artHead(head, face, sex, halo) {
     if (!head) return '';
     const r = ART_HEAD_R, x = head[0], y = head[1];
-    const skull = `<circle class="art-skull" cx="${x}" cy="${y}" r="${r}"/>`;
-    if (face === 'away') {
-      // Hair spilling past the skull. It is what separates a back view from
-      // a front one when the outline is otherwise symmetrical, and it reads
-      // at 108px because it breaks the circle rather than shading it.
-      const R = r + 2.8;
-      return skull + `<path class="art-skull" d="M${(x - R).toFixed(1)} ${y + 2}
-        A${R} ${R} 0 0 1 ${(x + R).toFixed(1)} ${y + 2}
-        L${(x + r).toFixed(1)} ${y + 2}
-        A${r} ${r} 0 0 0 ${(x - r).toFixed(1)} ${y + 2} Z"/>`;
+    let out = '';
+    if (halo) out += `<circle class="art-hair" cx="${x}" cy="${y}" r="${r + 4}"/>`;
+    out += `<circle class="art-seam" style="stroke-width:2.4" cx="${x}" cy="${y}" r="${r + 1}" fill="none"/>`;
+    out += `<circle class="art-skull" cx="${x}" cy="${y}" r="${r}"/>`;
+    const turn = (face === 'away-left') ? 'left' : (face === 'away-right') ? 'right' : null;
+    const dir = ART_FACE_DIR[turn || face];
+    if (face === 'away' || turn) {
+      // A back view: hair over the whole skull, falling to the neck.
+      const R = r + 2.6, drop = sex === 'f' ? 15 : 5;
+      out += `<path class="art-hair" d="M${x - R} ${y + 2}
+        A${R} ${R} 0 1 1 ${x + R} ${y + 2}
+        Q${x + R - 1} ${y + drop} ${x + R - 4} ${y + drop + 2}
+        L${x - R + 4} ${y + drop + 2}
+        Q${x - R + 1} ${y + drop} ${x - R} ${y + 2} Z"/>`;
+      if (turn && dir) {
+        const R2 = r + 2.6;
+        out += `<path class="art-skull" d="M${(x + dir[0] * (R2 - 1)).toFixed(1)} ${y - 2}
+          L${(x + dir[0] * (R2 + 3.4)).toFixed(1)} ${y + 1}
+          L${(x + dir[0] * (R2 - 1)).toFixed(1)} ${y + 4} Z"/>`;
+      }
+      return out;
     }
-    const dir = ART_FACE_DIR[face];
-    if (!dir) return skull;
-    // The nose: a bump on the silhouette pointing where the body looks.
-    return skull + `<circle class="art-skull" r="2.5"
-      cx="${(x + dir[0] * (r + 0.4)).toFixed(1)}"
-      cy="${(y + dir[1] * (r + 0.4)).toFixed(1)}"/>`;
+    if (dir) {
+      // The nose: a wedge, not a dot, so the profile reads at a glance.
+      const nx = x + dir[0] * (r - 1.5), ny = y + dir[1] * (r - 1.5);
+      const tx = x + dir[0] * (r + 3.6), ty = y + dir[1] * (r + 3.6);
+      const ppx = -dir[1], ppy = dir[0];
+      out += `<path class="art-skull" d="M${(nx + ppx * 3).toFixed(1)} ${(ny + ppy * 3).toFixed(1)}
+        L${tx.toFixed(1)} ${ty.toFixed(1)}
+        L${(nx - ppx * 3).toFixed(1)} ${(ny - ppy * 3).toFixed(1)} Z"/>`;
+      if (sex === 'f') {
+        // Hair on the back half of the head, falling toward the shoulders.
+        const bx = -dir[0], by = -dir[1];
+        const R = r + 2.4, drop = 14;
+        out += `<path class="art-hair" d="M${(x + bx * 2 - by * R).toFixed(1)} ${(y + by * 2 + bx * R).toFixed(1)}
+          A${R} ${R} 0 0 ${bx + by < 0 ? 1 : 0} ${(x + bx * R).toFixed(1)} ${(y + by * R).toFixed(1)}
+          Q${(x + bx * (R + 1)).toFixed(1)} ${(y + drop).toFixed(1)} ${(x + bx * (R - 2)).toFixed(1)} ${(y + drop + 3).toFixed(1)}
+          L${(x + bx * 3).toFixed(1)} ${(y + drop - 2).toFixed(1)} Z"/>`;
+      }
+    }
+    return out;
   }
 
   function artFigure(pose) {
-    const j = pose.j;
-    const path = (pts) => {
+    const j = pose.j, sex = pose.sex || 'f';
+    const lerp = (a, b, k) => [a[0] + (b[0] - a[0]) * k, a[1] + (b[1] - a[1]) * k];
+    const limb = (pts, w) => {
       const use = pts.filter(Boolean);
       if (use.length < 2) return '';
-      return `<polyline class="art-limb" points="${
-        use.map(pt => pt[0].toFixed(1) + ',' + pt[1].toFixed(1)).join(' ')}"/>`;
+      const path = use.map(pt => pt[0].toFixed(1) + ',' + pt[1].toFixed(1)).join(' ');
+      return `<polyline class="art-seam" style="stroke-width:${w + 2.6}" points="${path}"/>` +
+             `<polyline class="art-limb" style="stroke-width:${w}" points="${path}"/>`;
     };
+    const hand = (pt) => pt ? `<circle class="art-skull" cx="${pt[0]}" cy="${pt[1]}" r="2.8"/>` : '';
+    // Toes on a side view: a short stub from the ankle along the named
+    // direction. Front and back views get round-capped ankles instead —
+    // there, the foot points at the viewer and has no length to draw.
+    const foot = (pt, dir) => (pt && dir)
+      ? `<line class="art-limb" style="stroke-width:4.6"
+           x1="${pt[0]}" y1="${pt[1]}" x2="${pt[0] + dir[0] * 8}" y2="${pt[1] + dir[1] * 8}"/>`
+      : '';
 
-    // The unit vector across the spine, so shoulders and hips have real
-    // width and limbs leave the torso at its edges. Signed so that with a
-    // spine running down the frame, `L` is the left of the frame: the
-    // opposite sign put every left limb on the right shoulder, and each
-    // arm crossed the chest to reach its own hand. A degenerate spine
-    // (neck on hip) would divide by zero, so it falls back to horizontal.
-    let px = 1, py = 0;
+    // The torso: two masses joined at a waist, not a slab. Shoulders and
+    // hips get real width for the sex and the view (a body seen edge-on is
+    // narrow: shoulders spread in depth there, not across the picture), and
+    // the sides curve in at the waist, which is where «изгиб талии» lives.
+    const edge = pose.view === 'side';
+    const sh = sex === 'f' ? (edge ? 6 : 9) : (edge ? 6.5 : 11.5);
+    const hp = sex === 'f' ? (edge ? 6.5 : 10) : (edge ? 5.5 : 7);
+    const waistK = sex === 'f' ? 0.62 : 0.82;
+
+    let px = 1, py = 0, sx = 0, sy = 1;
     if (j.neck && j.hip) {
       const dx = j.hip[0] - j.neck[0], dy = j.hip[1] - j.neck[1];
       const len = Math.hypot(dx, dy) || 1;
-      px = dy / len; py = -dx / len;
+      sx = dx / len; sy = dy / len;
+      px = dy / len; py = -dx / len;    // signed: L is the frame's left
     }
-    // A body seen edge-on is a narrow slab, not a wide one: shoulders spread
-    // in depth there, not across the picture. Drawn at full width, a profile
-    // pose grew a shoulder behind its own back.
-    const edgeOn = pose.view === 'side' || pose.view === 'crop';
-    const shoulder = edgeOn ? 5.5 : ART_SHOULDER;
-    const hipW = edgeOn ? 4.5 : ART_HIP;
     const off = (pt, w) => pt ? [pt[0] + px * w, pt[1] + py * w] : null;
-    const shL = off(j.neck, -shoulder), shR = off(j.neck, shoulder);
-    const hipL = off(j.hip, -hipW), hipR = off(j.hip, hipW);
+    const waist = j.neck && j.hip ? lerp(j.neck, j.hip, 0.55) : null;
+    const shL = off(j.neck, -sh), shR = off(j.neck, sh);
+    const hipL = off(j.hip, -hp), hipR = off(j.hip, hp);
+    const wL = waist ? off(waist, -Math.min(sh, hp) * waistK) : null;
+    const wR = waist ? off(waist, Math.min(sh, hp) * waistK) : null;
 
-    const torso = (shL && hipR)
-      ? `<path class="art-torso" d="M${shL[0].toFixed(1)} ${shL[1].toFixed(1)}
-                  L${shR[0].toFixed(1)} ${shR[1].toFixed(1)}
-                  L${hipR[0].toFixed(1)} ${hipR[1].toFixed(1)}
-                  L${hipL[0].toFixed(1)} ${hipL[1].toFixed(1)} Z"/>`
-      : '';
+    const p = (pt) => pt[0].toFixed(1) + ' ' + pt[1].toFixed(1);
+    const torso = (shL && hipR) ? `<path class="art-torso" d="M${p(shL)}
+        Q${p(off(waist, -Math.min(sh, hp) * waistK - 1))} ${p(hipL)}
+        Q${p([j.hip[0] + sx * (hp + 2), j.hip[1] + sy * (hp + 2)])} ${p(hipR)}
+        Q${p(off(waist, Math.min(sh, hp) * waistK + 1))} ${p(shR)}
+        Q${p([j.neck[0] - sx * 4, j.neck[1] - sy * 4])} ${p(shL)} Z"/>` : '';
 
-    // A sheet or a towel: drawn over the body, because that is where it is.
-    const drape = pose.drape && j.hip && j.neck
-      ? artDrape(j, pose.drape, px, py, shoulder, hipW) : '';
+    const upper = 7, lower = 5.6;
+    const arm = (sideSh, e, h) => limb([sideSh, e], upper) + limb([e, h], lower) + hand(h);
+    const leg = (sideHip, k, f, toes) =>
+      limb([sideHip, k], upper + 0.6) + limb([k, f], lower + 0.4) + foot(f, toes);
 
-    return `<g class="art-body">
-        ${path([j.head && j.neck ? [j.head[0], j.head[1] + ART_HEAD_R - 1] : null, j.neck])}
-        ${path([shL, j.elbowL, j.handL])}${path([shR, j.elbowR, j.handR])}
-        ${path([hipL, j.kneeL, j.footL])}${path([hipR, j.kneeR, j.footR])}
-        ${torso}
-        ${drape}
-        ${artHead(j.head, pose.face)}
+    const arms = arm(shL, j.elbowL, j.handL) + arm(shR, j.elbowR, j.handR);
+    const legs = leg(hipL, j.kneeL, j.footL, pose.toesL) +
+                 leg(hipR, j.kneeR, j.footR, pose.toesR);
+    const neckLine = (j.head && j.neck)
+      ? limb([[j.head[0], j.head[1] + ART_HEAD_R - 2], j.neck], 5) : '';
+
+    // Arms go behind the torso when the pose says so («руки за спиной»);
+    // legs always go first, because a torso sits on its own hips.
+    const cls = pose.dark ? 'art-body art-dark' : 'art-body';
+    return `<g class="${cls}">
+        ${legs}${pose.armsBehind ? arms : ''}${neckLine}${torso}
+        ${pose.armsBehind ? '' : arms}${pose.extraTop || ''}${artHead(j.head, pose.face, sex, pose.hairHalo)}
       </g>`;
-  }
-
-  // «Завернись в простыню» and «полотенце на бёдрах» are the pose, not a
-  // detail of it, so the cloth is drawn rather than left to the caption.
-  function artDrape(j, kind, px, py, shoulder, hipW) {
-    const at = (a, b, k) => [a[0] + (b[0] - a[0]) * k, a[1] + (b[1] - a[1]) * k];
-    const from = kind === 'towel' ? at(j.neck, j.hip, 0.62) : at(j.neck, j.hip, 0.1);
-    const to = kind === 'towel' ? at(j.neck, j.hip, 1.35) : at(j.neck, j.hip, 1.5);
-    const w = (kind === 'towel' ? hipW : shoulder) + 3;
-    const corner = (pt, s) => `${(pt[0] + px * w * s).toFixed(1)} ${(pt[1] + py * w * s).toFixed(1)}`;
-    return `<path class="art-cloth" d="M${corner(from, -1)} L${corner(from, 1)}
-      L${corner(to, 1)} L${corner(to, -1)} Z"/>`;
   }
 
   // Pose coordinates. Read them as the view the caption names, with the
   // floor at the bottom of the frame. `face` is where the head is turned:
-  // 'away' is the back of the head, a direction is a profile, nothing at all
-  // is a frame with no head in it.
+  // 'away' is the back of the head, a direction is a profile. `sex` picks
+  // the body's proportions and the hair; `toesL/R` point a side view's feet.
+  // `sight` is what the camera is aimed at, when the camera is in frame.
   const ART_POSES = {
-    // Сидит на краю кровати боком, одна нога вытянута, вторая прижата к груди.
-    'her-1': { light: 'left', cam: [104, 76], prop: 'bed', view: 'side', face: 'right', j: {
-      head: [42, 50], neck: [44, 64], hip: [46, 98],
-      elbowL: [56, 78], handL: [66, 74], elbowR: [58, 82], handR: [68, 78],
-      kneeL: [70, 72], footL: [54, 96], kneeR: [72, 102], footR: [98, 114] } },
-    // Лежит на боку, опора на локоть, верхняя нога согнута вперёд: S-изгиб.
-    'her-2': { light: 'back', cam: 'front', prop: 'floor', view: 'side', face: 'right', j: {
-      head: [24, 86], neck: [38, 94], hip: [76, 106],
-      elbowL: [36, 110], handL: [28, 116], elbowR: [30, 78], handR: [20, 70],
-      kneeL: [98, 110], footL: [114, 114], kneeR: [100, 94], footR: [84, 108] } },
-    // Стоит спиной к камере, руки подняты к волосам.
-    'her-3': { light: 'front', cam: 'front', prop: 'floor', view: 'back', face: 'away', j: {
-      head: [60, 26], neck: [60, 42], hip: [60, 80],
-      elbowL: [34, 34], handL: [52, 20], elbowR: [86, 34], handR: [68, 20],
-      kneeL: [48, 98], footL: [42, 116], kneeR: [72, 98], footR: [78, 116] } },
-    // Сидит на полу в простыне, обхватив колени; одно плечо открыто.
-    'her-4': { light: 'topleft', cam: [104, 92], prop: 'floor', view: 'side',
-      face: 'right', drape: 'sheet', j: {
-      head: [54, 54], neck: [54, 68], hip: [54, 96],
-      elbowL: [38, 84], handL: [66, 88], elbowR: [42, 88], handR: [70, 92],
-      kneeL: [78, 80], footL: [64, 110], kneeR: [82, 86], footR: [68, 112] } },
-    // Стоит боком к окну, одна нога на носочке, руки вдоль тела.
-    'her-5': { light: 'back', cam: 'front', prop: 'window', view: 'side', face: 'left', j: {
-      head: [58, 26], neck: [58, 42], hip: [58, 80],
-      elbowL: [46, 60], handL: [44, 80], elbowR: [70, 60], handR: [72, 80],
-      kneeL: [48, 98], footL: [42, 116], kneeR: [72, 96], footR: [84, 110] } },
-    // Лежит на спине, руки за головой, согнутые колени наклонены вбок.
-    'her-6': { light: 'top', cam: [102, 20], prop: 'floor', view: 'top', face: 'down', j: {
-      head: [26, 84], neck: [40, 84], hip: [80, 84],
-      elbowL: [26, 68], handL: [12, 72], elbowR: [26, 100], handR: [12, 96],
-      kneeL: [100, 68], footL: [84, 58], kneeR: [104, 78], footR: [88, 66] } },
-    // Кадр от подбородка до бёдер: одна рука на ключице, вторая на груди.
-    'her-7': { light: 'left', cam: [104, 74], prop: 'crop', view: 'crop', j: {
-      neck: [60, 34], hip: [60, 102],
-      elbowL: [40, 62], handL: [56, 44], elbowR: [80, 62], handR: [66, 62] } },
-    // Сидит по-турецки, наклонилась вперёд, голова на скрещённых руках.
-    'her-8': { light: 'back', cam: 'front', prop: 'floor', view: 'side', face: 'left', j: {
-      head: [44, 64], neck: [54, 74], hip: [66, 94],
-      elbowL: [36, 84], handL: [58, 76], elbowR: [40, 88], handR: [62, 80],
-      kneeL: [34, 104], footL: [70, 110], kneeR: [88, 104], footR: [52, 112] } },
-    // Стоит в полосах света от жалюзи, руки на талии.
-    'her-9': { light: 'left', cam: [104, 88], prop: 'blinds', view: 'front', face: 'down', j: {
-      head: [60, 26], neck: [60, 42], hip: [60, 80],
-      elbowL: [40, 62], handL: [52, 78], elbowR: [80, 62], handR: [68, 78],
-      kneeL: [48, 98], footL: [42, 116], kneeR: [72, 98], footR: [78, 116] } },
-    // Сидит на стуле верхом, спиной к камере, голова опущена на руки.
-    'her-10': { light: 'left', cam: [104, 86], prop: 'chair', view: 'back', face: 'away', j: {
-      head: [54, 58], neck: [58, 72], hip: [64, 92],
-      elbowL: [46, 82], handL: [40, 68], elbowR: [50, 86], handR: [42, 72],
-      kneeL: [48, 100], footL: [44, 116], kneeR: [80, 98], footR: [86, 116] } },
+    // Сидит на краю кровати боком: спина прямая, одна нога вытянута к полу,
+    // вторая согнута и прижата к груди, руки обхватывают колено.
+    'her-1': { sex: 'f', light: 'left', cam: [106, 66], sight: [66, 66],
+      prop: 'bed', view: 'side', face: 'right', toesL: [1, 0.3], aim: [52, 60], j: {
+      head: [48, 36], neck: [48, 50], hip: [46, 88],
+      elbowL: [58, 66], handL: [66, 60], elbowR: [56, 72], handR: [66, 66],
+      kneeL: [64, 98], footL: [76, 114], kneeR: [68, 56], footR: [62, 82] } },
+    // Лежит на боку с опорой на локоть: нижняя нога вытянута, верхняя
+    // согнута и лежит впереди, свободная рука у волос. S-изгиб бедра.
+    'her-2': { sex: 'f', light: 'topright', prop: 'floor', view: 'side',
+      face: 'left', cam: 'front', aim: [42, 78], toesL: [1, 0.3], toesR: [0.4, 0.9], j: {
+      head: [21, 64], neck: [30, 80], hip: [68, 100],
+      elbowL: [22, 102], handL: [36, 106], elbowR: [40, 66], handR: [27, 57],
+      kneeL: [92, 106], footL: [110, 110], kneeR: [88, 90], footR: [72, 106] } },
+    // Стоит спиной к камере, руки подняты к волосам, голова чуть повёрнута.
+    'her-3': { sex: 'f', light: 'front', cam: 'front', prop: 'floor',
+      view: 'back', face: 'away-left', j: {
+      head: [58, 26], neck: [57, 41], hip: [63, 80],
+      elbowL: [37, 32], handL: [51, 18], elbowR: [81, 32], handR: [67, 18],
+      kneeL: [57, 99], footL: [52, 117], kneeR: [69, 99], footR: [74, 117] } },
+    // Сидит на полу, завернувшись в простыню, обхватив колени; открыто
+    // одно плечо.
+    'her-4': { sex: 'f', light: 'topleft', cam: [106, 84], sight: [60, 78],
+      prop: 'floor', view: 'side', face: 'right', aim: [50, 74],
+      extraTop: `<path class="art-cloth" d="M36 62 Q26 84 30 112
+          Q40 116 52 113 Q66 117 82 112 Q84 92 74 74 L68 66
+          Q60 72 52 64 Q42 56 36 62 Z"/>
+        <path class="art-prop" d="M32 106 Q46 110 60 107" style="opacity:.5"/>`, j: {
+      head: [46, 50], neck: [47, 64], hip: [48, 96],
+      elbowL: [56, 80], handL: [64, 74], elbowR: [52, 86], handR: [64, 80],
+      kneeL: [66, 70], footL: [62, 96], kneeR: [70, 74], footR: [66, 100] } },
+    // Стоит боком у окна, свет только сзади: тело сплошным тёмным контуром.
+    'her-5': { sex: 'f', light: 'back', cam: 'front', prop: 'window',
+      view: 'side', face: 'left', dark: true, lampAt: [90, 52], noLamp: true,
+      aim: [64, 66], spread: 38, toesL: [-1, 0.2], toesR: [-0.5, 0.86], j: {
+      head: [66, 26], neck: [67, 41], hip: [70, 80],
+      elbowL: [62, 60], handL: [60, 78], elbowR: [76, 60], handR: [76, 78],
+      kneeL: [64, 98], footL: [60, 117], kneeR: [78, 96], footR: [80, 110] } },
+    // Лежит на спине, руки за голову; колени согнуты и уложены вбок.
+    // Камера смотрит сверху, поэтому и рисунок смотрит сверху.
+    'her-6': { sex: 'f', light: 'topleft', cam: [106, 108], sight: [72, 76],
+      prop: 'rug', view: 'top', hairHalo: true, aim: [54, 72], j: {
+      head: [24, 70], neck: [36, 71], hip: [72, 73],
+      elbowL: [22, 54], handL: [10, 62], elbowR: [26, 88], handR: [12, 80],
+      kneeL: [90, 92], footL: [72, 98], kneeR: [96, 86], footR: [78, 92] } },
+    // Кадр от подбородка до бёдер: рука на ключице, вторая поперёк груди.
+    'her-7': { crop: 'her', light: 'left', view: 'crop' },
+    // Сидит по-турецки, наклон вперёд, голова лежит на скрещённых руках.
+    'her-8': { sex: 'f', light: 'back', cam: 'front', prop: 'floor',
+      view: 'front', face: 'away', aim: [60, 66], j: {
+      head: [60, 64], neck: [60, 78], hip: [60, 98],
+      elbowL: [38, 78], handL: [72, 74], elbowR: [82, 78], handR: [48, 74],
+      kneeL: [32, 100], footL: [68, 110], kneeR: [88, 100], footR: [52, 110] } },
+    // Стоит в полосах света от жалюзи, руки на талии, локти в стороны.
+    'her-9': { sex: 'f', light: 'left', cam: [106, 78], sight: [64, 62],
+      prop: 'blinds', view: 'front', aim: [58, 60],
+      extraTop: [46, 60, 74].map(y => `<rect class="art-stripe" x="42" y="${y}"
+        width="32" height="4.4" rx="2.2" transform="rotate(4 58 ${y})"/>`).join(''), j: {
+      head: [58, 26], neck: [58, 41], hip: [58, 80],
+      elbowL: [36, 56], handL: [50, 68], elbowR: [80, 56], handR: [66, 68],
+      kneeL: [50, 98], footL: [46, 117], kneeR: [66, 98], footR: [70, 117] } },
+    // Сидит на стуле верхом, спиной к камере: руки на спинке, голова
+    // опущена на них. Спинка стула дальше неё, ноги по сторонам сиденья.
+    'her-10': { sex: 'f', light: 'left', cam: 'front', aim: [60, 66],
+      prop: 'chairBack', propFront: 'chairBar', view: 'back', face: 'away', j: {
+      head: [60, 50], neck: [60, 66], hip: [60, 92],
+      elbowL: [40, 82], handL: [47, 67], elbowR: [80, 82], handR: [73, 67],
+      kneeL: [40, 96], footL: [36, 116], kneeR: [80, 96], footR: [84, 116] } },
 
-    // Стоит спиной к камере, ноги на ширине плеч, руки сцеплены за головой.
-    'him-1': { light: 'left', cam: 'front', prop: 'floor', view: 'back', face: 'away', j: {
-      head: [60, 28], neck: [60, 44], hip: [60, 84],
-      elbowL: [34, 44], handL: [50, 32], elbowR: [86, 44], handR: [70, 32],
-      kneeL: [44, 100], footL: [38, 116], kneeR: [76, 100], footR: [82, 116] } },
-    // Сидит у стены: одна нога вытянута, локоть на колене, ладонь к подбородку.
-    'him-2': { light: 'top', cam: [104, 92], prop: 'wall', view: 'side', face: 'right', j: {
-      head: [34, 52], neck: [34, 66], hip: [36, 96],
-      elbowL: [26, 80], handL: [24, 98], elbowR: [64, 72], handR: [44, 58],
-      kneeL: [74, 102], footL: [104, 110], kneeR: [62, 74], footR: [56, 104] } },
-    // Стоит прямо, руки заведены за спину.
-    'him-3': { light: 'right', cam: 'front', prop: 'floor', view: 'front', face: 'down', j: {
-      head: [60, 28], neck: [60, 44], hip: [60, 84],
-      elbowL: [42, 64], handL: [56, 80], elbowR: [78, 64], handR: [64, 80],
-      kneeL: [52, 100], footL: [50, 116], kneeR: [70, 100], footR: [72, 116] } },
-    // Стоит прямо, руки подняты вверх, потягивается.
-    'him-4': { light: 'front', cam: 'front', prop: 'floor', view: 'front', face: 'down', j: {
-      head: [60, 32], neck: [60, 46], hip: [60, 84],
-      elbowL: [44, 28], handL: [40, 12], elbowR: [76, 28], handR: [80, 12],
-      kneeL: [52, 100], footL: [50, 116], kneeR: [68, 100], footR: [70, 116] } },
-    // Стоит боком к источнику света, руки свободно.
-    'him-5': { light: 'back', cam: 'front', prop: 'floor', view: 'side', face: 'right', j: {
-      head: [58, 28], neck: [58, 44], hip: [58, 84],
-      elbowL: [48, 62], handL: [50, 80], elbowR: [68, 62], handR: [66, 80],
-      kneeL: [50, 100], footL: [46, 116], kneeR: [68, 100], footR: [72, 116] } },
-    // Опирается руками о стену выше головы, торс наклонён.
-    'him-6': { light: 'left', cam: [104, 84], prop: 'wall', view: 'side', face: 'left', j: {
-      head: [46, 48], neck: [58, 58], hip: [86, 80],
-      elbowL: [40, 44], handL: [24, 32], elbowR: [44, 52], handR: [26, 38],
-      kneeL: [88, 100], footL: [84, 116], kneeR: [98, 98], footR: [100, 116] } },
-    // Сидит на краю ванны, полотенце на бёдрах, голова опущена.
-    'him-7': { light: 'topleft', cam: [104, 90], prop: 'bath', view: 'side',
-      face: 'downleft', drape: 'towel', j: {
-      head: [50, 52], neck: [56, 64], hip: [56, 88],
-      elbowL: [40, 74], handL: [46, 92], elbowR: [70, 74], handR: [66, 92],
-      kneeL: [44, 94], footL: [40, 116], kneeR: [66, 94], footR: [70, 116] } },
-    // Лежит на животе, приподнялся на локтях, смотрит в камеру.
-    'him-8': { light: 'left', cam: 'front', prop: 'floor', view: 'side', face: 'downleft', j: {
-      head: [32, 78], neck: [48, 88], hip: [92, 100],
-      elbowL: [40, 106], handL: [30, 96], elbowR: [46, 108], handR: [36, 98],
-      kneeL: [110, 104], footL: [116, 90], kneeR: [108, 110], footR: [114, 96] } },
-    // Сидит боком на стуле, нога на ногу, рука на бедре.
-    'him-9': { light: 'right', cam: 'front', prop: 'chair', view: 'side', face: 'right', j: {
-      head: [52, 52], neck: [54, 66], hip: [56, 88],
-      elbowL: [42, 76], handL: [58, 86], elbowR: [66, 76], handR: [76, 84],
-      kneeL: [78, 84], footL: [72, 110], kneeR: [82, 92], footR: [96, 106] } },
+    // Стоит спиной, ноги на ширине плеч, руки сцеплены за головой:
+    // V-образный силуэт, локти в стороны.
+    'him-1': { sex: 'm', light: 'left', cam: 'front', prop: 'floor',
+      view: 'back', face: 'away', aim: [58, 56], j: {
+      head: [60, 26], neck: [60, 42], hip: [60, 82],
+      elbowL: [34, 38], handL: [51, 22], elbowR: [86, 38], handR: [69, 22],
+      kneeL: [48, 100], footL: [44, 117], kneeR: [72, 100], footR: [76, 117] } },
+    // Сидит у стены: одна нога вытянута, вторая согнута, локоть на колене,
+    // ладонь у подбородка.
+    'him-2': { sex: 'm', light: 'top', cam: [106, 92], sight: [56, 80],
+      prop: 'wall', view: 'side', face: 'downright', aim: [42, 50],
+      toesL: [1, 0.2], toesR: [1, 0.2], j: {
+      head: [36, 40], neck: [30, 54], hip: [26, 92],
+      elbowL: [24, 76], handL: [30, 90], elbowR: [58, 74], handR: [44, 46],
+      kneeL: [74, 100], footL: [100, 108], kneeR: [56, 80], footR: [52, 108] } },
+    // Стоит в расстёгнутых джинсах, руки за спиной: виден край джинсов и
+    // косые мышцы, кисти спрятаны.
+    'him-3': { sex: 'm', light: 'right', cam: 'front', prop: 'floor',
+      view: 'front', armsBehind: true, jeans: true, aim: [58, 80], j: {
+      head: [60, 26], neck: [60, 42], hip: [60, 82],
+      elbowL: [42, 62], handL: [52, 74], elbowR: [78, 62], handR: [68, 74],
+      kneeL: [52, 100], footL: [50, 117], kneeR: [68, 100], footR: [70, 117] } },
+    // Потягивается: руки вытянуты вверх, тело одной длинной линией.
+    'him-4': { sex: 'm', light: 'front', cam: 'front', prop: 'floor',
+      view: 'front', face: 'up', j: {
+      head: [60, 30], neck: [60, 45], hip: [60, 84],
+      elbowL: [48, 26], handL: [46, 10], elbowR: [72, 26], handR: [74, 10],
+      kneeL: [54, 100], footL: [52, 117], kneeR: [66, 100], footR: [68, 117] } },
+    // Стоит боком к контровому свету: сплошной тёмный профиль.
+    'him-5': { sex: 'm', light: 'back', cam: 'front', prop: 'floor',
+      view: 'side', face: 'right', dark: true, lampAt: [13, 54], aim: [58, 58],
+      spread: 26, extraTop: `<ellipse class="art-shadow" cx="86" cy="116.5"
+        rx="24" ry="2.6"/>`, toesL: [1, 0.2], toesR: [1, 0.2], j: {
+      head: [60, 26], neck: [59, 41], hip: [58, 80],
+      elbowL: [52, 60], handL: [54, 78], elbowR: [66, 60], handR: [66, 78],
+      kneeL: [52, 98], footL: [50, 117], kneeR: [66, 98], footR: [70, 117] } },
+    // Опирается ладонями о стену выше головы, торс наклонён, спина одной
+    // диагональю.
+    'him-6': { sex: 'm', light: 'topleft', cam: [106, 70], sight: [64, 64],
+      prop: 'wall', view: 'side', face: 'left', lampAt: [10, 20], aim: [56, 58],
+      toesL: [-1, 0.2], toesR: [-1, 0.2], j: {
+      head: [42, 48], neck: [52, 56], hip: [80, 78],
+      elbowL: [34, 44], handL: [20, 32], elbowR: [42, 54], handR: [22, 44],
+      kneeL: [86, 98], footL: [86, 117], kneeR: [96, 96], footR: [100, 116] } },
+    // Сидит на краю ванны, полотенце на бёдрах, голова опущена, предплечья
+    // на коленях.
+    'him-7': { sex: 'm', light: 'topleft', cam: [106, 70], sight: [44, 66],
+      prop: 'bathRight', view: 'side', face: 'downleft', aim: [42, 62],
+      extraTop: `<path class="art-cloth" style="opacity:.6"
+          d="M34 78 Q46 74 54 80 L52 96 Q42 100 34 94 Z"/>
+        <path class="art-seam" style="stroke-width:1.4" fill="none"
+          d="M34 80 Q46 76 53 82"/>`, j: {
+      head: [34, 50], neck: [42, 62], hip: [44, 86],
+      elbowL: [30, 74], handL: [30, 92], elbowR: [52, 76], handR: [38, 94],
+      kneeL: [30, 94], footL: [26, 117], kneeR: [36, 92], footR: [32, 117] } },
+    // Лежит на животе, грудь поднята на локтях, взгляд прямо в камеру,
+    // которая стоит перед ним на полу.
+    'him-8': { sex: 'm', light: 'topleft', cam: [12, 78], sight: [30, 72],
+      prop: 'floor', view: 'side', face: 'left', aim: [42, 82], spread: 16, j: {
+      head: [34, 68], neck: [44, 80], hip: [86, 98],
+      elbowL: [36, 100], handL: [24, 96], elbowR: [42, 102], handR: [30, 98],
+      kneeL: [106, 102], footL: [112, 88], kneeR: [104, 106], footR: [110, 92] } },
+    // Сидит на стуле боком, нога закинута на ногу, рука свободно на бедре.
+    'him-9': { sex: 'm', light: 'right', cam: 'front', prop: 'chair',
+      view: 'side', face: 'right', aim: [54, 62], toesR: [1, 0.35], j: {
+      head: [50, 38], neck: [50, 52], hip: [50, 86],
+      elbowL: [40, 68], handL: [40, 84], elbowR: [60, 66], handR: [64, 76],
+      kneeL: [74, 88], footL: [80, 116], kneeR: [70, 78], footR: [86, 92] } },
     // Только торс в профиль, руки скрещены на груди, лицо вне кадра.
-    'him-10': { light: 'left', cam: [104, 70], prop: 'crop', view: 'crop', j: {
-      neck: [60, 34], hip: [60, 100],
-      elbowL: [38, 58], handL: [72, 58], elbowR: [82, 58], handR: [48, 66] } }
+    'him-10': { crop: 'him', light: 'left', view: 'crop' }
   };
 
-  // The props that make a pose legible: the surface it happens on.
+  // The props that make a pose legible: not abstract lines, but the thing
+  // the caption names — a bed with a pillow, a chair with a back, a tub.
   function artProp(kind) {
-    if (kind === 'floor') return `<line class="art-prop" x1="8" y1="${ART_FLOOR}" x2="112" y2="${ART_FLOOR}"/>`;
-    if (kind === 'bed') return `<path class="art-prop" d="M8 100 H84 V${ART_FLOOR} H8 Z"/>
-                                <line class="art-prop" x1="8" y1="${ART_FLOOR}" x2="112" y2="${ART_FLOOR}"/>`;
-    if (kind === 'wall') return `<line class="art-prop" x1="18" y1="14" x2="18" y2="${ART_FLOOR}"/>
-                                 <line class="art-prop" x1="8" y1="${ART_FLOOR}" x2="112" y2="${ART_FLOOR}"/>`;
-    if (kind === 'chair') return `<path class="art-prop" d="M38 90 H84 M38 90 V${ART_FLOOR} M84 90 V${ART_FLOOR} M38 62 V90"/>
-                                  <line class="art-prop" x1="8" y1="${ART_FLOOR}" x2="112" y2="${ART_FLOOR}"/>`;
-    if (kind === 'bath') return `<path class="art-prop" d="M28 92 H96 V${ART_FLOOR} H28 Z"/>`;
-    if (kind === 'window') return `<path class="art-prop" d="M34 10 H86 V96 H34 Z M60 10 V96 M34 52 H86"/>
-                                   <line class="art-prop" x1="8" y1="${ART_FLOOR}" x2="112" y2="${ART_FLOOR}"/>`;
-    if (kind === 'blinds') return [20, 34, 48, 62, 76, 90].map(y =>
-      `<line class="art-prop" x1="24" y1="${y}" x2="96" y2="${y + 8}"/>`).join('') +
-      `<line class="art-prop" x1="8" y1="${ART_FLOOR}" x2="112" y2="${ART_FLOOR}"/>`;
-    // The frame edge of a close-up: without it a headless torso reads as an
-    // arrow rather than as "this much of the body is in shot".
-    if (kind === 'crop') return `<rect class="art-crop" x="14" y="24" width="92" height="94" rx="4"/>`;
+    const floor = `<line class="art-prop" x1="6" y1="${ART_FLOOR}" x2="114" y2="${ART_FLOOR}"/>`;
+    if (kind === 'floor') return floor;
+    if (kind === 'rug') return `<ellipse class="art-prop" cx="60" cy="82" rx="54" ry="34"/>`;
+    if (kind === 'bed') return floor +
+      `<path class="art-prop" d="M8 96 H78 M12 96 V${ART_FLOOR} M74 96 V${ART_FLOOR} M10 96 V56"/>
+       <rect class="art-propfill" x="8" y="90" width="70" height="7" rx="3.5"/>
+       <rect class="art-propfill" x="12" y="80" width="16" height="8" rx="4"/>`;
+    if (kind === 'wall') return floor +
+      `<line class="art-prop" x1="17" y1="12" x2="17" y2="${ART_FLOOR}"/>
+       <line class="art-prop" x1="17" y1="34" x2="10" y2="41"/>
+       <line class="art-prop" x1="17" y1="64" x2="10" y2="71"/>
+       <line class="art-prop" x1="17" y1="94" x2="10" y2="101"/>`;
+    if (kind === 'chair') return floor +
+      `<path class="art-prop" d="M40 90 H76 M42 90 V${ART_FLOOR} M74 90 V${ART_FLOOR} M40 90 L36 56 M36 56 H44"/>`;
+    if (kind === 'chairBack') return floor +
+      `<path class="art-prop" d="M40 92 H80 M44 92 V${ART_FLOOR} M76 92 V${ART_FLOOR}"/>`;
+    // The chair's back, drawn in front of the figure: she sits astride, so
+    // it stands between her and the camera and her hands rest on its bar.
+    if (kind === 'chairBar') return `<path class="art-prop" style="opacity:.75"
+       d="M42 58 H78 M42 58 V70 M78 58 V70 M46 92 L46 66 M74 92 L74 66"/>
+       <rect class="art-propfill" x="42" y="56" width="36" height="6" rx="3"/>`;
+    if (kind === 'bathRight') return floor +
+      `<path class="art-prop" d="M52 90 Q52 112 68 112 H96 Q112 112 112 90 M46 90 H116"/>
+       <line class="art-prop" x1="62" y1="112" x2="60" y2="${ART_FLOOR}"/>
+       <line class="art-prop" x1="100" y1="112" x2="102" y2="${ART_FLOOR}"/>`;
+    if (kind === 'window') return floor +
+      `<rect class="art-glow" x="70" y="12" width="44" height="84"/>
+       <path class="art-prop" d="M70 12 H114 M70 12 V96 M114 12 V96 M70 96 H114 M92 12 V96 M70 54 H114"/>`;
+    if (kind === 'blinds') return floor +
+      [18, 32, 46, 60, 74, 88].map(y =>
+        `<rect class="art-stripe" x="16" y="${y}" width="92" height="5" rx="2.5"
+           transform="rotate(4 60 ${y})"/>`).join('');
     return '';
+  }
+
+  // The two close-ups are bespoke drawings, not puppet poses: a cropped
+  // torso built from joints kept reading as an arrow, because a frame that
+  // cuts the head and legs leaves nothing to say which end is which. Drawn
+  // outlines carry a chin, a chest and a waist, which settle it.
+  function artCrop(which) {
+    const frame = `<path class="art-cam" d="M16 30 V20 H28 M92 20 H104 V30 M104 108 V118 H92 M28 118 H16 V108"/>`;
+    const cone = `<path class="art-cone" d="M14 34 L56 52 L44 84 Z"/>`;
+    if (which === 'her') {
+      // Front torso, the chin dipping into the top of the frame: one hand
+      // on the collarbone, the other across the chest.
+      return frame + cone +
+        `<path class="art-torso" d="M52 24 Q52 32 46 36 Q34 42 33 52
+           Q32 66 38 78 Q36 94 34 110 L86 110 Q84 94 82 78 Q88 66 87 52
+           Q86 42 74 36 Q68 32 68 24 Z"/>
+         <path class="art-skull" d="M52 21 Q60 30 68 21 L68 26 Q60 34 52 26 Z"/>
+         <path class="art-hair" d="M50 21 Q41 28 40 38 L34 46 Q32 30 42 22 Z"/>
+         <path class="art-hair" d="M70 21 Q79 28 80 38 L86 46 Q88 30 78 22 Z"/>
+         <path class="art-seam" style="stroke-width:9.6" fill="none" d="M87 54 L83 66 L69 72"/>
+         <polyline class="art-limb" style="stroke-width:7" points="87,54 83,66 69,72"/>
+         <path class="art-seam" style="stroke-width:9.6" fill="none" d="M33 54 L38 44 L52 40"/>
+         <polyline class="art-limb" style="stroke-width:7" points="33,54 38,44 52,40"/>
+         <circle class="art-skull" cx="67" cy="73" r="3.2"/>
+         <circle class="art-skull" cx="54" cy="41" r="3.2"/>`;
+    }
+    // His torso in profile: the chest curves forward on the right, the back
+    // is one flat line on the left, and the half away from the lamp sits in
+    // shadow - the very contrast the card is about.
+    return frame + cone +
+      `<path class="art-torso" d="M56 24 L52 38 Q44 42 42 54 Q40 70 46 82
+         Q44 96 44 110 L82 110 Q84 92 80 76 Q88 60 82 44 Q78 36 74 26 Z"/>
+       <path class="art-shadow" style="opacity:.4" d="M64 26 L74 26 Q78 36 82 44
+         Q88 60 80 76 Q84 92 82 110 L64 110 Z"/>
+       <path class="art-seam" style="stroke-width:10.6" fill="none" d="M42 56 L60 64 L80 58"/>
+       <polyline class="art-limb" style="stroke-width:8" points="42,56 60,64 80,58"/>
+       <path class="art-seam" style="stroke-width:10.6" fill="none" d="M80 70 L58 74 L44 66"/>
+       <polyline class="art-limb" style="stroke-width:8" points="80,70 58,74 44,66"/>
+       <circle class="art-skull" cx="80" cy="58" r="3.4"/>
+       <circle class="art-skull" cx="44" cy="66" r="3.4"/>`;
+  }
+
+  // Jeans on him-3: a straight waistband on the hips, two trouser legs and
+  // the open fly - the V below the waistband is the garment element the
+  // whole pose depends on, so it is dark and unmistakable.
+  function artJeans() {
+    return `<path class="art-cloth" style="opacity:.55" d="M46 78 H74 L73 98 L71 116
+        L61 116 L60 98 L59 116 L49 116 L47 98 Z"/>
+      <path class="art-seam" style="stroke-width:1.6" d="M46 78 H74" fill="none"/>
+      <path class="art-shadow" d="M56 78 L60 92 L64 78 Z"/>
+      <path class="art-prop" d="M47 84 L52 88 M73 84 L68 88"/>`;
   }
 
   function artSvg(inner) {
@@ -3175,77 +3348,171 @@
     const parts = [];
     if (ART_VIEW_LABEL[view]) parts.push(ART_VIEW_LABEL[view]);
     if (ART_LIGHT_LABEL[light]) parts.push(ART_LIGHT_LABEL[light]);
-    // A camera at the viewer's own position has no glyph to draw — it is
-    // where you are standing — so it is named rather than drawn. Drawn, it
-    // landed between the feet and read as a third leg.
+    // A camera or a lamp at the viewer's own position has no glyph to draw —
+    // it stands where you are standing — so it is named instead. Drawn, it
+    // landed between the figure's feet and read as a third leg.
     if (cam === 'front') parts.push('камера напротив');
     return parts.join(' · ');
   }
 
-  // The lighting schematics: seen from above, so "where the lamp stands
-  // relative to you and the phone" is a plan a reader can actually walk.
-  // The nose on the circle says which way you are facing in that plan.
+  // The lighting schemes: the room seen from above, so "where the lamp
+  // stands relative to you and the phone" is a plan a reader can walk. You
+  // are the shoulders-and-head shape; the nose wedge says which way you
+  // face; the phone is below, where the camera stands in every scheme.
   function artLightScheme(key) {
-    const you = `<circle class="art-skull" cx="60" cy="64" r="13"/>
-                 <circle class="art-skull" cx="60" cy="78" r="3.4"/>`;
-    const shade = (d) => `<path class="art-shadow" d="${d}"/>`;
+    // You, seen from above: a shoulder bar with the head offset toward the
+    // camera and a wedge of a nose. The head sat dead-centre before and the
+    // whole symbol read as an eye with an iris.
+    const YOU_Y = 58, HEAD_Y = 66;
+    const you = (dark) => `
+       <ellipse class="${dark ? 'art-shadow' : 'art-torso'}" cx="60" cy="${YOU_Y}" rx="16" ry="7"
+         ${dark ? 'style="opacity:.9"' : ''}/>
+       <circle class="art-seam" style="stroke-width:2.2" fill="none" cx="60" cy="${HEAD_Y}" r="7.6"/>
+       <circle class="${dark ? 'art-shadow' : 'art-skull'}" cx="60" cy="${HEAD_Y}" r="6.8"
+         ${dark ? 'style="opacity:.95"' : ''}/>
+       <path class="art-hair" d="M53.5 ${HEAD_Y - 3} A6.8 6.8 0 0 1 66.5 ${HEAD_Y - 3}
+         A9 9 0 0 0 53.5 ${HEAD_Y - 3} Z"/>
+       <path class="art-skull" d="M56 ${HEAD_Y + 6} L60 ${HEAD_Y + 11} L64 ${HEAD_Y + 6} Z"/>`;
+    const phone = artCamera(60, 106, 60, HEAD_Y + 12);
+    const lampAt = (x, y) => artLampAt([x, y]);
     if (key === 'light-side') {
-      return artFramed(you + shade('M60 51 A13 13 0 0 0 60 77 Z') +
-        artLamp('left', 48, 64) + artCamera(60, 112) + artProp('floor'),
-        artCaption('plan', 'left'));
+      // Лампа ровно сбоку: одна половина тела освещена, вторая в тени.
+      return artFramed(lampAt(16, 58) +
+        `<path class="art-cone" d="M16 58 L44 46 L44 74 Z"/>` + you(false) +
+        `<path class="art-shadow" d="M60 51 A16 7 0 0 1 60 65 Z"/>
+         <path class="art-shadow" d="M60 ${HEAD_Y - 6.8} A6.8 6.8 0 0 1 60 ${HEAD_Y + 6.8} Z"/>`
+        + phone,
+        'схема сверху · лампа сбоку под 90°');
     }
     if (key === 'light-rim') {
-      return artFramed(you + shade('M60 51 A13 13 0 0 0 60 77 A13 13 0 0 0 60 51 Z') +
-        artLamp('back', 60, 52) + artCamera(60, 112) + artProp('floor'),
-        artCaption('plan', 'back'));
+      // Свет строго сзади: светится контур, само тело тёмное. Телефон чуть
+      // в стороне от оси, как и советует подсказка.
+      return artFramed(lampAt(60, 14) +
+        `<path class="art-cone" d="M60 14 L40 50 L80 50 Z"/>` +
+        `<path class="art-halo" d="M44 ${YOU_Y + 2} A16 8.4 0 0 1 76 ${YOU_Y + 2}"/>` +
+        you(true) + artCamera(70, 106, 62, HEAD_Y + 10),
+        'схема сверху · лампа строго сзади');
     }
     if (key === 'light-soft') {
-      return artFramed(you + `<circle class="art-diffuse" cx="20" cy="18" r="17"/>` +
-        artLamp('topleft', 50, 56) + artCamera(60, 112) + artProp('floor'),
-        artCaption('plan', 'topleft'));
+      // Лампа накрыта тканью: свет становится рассеянным мягким пятном,
+      // которое дотягивается до тела.
+      return artFramed(
+        `<circle class="art-diffuse" cx="24" cy="24" r="20"/>` + lampAt(24, 24) +
+        `<path fill="#F4C9A2" opacity=".65" d="M8 16 Q24 4 40 16 L42 28
+           Q38 34 34 31 Q30 36 26 32 Q22 37 18 32 Q13 35 10 30 Z"/>
+         <path class="art-cone" style="opacity:.15" d="M24 24 L76 46 L48 84 Z"/>` +
+        you(false) + phone,
+        'схема сверху · лампа накрыта тканью');
     }
     if (key === 'light-stripes') {
-      return artFramed(artProp('blinds') + you +
-        artLamp('left', 48, 64) + artCamera(60, 112),
-        artCaption('plan', 'left'));
+      // Между лампой и тобой жалюзи: свет доходит до тела полосами, и
+      // полосы лежат на самом теле, а не позади него.
+      return artFramed(lampAt(14, 58) +
+        `<path class="art-cone" style="opacity:.14" d="M14 58 L30 38 L30 78 Z"/>
+         <path class="art-prop" d="M30 32 V86 M34 32 V86 M38 32 V86 M42 32 V86"/>` +
+        [44, 52, 68, 76].map(y =>
+          `<rect class="art-stripe" x="44" y="${y}" width="18" height="3.4" rx="1.7"/>`).join('') +
+        you(false) +
+        [53, 59, 65, 71].map(y =>
+          `<rect class="art-stripe" style="opacity:.55" x="46" y="${y}"
+             width="28" height="3.4" rx="1.7"/>`).join('') +
+        phone,
+        'схема сверху · свет через жалюзи');
     }
     return '';
   }
 
+  // The camera and editing cards. The first is a scene; the rest are the
+  // phone's own screen, because the instruction is a thing you do on the
+  // screen, not a way to stand.
   function artCameraScheme(key) {
-    const stand = artFigure({ face: 'left', j: {
-      head: [60, 26], neck: [60, 40], hip: [60, 74],
-      elbowL: [50, 56], handL: [52, 72], elbowR: [70, 56], handR: [68, 72],
-      kneeL: [54, 96], footL: [52, ART_FLOOR], kneeR: [68, 96], footR: [70, ART_FLOOR] } });
+    const stand = artFigure({ sex: 'm', view: 'side', face: 'left',
+      toesL: [-1, 0.2], toesR: [-1, 0.2], j: {
+      head: [58, 24], neck: [59, 39], hip: [60, 78],
+      elbowL: [50, 56], handL: [47, 74], elbowR: [68, 56], handR: [70, 74],
+      kneeL: [57, 97], footL: [54, 117], kneeR: [65, 97], footR: [66, 117] } });
+    const screen = `<rect class="art-cam" x="34" y="14" width="52" height="100" rx="7"/>
+       <line class="art-cam" x1="52" y1="20" x2="68" y2="20"/>`;
+    const miniBody = `<g style="opacity:.75">
+       <circle class="art-skull" cx="52" cy="44" r="5"/>
+       <path class="art-torso" d="M46 50 Q44 60 46 70 L58 70 Q60 60 58 50 Z"/>
+       <polyline class="art-limb" style="stroke-width:4" points="47,52 42,62 44,72"/>
+       <polyline class="art-limb" style="stroke-width:4" points="57,52 62,62 60,72"/>
+       <polyline class="art-limb" style="stroke-width:4.4" points="48,70 47,84 46,98"/>
+       <polyline class="art-limb" style="stroke-width:4.4" points="56,70 57,84 58,98"/></g>`;
     if (key === 'camera-height') {
-      return artFramed(artProp('floor') + stand + artCamera(22, 74) +
-        `<line class="art-ray" x1="22" y1="74" x2="50" y2="74"/>`,
-        'камера на уровне пупка');
+      // Телефон на уровне пупка, объектив смотрит горизонтально; рядом
+      // отметка таймера. Точка на теле - куда именно приходится уровень.
+      return artFramed(artProp('floor') + stand +
+        `<line class="art-sight" x1="24" y1="64" x2="54" y2="64"/>
+         <circle cx="55" cy="64" r="2.4" fill="#9FEFC4"/>` +
+        artCamera(18, 64) +
+        `<g class="art-cam"><circle cx="18" cy="30" r="7"/>
+           <path d="M18 26 V30 L21 32"/></g>
+         <text class="art-note" x="30" y="34">10 с</text>`,
+        'телефон на уровне пупка, таймер 10 секунд');
     }
     if (key === 'camera-exposure') {
-      return artFramed(artProp('floor') + stand + artCamera(22, 60) +
-        `<circle class="art-lamp" cx="22" cy="28" r="6"/>
-         <path class="art-ray" d="M22 38 V48"/>`,
-        'ярче – ползунок вниз');
+      // Экран телефона: тап (пунктирный квадрат) у солнышка, стрелка тянет
+      // его вниз, и нижняя половина кадра уже темнеет - результат жеста.
+      return artFramed(screen +
+        `<path class="art-shade" style="opacity:.32" d="M35 70 H85 V113 H35 Z"/>` +
+        miniBody +
+        `<rect class="art-focus" x="66" y="38" width="16" height="16" rx="3"/>
+         <g class="art-lamp"><circle cx="74" cy="46" r="4"/>
+           <line x1="74" y1="38" x2="74" y2="41"/><line x1="74" y1="51" x2="74" y2="54"/>
+           <line x1="66" y1="46" x2="69" y2="46"/><line x1="79" y1="46" x2="82" y2="46"/></g>
+         <line class="art-sight" x1="74" y1="56" x2="74" y2="94"/>
+         <path class="art-cam" d="M70 88 L74 96 L78 88"/>`,
+        'нажми на экран и потяни солнышко вниз');
     }
     if (key === 'camera-focus') {
-      return artFramed(artProp('floor') + stand + artCamera(22, 60) +
-        `<circle class="art-focus" cx="60" cy="44" r="10"/>
-         <line class="art-ray" x1="32" y1="58" x2="50" y2="48"/>`,
-        'тап по точке фокуса');
+      // Экран телефона: рамка фокуса на ключице, палец касается её угла.
+      return artFramed(screen + miniBody +
+        `<path class="art-cam" d="M42 48 V44 H46 M58 44 H62 V48 M62 60 V64 H58 M46 64 H42 V60"/>
+         <circle class="art-focus" cx="52" cy="54" r="7"/>
+         <path class="art-seam" style="stroke-width:8" fill="none" d="M62 63 L70 76 L74 92"/>
+         <path class="art-limb" style="stroke-width:6" d="M62 63 L70 76 L74 92"/>
+         <circle class="art-skull" cx="62" cy="63" r="3"/>`,
+        'тап по месту, которое главное в кадре');
     }
     if (key === 'edit-bw') {
-      return artFramed(`<rect class="art-prop" x="20" y="26" width="80" height="76" rx="6"/>
-        <path class="art-shade" d="M60 26 H100 V102 H60 Z"/>
-        <line class="art-prop" x1="60" y1="26" x2="60" y2="102"/>`,
-        'цвет слева, тени справа');
+      // Один и тот же кадр дважды: слева как снято (тёплый), справа - ч/б,
+      // тени глубже, плёночное зерно, и ползунок теней уведён влево.
+      const grain = [[66, 34], [96, 40], [74, 62], [100, 74], [68, 92], [88, 98],
+        [80, 30], [102, 56]].map(g =>
+        `<circle cx="${g[0]}" cy="${g[1]}" r="0.9" fill="#fff" opacity=".5"/>`).join('');
+      return artFramed(
+        `<rect class="art-prop" x="14" y="24" width="92" height="80" rx="6"/>
+         <line class="art-prop" x1="60" y1="24" x2="60" y2="104"/>
+         <g style="color:#F2A9BC">
+           <circle class="art-skull" cx="38" cy="48" r="6"/>
+           <path class="art-torso" d="M31 56 Q29 70 32 84 L45 84 Q47 70 45 56 Z"/></g>
+         <path class="art-shade" d="M60 24 H106 V104 H60 Z"/>
+         <g>
+           <circle class="art-skull" cx="84" cy="48" r="6"/>
+           <path class="art-torso" d="M77 56 Q75 70 78 84 L91 84 Q93 70 91 56 Z"/>
+           <path class="art-shadow" d="M84 42 A6 6 0 0 1 84 54 Z
+             M84 56 Q86 70 85 84 L91 84 Q93 70 91 56 Z"/></g>
+         ${grain}
+         <line class="art-cam" x1="66" y1="110" x2="100" y2="110" style="opacity:.7"/>
+         <circle cx="72" cy="110" r="2.6" fill="#9FEFC4"/>
+         <text class="art-note" x="24" y="114">цвет</text>
+         <text class="art-note" x="66" y="122">тени влево</text>`,
+        'справа: ч/б, тени глубже, зерно 10-15%');
     }
     if (key === 'edit-privacy') {
-      return artFramed(`<rect class="art-prop" x="20" y="26" width="80" height="76" rx="6"/>
-        <circle class="art-skull" cx="60" cy="52" r="11"/>
-        <path class="art-shade" d="M44 40 H76 V64 H44 Z"/>
-        <line class="art-prop" x1="40" y1="82" x2="80" y2="82"/>`,
-        'лицо в кадре – отдельное решение');
+      // Кадр начинается ниже подбородка: голова за рамкой, в кадре только
+      // тело. Крестик стоит на лице, а не на углу рамки.
+      return artFramed(
+        `<g style="opacity:.35">
+           <circle class="art-skull" cx="60" cy="24" r="9"/>
+           <path class="art-cam" d="M53 17 L67 31 M67 17 L53 31"/>
+         </g>
+         <rect class="art-prop" x="26" y="40" width="68" height="76" rx="6"/>
+         <path class="art-torso" d="M52 40 L48 52 Q42 58 44 74 Q42 92 48 106 L72 106
+           Q78 92 76 74 Q78 58 72 52 L68 40 Z"/>`,
+        'лицо в кадр не попадает, тело скажет само');
     }
     return '';
   }
@@ -3255,12 +3522,33 @@
   function guideArt(key) {
     if (!key) return '';
     const pose = ART_POSES[key];
+    if (pose && pose.crop) {
+      return artFramed(artCrop(pose.crop) + artLamp(pose.light, 60, 66),
+                       artCaption('crop', pose.light));
+    }
     if (pose) {
-      const aim = pose.j.hip || pose.j.neck || [60, 64];
-      return artFramed(artProp(pose.prop) + artFigure(pose) +
-                       artLamp(pose.light, aim[0], aim[1]) +
-                       (Array.isArray(pose.cam) ? artCamera(pose.cam[0], pose.cam[1]) : ''),
-                       artCaption(pose.view, pose.light, pose.cam));
+      const aim = pose.aim || pose.j.hip || pose.j.neck || [60, 64];
+      const cam = Array.isArray(pose.cam)
+        ? artCamera(pose.cam[0], pose.cam[1],
+                    (pose.sight || aim)[0], (pose.sight || aim)[1])
+        : '';
+      // `lampAt` puts the source somewhere the named directions cannot — a
+      // window pane, a spot behind a profile's back. The caption still
+      // carries the direction word; the glyph just stands where the light
+      // actually is in this particular room.
+      let light = '';
+      if (pose.lampAt) {
+        light = artConeFrom(pose.lampAt, aim, pose.spread) +
+                (pose.noLamp ? '' : artLampAt(pose.lampAt));
+      } else {
+        light = artCone(pose.light, aim[0], aim[1]) +
+                artLamp(pose.light, aim[0], aim[1]);
+      }
+      return artFramed(
+        artProp(pose.prop) + light +
+        artFigure(pose) + (pose.jeans ? artJeans() : '') +
+        (pose.propFront ? artProp(pose.propFront) : '') + cam,
+        artCaption(pose.view, pose.light, pose.cam));
     }
     if (key.indexOf('light-') === 0) return artLightScheme(key);
     return artCameraScheme(key);
