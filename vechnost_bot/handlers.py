@@ -9,7 +9,7 @@ import logging
 from telegram import Message, Update
 from telegram.ext import ContextTypes
 
-from .callback_handlers import welcome_screen
+from .callback_handlers import features_block, welcome_screen
 from .i18n import Language, get_text
 from .keyboards import get_reset_confirmation_keyboard
 from .monitoring import (
@@ -199,9 +199,11 @@ async def start_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
 
     # There is nothing to choose any more: open straight on the greeting.
     # The logo goes first, as its own message and without a caption — the
-    # greeting is ~1530 characters and Telegram caps photo captions at 1024,
-    # so it cannot ride along. A missing or unreadable logo must not take
-    # /start down, hence the fallback to the greeting alone.
+    # greeting runs to about two thousand characters and Telegram caps photo
+    # captions at 1024, so it cannot ride along, and every section added to
+    # it moves further from the cap rather than nearer. A missing or
+    # unreadable logo must not take /start down, hence the fallback to the
+    # greeting alone.
     try:
         with open("assets/images/vechnost_logo.png", "rb") as logo_file:
             await message.reply_photo(photo=logo_file)
@@ -311,10 +313,12 @@ async def about_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
         f"{get_text('about.feature_questions_desc', language)}\n\n"
         f"{get_text('about.feature_tasks', language)}\n"
         f"{get_text('about.feature_tasks_desc', language)}\n\n"
+        # The board, the masterclass, the compatibility test and the library,
+        # from the same block the welcome screen reads. Plain text here: this
+        # message is sent without a parse mode.
+        f"{features_block(language)}\n\n"
         f"{get_text('about.feature_privacy', language)}\n"
         f"{get_text('about.feature_privacy_desc', language)}\n\n"
-        f"{get_text('about.feature_library', language)}\n"
-        f"{get_text('about.feature_library_desc', language)}\n\n"
         f"{get_text('about.how_it_works', language)}\n"
         f"{get_text('about.step1', language)}\n"
         f"{get_text('about.step2', language)}\n"
@@ -323,6 +327,7 @@ async def about_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
         f"{get_text('about.perfect_for', language)}\n"
         f"{get_text('about.perfect_first_date', language)}\n"
         f"{get_text('about.perfect_long_relationship', language)}\n"
+        f"{get_text('about.perfect_crisis', language)}\n"
         f"{get_text('about.perfect_spice', language)}\n"
         f"{get_text('about.perfect_deep_talks', language)}\n\n"
         f"{get_text('about.cta', language)}"

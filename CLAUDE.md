@@ -285,6 +285,15 @@ ruff check .                             # lint (CI gates on this)
   is published there too but **per chat**, scoped to each admin: the global
   list is every user's «/» menu, and an admin command sitting in it invites
   taps that can only ever be refused.
+- **The pitch is one list, in one YAML block.** The welcome screen and
+  `/about` both describe what VECHNOST contains, and they used to spell that
+  out separately — which is how the board, the masterclass and the
+  compatibility test came to be missing from both. The four sections live in
+  `translations_ru.yaml`'s top-level `features:` block and are rendered by
+  `callback_handlers.py::features_block(language, bold=…)`; `bold` is the
+  only difference between the hosts, because the greeting is sent with
+  `parse_mode="HTML"` and `/about` is plain text. Add a feature there, not at
+  each screen.
 - **Rate limiting lives in `payments/throttle.py`**, as FastAPI
   dependencies: `throttle("join")` on anything that takes a six-character
   code, `throttle("render")` on `/api/card`, `throttle("admin")` on the

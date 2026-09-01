@@ -1083,6 +1083,32 @@ class CallbackHandlerRegistry:
             logger.error(f"Error editing message: {edit_error}")
 
 
+def features_block(language: Language, *, bold: bool = False) -> str:
+    """What VECHNOST contains, as the welcome screen and `/about` both list it.
+
+    The same entries used to be typed into `welcome` and into `about`
+    separately, which is why «69 ступеней», the masterclass and the
+    compatibility test reached neither: adding a section meant remembering two
+    places. They come from one `features:` block now. `bold` is the only
+    difference between the two hosts – the welcome screen is sent with
+    `parse_mode="HTML"` and the `/about` message is plain text, where a tag
+    would show up as a tag.
+    """
+    def head(text: str) -> str:
+        return f"<b>{text}</b>" if bold else text
+
+    return "\n\n".join([
+        f"{head(get_text('features.steps69_title', language))}\n"
+        f"{get_text('features.steps69_text', language)}",
+        f"{head(get_text('features.guide_title', language))}\n"
+        f"{get_text('features.guide_text', language)}",
+        f"{head(get_text('features.compat_title', language))}\n"
+        f"{get_text('features.compat_text', language)}",
+        f"{head(get_text('features.library_title', language))}\n"
+        f"{get_text('features.library_text', language)}",
+    ])
+
+
 def welcome_screen(language: Language) -> tuple[str, InlineKeyboardMarkup]:
     """The greeting page: what `/start` opens on and what every 'back'
     button returns to. One builder, so the two can never drift apart."""
@@ -1096,6 +1122,7 @@ def welcome_screen(language: Language) -> tuple[str, InlineKeyboardMarkup]:
         f"{get_text('welcome.section_intimacy_text', language)}\n\n"
         f"<b>{get_text('welcome.section_themes_title', language)}</b>\n"
         f"{get_text('welcome.section_themes_text', language)}\n\n"
+        f"{features_block(language, bold=True)}\n\n"
         f"<b>{get_text('welcome.section_best_title', language)}</b>\n"
         f"{get_text('welcome.section_best_text', language)}\n\n"
         f"━━━━━━━━━━━━━━━━━━━━"
