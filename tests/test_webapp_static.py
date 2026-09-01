@@ -296,6 +296,23 @@ def test_the_home_screen_shows_decks_not_typographic_suits():
         assert card in html
 
 
+def test_every_fan_card_wears_its_own_suit_as_a_centre_pip():
+    """The corner mark on the deck art is ~6px at 72x108 and reads as a smudge.
+
+    So each fan card layers its suit's own emblem over the card, centred, the
+    way an Ace carries a centre pip. Pairing matters: a card showing another
+    deck's suit would be worse than showing none, so this checks each emblem
+    against the card it belongs to rather than merely counting four of them.
+    """
+    html = INDEX.read_text(encoding="utf-8")
+    for suit, card in (("hearts", "acq/acq_1.png"),
+                       ("spades", "couples/couples_1.png"),
+                       ("clubs", "sex/questions.png"),
+                       ("diamonds", "prov/prov.png")):
+        pair = f"url(/assets/suits/{suit}.png),url(/assets/backgrounds/{card})"
+        assert pair in html, pair
+
+
 def test_no_screen_still_asks_for_a_typed_code():
     """Invites are links now, at all three doors.
 

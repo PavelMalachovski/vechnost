@@ -360,7 +360,20 @@ ruff check .                             # lint (CI gates on this)
   from `scripts/generate_card_assets.py`, which crops the suit emblems out
   of the existing deck art and is deterministic — re-running it reproduces
   the committed bytes. Regenerate and commit the PNGs; don't hand-edit them.
-  The suits are Acquaintance ♥, For Couples ♠, Sex ♣, Provocation ♦.
+  The suits are Acquaintance ♥, For Couples ♠, Sex ♣, Provocation ♦, and
+  `SUIT_SOURCES` in that script is the one place that says which deck card
+  each is cut from.
+- **The same script also cuts the four suits out on their own**, to
+  `assets/suits/*.png` — square RGBA tiles, all from one box so a single
+  size scales the set alike. The home-screen fan lays each over its own deck
+  card as an Ace's centre pip, because the mark printed in the card's corner
+  is about six pixels at the fan's 72×108 and reads as a smudge. Those tiles
+  are pinned by hash in `tests/test_card_assets.py` like the two cards, and
+  unlike them they really are portable: they carry no text, so a machine
+  whose FreeType sets the VECHNOST wordmark a hair differently still cuts
+  byte-identical suits but *will* rewrite `library.png` and `card_back.png`.
+  If those two turn up modified after a regeneration you did not intend,
+  check the diff is confined to the wordmark band and `git checkout` them.
 - **DB schema.** SQLAlchemy models in `payments/models.py`, Alembic
   revisions in `alembic/`. Deploys run `create_all`, which never alters
   existing tables, so new columns are **also** added idempotently at
