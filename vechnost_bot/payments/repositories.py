@@ -77,11 +77,20 @@ class UserRepository:
     async def set_daily_card_opt_out(
         session: AsyncSession, telegram_user_id: int, opt_out: bool
     ) -> None:
-        """Set whether the user receives the daily card push."""
+        """Set whether the user receives the daily card push.
+
+        Creates the row when it is missing rather than silently doing
+        nothing: an unsubscribe that no-ops is the worst failure mode a
+        «Больше не присылать» button can have, and a resubscribe from a
+        user the bot has never written down should stick too.
+        """
         user = await UserRepository.get_by_telegram_id(session, telegram_user_id)
-        if user:
+        if user is None:
+            user = User(telegram_user_id=telegram_user_id, daily_card_opt_out=opt_out)
+            session.add(user)
+        else:
             user.daily_card_opt_out = opt_out
-            await session.flush()
+        await session.flush()
 
     @staticmethod
     async def get_daily_card_recipients(session: AsyncSession) -> list[User]:
@@ -633,6 +642,24 @@ class Steps69Repository:
             )
         )
         return list(result.scalars().all())
+
+    @staticmethod
+    async def mark_resume_notified(
+        session: AsyncSession, game_ids: list[int], when: datetime
+    ) -> None:
+        """Record that a stalled-game nudge actually reached these games.
+
+        Called after the sends, not before: a game flagged before anyone
+        was reached is a game whose pair never hears about it.
+        """
+        if not game_ids:
+            return
+        result = await session.execute(
+            select(Steps69Game).where(Steps69Game.id.in_(game_ids))
+        )
+        for game in result.scalars().all():
+            game.resume_notified_at = when
+        await session.flush()
 
 
 class RetentionRepository:

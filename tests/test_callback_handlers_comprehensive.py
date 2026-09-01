@@ -49,6 +49,7 @@ class TestCallbackHandlerRegistry:
         query.message = MagicMock(spec=Message)
         query.message.chat = MagicMock(spec=Chat)
         query.message.chat.id = 12345
+        query.message.photo = ()  # a text message, not a photo card
         query.edit_message_text = AsyncMock()
         return query
 
@@ -124,6 +125,7 @@ def _make_query():
     query.edit_message_text = AsyncMock()
     query.edit_message_media = AsyncMock()
     query.message = MagicMock()
+    query.message.photo = ()  # a text message, not a photo card
     query.message.chat.id = 12345
     query.message.reply_text = AsyncMock()
     query.message.reply_photo = AsyncMock()
@@ -347,7 +349,7 @@ class TestQuestionHandler:
         assert session.level == 1
         mock_query.edit_message_media.assert_called_once()
         targets = _callback_targets(_keyboard_of(mock_query.edit_message_media))
-        assert "nav:acq:1:1" in targets
+        assert "nav:acq:1:1:q" in targets
 
     @pytest.mark.asyncio
     async def test_an_index_past_the_deck_is_refused(
@@ -389,7 +391,7 @@ class TestNavigationHandler:
         assert session.level == 1
         mock_query.edit_message_media.assert_called_once()
         targets = _callback_targets(_keyboard_of(mock_query.edit_message_media))
-        assert "nav:acq:1:0" in targets and "nav:acq:1:2" in targets
+        assert "nav:acq:1:0:q" in targets and "nav:acq:1:2:q" in targets
 
 
 class TestToggleHandler:

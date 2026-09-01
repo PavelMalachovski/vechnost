@@ -71,9 +71,12 @@ def get_calendar_keyboard(
             item_idx = start_idx + row * 7 + col
             if item_idx < end_idx:
                 day_num = item_idx + 1
+                # The category rides in the callback: sessions expire, and a
+                # card recovered from a fresh default session used to serve
+                # a question where a task was tapped.
                 keyboard_row.append(InlineKeyboardButton(
                     str(day_num),
-                    callback_data=f"q:{topic_code}:{level_or_0}:{item_idx}"
+                    callback_data=f"q:{topic_code}:{level_or_0}:{item_idx}:{category}"
                 ))
             else:
                 keyboard_row.append(InlineKeyboardButton(" ", callback_data="noop"))
@@ -129,7 +132,8 @@ def get_question_keyboard(
     level_or_0: int,
     question_idx: int,
     total_questions: int,
-    language: Language = Language.RUSSIAN
+    language: Language = Language.RUSSIAN,
+    category: str = "q"
 ) -> InlineKeyboardMarkup:
     """Get keyboard for question navigation."""
     keyboard = []
@@ -139,13 +143,13 @@ def get_question_keyboard(
     if question_idx > 0:
         nav_row.append(InlineKeyboardButton(
             get_text('navigation.previous', language),
-            callback_data=f"nav:{topic_code}:{level_or_0}:{question_idx-1}"
+            callback_data=f"nav:{topic_code}:{level_or_0}:{question_idx-1}:{category}"
         ))
 
     if question_idx < total_questions - 1:
         nav_row.append(InlineKeyboardButton(
             get_text('navigation.next', language),
-            callback_data=f"nav:{topic_code}:{level_or_0}:{question_idx+1}"
+            callback_data=f"nav:{topic_code}:{level_or_0}:{question_idx+1}:{category}"
         ))
 
     keyboard.append(nav_row)

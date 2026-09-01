@@ -34,6 +34,27 @@ class TestBotSetup:
         assert isinstance(app, Application)
         assert app.bot.token == settings.telegram_bot_token
 
+    def test_the_sweep_and_the_nudge_survive_the_daily_card_being_off(self):
+        """DAILY_CARD_ENABLED governs only the daily card itself.
+
+        All three jobs used to be scheduled inside the daily-card branch, so
+        turning the push off silently stopped the retention sweep — the one
+        thing that ever deletes rooms and abandoned tests — and the stalled
+        game nudge along with it.
+        """
+        with patch.object(settings, "daily_card_enabled", False):
+            app = create_application()
+        names = {job.name for job in app.job_queue.jobs()}
+        assert "retention_sweep" in names
+        assert "steps69_nudge" in names
+        assert "daily_card" not in names
+
+    def test_the_daily_card_is_scheduled_when_enabled(self):
+        with patch.object(settings, "daily_card_enabled", True):
+            app = create_application()
+        names = {job.name for job in app.job_queue.jobs()}
+        assert {"daily_card", "steps69_nudge", "retention_sweep"} <= names
+
     def test_a_missing_token_is_refused_at_import_not_at_call(self):
         """There is no token check inside create_application, by design.
 

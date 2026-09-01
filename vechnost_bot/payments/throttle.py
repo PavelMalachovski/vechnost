@@ -10,11 +10,13 @@ none of them cost the attacker anything today:
   so a laptop can saturate the box.
 * the admin token. Unlimited guesses turn a shared secret into a countdown.
 
-The window is in-process on purpose: the bot and the web server run in one
-process (`run_webhook.py`), so one process is the whole deployment. Run
-several workers and each keeps its own counters, which multiplies every
-limit below by the worker count. That is a weaker guarantee, not a broken
-one, and the fix is a shared store rather than a different shape of code.
+The window is in-process on purpose: every throttled endpoint lives in the
+single web process (`run_webhook.py` runs the bot beside it as a separate
+process, but the bot serves no HTTP), so one process holds every counter.
+Run several web workers and each keeps its own counters, which multiplies
+every limit below by the worker count. That is a weaker guarantee, not a
+broken one, and the fix is a shared store rather than a different shape of
+code.
 
 The client key is the forwarded address when there is one, because behind a
 platform proxy every request otherwise looks like the proxy. That header is

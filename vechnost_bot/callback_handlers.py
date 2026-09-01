@@ -143,6 +143,27 @@ async def _send_card_paywall(query: Any, language: Language) -> None:
     )
 
 
+async def _show_text(query: Any, text: str, keyboard: Any = None) -> None:
+    """Show text whether the current message is text or a photo card.
+
+    `edit_message_text` raises BadRequest on a message that has no text —
+    which is every card, since cards are photos. The render fallback and the
+    error path both used it anyway, so any hiccup while paging turned
+    «Далее» into a silently dead button. A photo message gets a fresh reply
+    instead; a text message is edited in place as before.
+    """
+    message = getattr(query, "message", None)
+    if message is not None and getattr(message, "photo", None):
+        await message.reply_text(text, reply_markup=keyboard)
+        return
+    try:
+        await query.edit_message_text(text, reply_markup=keyboard)
+    except Exception as edit_error:
+        logger.warning(f"Could not edit message text: {edit_error}, replying instead")
+        if message is not None:
+            await message.reply_text(text, reply_markup=keyboard)
+
+
 class CallbackHandler(ABC):
     """Abstract base class for callback handlers."""
 
@@ -466,8 +487,19 @@ class QuestionHandler(CallbackHandler):
         session.theme = theme
         session.level = callback_data.level_or_0 if callback_data.level_or_0 > 0 else None
 
-        # Get content type from current session or default to questions
-        content_type = session.content_type
+        # The questions/tasks split comes from the callback itself when it
+        # carries one: sessions expire after an hour, and recovering the
+        # split from a fresh default session used to turn a tapped Sex
+        # *task* into question N. Buttons minted before the field existed
+        # still fall back to the session.
+        if callback_data.category:
+            content_type = (
+                ContentType.TASKS if callback_data.category == "t"
+                else ContentType.QUESTIONS
+            )
+            session.content_type = content_type
+        else:
+            content_type = session.content_type
 
         # Get items
         items = localized_game_data.get_content(theme, session.level, content_type, session.language)
@@ -488,7 +520,9 @@ class QuestionHandler(CallbackHandler):
 
         # Show question with navigation
         keyboard = get_question_keyboard(
-            callback_data.topic, callback_data.level_or_0, callback_data.index, len(items), session.language
+            callback_data.topic, callback_data.level_or_0, callback_data.index,
+            len(items), session.language,
+            category="t" if content_type == ContentType.TASKS else "q",
         )
 
         # Try to render as image, fallback to text if it fails
@@ -521,10 +555,7 @@ class QuestionHandler(CallbackHandler):
         except Exception as e:
             logger.error(f"Error rendering card image: {e}", exc_info=True)
             # Fallback to text message
-            await query.edit_message_text(
-                f"{header}\n\n{question}",
-                reply_markup=keyboard
-            )
+            await _show_text(query, f"{header}\n\n{question}", keyboard)
 
 
 class NavigationHandler(CallbackHandler):
@@ -549,8 +580,19 @@ class NavigationHandler(CallbackHandler):
         session.theme = theme
         session.level = callback_data.level_or_0 if callback_data.level_or_0 > 0 else None
 
-        # Get content type from current session or default to questions
-        content_type = session.content_type
+        # The questions/tasks split comes from the callback itself when it
+        # carries one: sessions expire after an hour, and recovering the
+        # split from a fresh default session used to turn a tapped Sex
+        # *task* into question N. Buttons minted before the field existed
+        # still fall back to the session.
+        if callback_data.category:
+            content_type = (
+                ContentType.TASKS if callback_data.category == "t"
+                else ContentType.QUESTIONS
+            )
+            session.content_type = content_type
+        else:
+            content_type = session.content_type
 
         # Get items
         items = localized_game_data.get_content(theme, session.level, content_type, session.language)
@@ -571,7 +613,9 @@ class NavigationHandler(CallbackHandler):
 
         # Show question with navigation
         keyboard = get_question_keyboard(
-            callback_data.topic, callback_data.level_or_0, callback_data.index, len(items), session.language
+            callback_data.topic, callback_data.level_or_0, callback_data.index,
+            len(items), session.language,
+            category="t" if content_type == ContentType.TASKS else "q",
         )
 
         # Try to render as image, fallback to text if it fails
@@ -604,10 +648,7 @@ class NavigationHandler(CallbackHandler):
         except Exception as e:
             logger.error(f"Error rendering card image: {e}", exc_info=True)
             # Fallback to text message
-            await query.edit_message_text(
-                f"{header}\n\n{question}",
-                reply_markup=keyboard
-            )
+            await _show_text(query, f"{header}\n\n{question}", keyboard)
 
 
 class ToggleHandler(CallbackHandler):
@@ -1037,7 +1078,7 @@ class CallbackHandlerRegistry:
             logger.warning(f"Could not read the session for an error message: {session_error}")
 
         try:
-            await query.edit_message_text(get_text('errors.unknown_callback', language))
+            await _show_text(query, get_text('errors.unknown_callback', language))
         except Exception as edit_error:
             logger.error(f"Error editing message: {edit_error}")
 
@@ -1269,7 +1310,14 @@ class DailyCardOptHandler(CallbackHandler):
             async with get_db() as db:
                 await UserRepository.set_daily_card_opt_out(db, user_id, opt_out)
         except Exception as e:
+            # Confirming an unsubscribe that did not happen is the worst
+            # thing this button can do, so a failed write is reported as a
+            # failure, not celebrated.
             logger.error(f"Error toggling daily card for {user_id}: {e}")
+            await query.message.reply_text(
+                get_text('daily.toggle_failed', session.language)
+            )
+            return
 
         if opt_out:
             text = get_text('daily.unsubscribed', session.language)

@@ -115,17 +115,48 @@ def create_application() -> Application:
     logger.info("- Command handlers: start, help, reset, about, activate")
     logger.info("- Callback query handler: handle_callback_query")
 
-    # Daily card push
+    # Scheduled jobs. DAILY_CARD_ENABLED governs only the daily card itself:
+    # the retention sweep is the one thing that ever deletes rooms and
+    # abandoned tests, and the «69 ступеней» nudge belongs to that game, so
+    # both run whenever a JobQueue exists at all.
     from .config import settings
-    if settings.daily_card_enabled:
-        if application.job_queue is None:
-            logger.warning(
-                "Daily card enabled but JobQueue is unavailable — "
-                "install python-telegram-bot[job-queue]"
-            )
-        else:
-            from datetime import time
+    if application.job_queue is None:
+        logger.warning(
+            "JobQueue is unavailable — the daily card, the 69 steps nudge "
+            "and the retention sweep are all disabled; install "
+            "python-telegram-bot[job-queue]"
+        )
+    else:
+        from datetime import time
 
+        # Deleting rows is not urgent and should not share a minute with
+        # anything that messages a user, so it runs in the small hours.
+        from .retention import retention_job
+
+        application.job_queue.run_daily(
+            retention_job,
+            time=time(hour=3, minute=30, tzinfo=UTC),
+            name="retention_sweep",
+        )
+        logger.info("- Retention sweep scheduled at 03:30 UTC")
+
+        # An hour after the daily card's slot, so a pair who are due both
+        # do not get them in the same second.
+        from .steps69_notify import steps69_nudge_job
+
+        application.job_queue.run_daily(
+            steps69_nudge_job,
+            time=time(
+                hour=(settings.daily_card_hour_utc + 1) % 24, tzinfo=UTC
+            ),
+            name="steps69_nudge",
+        )
+        logger.info(
+            f"- 69 steps nudge scheduled at "
+            f"{(settings.daily_card_hour_utc + 1) % 24}:00 UTC"
+        )
+
+        if settings.daily_card_enabled:
             from .daily_card import daily_card_job
 
             application.job_queue.run_daily(
@@ -134,33 +165,6 @@ def create_application() -> Application:
                 name="daily_card",
             )
             logger.info(f"- Daily card scheduled at {settings.daily_card_hour_utc}:00 UTC")
-
-            # An hour after the daily card, so a pair who are due both do not
-            # get them in the same second.
-            from .steps69_notify import steps69_nudge_job
-
-            application.job_queue.run_daily(
-                steps69_nudge_job,
-                time=time(
-                    hour=(settings.daily_card_hour_utc + 1) % 24, tzinfo=UTC
-                ),
-                name="steps69_nudge",
-            )
-            logger.info(
-                f"- 69 steps nudge scheduled at "
-                f"{(settings.daily_card_hour_utc + 1) % 24}:00 UTC"
-            )
-
-            # Deleting rows is not urgent and should not share a minute with
-            # anything that messages a user, so it runs in the small hours.
-            from .retention import retention_job
-
-            application.job_queue.run_daily(
-                retention_job,
-                time=time(hour=3, minute=30, tzinfo=UTC),
-                name="retention_sweep",
-            )
-            logger.info("- Retention sweep scheduled at 03:30 UTC")
 
     return application
 

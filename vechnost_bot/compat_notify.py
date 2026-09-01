@@ -78,15 +78,26 @@ async def notify_result_ready(user_ids: Iterable[int | None], code: str) -> None
 
     languages = await _languages(recipients)
 
-    for user_id in recipients:
-        language = languages.get(user_id, Language.RUSSIAN)
-        try:
-            await bot.send_message(
-                chat_id=user_id,
-                text=get_text("compat.ready", language),
-                reply_markup=_keyboard(language),
-            )
-        except Forbidden:
-            logger.info(f"Compat notify: user {user_id} blocked the bot")
-        except Exception as e:
-            logger.warning(f"Compat notify failed for {user_id} (test {code}): {e}")
+    # `async with` closes the Bot's HTTP pool afterwards: this runs in the
+    # long-lived web process, and a fresh unclosed pool per completed test
+    # is a slow leak.
+    try:
+        async with bot:
+            for user_id in recipients:
+                language = languages.get(user_id, Language.RUSSIAN)
+                try:
+                    await bot.send_message(
+                        chat_id=user_id,
+                        text=get_text("compat.ready", language),
+                        reply_markup=_keyboard(language),
+                    )
+                except Forbidden:
+                    logger.info(f"Compat notify: user {user_id} blocked the bot")
+                except Exception as e:
+                    logger.warning(
+                        f"Compat notify failed for {user_id} (test {code}): {e}"
+                    )
+    except Exception as e:
+        # initialize()/shutdown() can themselves fail on a dead network;
+        # the couple just doesn't get a push this time.
+        logger.warning(f"Compat notify failed for test {code}: {e}")

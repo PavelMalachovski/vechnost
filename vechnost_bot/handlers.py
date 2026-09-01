@@ -85,6 +85,15 @@ async def start_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
     )
     log_bot_event("start_command", user_id=user_id, username=username)
 
+    # Register the user on plain /start, not only on the referral and
+    # /invite paths: the daily card selects its recipients from the users
+    # table, and before this line most people who simply pressed /start and
+    # played in the Mini App were never in it. Swallows its own errors, so
+    # a database hiccup cannot take /start down.
+    from .payments.middleware import check_and_register_user
+
+    await check_and_register_user(update, context)
+
     # Check for certificate activation parameter
     if context.args and len(context.args) > 0:
         param = context.args[0]
@@ -115,9 +124,26 @@ async def start_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
                         db_session, user_id, referral_code
                     )
                 if credited:
-                    await message.reply_text(
-                        get_text("referral.welcome", Language.RUSSIAN)
-                    )
+                    # The discount is only promised when it exists: with
+                    # REFERRAL_PAYMENT_URL unset the codes are still minted
+                    # and invites recorded, but there is no discounted
+                    # payment page to send anyone to. And `percent` must be
+                    # passed, or the reader sees a literal "{percent}".
+                    from .config import settings as _settings
+                    from .referrals import discount_available
+
+                    if discount_available():
+                        await message.reply_text(
+                            get_text(
+                                "referral.welcome",
+                                Language.RUSSIAN,
+                                percent=_settings.referral_discount_percent,
+                            )
+                        )
+                    else:
+                        await message.reply_text(
+                            get_text("referral.welcome_no_discount", Language.RUSSIAN)
+                        )
             except Exception as e:
                 logger.warning(f"Referral {referral_code} not credited: {e}")
 
