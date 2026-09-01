@@ -4,8 +4,8 @@ Deliberately imports neither FastAPI nor python-telegram-bot — the web API,
 the bot, and the tests all use this module directly.
 
 Individual answers go in; they never come out. The result carries zones,
-verdict texts and question numbers, and nothing that would let one partner
-reconstruct the other's answers.
+verdict texts and question numbers with their texts, and nothing that would
+let one partner reconstruct the other's answers.
 """
 
 from functools import cache
@@ -65,6 +65,11 @@ class CompatResult(BaseModel):
     strengths_fallback: str | None = None
     attention: list[AttentionEntry]
     divergent_all: list[int]
+    # The text of every divergent question, keyed by its global 1-based
+    # number. "Обсудите вопросы №12, 14" is not actionable when neither
+    # partner remembers what question 12 asked; both partners answered all
+    # forty, so the texts reveal nothing. Texts only — never any answer.
+    questions: dict[int, str]
     recommendation: str
     critical_blocks: list[str]
 
@@ -205,6 +210,7 @@ def build_result(
     ]
 
     divergent_all = sorted(n for r in results for n in r.divergent)
+    flat_questions = [q for sphere in spheres for q in sphere.questions]
 
     return CompatResult(
         percent=percent,
@@ -213,6 +219,7 @@ def build_result(
         strengths_fallback=None if strengths else content["strengths_fallback"],
         attention=attention,
         divergent_all=divergent_all,
+        questions={n: flat_questions[n - 1] for n in divergent_all},
         recommendation=content["recommendation"].format(
             numbers=", ".join(str(n) for n in divergent_all)
         ),

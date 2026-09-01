@@ -307,6 +307,17 @@
   .compat-strength{border-left:3px solid rgba(120,220,160,.7)}
   .compat-growth{border-left:3px solid rgba(255,200,120,.7)}
   .compat-crisis{border-left:3px solid rgba(255,120,150,.8)}
+  /* A divergent question under a verdict: the number is the button, the
+     text opens on a tap. <details> is the whole widget, so it works with
+     no script and stays open while the couple talks. */
+  .compat-qs{margin-top:8px}
+  .compat-qi{margin-top:6px;border-radius:10px;background:rgba(255,255,255,.06)}
+  .compat-qi summary{padding:8px 12px;font-size:13.5px;font-weight:700;cursor:pointer;
+    list-style:none;display:flex;align-items:center;gap:8px}
+  .compat-qi summary::-webkit-details-marker{display:none}
+  .compat-qi summary::before{content:'+';opacity:.7}
+  .compat-qi[open] summary::before{content:'–'}
+  .compat-qi p{margin:0;padding:0 12px 10px;font-size:14px;line-height:1.5;opacity:.9}
   #compatScale{padding:0 16px}
   /* The question scrolls; the scale under it does not move. A five-line
      question used to push the answer buttons off the bottom of the phone,
@@ -638,11 +649,17 @@
   .s69-map::-webkit-scrollbar { display: none; }
   .s69-map.folded { display: none; }
 
+  /* Every cell is a button into its own action: a tap opens what the
+     square does, so the whole board reads like the printed game. */
   .s69-cell {
     position: relative; aspect-ratio: 1; border-radius: 8px;
     display: grid; place-items: center; font-size: 10px; font-weight: 700;
     color: rgba(251,233,244,.5); transition: transform .25s ease, box-shadow .25s ease;
-    border: 1px solid rgba(255,255,255,.08);
+    border: 1px solid rgba(255,255,255,.08); cursor: pointer;
+  }
+  .s69-map-hint {
+    font-size: 11px; text-align: center; color: var(--muted-on-dark);
+    opacity: .8; margin: 0 0 8px; flex: 0 0 auto;
   }
   /* Each block of the board has its own ground, so the four stages are
      visible as bands before a single word is read. */
@@ -776,6 +793,20 @@
   .s69-finale { display: flex; flex-direction: column; gap: 12px; width: 100%; max-width: 320px; }
   .s69-finale .btn { margin-top: 0; }
   .s69-choice-text { font-size: 14px; line-height: 1.55; color: var(--muted-on-dark); margin-bottom: 18px; }
+
+  /* The cell card a tap on the map opens: what the square is, what it does,
+     and where a portal throws you. Deals (secrets, Joker tasks) are not in
+     the board payload, so nothing here can spoil them. The selectors carry
+     the overlay id because `.overlay p` would otherwise out-rank them. */
+  #s69CellInfo .s69-info-meta {
+    font-size: 12px; letter-spacing: .06em; text-transform: uppercase;
+    margin-bottom: 8px;
+  }
+  #s69CellInfo .s69-info-kind {
+    font-size: 13.5px; font-weight: 700; color: rgba(255,150,190,.9); margin-bottom: 10px;
+  }
+  #s69CellInfo .s69-info-text { margin-bottom: 16px; }
+  #s69CellInfo .s69-info-note { font-style: italic; font-size: 13.5px; margin-bottom: 16px; }
 
   #toast {
     position: absolute; left: 50%; bottom: calc(var(--safe-bottom) + 110px); transform: translateX(-50%) translateY(16px);
@@ -979,6 +1010,7 @@
       <button class="icon-btn" id="s69MapToggle" title="map">🗺</button>
     </div>
     <div class="s69-map" id="s69Map"></div>
+    <p class="s69-map-hint" id="s69MapHint" data-i18n="s69MapHint"></p>
     <div class="s69-turn"><span class="chip" id="s69TurnChip"></span></div>
     <div class="s69-card" id="s69Cell"></div>
     <button class="s69-dice" id="s69Dice"></button>
@@ -1068,6 +1100,16 @@
     <p id="s69DoneText"></p>
     <button class="btn btn-play" id="s69DoneAgain"></button>
     <button class="btn btn-ghost" id="s69DoneHome"></button>
+  </div>
+
+  <!-- A tapped board cell: its number, its action, its portal. -->
+  <div class="overlay" id="s69CellInfo">
+    <p class="s69-info-meta" id="s69InfoMeta"></p>
+    <h2 id="s69InfoTitle"></h2>
+    <p class="s69-info-kind" id="s69InfoKind"></p>
+    <p class="s69-info-text" id="s69InfoText"></p>
+    <p class="s69-info-note" id="s69InfoNote"></p>
+    <button class="btn btn-ghost" id="s69InfoClose"></button>
   </div>
 
   <div class="overlay" id="paywall">
@@ -1166,8 +1208,9 @@
       compatWaitingPartner: 'Партнёр ответил на {n} из {total}',
       compatDone: 'Все 40 вопросов позади. Ждём партнёра…',
       compatResultTitle: 'Ваш результат',
-      compatStrengths: 'Сферы, где вы команда', compatAttention: 'Требуют разговора',
-      compatAll: 'По всем сферам', compatZoneStrength: 'Сфера силы',
+      compatStrengths: 'Сферы, где вы команда',
+      compatDiscuss: 'Обсудите вопросы', compatQuestionN: 'Вопрос {n}',
+      compatZoneStrength: 'Сфера силы',
       compatZoneGrowth: 'Зона роста', compatZoneCrisis: 'Критическая зона',
       compatNoResult: 'У вас пока нет пройденного теста',
       compatPaywall: 'Тест совместимости входит в полный доступ',
@@ -1207,6 +1250,13 @@
       s69Ladder: 'Стрела любви',
       s69Snake: 'Змея искушения',
       s69Reveal: 'Нажмите, чтобы открыть',
+      s69MapHint: 'Нажмите на клетку, чтобы прочитать её действие',
+      s69InfoCell: 'Клетка {n}',
+      s69InfoUp: 'переносит на клетку {n}',
+      s69InfoDown: 'спускает на клетку {n}',
+      s69InfoJoker: 'Задание рождается, когда фишка встаёт сюда',
+      s69InfoSecret: 'Полный текст откроется тому, кто встанет на эту клетку',
+      s69InfoClose: 'Закрыть',
 
       s69Milestone: 'Каждая десятая',
       s69FinaleTitle: 'Клетка 69',
@@ -2720,6 +2770,18 @@
     crisis: T().compatZoneCrisis
   });
 
+  // The question numbers a card quotes, each opening its text on a tap.
+  // Texts arrive with the result (r.questions, keyed by global number) —
+  // never any answer, the partner's or your own.
+  function compatQuestionsHTML(numbers, texts) {
+    if (!numbers.length) return '';
+    return '<div class="compat-qs">' + numbers.map(n =>
+      '<details class="compat-qi"><summary>' +
+        escapeHTML(fmt(T().compatQuestionN, { n: n })) + '</summary>' +
+        '<p>' + escapeHTML((texts && texts[n]) || '') + '</p>' +
+      '</details>').join('') + '</div>';
+  }
+
   function renderCompatResult(r) {
     const zoneLabel = COMPAT_ZONE_LABEL();
     const sphereCard = (s, extra) => `
@@ -2727,29 +2789,50 @@
         <div class="lib-card-title">${escapeHTML(s.title)} · ${escapeHTML(zoneLabel[s.zone])}</div>
         ${extra || ''}
         <div class="lib-card-line">${escapeHTML(s.verdict)}</div>
-        ${s.divergent.length ? `<div class="lib-card-line">№ ${s.divergent.join(', ')}</div>` : ''}
+        ${compatQuestionsHTML(s.divergent, r.questions)}
       </div>`;
 
     const strengths = r.strengths.length
       ? r.strengths.map(s => sphereCard(s)).join('')
       : `<p class="lib-card-line">${escapeHTML(r.strengths_fallback)}</p>`;
 
-    // No sphere qualifies for attention when the couple is strong across
-    // the board — omit the whole block, heading included, rather than show
-    // a heading over nothing.
-    const attention = r.attention.length
-      ? `<h3 class="compat-h">${escapeHTML(T().compatAttention)}</h3>
-         ${r.attention.map(a => sphereCard(a.sphere, a.framing
-           ? `<div class="lib-card-line"><i>${escapeHTML(a.framing)}</i></div>`
-           : '')).join('')}`
+    // «Обсудите вопросы»: the recommendation, and under it every divergent
+    // question, opened by a tap. With nothing to discuss the whole section
+    // goes, heading included — "Обсудите вопросы №" over nothing would
+    // read as a rendering fault.
+    const discuss = r.divergent_all.length
+      ? `<h3 class="compat-h">${escapeHTML(T().compatDiscuss)}</h3>
+         <div class="lib-card">
+           <div class="lib-card-line">${escapeHTML(r.recommendation)}</div>
+           ${compatQuestionsHTML(r.divergent_all, r.questions)}
+         </div>`
       : '';
 
-    // The recommendation text quotes divergent question numbers; with none
-    // to quote it would read as "Обсудите вопросы №" with nothing after
-    // the sign, so omit the line entirely instead.
-    const recommendation = r.divergent_all.length
-      ? `<div class="lib-card"><div class="lib-card-line">${escapeHTML(r.recommendation)}</div></div>`
-      : '';
+    // The two lowest-scoring non-strength spheres carry a framing line that
+    // says *why* the sphere needs the talk. It used to head its own
+    // «Требуют разговора» block; now that every zone is a section of its
+    // own, the framing rides on the sphere's card instead of repeating it.
+    const framingOf = {};
+    r.attention.forEach(a => { if (a.framing) framingOf[a.sphere.id] = a.framing; });
+    const zoneCard = s => sphereCard(s, framingOf[s.id]
+      ? `<div class="lib-card-line"><i>${escapeHTML(framingOf[s.id])}</i></div>`
+      : '');
+
+    // One section per zone, replacing the flat «По всем сферам» list: the
+    // verdict of every sphere, grouped under the zone it landed in. A zone
+    // nobody landed in is omitted, heading included, rather than shown as
+    // a heading over nothing.
+    const zoneSection = z => {
+      const spheres = r.spheres.filter(s => s.zone === z);
+      if (!spheres.length) return '';
+      return `<h3 class="compat-h">${escapeHTML(zoneLabel[z])}</h3>` +
+             spheres.map(zoneCard).join('');
+    };
+    let crisis = zoneSection('crisis');
+    if (crisis) {
+      crisis += r.critical_blocks.map(b =>
+        `<div class="lib-card compat-crisis"><div class="lib-card-line">${escapeHTML(b)}</div></div>`).join('');
+    }
 
     // How the eight spheres split across the three zones, under the headline
     // percentage: one number says how close the couple is, this says how that
@@ -2759,17 +2842,18 @@
       .map(z => escapeHTML(zoneLabel[z]) + ': ' + r.spheres.filter(s => s.zone === z).length)
       .join(' · ');
 
+    // Section order is the product's, not alphabetical: the team spheres
+    // open, the questions to discuss follow while attention is highest,
+    // then the three zones from strong to critical.
     return `
       <div class="compat-percent">${r.percent}%</div>
       <p class="compat-zones">${zoneCounts}</p>
       <h3 class="compat-h">${escapeHTML(T().compatStrengths)}</h3>
       ${strengths}
-      ${attention}
-      ${recommendation}
-      ${r.critical_blocks.map(b =>
-        `<div class="lib-card compat-crisis"><div class="lib-card-line">${escapeHTML(b)}</div></div>`).join('')}
-      <h3 class="compat-h">${escapeHTML(T().compatAll)}</h3>
-      ${r.spheres.map(s => sphereCard(s)).join('')}
+      ${discuss}
+      ${zoneSection('strength')}
+      ${zoneSection('growth')}
+      ${crisis}
       <button class="btn btn-second compat-danger" id="compatDeleteBtn">${escapeHTML(T().compatDelete)}</button>`;
   }
 
@@ -3444,6 +3528,7 @@
     G.invite = null;
     $('s69Finale').classList.remove('show');
     $('s69Done').classList.remove('show');
+    $('s69CellInfo').classList.remove('show');
     show('home');
   }
 
@@ -3535,8 +3620,43 @@
       el.dataset.id = String(id);
       el.innerHTML = (c.kind === 'final' ? '69' : String(id)) + s69MarkHTML(c);
       el.title = c.title;
+      // The board is the printed game: any cell opens its own action.
+      el.onclick = () => showS69CellInfo(id);
       box.appendChild(el);
     });
+  }
+
+  // What a tapped square does: its title, its action text, and for the
+  // special kinds what the mechanic is. The board payload carries no deal —
+  // no secret, no partner line, no Joker task — so nothing shown here can
+  // spoil what a player will be dealt on it.
+  function showS69CellInfo(id) {
+    const c = G.byId && G.byId[id];
+    if (!c) return;
+    haptic('light');
+    const block = (G.board.blocks || []).filter(b => id >= b.first && id <= b.last)[0];
+    $('s69InfoMeta').textContent = fmt(T().s69InfoCell, { n: id }) +
+      (block ? ' · ' + block.title : '');
+    $('s69InfoTitle').textContent = c.title || '';
+
+    const kind = $('s69InfoKind');
+    if (c.kind === 'ladder') kind.textContent = T().s69Ladder + ' · ' + fmt(T().s69InfoUp, { n: c.to });
+    else if (c.kind === 'snake') kind.textContent = T().s69Snake + ' · ' + fmt(T().s69InfoDown, { n: c.to });
+    else if (c.kind === 'joker') kind.textContent = T().s69InfoJoker;
+    else if (c.kind === 'secret') kind.textContent = T().s69InfoSecret;
+    else kind.textContent = '';
+    kind.style.display = kind.textContent ? '' : 'none';
+
+    $('s69InfoText').textContent = c.text || '';
+    $('s69InfoText').style.display = c.text ? '' : 'none';
+
+    const note = $('s69InfoNote');
+    note.textContent = c.milestone && G.board.system && G.board.system.milestone
+      ? G.board.system.milestone : '';
+    note.style.display = note.textContent ? '' : 'none';
+
+    $('s69InfoClose').textContent = T().s69InfoClose;
+    $('s69CellInfo').classList.add('show');
   }
 
   function s69MapCell(id) { return $('s69Map').querySelector('[data-id="' + id + '"]'); }
@@ -3765,7 +3885,16 @@
   $('btnS69Duo').onclick = () => s69Create('duo');
   $('btnS69Solo').onclick = () => s69Create('solo');
   $('s69Dice').onclick = s69Roll;
-  $('s69MapToggle').onclick = () => { haptic('light'); $('s69Map').classList.toggle('folded'); };
+  $('s69MapToggle').onclick = () => {
+    haptic('light');
+    const folded = $('s69Map').classList.toggle('folded');
+    $('s69MapHint').style.display = folded ? 'none' : '';
+  };
+  $('s69InfoClose').onclick = () => $('s69CellInfo').classList.remove('show');
+  // A tap beside the card closes it too; a scroll inside it does not.
+  $('s69CellInfo').onclick = (e) => {
+    if (e.target === $('s69CellInfo')) $('s69CellInfo').classList.remove('show');
+  };
   $('btnS69Share').onclick = () => shareInvite(G.invite, T().s69InviteMsg);
   $('btnS69Copy').onclick = () => copyInvite(G.invite);
   $('s69DoneAgain').onclick = () => { $('s69Done').classList.remove('show'); leaveS69(); openS69(); };

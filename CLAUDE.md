@@ -138,7 +138,16 @@ ruff check .                             # lint (CI gates on this)
   `tests/test_compat_api.py` asserts this on the raw response body
   (`"creator_answers" not in body`) rather than on parsed fields, on purpose:
   a leak under an unexpected key would slip past a field-level check, and
-  one test tries the reconstruction arithmetic outright.
+  one test tries the reconstruction arithmetic outright. The result also
+  carries `questions` – the text of every divergent question keyed by its
+  global number, texts only, never any answer – because «Обсудите вопросы
+  №12» is not actionable when neither partner remembers question 12. The
+  result screen renders each number as a tap-to-open `<details>` and reads
+  in a fixed order: «Сферы, где вы команда», «Обсудите вопросы», then the
+  three zone sections («Сфера силы», «Зона роста», «Критическая зона» with
+  its critical-block recommendations); the flat «По всем сферам» list and
+  the separate «Требуют разговора» block are gone, and the attention
+  framing rides on the sphere's own zone card instead.
   `compat_notify.py` sends both partners a push the moment the test
   completes, since the second partner often finishes hours later and would
   otherwise never come back to read it.
@@ -176,16 +185,20 @@ ruff check .                             # lint (CI gates on this)
   are 13→2, 35→20, 55→38; Jokers sit on 9, 29 and 50. Overshooting 69 lands
   on 69 rather than bouncing back, and no portal target is itself a portal
   (`test_steps69.py` holds both).
-- **A secret cell's text reaches exactly one player.** `steps69.cell_view`
-  takes an `audience` – `"mover"` gets the instruction, `"partner"` gets
-  their own line, and `"shared"` (the one-phone game) gets both because
-  there is no second device to withhold anything from. With two pieces the
-  state carries two cells: yours as `"mover"`, your partner's as
-  `"partner"`. One phone shows the seat that just *moved*, never the one on
-  turn next, or nobody ever reads the task they were dealt. The board payload
-  (`board_view`) carries titles and portal arrows only: a cell's instruction
-  arrives when the piece is standing on it, so the deck cannot be read ahead
-  through the network tab.
+- **A deal reaches exactly one player.** `steps69.cell_view` takes an
+  `audience` – `"mover"` gets the instruction, `"partner"` gets only their
+  own line (no text, no secret, no Joker task – on two devices each partner
+  reads their own tasks and nobody else's, in the payload as well as on
+  screen), and `"shared"` (the one-phone game) gets both because there is
+  no second device to withhold anything from. With two pieces the state
+  carries two cells: yours as `"mover"`, your partner's as `"partner"`. One
+  phone shows the seat that just *moved*, never the one on turn next, or
+  nobody ever reads the task they were dealt. The board payload
+  (`board_view`) is the printed game: titles, portal arrows **and each
+  cell's action text**, so a tap on any map square opens what it does (the
+  `s69CellInfo` overlay). What can never be read ahead are the deals –
+  secrets, partner lines and Joker tasks are not in the board payload; for
+  a secret or Joker square the board `text` is its printed teaser.
 - **The Joker reads tempo before stage.** `pick_joker` normally draws from
   the third of the board the pair are standing on, but a pair covering more
   than `RUSH_CELLS_PER_TURN` cells per roll get a tender task wherever they

@@ -15,10 +15,13 @@ game the mechanic borrows from:
   `test_steps69.py` holds that invariant, because a portal landing on a
   portal would loop here.
 
-Secrets do not live in the board payload. `board_view` strips them, and the
-text reaches exactly one player through `cell_view`: the one who rolled onto
-the cell. That is the mechanic ("уникальным для каждого игрока") and also
-the only way to keep it out of the other partner's devtools.
+The board is printed, the deals are private. `board_view` carries every
+cell's title and action text, so the map can show what each square does —
+but never a secret, a partner line, or a Joker task. Those reach exactly
+one player through `cell_view`: the one standing on the cell. That is the
+mechanic ("уникальным для каждого игрока") and also the only way to keep a
+deal out of the other partner's devtools — the "partner" audience gets no
+task of the other player at all, only the one line written for them.
 """
 
 import random
@@ -273,11 +276,15 @@ def pick_joker(
 # ---------------------------------------------------------------------------
 
 def board_view(language: Language = Language.RUSSIAN) -> dict:
-    """The map: enough to draw 69 squares, nothing that spoils them.
+    """The map: 69 squares, each saying what it does.
 
-    Titles and portal arrows only. A cell's instruction reaches a player
-    when their piece is standing on it and not before, so the deck cannot be
-    read ahead through the network tab.
+    A printed board game lets both players read every cell, and this one
+    does too — title and action text travel with the map, so a tap on any
+    square can show what awaits there. What stays private is the *deals*:
+    a secret's instruction and its partner line, and the Joker's drawn
+    task, reach a player only through `cell_view` when a piece is standing
+    there. For a secret or Joker square the `text` is its printed teaser,
+    never the task itself.
     """
     return {
         "size": BOARD_SIZE,
@@ -290,6 +297,7 @@ def board_view(language: Language = Language.RUSSIAN) -> dict:
                 "id": c.id,
                 "kind": c.kind,
                 "title": c.title,
+                "text": c.text,
                 "to": c.to,
                 "milestone": c.is_milestone,
             }
@@ -311,13 +319,15 @@ def cell_view(
     """One cell as one audience may see it.
 
     "mover" is the player who rolled onto this cell and "partner" is the one
-    watching: on a secret cell the mover reads the instruction and the
-    partner reads their own line, and neither is ever sent the other's.
-    "shared" is the one-phone game, where both halves go to the same screen
-    because there is no second device to withhold anything from.
+    watching. On two devices each partner reads only their own tasks: the
+    partner audience gets the cell's title and, on a secret, the one line
+    written for them — never the instruction, never the text, and never the
+    Joker task the other player was dealt. "shared" is the one-phone game,
+    where both halves go to the same screen because there is no second
+    device to withhold anything from.
 
     A Joker always carries the task the server already drew rather than a
-    fresh one, so two phones polling the same game agree on what was dealt.
+    fresh one, so two polls of the same game agree on what was dealt.
     """
     if audience not in ("mover", "partner", "shared"):
         raise ValueError(f"unknown audience {audience!r}")
@@ -327,7 +337,7 @@ def cell_view(
         "id": here.id,
         "kind": here.kind,
         "title": here.title,
-        "text": here.text,
+        "text": here.text if audience != "partner" else "",
         "milestone": here.is_milestone,
         "milestone_text": system_text("milestone", language) if here.is_milestone else None,
     }
@@ -339,7 +349,9 @@ def cell_view(
 
     if here.kind == "joker":
         task = joker_task(joker_task_id, language) if joker_task_id else None
-        view["joker"] = task.model_dump() if task else None
+        view["joker"] = (
+            task.model_dump() if task and audience != "partner" else None
+        )
 
     if here.kind == "final":
         view["finale"] = load_finale(language).model_dump()
