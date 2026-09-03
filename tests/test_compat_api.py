@@ -195,9 +195,12 @@ def test_the_result_carries_the_text_of_every_divergent_question(client):
 
 
 def test_a_third_party_is_refused(client):
+    """With the same 404 an unknown code gets, so a stranger sweeping the
+    code space cannot tell which codes are live."""
     code = _create(client)["code"]
     client.post(f"/api/compat/{code}/join", headers=HEAD_B)
-    assert client.get(f"/api/compat/{code}", headers=HEAD_C).status_code == 403
+    assert client.get(f"/api/compat/{code}", headers=HEAD_C).status_code == 404
+    assert client.get(f"/api/compat/{code}/result", headers=HEAD_C).status_code == 404
 
 
 def test_unknown_code_is_404(client):
@@ -307,7 +310,7 @@ def test_a_third_party_cannot_delete_the_test(client):
     code = _create(client)["code"]
     client.post(f"/api/compat/{code}/join", headers=HEAD_B)
 
-    assert client.delete(f"/api/compat/{code}", headers=HEAD_C).status_code == 403
+    assert client.delete(f"/api/compat/{code}", headers=HEAD_C).status_code == 404
     assert client.get(f"/api/compat/{code}", headers=HEAD_A).status_code == 200
 
 

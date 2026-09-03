@@ -121,7 +121,13 @@ ruff check .                             # lint (CI gates on this)
   fields left anywhere in it.
 - **Two-partner features follow `payments/rooms.py`**: a short room code,
   both players polling for state, a 24-hour TTL, and the room inheriting the
-  creator's access so one payment covers both. `payments/library_api.py` was
+  creator's access so one payment covers both. Two rules hold across all
+  three: a caller who is not a participant gets the **same 404** an unknown
+  code gets, never a 403 — the read endpoints are not throttled like `join`,
+  and a distinct status was an oracle for sweeping the code space; and the
+  second seat is taken by **one conditional UPDATE** (`seat_guest`, WHERE
+  the seat is empty), never a read followed by a write, so two partners
+  opening one link at once cannot both be seated. `payments/library_api.py` was
   deliberately modelled on this pattern — extend it for the next two-partner
   feature rather than inventing a second one.
 - **The compatibility test** is the second two-partner feature and follows a

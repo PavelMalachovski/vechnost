@@ -139,7 +139,8 @@ async def _load(
     if not game:
         raise HTTPException(status_code=404, detail="game not found")
     if user_id not in (game.creator_telegram_user_id, game.guest_telegram_user_id):
-        raise HTTPException(status_code=403, detail="not a player in this game")
+        # 404, not 403: see compat_api._load.
+        raise HTTPException(status_code=404, detail="game not found")
     return game
 
 

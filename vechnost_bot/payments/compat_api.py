@@ -80,7 +80,10 @@ async def _load(session, code: str, user_id: int, for_update: bool = False):
     if not test:
         raise HTTPException(status_code=404, detail="test not found")
     if user_id not in (test.creator_telegram_user_id, test.guest_telegram_user_id):
-        raise HTTPException(status_code=403, detail="not a participant in this test")
+        # The same answer a code nobody minted gets. A 403 here told a
+        # stranger sweeping the code space which codes were live, and the
+        # read endpoints are not throttled the way `join` is.
+        raise HTTPException(status_code=404, detail="test not found")
     return test
 
 
