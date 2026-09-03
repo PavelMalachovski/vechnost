@@ -147,7 +147,8 @@ All settings are read from environment variables (or `.env`). See
 | `WEBAPP_MAIN_APP` | `true` when the bot has a **Main** Mini App (BotFather → Bot Settings → Configure Mini App). Invites become one-tap links: `t.me/<bot>?startapp=…` |
 | `WEBAPP_SHORT_NAME` | Short name of a **named** Mini App (BotFather `/newapp`). Invites become `t.me/<bot>/<name>?startapp=…`. Wins over `WEBAPP_MAIN_APP` if both are set |
 | `ENABLE_PAYMENT` | `TRUE`/`FALSE` — gate paid content behind Tribute |
-| `TRIBUTE_API_KEY`, `TRIBUTE_PAYMENT_URL`, `WEBHOOK_SECRET` | Tribute payment integration |
+| `TRIBUTE_API_KEY`, `TRIBUTE_PAYMENT_URL` | Tribute payment integration. The API key is also what Tribute signs webhooks with |
+| `WEBHOOK_SECRET` | Optional second webhook signing key (a relay or test harness in front of the endpoint). Accepted alongside the API key, never instead of it |
 | `ADMIN_IDS` | Comma-separated Telegram user ids allowed to run `/broadcast` in the bot. Unset: the command is not registered at all |
 | `ADMIN_TOKEN` | Bearer token for `/admin/*`. Falls back to `TRIBUTE_API_KEY`; set it separately so an outbound credential is not also an inbound password |
 | `GIFT_PRODUCT_ID`, `GIFT_PAYMENT_URL` | Gift-certificate product (optional) |
@@ -184,11 +185,23 @@ Nothing is sent without `--confirm`. Either way a user who has blocked the
 bot is counted as blocked and opted out of the daily push, since that is the
 same signal, and Telegram's own `retry_after` is honoured rather than raced.
 
-**`WEBHOOK_SECRET` is required in production.** A Tribute webhook grants
-lifetime access, so with `ENABLE_PAYMENT=TRUE` and no secret configured the
-endpoint rejects every delivery rather than granting access on a payload it
-cannot verify. Without that, anyone who can reach `/webhooks/tribute` could
-POST their own `telegram_user_id` and become a paying customer.
+**Webhooks are signed with `TRIBUTE_API_KEY`.** Tribute sends every event
+with an HMAC-SHA256 of the body in the `trbt-signature` header, keyed by the
+account's API key; there is no separate webhook secret on their side. With
+`ENABLE_PAYMENT=TRUE` and no key configured the endpoint rejects every
+delivery rather than granting access on a payload it cannot verify: a
+webhook grants lifetime access, so anyone who could reach
+`/webhooks/tribute` unsigned could POST their own `telegram_user_id` and
+become a paying customer. The signature is checked before anything touches
+the database and a rejected delivery is not recorded, so Tribute's retry of
+it (they retry for about a day) is judged on its own.
+
+What an event does is a table in `payments/tribute_event.py`:
+`new_digital_product`, `new_subscription` and `renewed_subscription` grant
+access, a cancellation, refund or chargeback revokes it, and any other
+event is acknowledged and changes nothing. Access itself is a row in
+`subscriptions`; a `payments` row is a journal entry and never counts on
+its own.
 
 ## Testing
 

@@ -142,6 +142,7 @@ def test_each_startup_step_gets_its_own_transaction():
     source = Path("vechnost_bot/payments/database.py").read_text()
     body = source.split("async def create_tables()")[1].split("\ndef ")[0]
 
-    assert body.count("_engine().begin()") == 4, (
-        "create_all and the three ensure steps each need their own transaction"
+    assert body.count("_engine().begin()") == 6, (
+        "create_all, the three ensure steps, the access backfill and the "
+        "webhook release each need their own transaction"
     )

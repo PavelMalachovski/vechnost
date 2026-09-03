@@ -1,5 +1,6 @@
 """Tests for payment functionality."""
 
+import json
 from datetime import datetime, timedelta
 from unittest.mock import patch
 
@@ -344,18 +345,22 @@ async def test_apply_webhook_event_invalid_signature(test_db):
 
 @pytest.mark.asyncio
 async def test_apply_webhook_event_subscription(test_db):
-    """Test processing subscription webhook event."""
+    """A renewal in Tribute's own shape: the purchase lives in `payload`."""
     payload = {
-        "event_name": "subscription.renewed",
-        "telegram_user_id": 123456789,
-        "subscription_id": 1001,
-        "amount": 999,
-        "currency": "USD",
-        "period": "month",
-        "expires_at": (datetime.utcnow() + timedelta(days=30)).isoformat(),
+        "name": "renewed_subscription",
+        "created_at": "2026-09-01T10:00:00Z",
+        "sent_at": "2026-09-01T10:00:01Z",
+        "payload": {
+            "telegram_user_id": 123456789,
+            "subscription_id": 1001,
+            "amount": 999,
+            "currency": "eur",
+            "period": "monthly",
+            "expires_at": (datetime.utcnow() + timedelta(days=30)).isoformat() + "Z",
+        },
     }
-    raw_body = b'{"event_name": "subscription.renewed"}'
-    headers = {"X-Tribute-Signature": "test_sig"}
+    raw_body = json.dumps(payload).encode()
+    headers = {"trbt-signature": "test_sig"}
 
     # Mock signature verification
     with patch("vechnost_bot.payments.services.verify_tribute_signature", return_value=True):

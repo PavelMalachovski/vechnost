@@ -85,9 +85,20 @@ ruff check .                             # lint (CI gates on this)
   `callback_handlers.py`, `payments/web.py`, and `payments/rooms.py`) and
   `FREE_LIBRARY_ITEMS_PER_LIST = 3` for Library lists (used by
   `payments/library_api.py`). Change a rule there, not at each call site.
-- **Access** is decided by `payments/services.py::user_has_access()`
-  (payment OR subscription OR certificate OR `ENABLE_PAYMENT=false`). Reuse
-  it; don't reinvent access checks.
+- **Access** is decided by `payments/services.py::user_has_access()`: an
+  active, unexpired `subscriptions` row (a lifetime purchase has no expiry)
+  OR an activated certificate OR `ENABLE_PAYMENT=false`. A `payments` row
+  is a journal entry and never counts on its own — it used to, and every
+  event Tribute sent, a cancellation included, became lifetime access. Reuse
+  the function; don't reinvent access checks.
+- **A Tribute event does what the table says.** `payments/tribute_event.py`
+  parses a delivery (`name`, `created_at`, `sent_at`, and the purchase in
+  `payload`) and `action_for(name)` maps it to grant, revoke or ignore:
+  `new_digital_product`, `new_subscription` and `renewed_subscription` grant;
+  a cancellation, refund or chargeback revokes; anything else is
+  acknowledged with a 200, written to `webhook_events` with a note, and
+  changes nothing. Add an event there, never by substring-matching the name
+  in the handler.
 - **Mini App auth.** `/api/*` endpoints authenticate the caller with
   Telegram `initData` via `payments/webapp_auth.py::validate_init_data`
   (`Authorization: tma <initData>`). The server never ships paid content to
@@ -304,10 +315,18 @@ ruff check .                             # lint (CI gates on this)
   a per-client budget alone would not bound a code sweep. `tests/conftest.py`
   resets it between tests; without that a suite creating more rooms than the
   hourly budget starts 429ing halfway through.
-- **An unsigned Tribute webhook is refused, not trusted.** A webhook grants
-  lifetime access, so `signature.py` fails closed whenever
-  `ENABLE_PAYMENT` is on and `WEBHOOK_SECRET` is unset. It still skips
-  verification with payments off, where there is no paywall to bypass.
+- **A Tribute webhook is signed with the API key, and checked first.**
+  Tribute sends HMAC-SHA256 of the raw body, keyed by `TRIBUTE_API_KEY`, in
+  the `trbt-signature` header; `WEBHOOK_SECRET` is an optional second key
+  for a relay or a test harness, accepted alongside, never instead.
+  `signature.py` fails closed whenever `ENABLE_PAYMENT` is on and no key is
+  configured, and skips verification with payments off, where there is no
+  paywall to bypass. `apply_webhook_event` verifies before it opens a
+  session and writes a `webhook_events` row only for a delivery it
+  processed: a rejected one leaves no trace, so Tribute's retry of the same
+  bytes is judged on its own. (It used to be recorded under the body's hash
+  first, so the correctly signed retry was told "already processed" and the
+  payment was lost.) `/webhooks/tribute` is throttled and bounds the body.
   `/admin/*` authenticates against `settings.admin_secret` (`ADMIN_TOKEN`,
   falling back to `TRIBUTE_API_KEY`) with `compare_digest`, and returns 503
   rather than 401 when neither is configured.

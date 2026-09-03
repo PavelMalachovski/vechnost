@@ -98,7 +98,10 @@ class Settings(BaseSettings):
     webhook_secret: str | None = Field(
         default=None,
         validation_alias="WEBHOOK_SECRET",
-        description="Webhook signature secret"
+        description="Optional second key webhooks may be signed with, for a "
+                    "relay or a test harness in front of the endpoint. Tribute "
+                    "itself signs with TRIBUTE_API_KEY; this is accepted "
+                    "alongside it, never instead of it."
     )
 
     admin_ids: str | None = Field(

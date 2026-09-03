@@ -49,6 +49,10 @@ LIMITS: dict[str, tuple[int, int]] = {
     "render": (30, 60),     # /api/card, one Pillow composite each
     "admin": (5, 60),       # the admin bearer token
     "write": (120, 60),     # ordinary in-game writes: dice, answers, reactions
+    # Tribute delivers a handful of events a day and retries a failed one
+    # with backoff, so this is far above anything legitimate. What it caps
+    # is a stranger making the box hash and HMAC 64 KB bodies all day.
+    "webhook": (60, 60),
 }
 
 # Ceilings applied across every client at once. Only the buckets where a
@@ -57,6 +61,7 @@ LIMITS: dict[str, tuple[int, int]] = {
 GLOBAL_LIMITS: dict[str, tuple[int, int]] = {
     "join": (600, 300),
     "admin": (30, 60),
+    "webhook": (600, 60),
 }
 
 _hits: dict[str, dict[str, deque[float]]] = defaultdict(lambda: defaultdict(deque))

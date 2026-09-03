@@ -87,7 +87,66 @@ async def create_tables() -> None:
         await conn.run_sync(_ensure_steps69_columns)
     async with _engine().begin() as conn:
         await conn.run_sync(_release_dropped_columns)
+    async with _engine().begin() as conn:
+        await conn.run_sync(_backfill_access_from_payments)
+    async with _engine().begin() as conn:
+        await conn.run_sync(_release_stuck_webhooks)
     logger.info("Database tables created successfully")
+
+
+def _backfill_access_from_payments(sync_conn) -> None:
+    """Keep the access anyone holds today when `payments` stops counting.
+
+    `user_has_access` used to treat any `payments` row without an expiry
+    as lifetime access. It no longer does - access is a `subscriptions`
+    row - so every user who had access only through such a payment gets
+    the equivalent lifetime row here, once. Idempotent: a user with any
+    subscription row at all is left alone, whatever its status, because
+    that row is a decision this backfill must not overturn.
+    """
+    from sqlalchemy import inspect, text
+
+    tables = set(inspect(sync_conn).get_table_names())
+    if not {"payments", "subscriptions"} <= tables:
+        return
+    result = sync_conn.execute(text(
+        "INSERT INTO subscriptions "
+        "(user_id, subscription_id, period, status, expires_at, last_event_at) "
+        "SELECT DISTINCT p.user_id, 0, 'lifetime', 'active', NULL, CURRENT_TIMESTAMP "
+        "FROM payments p "
+        "WHERE p.expires_at IS NULL "
+        "AND NOT EXISTS (SELECT 1 FROM subscriptions s WHERE s.user_id = p.user_id)"
+    ))
+    if result.rowcount:
+        logger.warning(
+            f"Backfilled {result.rowcount} lifetime subscription row(s) from "
+            "payments that used to count as access on their own"
+        )
+
+
+def _release_stuck_webhooks(sync_conn) -> None:
+    """Forget deliveries that were recorded as rejected.
+
+    A webhook refused for its signature used to be written down under the
+    body's hash, and Tribute's retry of that body - the same bytes, now
+    with a key we accept - was then answered "already processed". Those
+    rows are exactly the payments this deployment lost. Deleting them lets
+    a retry, or a manual redelivery from the Tribute dashboard, land. The
+    handler no longer writes a row for anything it did not process, so
+    after the first run this deletes nothing.
+    """
+    from sqlalchemy import inspect, text
+
+    if "webhook_events" not in inspect(sync_conn).get_table_names():
+        return
+    result = sync_conn.execute(
+        text("DELETE FROM webhook_events WHERE status_code >= 400")
+    )
+    if result.rowcount:
+        logger.warning(
+            f"Released {result.rowcount} rejected webhook delivery record(s) so "
+            "Tribute's retries can be processed"
+        )
 
 
 def _ensure_user_columns(sync_conn) -> None:

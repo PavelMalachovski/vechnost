@@ -373,6 +373,42 @@ class SubscriptionRepository:
         return subscription
 
     @staticmethod
+    async def revoke_for_user(
+        session: AsyncSession,
+        user_id: int,
+        subscription_id: int | None = None,
+        status: str = "canceled",
+        when: datetime | None = None,
+    ) -> int:
+        """Withdraw a user's access. Returns how many rows changed.
+
+        A cancellation or a refund names what it undoes; when a row with
+        that id exists it is the only one touched. When none does - an
+        older row filed under a different key, or a refund that names the
+        product rather than the purchase - every active row of the user is
+        closed, because a refund with no effect is worse than one with too
+        much: the money went back and the deck stayed open.
+        """
+        result = await session.execute(
+            select(Subscription)
+            .where(Subscription.user_id == user_id)
+            .where(Subscription.status.in_(["active", "trialing"]))
+        )
+        rows = list(result.scalars().all())
+        if subscription_id is not None:
+            named = [row for row in rows if row.subscription_id == subscription_id]
+            if named:
+                rows = named
+        stamp = when or datetime.utcnow()
+        for row in rows:
+            row.status = status
+            row.last_event_at = stamp
+        await session.flush()
+        if rows:
+            logger.info(f"Revoked {len(rows)} subscription row(s) for user {user_id}")
+        return len(rows)
+
+    @staticmethod
     async def get_active_subscriptions_for_user(
         session: AsyncSession, user_id: int
     ) -> list[Subscription]:

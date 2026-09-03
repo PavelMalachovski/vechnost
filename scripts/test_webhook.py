@@ -1,251 +1,80 @@
-"""
-Test script for Tribute webhook endpoint.
+"""Send a Tribute-shaped webhook to a local server, signed the way Tribute signs.
 
-This script simulates Tribute webhook events for testing.
+    python scripts/test_webhook.py                # new_digital_product for a fake buyer
+    python scripts/test_webhook.py cancelled_subscription --user 123456789
+    python scripts/test_webhook.py --bad-signature  # must come back 401
+
+The body is signed with HMAC-SHA256 keyed by TRIBUTE_API_KEY (or
+WEBHOOK_SECRET when that is what the server trusts) and sent in the
+`trbt-signature` header, byte for byte: the signature covers exactly the
+bytes on the wire, so the body is encoded once and sent as-is.
 """
-import asyncio
+
+import argparse
 import hashlib
 import hmac
 import json
 import os
-from datetime import datetime, timedelta
+import sys
+from datetime import UTC, datetime
 
 import httpx
 from dotenv import load_dotenv
 
 load_dotenv()
 
-# Configuration
 WEBHOOK_URL = os.getenv("WEBHOOK_URL", "http://localhost:8000/webhooks/tribute")
-WEBHOOK_SECRET = os.getenv("WEBHOOK_SECRET", "")
 
 
-def generate_signature(payload: dict, secret: str) -> str:
-    """Generate HMAC-SHA256 signature for webhook."""
-    payload_str = json.dumps(payload, separators=(',', ':'))
-    signature = hmac.new(
-        secret.encode(),
-        payload_str.encode(),
-        hashlib.sha256
-    ).hexdigest()
-    return signature
+def signing_key() -> str:
+    key = os.getenv("TRIBUTE_API_KEY") or os.getenv("WEBHOOK_SECRET") or ""
+    if not key:
+        sys.exit("Set TRIBUTE_API_KEY (or WEBHOOK_SECRET) so the delivery can be signed")
+    return key
 
 
-async def send_webhook(event_type: str, payload: dict):
-    """Send webhook to the server."""
-    print(f"\n{'='*60}")
-    print(f"📤 Sending {event_type} webhook...")
-    print(f"{'='*60}")
-
-    # Generate signature if secret is provided
-    headers = {"Content-Type": "application/json"}
-    if WEBHOOK_SECRET:
-        signature = generate_signature(payload, WEBHOOK_SECRET)
-        headers["X-Tribute-Signature"] = signature
-        print(f"🔐 Signature: {signature[:20]}...")
-
-    print("\n📋 Payload:")
-    print(json.dumps(payload, indent=2))
-
-    try:
-        async with httpx.AsyncClient(timeout=30.0) as client:
-            response = await client.post(
-                WEBHOOK_URL,
-                json=payload,
-                headers=headers
-            )
-
-            print(f"\n✅ Response: {response.status_code}")
-            print(f"📄 Body: {response.text}")
-
-            return response
-
-    except Exception as e:
-        print(f"\n❌ Error: {e}")
-        return None
-
-
-async def test_subscription_created():
-    """Test subscription.created event."""
-    payload = {
-        "event": "subscription.created",
-        "data": {
-            "id": 12345,
-            "customer": {
-                "id": 67890,
-                "email": "test@example.com",
-                "telegram_user_id": "123456789"  # Your test user
-            },
-            "product": {
-                "id": 111,
-                "name": "Vechnost Premium",
-                "price": 990
-            },
-            "period": "1m",  # 1 month
-            "status": "active",
-            "expires_at": (datetime.utcnow() + timedelta(days=30)).isoformat() + "Z"
-        }
-    }
-
-    await send_webhook("subscription.created", payload)
-
-
-async def test_subscription_renewed():
-    """Test subscription.renewed event."""
-    payload = {
-        "event": "subscription.renewed",
-        "data": {
-            "id": 12345,
-            "customer": {
-                "id": 67890,
-                "telegram_user_id": "123456789"
-            },
-            "status": "active",
-            "expires_at": (datetime.utcnow() + timedelta(days=60)).isoformat() + "Z"
-        }
-    }
-
-    await send_webhook("subscription.renewed", payload)
-
-
-async def test_subscription_cancelled():
-    """Test subscription.cancelled event."""
-    payload = {
-        "event": "subscription.cancelled",
-        "data": {
-            "id": 12345,
-            "customer": {
-                "id": 67890,
-                "telegram_user_id": "123456789"
-            },
-            "status": "cancelled",
-            "cancelled_at": datetime.utcnow().isoformat() + "Z"
-        }
-    }
-
-    await send_webhook("subscription.cancelled", payload)
-
-
-async def test_payment_completed():
-    """Test payment.completed event."""
-    payload = {
-        "event": "payment.completed",
-        "data": {
-            "id": 54321,
-            "customer": {
-                "id": 67890,
-                "email": "test@example.com",
-                "telegram_user_id": "123456789"
-            },
-            "product": {
-                "id": 111,
-                "name": "Vechnost Premium"
-            },
+def build(name: str, telegram_user_id: int, product_id: int) -> bytes:
+    now = datetime.now(UTC).replace(microsecond=0).isoformat().replace("+00:00", "Z")
+    body = {
+        "name": name,
+        "created_at": now,
+        "sent_at": now,
+        "payload": {
+            "product_id": product_id,
+            "product_name": "VECHNOST",
             "amount": 990,
-            "currency": "RUB",
-            "status": "completed",
-            "completed_at": datetime.utcnow().isoformat() + "Z"
-        }
+            "currency": "eur",
+            "user_id": 100,
+            "telegram_user_id": telegram_user_id,
+        },
     }
-
-    await send_webhook("payment.completed", payload)
-
-
-async def test_lifetime_subscription():
-    """Test lifetime subscription creation."""
-    payload = {
-        "event": "subscription.created",
-        "data": {
-            "id": 99999,
-            "customer": {
-                "id": 67890,
-                "email": "test@example.com",
-                "telegram_user_id": "123456789"
-            },
-            "product": {
-                "id": 222,
-                "name": "Vechnost Lifetime",
-                "price": 5990
-            },
-            "period": "lifetime",
-            "status": "active",
-            "expires_at": None  # Lifetime = no expiration
-        }
-    }
-
-    await send_webhook("subscription.created (LIFETIME)", payload)
+    return json.dumps(body, ensure_ascii=False).encode()
 
 
-async def test_health_check():
-    """Test health check endpoint."""
-    print(f"\n{'='*60}")
-    print("🏥 Testing health check...")
-    print(f"{'='*60}")
+def main() -> None:
+    parser = argparse.ArgumentParser(description=__doc__.split("\n")[0])
+    parser.add_argument("name", nargs="?", default="new_digital_product",
+                        help="event name (new_digital_product, cancelled_subscription, ...)")
+    parser.add_argument("--user", type=int, default=123456789, help="telegram_user_id")
+    parser.add_argument("--product", type=int, default=1, help="product_id")
+    parser.add_argument("--bad-signature", action="store_true",
+                        help="sign with a wrong key; the server must answer 401")
+    args = parser.parse_args()
 
-    try:
-        async with httpx.AsyncClient(timeout=10.0) as client:
-            response = await client.get(WEBHOOK_URL.replace("/webhooks/tribute", "/health"))
-            print(f"\n✅ Health check: {response.status_code}")
-            print(f"📄 Response: {response.json()}")
-    except Exception as e:
-        print(f"\n❌ Error: {e}")
+    body = build(args.name, args.user, args.product)
+    key = "wrong-key" if args.bad_signature else signing_key()
+    signature = hmac.new(key.encode(), body, hashlib.sha256).hexdigest()
 
-
-async def main():
-    """Main test function."""
-    print("\n🚀 Tribute Webhook Tester")
-    print(f"🎯 Target: {WEBHOOK_URL}")
-    print(f"🔐 Secret: {'✅ Configured' if WEBHOOK_SECRET else '❌ Not configured'}")
-
-    # Test health check first
-    await test_health_check()
-
-    # Menu
-    while True:
-        print("\n" + "="*60)
-        print("📋 Select test:")
-        print("="*60)
-        print("1. Test subscription.created (30 days)")
-        print("2. Test subscription.renewed")
-        print("3. Test subscription.cancelled")
-        print("4. Test payment.completed")
-        print("5. Test LIFETIME subscription")
-        print("6. Run all tests")
-        print("0. Exit")
-        print("="*60)
-
-        choice = input("\n👉 Enter choice: ").strip()
-
-        if choice == "0":
-            print("\n👋 Bye!")
-            break
-        elif choice == "1":
-            await test_subscription_created()
-        elif choice == "2":
-            await test_subscription_renewed()
-        elif choice == "3":
-            await test_subscription_cancelled()
-        elif choice == "4":
-            await test_payment_completed()
-        elif choice == "5":
-            await test_lifetime_subscription()
-        elif choice == "6":
-            print("\n🔄 Running all tests...")
-            await test_subscription_created()
-            await asyncio.sleep(1)
-            await test_subscription_renewed()
-            await asyncio.sleep(1)
-            await test_payment_completed()
-            await asyncio.sleep(1)
-            await test_lifetime_subscription()
-            await asyncio.sleep(1)
-            await test_subscription_cancelled()
-        else:
-            print("❌ Invalid choice")
-
-        input("\n⏸️  Press Enter to continue...")
+    print(f"POST {WEBHOOK_URL}")
+    print(body.decode())
+    response = httpx.post(
+        WEBHOOK_URL,
+        content=body,
+        headers={"Content-Type": "application/json", "trbt-signature": signature},
+        timeout=30.0,
+    )
+    print(f"\n{response.status_code} {response.text}")
 
 
 if __name__ == "__main__":
-    asyncio.run(main())
-
+    main()

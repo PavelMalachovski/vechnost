@@ -318,25 +318,38 @@ async def get_card_image(
     )
 
 
-@app.post("/webhooks/tribute")
+# A Tribute event is a few hundred bytes. Anything past this is not one, and
+# reading it would only be work done for a stranger before the signature is
+# looked at.
+MAX_WEBHOOK_BODY = 64 * 1024
+
+
+@app.post("/webhooks/tribute", dependencies=[Depends(throttle("webhook"))])
 async def tribute_webhook(request: Request) -> JSONResponse:
     """
     Handle incoming Tribute webhook events.
 
-    This endpoint:
-    1. Validates webhook signature
-    2. Checks for duplicate webhooks (idempotency)
-    3. Processes payment/subscription events
-    4. Records webhook in database
+    The service verifies the signature before it touches the database and
+    records only deliveries it actually processed, so a rejected one can be
+    retried; see `services.apply_webhook_event`. This layer bounds the body,
+    parses it, and translates the result into a status code.
     """
     try:
-        # Read raw body
-        raw_body = await request.body()
+        declared = request.headers.get("content-length", "")
+        if declared.isdigit() and int(declared) > MAX_WEBHOOK_BODY:
+            raise HTTPException(status_code=413, detail="payload too large")
 
-        # Log incoming request
-        logger.info(f"Received webhook request from {request.client.host if request.client else 'unknown'}")
-        logger.debug(f"Headers: {dict(request.headers)}")
-        logger.debug(f"Body length: {len(raw_body)}")
+        raw_body = await request.body()
+        if len(raw_body) > MAX_WEBHOOK_BODY:
+            raise HTTPException(status_code=413, detail="payload too large")
+
+        # The address only: the headers carry the signature, and a body can
+        # carry a buyer's name, so neither goes to the log.
+        logger.info(
+            f"Received webhook request from "
+            f"{request.client.host if request.client else 'unknown'} "
+            f"({len(raw_body)} bytes)"
+        )
 
         # Handle empty body (test requests from Tribute)
         if not raw_body or len(raw_body) == 0:
@@ -372,14 +385,12 @@ async def tribute_webhook(request: Request) -> JSONResponse:
             else:
                 raise HTTPException(status_code=500, detail=result["message"])
 
-        # Return success response
-        return JSONResponse(
-            status_code=status_code,
-            content={
-                "status": result["status"],
-                "message": result["message"],
-            },
-        )
+        # What was done, in the reply Tribute's delivery log keeps: an
+        # operator reading "ignore" there learns more than "success".
+        content = {"status": result["status"], "message": result["message"]}
+        if "action" in result:
+            content["action"] = result["action"]
+        return JSONResponse(status_code=status_code, content=content)
 
     except HTTPException:
         raise
