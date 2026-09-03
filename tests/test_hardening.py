@@ -152,21 +152,50 @@ def test_rendering_cards_is_throttled(client):
     assert statuses[-1] == 429
 
 
+def _request(headers, peer):
+    from starlette.requests import Request
+
+    scope = {
+        "type": "http",
+        "headers": [(k.lower().encode(), v.encode()) for k, v in headers.items()],
+        "client": (peer, 1234),
+    }
+    return Request(scope)
+
+
 def test_the_forwarded_address_wins_over_the_socket_peer():
     """Behind a platform proxy every request arrives from the proxy, so
     keying on the peer would put every user of the product in one bucket."""
-    from starlette.requests import Request
+    with patch.object(settings, "trusted_proxy_hops", 1):
+        assert throttle.client_key(_request({"x-forwarded-for": "1.2.3.4"}, "10.0.0.1")) == "1.2.3.4"
+        assert throttle.client_key(_request({}, "10.0.0.1")) == "10.0.0.1"
 
-    def make(headers, peer):
-        scope = {
-            "type": "http",
-            "headers": [(k.lower().encode(), v.encode()) for k, v in headers.items()],
-            "client": (peer, 1234),
-        }
-        return Request(scope)
 
-    assert throttle.client_key(make({"x-forwarded-for": "1.2.3.4, 10.0.0.1"}, "10.0.0.1")) == "1.2.3.4"
-    assert throttle.client_key(make({}, "10.0.0.1")) == "10.0.0.1"
+def test_an_address_the_client_prepended_is_not_the_key():
+    """The proxy appends the address it saw; whatever the caller wrote
+    before it is theirs to invent. Keying on the first entry let one
+    attacker be a new client on every request."""
+    with patch.object(settings, "trusted_proxy_hops", 1):
+        forged = _request({"x-forwarded-for": "6.6.6.6, 1.2.3.4"}, "10.0.0.1")
+        assert throttle.client_key(forged) == "1.2.3.4"
+        forged_twice = _request({"x-forwarded-for": "6.6.6.6, 7.7.7.7, 1.2.3.4"}, "10.0.0.1")
+        assert throttle.client_key(forged_twice) == "1.2.3.4"
+
+
+def test_a_cdn_in_front_of_the_platform_is_one_more_hop():
+    with patch.object(settings, "trusted_proxy_hops", 2):
+        chain = _request({"x-forwarded-for": "6.6.6.6, 1.2.3.4, 198.51.100.7"}, "10.0.0.1")
+        assert throttle.client_key(chain) == "1.2.3.4"
+        # Fewer entries than hops: the leftmost is the best there is.
+        short = _request({"x-forwarded-for": "1.2.3.4"}, "10.0.0.1")
+        assert throttle.client_key(short) == "1.2.3.4"
+
+
+def test_every_bucket_that_costs_the_box_has_a_global_ceiling():
+    """A per-client budget is a courtesy; the ceiling is the guarantee.
+    Rendering burns CPU, creating fills tables, writes hold row locks."""
+    for bucket in ("render", "create", "write", "join", "webhook"):
+        assert bucket in throttle.GLOBAL_LIMITS, bucket
 
 
 # --------------------------------------------------------------------------

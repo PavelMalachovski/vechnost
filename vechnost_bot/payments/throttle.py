@@ -19,11 +19,17 @@ broken one, and the fix is a shared store rather than a different shape of
 code.
 
 The client key is the forwarded address when there is one, because behind a
-platform proxy every request otherwise looks like the proxy. That header is
-client-settable, so a single attacker who rotates it evades their own
-per-client budget. `GLOBAL` exists for exactly that case: code guessing is
-also capped across all clients at once, so the keyspace cannot be swept
-quickly by anyone, spoofed or not.
+platform proxy every request otherwise looks like the proxy. The header is
+a list the client may start and each proxy appends to, so the entry to
+trust is counted from the *right*: `TRUSTED_PROXY_HOPS` proxies in front
+of the app means the client is that many entries from the end (one, on
+Railway). The first entry - which this used to read - is whatever the
+caller wrote, and a caller who rotates it never spends a budget.
+
+`GLOBAL_LIMITS` exists because even the right entry can be forged by a
+caller with many addresses: every bucket where a single success is worth
+something to a stranger, or where each request costs the box real work, is
+also capped across all clients at once.
 """
 
 import logging
@@ -32,6 +38,8 @@ from collections import defaultdict, deque
 from collections.abc import Callable
 
 from fastapi import HTTPException, Request
+
+from ..config import settings
 
 logger = logging.getLogger(__name__)
 
@@ -62,6 +70,15 @@ GLOBAL_LIMITS: dict[str, tuple[int, int]] = {
     "join": (600, 300),
     "admin": (30, 60),
     "webhook": (600, 60),
+    # Each render is a Pillow composite; ten a second across everyone is a
+    # quarter of a core, and the cache in `renderer.render_card_bytes` means
+    # legitimate traffic rarely gets near it.
+    "render": (600, 60),
+    # Thirty rooms, tests or boards a minute across all couples, which is
+    # far above an evening's worth and far below what fills a table.
+    "create": (1800, 3600),
+    # Fifty in-game writes a second across everyone.
+    "write": (3000, 60),
 }
 
 _hits: dict[str, dict[str, deque[float]]] = defaultdict(lambda: defaultdict(deque))
@@ -73,11 +90,23 @@ _calls_since_sweep = 0
 
 
 def client_key(request: Request) -> str:
-    """A stable-enough identity for one caller."""
+    """A stable-enough identity for one caller.
+
+    `X-Forwarded-For` reads `client, proxy1, proxy2, ...` and each proxy
+    appends the address it saw. The last `TRUSTED_PROXY_HOPS` entries were
+    written by proxies this deployment trusts, so the client is the entry
+    just before them; anything further left was written by the client
+    itself and is worth nothing.
+    """
     forwarded = request.headers.get("x-forwarded-for")
     if forwarded:
-        # First entry is the original client; the rest are proxies.
-        return forwarded.split(",")[0].strip()
+        entries = [entry.strip() for entry in forwarded.split(",") if entry.strip()]
+        if entries:
+            hops = settings.trusted_proxy_hops
+            # One trusted proxy that *appends* gives `..., client`; one that
+            # *replaces* the header gives just `client`. Both land here.
+            index = max(len(entries) - hops, 0)
+            return entries[index]
     return request.client.host if request.client else "unknown"
 
 

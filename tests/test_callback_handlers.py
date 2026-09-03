@@ -233,8 +233,8 @@ class TestQuestionHandler:
             with patch('vechnost_bot.callback_handlers.get_background_path') as mock_bg_path:
                 mock_bg_path.return_value = "test_bg.png"
 
-                with patch('vechnost_bot.callback_handlers.render_card') as mock_render:
-                    mock_render.return_value = MagicMock()
+                with patch('vechnost_bot.callback_handlers.render_card_bytes') as mock_render:
+                    mock_render.return_value = b"\xff\xd8jpeg"
 
                     await handler.handle(mock_query, callback_data, session)
 

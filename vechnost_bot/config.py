@@ -192,6 +192,18 @@ class Settings(BaseSettings):
                     "so the default is no allowance at all."
     )
 
+    trusted_proxy_hops: int = Field(
+        default=1,
+        ge=1,
+        le=5,
+        validation_alias="TRUSTED_PROXY_HOPS",
+        description="How many proxies stand between the internet and this "
+                    "app and append to X-Forwarded-For. The rate limiter "
+                    "reads the client address that many entries from the "
+                    "end of the header; the entries before it were written "
+                    "by the client. One on Railway; two with a CDN in front.",
+    )
+
     allowed_hosts: str | None = Field(
         default=None,
         validation_alias="ALLOWED_HOSTS",

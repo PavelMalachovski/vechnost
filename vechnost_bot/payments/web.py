@@ -1,5 +1,6 @@
 """FastAPI web server for handling Tribute webhooks and the Mini App."""
 
+import asyncio
 import hmac
 import logging
 from contextlib import asynccontextmanager
@@ -18,7 +19,7 @@ from ..freemium import FREE_CARDS_PER_DECK, free_slice, is_index_free
 from ..i18n import Language, get_text
 from ..logic import localized_game_data
 from ..models import ContentType, Theme
-from ..renderer import get_background_path, render_card
+from ..renderer import get_background_path, render_card_bytes
 from .compat_api import router as compat_router
 from .database import close_db, get_db, init_db
 from .library_api import router as library_router
@@ -310,9 +311,13 @@ async def get_card_image(
         f"VECHNOST · @{settings.bot_username}" if settings.bot_username else "VECHNOST"
     )
 
-    image = render_card(items[idx], bg_path, footer=footer, watermark=watermark)
+    # Off the loop, and memoised per card: a composite is ~25 ms of Pillow,
+    # and running it inline here stalled the webhook and every game.
+    image = await asyncio.to_thread(
+        render_card_bytes, items[idx], bg_path, footer, watermark
+    )
     return Response(
-        content=image.getvalue(),
+        content=image,
         media_type="image/jpeg",
         headers={"Cache-Control": "private, max-age=3600"},
     )
