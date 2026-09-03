@@ -3,6 +3,7 @@
 import logging
 from collections.abc import AsyncGenerator
 from contextlib import asynccontextmanager
+from urllib.parse import urlsplit, urlunsplit
 
 from sqlalchemy.ext.asyncio import (
     AsyncEngine,
@@ -32,12 +33,29 @@ def get_database_url() -> str:
     return db_url
 
 
+def masked_url(url: str) -> str:
+    """The URL with its password replaced, for a log line.
+
+    The full production URL used to be written at INFO on every start,
+    which put the database password in the platform's log stream and, via
+    Sentry breadcrumbs, in a third party's.
+    """
+    try:
+        parts = urlsplit(url)
+    except ValueError:
+        return "<unparseable url>"
+    if not parts.password:
+        return url
+    netloc = parts.netloc.replace(f":{parts.password}@", ":***@", 1)
+    return urlunsplit(parts._replace(netloc=netloc))
+
+
 def init_db() -> None:
     """Initialize database engine and session maker."""
     global engine, async_session_maker
 
     db_url = get_database_url()
-    logger.info(f"Initializing database with URL: {db_url}")
+    logger.info(f"Initializing database with URL: {masked_url(db_url)}")
 
     # For SQLite, use StaticPool to ensure thread-safe access
     if "sqlite" in db_url:

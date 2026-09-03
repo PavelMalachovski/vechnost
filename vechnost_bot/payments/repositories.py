@@ -499,7 +499,9 @@ class CertificateRepository:
         certificate = Certificate(code=code)
         session.add(certificate)
         await session.flush()
-        logger.info(f"Created certificate with code: {code}")
+        # The id, never the code: a code in the log is lifetime access to
+        # whoever can read the log.
+        logger.info(f"Created certificate #{certificate.id}")
         return certificate
 
     @staticmethod
@@ -514,7 +516,7 @@ class CertificateRepository:
         certificate.used_at = datetime.utcnow()
         await session.flush()
         logger.info(
-            f"Marked certificate {certificate.code} as used by user {telegram_user_id}"
+            f"Marked certificate #{certificate.id} as used by user {telegram_user_id}"
         )
         return certificate
 
@@ -582,7 +584,9 @@ class RoomRepository:
         )
         session.add(room)
         await session.flush()
-        logger.info(f"Created room {code} by {creator_telegram_user_id}")
+        # Rooms, tests and games are logged by row id, never by code: the
+        # code is the seat itself for as long as the game is open.
+        logger.info(f"Created room #{room.id} by {creator_telegram_user_id}")
         return room
 
 
@@ -628,7 +632,7 @@ class Steps69Repository:
         )
         session.add(game)
         await session.flush()
-        logger.info(f"Created steps69 game {code} ({mode}) by {creator_telegram_user_id}")
+        logger.info(f"Created steps69 game #{game.id} ({mode}) by {creator_telegram_user_id}")
         return game
 
     @staticmethod
@@ -800,7 +804,7 @@ class CompatTestRepository:
         )
         session.add(test)
         await session.flush()
-        logger.info(f"Created compat test {code} by {creator_telegram_user_id}")
+        logger.info(f"Created compat test #{test.id} by {creator_telegram_user_id}")
         return test
 
     @staticmethod

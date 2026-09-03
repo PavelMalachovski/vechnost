@@ -285,7 +285,7 @@ async def delete(
     async with get_db() as session:
         test = await _load(session, code, user_id)
         await CompatTestRepository.delete(session, test.id)
-        logger.info(f"Compat test {test.code} deleted by participant")
+        logger.info(f"Compat test #{test.id} deleted by participant")
         return {"deleted": True}
 
 

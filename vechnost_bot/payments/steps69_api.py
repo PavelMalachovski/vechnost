@@ -517,5 +517,5 @@ async def delete(
     async with get_db() as session:
         game = await _load(session, code, user_id)
         await Steps69Repository.delete(session, game.id)
-        logger.info(f"Steps69 game {game.code} deleted by participant")
+        logger.info(f"Steps69 game #{game.id} deleted by participant")
         return {"deleted": True}
