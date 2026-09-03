@@ -74,7 +74,7 @@ async def test_subscription_created():
             "customer": {
                 "id": 67890,
                 "email": "test@example.com",
-                "telegram_user_id": "1115719673"  # Your test user
+                "telegram_user_id": "123456789"  # Your test user
             },
             "product": {
                 "id": 111,
@@ -98,7 +98,7 @@ async def test_subscription_renewed():
             "id": 12345,
             "customer": {
                 "id": 67890,
-                "telegram_user_id": "1115719673"
+                "telegram_user_id": "123456789"
             },
             "status": "active",
             "expires_at": (datetime.utcnow() + timedelta(days=60)).isoformat() + "Z"
@@ -116,7 +116,7 @@ async def test_subscription_cancelled():
             "id": 12345,
             "customer": {
                 "id": 67890,
-                "telegram_user_id": "1115719673"
+                "telegram_user_id": "123456789"
             },
             "status": "cancelled",
             "cancelled_at": datetime.utcnow().isoformat() + "Z"
@@ -135,7 +135,7 @@ async def test_payment_completed():
             "customer": {
                 "id": 67890,
                 "email": "test@example.com",
-                "telegram_user_id": "1115719673"
+                "telegram_user_id": "123456789"
             },
             "product": {
                 "id": 111,
@@ -160,7 +160,7 @@ async def test_lifetime_subscription():
             "customer": {
                 "id": 67890,
                 "email": "test@example.com",
-                "telegram_user_id": "1115719673"
+                "telegram_user_id": "123456789"
             },
             "product": {
                 "id": 222,

@@ -1,75 +1,53 @@
-# 🛠️ Scripts
+# Scripts
 
-Эта папка содержит вспомогательные Python скрипты для управления ботом.
+Вспомогательные скрипты. Каждый берёт `DATABASE_URL` и остальные настройки
+из переменных окружения (или `.env`); ни один не содержит учётных данных,
+и в примерах ниже только выдуманные Telegram id.
 
-## 📋 Список скриптов
+## Администрирование
 
-### 🔧 Административные скрипты
+- **`activate_simple.py`** – выдать пользователю доступ на N дней или навсегда.
+- **`check_user_simple.py`** – показать, что база знает о пользователе.
+- **`broadcast.py`** – рассылка всем пользователям; без `--confirm` ничего не
+  отправляет (см. корневой README, раздел «Broadcasts»).
+- **`generate_certificates.py`** – выпустить подарочные сертификаты и QR-коды.
+  Коды печатаются в консоль и больше нигде не сохраняются: не вставляйте их в
+  документацию, `tests/test_no_secrets.py` это отловит.
+- **`sync_products.py`** – подтянуть продукты из Tribute API.
 
-- **`activate_user.py`** - Активация пользователя на N дней
-- **`activate_simple.py`** - Упрощенная активация пользователя (поддержка lifetime)
-- **`check_user_payment.py`** - Проверка статуса платежа пользователя
-- **`check_user_simple.py`** - Простая проверка пользователя (без emoji)
-- **`list_users.py`** - Список всех пользователей в БД
+## База данных
 
-### 🗄️ Работа с базой данных
+- **`check_local_db.py`** – просмотр локальной SQLite базы.
+- **`check_railway_db.py`** – просмотр PostgreSQL на Railway.
 
-- **`check_local_db.py`** - Просмотр локальной SQLite базы
-- **`check_railway_db.py`** - Просмотр Railway PostgreSQL базы
-- **`migrate_to_lifetime.py`** - Миграция к поддержке lifetime подписок
+## Контент и ассеты
 
-### 🧪 Тестирование
+- **`generate_card_assets.py`** – детерминированная генерация карточных
+  фонов и мастей (см. CLAUDE.md).
+- **`fetch_webapp_fonts.py`** – скачать woff2-шрифты для Mini App.
 
-- **`test_webhook.py`** - Интерактивный тестер webhook
-- **`test_all_webhooks.py`** - Полный набор тестов webhook
-- **`quick_test_webhook.py`** - Быстрый тест одного webhook
+## Разработка
 
-### 🚀 Запуск сервисов
+- **`test_webhook.py`** – отправить подписанный вебхук Tribute на локальный
+  сервер.
+- **`start_webhook_server.py`**, **`run_webhook_server.py`** – запуск
+  веб-сервера локально с перезагрузкой.
+- **`typecheck.sh`** – mypy на списке модулей, которые обязаны быть
+  типизированы (гейт CI).
 
-- **`start_webhook_server.py`** - Запуск webhook сервера локально
-- **`start_services.py`** - Запуск webhook сервера и бота (для Railway)
-- **`run_webhook_server.py`** - Альтернативный запуск webhook сервера
-
-### 🔄 Синхронизация
-
-- **`sync_products.py`** - Синхронизация продуктов из Tribute API
-
-## 📖 Использование
-
-### Примеры запуска:
+## Примеры
 
 ```bash
-# Проверить пользователя
-python scripts/check_user_simple.py 1115719673
-
-# Активировать пользователя на 30 дней
-python scripts/activate_user.py 1115719673 30
-
-# Активировать lifetime подписку
-python scripts/activate_simple.py 1115719673 lifetime
-
-# Протестировать webhook
-python scripts/quick_test_webhook.py
-
-# Запустить webhook сервер локально
-python scripts/start_webhook_server.py
+python scripts/check_user_simple.py 123456789
+python scripts/activate_simple.py 123456789 lifetime
+python scripts/broadcast.py --message-file msg.txt --dry-run
+python scripts/test_webhook.py
 ```
 
-### 🔗 Связанные файлы
+## Заметки
 
-- **`../sql/`** - SQL скрипты для работы с БД
-- **`../docs/`** - Документация по использованию скриптов
-
-## ⚠️ Важные заметки
-
-1. **Переменные окружения**: Большинство скриптов требуют настройки `DATABASE_URL`
-2. **Railway**: Для работы с Railway PostgreSQL используйте `railway shell` или настройте переменные
-3. **Локальная разработка**: Используйте SQLite для локального тестирования
-4. **Безопасность**: Не запускайте скрипты в production без проверки
-
-## 📚 Документация
-
-Подробная документация доступна в папке `../docs/`:
-- `ADMIN_SCRIPTS.md` - Руководство по административным скриптам
-- `WEBHOOK_TESTING.md` - Тестирование webhook
-- `RAILWAY_WEBHOOK_SETUP.md` - Настройка на Railway
+1. Скрипты администрирования меняют продовую базу. Проверьте `DATABASE_URL`
+   перед запуском.
+2. Против Railway удобнее всего запускать через `railway shell`.
+3. Ничего из этой папки не должно содержать реальных id, паролей и кодов:
+   `pytest tests/test_no_secrets.py` проверяет это на каждом прогоне.

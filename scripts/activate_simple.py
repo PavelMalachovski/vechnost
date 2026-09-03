@@ -107,9 +107,9 @@ async def main():
     if len(sys.argv) < 2:
         print("Usage: python activate_simple.py <telegram_user_id> [days|lifetime]")
         print("\nExamples:")
-        print("  python activate_simple.py 1115719673 30        # 30 days")
-        print("  python activate_simple.py 1115719673 lifetime  # Forever")
-        print("  python activate_simple.py 1115719673           # Forever (default)")
+        print("  python activate_simple.py 123456789 30        # 30 days")
+        print("  python activate_simple.py 123456789 lifetime  # Forever")
+        print("  python activate_simple.py 123456789           # Forever (default)")
         sys.exit(1)
 
     try:
