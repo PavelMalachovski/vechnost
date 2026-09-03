@@ -510,12 +510,18 @@ def test_the_pollers_keep_one_request_in_flight():
 
     Answers landing out of order repainted newer state with older — in «69
     ступеней» the piece visibly jumped backwards and the portal toast fired
-    twice. Each poller carries its own in-flight guard.
+    twice. The three pollers now share one loop that schedules the next
+    request only after the previous one has answered, so there is never a
+    second in flight by construction.
     """
     html = INDEX.read_text(encoding="utf-8")
+    loop = html.split("function startPoll(")[1].split("\n  }\n")[0]
+    assert "await fetchState()" in loop
+    assert "setTimeout(tick, delay)" in loop, "the next tick is scheduled after the answer"
+    assert "setInterval(" not in html
     for fn in ("function startCoopPoll", "function startCompatPoll", "function startS69Poll"):
         body = html.split(fn)[1].split("\n  }")[0]
-        assert "busy" in body, f"{fn} lost its in-flight guard"
+        assert "startPoll(" in body, f"{fn} runs its own loop again"
 
 
 def test_the_finale_overlay_is_not_rebuilt_under_a_tap():
