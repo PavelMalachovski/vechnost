@@ -167,12 +167,10 @@ async def join(
         if test.creator_telegram_user_id == user_id:
             pass  # creator re-opening their own test
         elif test.guest_telegram_user_id is None:
-            test.guest_telegram_user_id = user_id
-            test.guest_name = name
-            low, high = sorted((test.creator_telegram_user_id, user_id))
-            test.pair_key = f"{low}:{high}"
-            test.updated_at = datetime.utcnow()
-            await session.flush()
+            # Conditional UPDATE: see RoomRepository.seat_guest.
+            await CompatTestRepository.seat_guest(session, test, user_id, name)
+            if test.guest_telegram_user_id != user_id:
+                raise HTTPException(status_code=409, detail="test is full")
         elif test.guest_telegram_user_id != user_id:
             raise HTTPException(status_code=409, detail="test is full")
         return _state(test, user_id)

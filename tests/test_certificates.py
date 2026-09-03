@@ -74,8 +74,8 @@ class TestCertificateActivation:
             mock_user.telegram_user_id = 123456789
             mock_user_repo.create_or_update = AsyncMock(return_value=mock_user)
 
-            # Mock mark as used
-            mock_cert_repo.mark_as_used = AsyncMock(return_value=mock_cert)
+            # The claim is the one conditional UPDATE that decides who gets it
+            mock_cert_repo.claim = AsyncMock(return_value=mock_cert)
 
             # Execute
             result = await activate_certificate(
@@ -90,8 +90,31 @@ class TestCertificateActivation:
             assert result["status"] == "success"
             assert result["certificate_id"] == 1
             mock_user_repo.create_or_update.assert_called_once()
-            mock_cert_repo.mark_as_used.assert_called_once()
+            mock_cert_repo.claim.assert_called_once_with(
+                mock_session, "VECH-TEST-1234", 123456789
+            )
             mock_session.commit.assert_called_once()
+
+    async def test_a_claim_lost_to_a_simultaneous_redemption_is_a_409(self):
+        """Both callers passed the `is_used` check; the UPDATE seated one."""
+        with patch('vechnost_bot.payments.services.get_db') as mock_get_db, \
+             patch('vechnost_bot.payments.services.CertificateRepository') as mock_cert_repo, \
+             patch('vechnost_bot.payments.services.UserRepository') as mock_user_repo:
+
+            mock_session = AsyncMock()
+            mock_get_db.return_value.__aenter__.return_value = mock_session
+            mock_cert = MagicMock(spec=Certificate)
+            mock_cert.id = 1
+            mock_cert.is_used = False
+            mock_cert_repo.get_by_code = AsyncMock(return_value=mock_cert)
+            mock_cert_repo.claim = AsyncMock(return_value=None)
+            mock_user_repo.create_or_update = AsyncMock()
+
+            result = await activate_certificate(code="VECH-TEST-1234", telegram_user_id=2)
+
+            assert result["status"] == "error"
+            assert result["code"] == 409
+            mock_session.commit.assert_not_called()
 
     async def test_activate_certificate_not_found(self):
         """Test activation with non-existent certificate (404)."""
@@ -172,7 +195,7 @@ class TestCertificateActivation:
             mock_cert.id = 1
             mock_cert.is_used = False
             mock_cert_repo.get_by_code = AsyncMock(return_value=mock_cert)
-            mock_cert_repo.mark_as_used = AsyncMock(return_value=mock_cert)
+            mock_cert_repo.claim = AsyncMock(return_value=mock_cert)
 
             mock_user = MagicMock(spec=User)
             mock_user.id = 1
@@ -298,20 +321,73 @@ class TestCertificateRepository:
         mock_session.execute.assert_called_once()
 
 
+@pytest.fixture
+def memory_db():
+    """A fresh in-memory database with payments switched on."""
+    from unittest.mock import patch as _patch
+
+    import vechnost_bot.payments.database as database
+    from vechnost_bot.config import settings
+
+    with (
+        _patch.object(settings, "database_url", "sqlite+aiosqlite:///:memory:"),
+        _patch.object(database, "engine", None),
+        _patch.object(database, "async_session_maker", None),
+        _patch.object(database, "_tables_created", False),
+        _patch.object(settings, "enable_payment", True),
+    ):
+        yield
+
+
 @pytest.mark.integration
-@pytest.mark.asyncio
 class TestCertificateIntegration:
-    """Integration tests for certificate flow."""
+    """The whole flow against a real (in-memory) database.
 
-    async def test_complete_certificate_flow(self):
-        """Test complete flow: generate -> activate -> verify access -> reject reuse."""
-        # This would require actual database connection
-        # Placeholder for integration test
-        pass
+    These two were `pass` stubs for months, counting as green while the
+    activation path did a read-then-write that two simultaneous
+    redemptions could both pass.
+    """
 
-    async def test_concurrent_activation_race_condition(self):
-        """Test that concurrent activations don't create race conditions."""
-        # This would test the critical race condition scenario
-        # where two users try to activate the same certificate simultaneously
-        pass
+    async def test_complete_certificate_flow(self, memory_db):
+        """generate -> activate -> access -> a second redemption is refused."""
+        from vechnost_bot.payments.database import get_db
+        from vechnost_bot.payments.gifts import create_gift_certificate
+
+        async with get_db() as session:
+            code = await create_gift_certificate(session)
+
+        assert await user_has_access(111) is False
+        first = await activate_certificate(code=code, telegram_user_id=111)
+        assert first["status"] == "success"
+        assert await user_has_access(111) is True
+
+        second = await activate_certificate(code=code, telegram_user_id=222)
+        assert second["status"] == "error" and second["code"] == 409
+        assert await user_has_access(222) is False
+
+        async with get_db() as session:
+            certificate = await CertificateRepository.get_by_code(session, code)
+        assert certificate.is_used is True
+        assert certificate.used_by_telegram_user_id == 111
+
+    async def test_concurrent_activation_race_condition(self, memory_db):
+        """Two redemptions of one code: the UPDATE's WHERE clause seats one.
+
+        SQLite has no concurrent writers, so this exercises the mechanism
+        rather than the interleaving: the second `claim` finds no row with
+        `is_used = false` to change and comes back empty, which is exactly
+        what the loser of a real race on Postgres sees.
+        """
+        from vechnost_bot.payments.database import get_db
+        from vechnost_bot.payments.gifts import create_gift_certificate
+
+        async with get_db() as session:
+            code = await create_gift_certificate(session)
+
+        async with get_db() as session:
+            winner = await CertificateRepository.claim(session, code, 111)
+            loser = await CertificateRepository.claim(session, code, 222)
+
+        assert winner is not None and winner.used_by_telegram_user_id == 111
+        assert loser is None
 

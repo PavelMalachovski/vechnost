@@ -202,10 +202,12 @@ async def join_room(
         if room.creator_telegram_user_id == user_id:
             pass  # creator re-opening their own room
         elif room.guest_telegram_user_id is None:
-            room.guest_telegram_user_id = user_id
-            room.guest_name = name
-            room.updated_at = datetime.utcnow()
-            await session.flush()
+            # One conditional UPDATE, not a read followed by a write: two
+            # people opening the link at once must not both be seated with
+            # the last writer silently displacing the first.
+            await RoomRepository.seat_guest(session, room, user_id, name)
+            if room.guest_telegram_user_id != user_id:
+                raise HTTPException(status_code=409, detail="room is full")
         elif room.guest_telegram_user_id != user_id:
             raise HTTPException(status_code=409, detail="room is full")
         return _room_state(room, user_id, language)

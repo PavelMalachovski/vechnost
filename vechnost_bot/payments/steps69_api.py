@@ -346,11 +346,13 @@ async def join(
         if game.creator_telegram_user_id == user_id:
             pass  # creator re-opening their own game
         elif game.guest_telegram_user_id is None:
-            game.guest_telegram_user_id = user_id
-            game.guest_name = name
-            game.guest_piece = _free_piece(body.piece, game.creator_piece)
-            game.updated_at = datetime.utcnow()
-            await session.flush()
+            # Conditional UPDATE: see RoomRepository.seat_guest.
+            await Steps69Repository.seat_guest(
+                session, game, user_id, name,
+                piece=_free_piece(body.piece, game.creator_piece),
+            )
+            if game.guest_telegram_user_id != user_id:
+                raise HTTPException(status_code=409, detail="game is full")
         elif game.guest_telegram_user_id != user_id:
             raise HTTPException(status_code=409, detail="game is full")
         return _state(game, user_id, language)

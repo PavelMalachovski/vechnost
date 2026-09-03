@@ -3,7 +3,7 @@
 import logging
 from datetime import datetime
 
-from sqlalchemy import delete, or_, select
+from sqlalchemy import delete, or_, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..compat import TOTAL_QUESTIONS
@@ -505,6 +505,39 @@ class CertificateRepository:
         return certificate
 
     @staticmethod
+    async def claim(
+        session: AsyncSession, code: str, telegram_user_id: int
+    ) -> Certificate | None:
+        """Take an unused certificate for this user, atomically.
+
+        One UPDATE whose WHERE clause carries the condition, so two people
+        redeeming the same code at the same moment cannot both read
+        `is_used = false` and both mark it: the database decides, exactly
+        one row changes, and the loser gets None. `mark_as_used` below sets
+        the same fields on an instance already checked, which is the
+        read-then-write this replaces on the activation path.
+        """
+        result = await session.execute(
+            update(Certificate)
+            .where(Certificate.code == code)
+            .where(Certificate.is_used == False)  # noqa: E712
+            .values(
+                is_used=True,
+                used_by_telegram_user_id=telegram_user_id,
+                used_at=datetime.utcnow(),
+            )
+        )
+        if result.rowcount != 1:
+            return None
+        certificate = await CertificateRepository.get_by_code(session, code)
+        if certificate is not None:
+            await session.refresh(certificate)
+            logger.info(
+                f"Claimed certificate #{certificate.id} for user {telegram_user_id}"
+            )
+        return certificate
+
+    @staticmethod
     async def mark_as_used(
         session: AsyncSession,
         certificate: Certificate,
@@ -589,6 +622,30 @@ class RoomRepository:
         logger.info(f"Created room #{room.id} by {creator_telegram_user_id}")
         return room
 
+    @staticmethod
+    async def seat_guest(
+        session: AsyncSession, room: Room, telegram_user_id: int, name: str | None
+    ) -> bool:
+        """Take the second seat, atomically. False when somebody else has it.
+
+        The WHERE clause carries the emptiness check, so two partners who
+        open the same link at once cannot both read an empty seat and both
+        write themselves into it with the last one winning silently. The
+        instance is refreshed either way, so the caller sees who sits there.
+        """
+        result = await session.execute(
+            update(Room)
+            .where(Room.id == room.id)
+            .where(Room.guest_telegram_user_id.is_(None))
+            .values(
+                guest_telegram_user_id=telegram_user_id,
+                guest_name=name,
+                updated_at=datetime.utcnow(),
+            )
+        )
+        await session.refresh(room)
+        return result.rowcount == 1
+
 
 class Steps69Repository:
     """Repository for «69 ступеней» games."""
@@ -634,6 +691,29 @@ class Steps69Repository:
         await session.flush()
         logger.info(f"Created steps69 game #{game.id} ({mode}) by {creator_telegram_user_id}")
         return game
+
+    @staticmethod
+    async def seat_guest(
+        session: AsyncSession,
+        game: Steps69Game,
+        telegram_user_id: int,
+        name: str | None,
+        piece: str,
+    ) -> bool:
+        """Take the second seat, atomically. See `RoomRepository.seat_guest`."""
+        result = await session.execute(
+            update(Steps69Game)
+            .where(Steps69Game.id == game.id)
+            .where(Steps69Game.guest_telegram_user_id.is_(None))
+            .values(
+                guest_telegram_user_id=telegram_user_id,
+                guest_name=name,
+                guest_piece=piece,
+                updated_at=datetime.utcnow(),
+            )
+        )
+        await session.refresh(game)
+        return result.rowcount == 1
 
     @staticmethod
     async def delete(session: AsyncSession, game_id: int) -> None:
@@ -806,6 +886,30 @@ class CompatTestRepository:
         await session.flush()
         logger.info(f"Created compat test #{test.id} by {creator_telegram_user_id}")
         return test
+
+    @staticmethod
+    async def seat_guest(
+        session: AsyncSession, test: CompatTest, telegram_user_id: int, name: str | None
+    ) -> bool:
+        """Take the second seat, atomically. See `RoomRepository.seat_guest`.
+
+        Also writes the pair key, which is what a retake later supersedes
+        by: it belongs to the moment the pair became a pair.
+        """
+        low, high = sorted((test.creator_telegram_user_id, telegram_user_id))
+        result = await session.execute(
+            update(CompatTest)
+            .where(CompatTest.id == test.id)
+            .where(CompatTest.guest_telegram_user_id.is_(None))
+            .values(
+                guest_telegram_user_id=telegram_user_id,
+                guest_name=name,
+                pair_key=f"{low}:{high}",
+                updated_at=datetime.utcnow(),
+            )
+        )
+        await session.refresh(test)
+        return result.rowcount == 1
 
     @staticmethod
     async def latest_completed_for(

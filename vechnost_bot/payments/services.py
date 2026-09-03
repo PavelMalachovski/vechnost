@@ -389,15 +389,25 @@ async def activate_certificate(
                 last_name=last_name,
             )
 
-            # Mark certificate as used (one-time use)
-            await CertificateRepository.mark_as_used(
-                session, certificate, telegram_user_id
+            # One conditional UPDATE decides who gets the code. Two people
+            # redeeming it in the same instant both passed the `is_used`
+            # check above; only one of them changes a row here.
+            claimed = await CertificateRepository.claim(
+                session, code, telegram_user_id
             )
+            if claimed is None:
+                logger.warning(
+                    f"Certificate #{certificate.id} was claimed by someone else first"
+                )
+                return {
+                    "status": "error",
+                    "message": "Certificate already used",
+                    "code": 409,
+                }
+            certificate = claimed
 
             await session.commit()
 
-            # Verify certificate was marked as used
-            await session.refresh(certificate)
             logger.info(
                 f"Activated certificate #{certificate.id} for user {telegram_user_id} "
                 f"(is_used: {certificate.is_used})"
