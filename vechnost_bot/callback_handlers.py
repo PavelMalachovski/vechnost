@@ -1232,10 +1232,10 @@ class CheckPaymentHandler(CallbackHandler):
         """Handle check payment status callback."""
         from .payments.handlers import handle_check_payment
 
-        # Create a mock update and context for the payment handler
+        # The payment handler takes an Update; wrap the query in one. It
+        # must not answer the query again - the registry's caller already
+        # has, and Telegram refuses a second answer.
         update = Update(update_id=0, callback_query=query)
-        # Note: We don't have direct access to context here, but the payment handler
-        # doesn't actually use it, so we can pass None or create a minimal mock
         await handle_check_payment(update, None)
 
 
