@@ -156,6 +156,45 @@ def test_blocked_user_is_opted_out():
     captured[0].set_daily_card_opt_out.assert_awaited_once()
 
 
+def test_flood_control_is_waited_out_not_dropped():
+    """The push rides the broadcast loop, so Telegram's retry_after is
+    honoured and the recipient gets a second try. The old loop caught
+    RetryAfter as a generic failure and moved on, which at a few thousand
+    recipients meant everyone after the first flood-control reply was
+    silently skipped."""
+    from telegram.error import RetryAfter
+
+    user = MagicMock(telegram_user_id=42, language="ru")
+    bot = MagicMock()
+    bot.send_photo = AsyncMock(side_effect=[RetryAfter(1), MagicMock()])
+
+    with patch("vechnost_bot.broadcast.asyncio.sleep", AsyncMock()):
+        sent = _run_send(bot, [user])
+
+    assert sent == 1
+    assert bot.send_photo.await_count == 2
+
+
+def test_the_image_is_uploaded_once_and_reused_by_file_id():
+    """Telegram hands back a file_id on the first upload; the second
+    recipient gets that instead of the same hundred kilobytes again."""
+    users = [
+        MagicMock(telegram_user_id=1, language="ru"),
+        MagicMock(telegram_user_id=2, language="ru"),
+    ]
+    reply = MagicMock()
+    reply.photo = [MagicMock(file_id="AgACAgIAAxkDAAI")]
+    bot = MagicMock()
+    bot.send_photo = AsyncMock(return_value=reply)
+
+    sent = _run_send(bot, users)
+
+    assert sent == 2
+    first, second = bot.send_photo.await_args_list
+    assert isinstance(first.kwargs["photo"], bytes)
+    assert second.kwargs["photo"] == "AgACAgIAAxkDAAI"
+
+
 def test_daily_card_uses_the_library_face():
     """The daily prompt is a Library item, so it must ride the Library card,
     not the blank framed default the deck falls back to."""
