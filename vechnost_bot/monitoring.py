@@ -17,11 +17,14 @@ from sentry_sdk.integrations.logging import LoggingIntegration
 # Configure structlog
 def configure_logging() -> None:
     """Configure structured logging with structlog."""
-    # Configure standard library logging
+    from .config import settings
+
+    # LOG_LEVEL was documented and never read: INFO was hard-coded here.
+    level = getattr(logging, settings.log_level.upper(), logging.INFO)
     logging.basicConfig(
         format="%(message)s",
         stream=sys.stdout,
-        level=logging.INFO,
+        level=level,
     )
 
     # httpx logs every Telegram API request at INFO with the full URL,
@@ -58,16 +61,27 @@ def configure_logging() -> None:
     )
 
 
+# Breadcrumbs start at WARNING. At INFO every callback, every /start
+# argument and every certificate lookup rode along to Sentry as context on
+# the next error, which is how user ids, usernames and gift codes reached a
+# third party that was only meant to hold stack traces.
+BREADCRUMB_LEVEL = logging.WARNING
+
+
 def configure_sentry() -> None:
     """Configure Sentry for error tracking and performance monitoring."""
-    sentry_dsn = os.getenv("SENTRY_DSN")
+    from .config import settings
+
+    # `settings`, not `os.getenv`: pydantic-settings reads `.env` but does
+    # not export it, so a DSN set only there was silently ignored.
+    sentry_dsn = settings.sentry_dsn
     if not sentry_dsn:
         return
 
     # Configure Sentry integrations
     integrations = [
         LoggingIntegration(
-            level=logging.INFO,        # Capture info and above as breadcrumbs
+            level=BREADCRUMB_LEVEL,    # Capture warnings and above as breadcrumbs
             event_level=logging.ERROR  # Send errors as events
         ),
     ]
@@ -78,8 +92,9 @@ def configure_sentry() -> None:
         dsn=sentry_dsn,
         integrations=integrations,
         traces_sample_rate=0.1,  # Capture 10% of transactions for performance monitoring
-        environment=os.getenv("ENVIRONMENT", "development"),
+        environment=settings.environment,
         release=os.getenv("RELEASE_VERSION", "unknown"),
+        send_default_pii=False,
         before_send=before_send_filter,
     )
 
@@ -277,15 +292,17 @@ async def track_operation(operation_name: str, **context):
 
 
 def set_user_context(user_id: int, username: str | None = None, **extra_context):
-    """Set user context for Sentry and logging."""
-    set_user({
-        "id": str(user_id),
-        "username": username,
-        **extra_context
-    })
+    """Set user context for Sentry and logging.
+
+    The id and nothing else. `username` is still accepted so old call
+    sites keep working, and deliberately not forwarded: a Telegram handle
+    is a real person's public name, and the error tracker needs a way to
+    count affected users, not to name them.
+    """
+    set_user({"id": str(user_id), **extra_context})
 
     logger = structlog.get_logger("user_tracking")
-    logger.info("user_context_set", user_id=user_id, username=username, **extra_context)
+    logger.info("user_context_set", user_id=user_id, **extra_context)
 
 
 def log_bot_event(event_type: str, **context):

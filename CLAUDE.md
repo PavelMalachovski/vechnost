@@ -85,9 +85,20 @@ ruff check .                             # lint (CI gates on this)
   `callback_handlers.py`, `payments/web.py`, and `payments/rooms.py`) and
   `FREE_LIBRARY_ITEMS_PER_LIST = 3` for Library lists (used by
   `payments/library_api.py`). Change a rule there, not at each call site.
-- **Access** is decided by `payments/services.py::user_has_access()`
-  (payment OR subscription OR certificate OR `ENABLE_PAYMENT=false`). Reuse
-  it; don't reinvent access checks.
+- **Access** is decided by `payments/services.py::user_has_access()`: an
+  active, unexpired `subscriptions` row (a lifetime purchase has no expiry)
+  OR an activated certificate OR `ENABLE_PAYMENT=false`. A `payments` row
+  is a journal entry and never counts on its own — it used to, and every
+  event Tribute sent, a cancellation included, became lifetime access. Reuse
+  the function; don't reinvent access checks.
+- **A Tribute event does what the table says.** `payments/tribute_event.py`
+  parses a delivery (`name`, `created_at`, `sent_at`, and the purchase in
+  `payload`) and `action_for(name)` maps it to grant, revoke or ignore:
+  `new_digital_product`, `new_subscription` and `renewed_subscription` grant;
+  a cancellation, refund or chargeback revokes; anything else is
+  acknowledged with a 200, written to `webhook_events` with a note, and
+  changes nothing. Add an event there, never by substring-matching the name
+  in the handler.
 - **Mini App auth.** `/api/*` endpoints authenticate the caller with
   Telegram `initData` via `payments/webapp_auth.py::validate_init_data`
   (`Authorization: tma <initData>`). The server never ships paid content to
@@ -110,7 +121,13 @@ ruff check .                             # lint (CI gates on this)
   fields left anywhere in it.
 - **Two-partner features follow `payments/rooms.py`**: a short room code,
   both players polling for state, a 24-hour TTL, and the room inheriting the
-  creator's access so one payment covers both. `payments/library_api.py` was
+  creator's access so one payment covers both. Two rules hold across all
+  three: a caller who is not a participant gets the **same 404** an unknown
+  code gets, never a 403 — the read endpoints are not throttled like `join`,
+  and a distinct status was an oracle for sweeping the code space; and the
+  second seat is taken by **one conditional UPDATE** (`seat_guest`, WHERE
+  the seat is empty), never a read followed by a write, so two partners
+  opening one link at once cannot both be seated. `payments/library_api.py` was
   deliberately modelled on this pattern — extend it for the next two-partner
   feature rather than inventing a second one.
 - **The compatibility test** is the second two-partner feature and follows a
@@ -266,6 +283,15 @@ ruff check .                             # lint (CI gates on this)
   or a video broadcasts as well as text; the confirm callback is registered
   ahead of the game's catch-all and with `block=False`, or a send to
   thousands of people would hold every other update behind it.
+- **`/delete_me` forgets a person on request.** `privacy.py` asks with two
+  buttons and `UserRepository.erase` does it in one transaction: the user
+  row (payments and subscriptions cascade), every room, test and board the
+  user sat in (one row shared with a partner, gone for both — the same
+  unanimous-consent rule as `DELETE /api/compat/{code}`), the bot session;
+  a redeemed certificate stays spent but forgets who, and `referred_by`
+  links to the user are cleared. Its callback is registered ahead of the
+  game's catch-all on a pattern, like the broadcast's. Anything new that
+  stores a person must be added to `erase`, or the promise is broken.
 - **The daily push has one button into the app.** «Играть» and «Библиотека»
   were the same app opened at two screens, and the choice came before the
   reader had seen either. It is one «Зайти в приложение» now, with the
@@ -304,10 +330,18 @@ ruff check .                             # lint (CI gates on this)
   a per-client budget alone would not bound a code sweep. `tests/conftest.py`
   resets it between tests; without that a suite creating more rooms than the
   hourly budget starts 429ing halfway through.
-- **An unsigned Tribute webhook is refused, not trusted.** A webhook grants
-  lifetime access, so `signature.py` fails closed whenever
-  `ENABLE_PAYMENT` is on and `WEBHOOK_SECRET` is unset. It still skips
-  verification with payments off, where there is no paywall to bypass.
+- **A Tribute webhook is signed with the API key, and checked first.**
+  Tribute sends HMAC-SHA256 of the raw body, keyed by `TRIBUTE_API_KEY`, in
+  the `trbt-signature` header; `WEBHOOK_SECRET` is an optional second key
+  for a relay or a test harness, accepted alongside, never instead.
+  `signature.py` fails closed whenever `ENABLE_PAYMENT` is on and no key is
+  configured, and skips verification with payments off, where there is no
+  paywall to bypass. `apply_webhook_event` verifies before it opens a
+  session and writes a `webhook_events` row only for a delivery it
+  processed: a rejected one leaves no trace, so Tribute's retry of the same
+  bytes is judged on its own. (It used to be recorded under the body's hash
+  first, so the correctly signed retry was told "already processed" and the
+  payment was lost.) `/webhooks/tribute` is throttled and bounds the body.
   `/admin/*` authenticates against `settings.admin_secret` (`ADMIN_TOKEN`,
   falling back to `TRIBUTE_API_KEY`) with `compare_digest`, and returns 503
   rather than 401 when neither is configured.

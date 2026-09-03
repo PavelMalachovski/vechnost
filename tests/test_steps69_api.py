@@ -266,10 +266,11 @@ def test_a_player_who_reaches_sixty_nine_stops_and_the_other_keeps_rolling(clien
 
 
 def test_a_stranger_can_neither_watch_nor_roll(client):
+    """And is told the game does not exist, exactly as for a made-up code."""
     code = started_game(client)
-    assert client.get(f"/api/steps69/{code}", headers=EVE).status_code == 403
-    assert roll(client, code, EVE).status_code == 403
-    assert client.get(f"/api/steps69/{code}/board", headers=EVE).status_code == 403
+    assert client.get(f"/api/steps69/{code}", headers=EVE).status_code == 404
+    assert roll(client, code, EVE).status_code == 404
+    assert client.get(f"/api/steps69/{code}/board", headers=EVE).status_code == 404
 
 
 # ---------------------------------------------------------------------------
@@ -554,7 +555,7 @@ def test_either_partner_can_erase_the_game(client):
 
 def test_a_stranger_cannot_erase_the_game(client):
     code = started_game(client)
-    assert client.delete(f"/api/steps69/{code}", headers=EVE).status_code == 403
+    assert client.delete(f"/api/steps69/{code}", headers=EVE).status_code == 404
     assert client.get(f"/api/steps69/{code}", headers=ALICE).status_code == 200
 
 

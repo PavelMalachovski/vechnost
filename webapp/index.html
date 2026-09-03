@@ -1467,6 +1467,76 @@
     t._h = setTimeout(() => t.classList.remove('show'), 1700);
   }
 
+  /* ---------------- network ---------------- */
+  // Every request has a deadline. One that never returned used to leave
+  // the full-screen loader up until the WebView gave up on its own, which
+  // on a phone is a minute of an app that looks frozen.
+  const REQUEST_TIMEOUT_MS = 10000;
+
+  async function timedFetch(url, init) {
+    const ctl = new AbortController();
+    const timer = setTimeout(() => ctl.abort(), REQUEST_TIMEOUT_MS);
+    try {
+      return await fetch(url, Object.assign({ signal: ctl.signal }, init || {}));
+    } finally {
+      clearTimeout(timer);
+    }
+  }
+
+  // An Error that carries the status, so a caller can tell a 401 from a
+  // 429 from no network at all; statusMessage() does the wording. The
+  // server says what went wrong in `detail`; keep it.
+  async function httpError(res, path) {
+    const e = new Error('http ' + res.status);
+    e.status = res.status;
+    try { e.detail = (await res.json()).detail; } catch (_) { e.detail = null; }
+    console.error('API', res.status, path, e.detail || '');
+    return e;
+  }
+
+  // One loop for the three two-partner screens. Chained timeouts rather
+  // than an interval, so the pause can stretch: a 429 or a 5xx doubles it
+  // up to POLL_MAX_MS and a good answer resets it. A 401 stops the loop
+  // and says so: initData is signed for a day, and a tab left open
+  // overnight outlived it while the screen read «Ждём партнёра…» and the
+  // server was asked every two seconds, forever. 404 and 410 hand over to
+  // the screen's own onGone: the room, test or board is no more. A
+  // fetchState that returns null means "nothing to poll", and stops
+  // quietly.
+  const POLL_MAX_MS = 20000;
+
+  function startPoll(state, every, fetchState, onState, onGone) {
+    stopPoll(state);
+    const run = { active: true, handle: null };
+    state.timer = run;
+    let delay = every;
+    const tick = async () => {
+      if (!run.active) return;
+      try {
+        const st = await fetchState();
+        if (!run.active) return;
+        if (st === null) { stopPoll(state); return; }
+        delay = every;
+        onState(st);
+      } catch (e) {
+        if (!run.active) return;
+        if (e.status === 404 || e.status === 410) { stopPoll(state); onGone(); return; }
+        if (e.status === 401) { stopPoll(state); toast(T().authExpired); return; }
+        delay = Math.min(delay * 2, POLL_MAX_MS);
+      }
+      if (run.active) run.handle = setTimeout(tick, delay);
+    };
+    run.handle = setTimeout(tick, delay);
+  }
+
+  function stopPoll(state) {
+    const run = state.timer;
+    if (!run) return;
+    run.active = false;
+    if (run.handle) clearTimeout(run.handle);
+    state.timer = null;
+  }
+
   /* ---------------- data ---------------- */
   let ACCESS = { paid: true };
   let BOT_URL = null;
@@ -1498,15 +1568,15 @@
     try {
       const headers = {};
       if (tg && tg.initData) headers['Authorization'] = 'tma ' + tg.initData;
-      const res = await fetch('/api/questions?lang=' + lang, { cache: 'no-cache', headers });
-      if (!res.ok) throw new Error('http ' + res.status);
+      const res = await timedFetch('/api/questions?lang=' + lang, { cache: 'no-cache', headers });
+      if (!res.ok) throw await httpError(res, '/api/questions');
       const json = await res.json();
       DATA = json.themes;
       ACCESS = json.access || { paid: true };
       BOT_URL = json.bot_url || null;
     } catch (e) {
       DATA = null;
-      toast(T().loadError);
+      toast(e.status ? statusMessage(e) : T().loadError);
     } finally {
       $('loader').classList.remove('show');
     }
@@ -1707,7 +1777,10 @@
   }
 
   function escapeHTML(s) {
-    return s.replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+    // Coerced first: an optional field the server left out reached this as
+    // undefined, and `undefined.replace` blanked the whole screen behind a
+    // toast about the connection.
+    return String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
   }
 
   /* ---------------- long card text ---------------- */
@@ -2088,10 +2161,14 @@
   function copyInvite(url) {
     if (!url) { toast(T().inviteNoLink); return; }
     haptic('light');
-    try {
-      navigator.clipboard.writeText(url);
-      toast(T().inviteCopied);
-    } catch (e) { toast(T().shareError); }
+    if (!navigator.clipboard) { toast(T().shareError); return; }
+    // The promise is the answer: a WebView refuses the clipboard when the
+    // document is not focused, and «Ссылка скопирована» used to show
+    // before the refusal came back.
+    navigator.clipboard.writeText(url).then(
+      () => toast(T().inviteCopied),
+      () => toast(T().shareError)
+    );
   }
 
   let guestId = store.get('guestId', null);
@@ -2109,21 +2186,12 @@
 
   async function coopFetch(path, opts) {
     opts = opts || {};
-    const res = await fetch(path + (path.includes('?') ? '&' : '?') + 'lang=' + lang, {
+    const res = await timedFetch(path + (path.includes('?') ? '&' : '?') + 'lang=' + lang, {
       method: opts.method || 'GET',
       headers: coopHeaders(!!opts.json),
       body: opts.json ? JSON.stringify(opts.json) : undefined
     });
-    if (!res.ok) {
-      const e = new Error('http ' + res.status);
-      e.status = res.status;
-      // The server says what went wrong in `detail`; keep it. Without this
-      // every failure the handlers do not name became "check your
-      // connection", which sent people to their wifi settings over a 429.
-      try { e.detail = (await res.json()).detail; } catch (_) { e.detail = null; }
-      console.error('API', res.status, path, e.detail || '');
-      throw e;
-    }
+    if (!res.ok) throw await httpError(res, path);
     return res.json();
   }
 
@@ -2133,30 +2201,15 @@
     else toast(statusMessage(e));
   }
 
-  function stopCoopPoll() {
-    if (C.timer) { clearInterval(C.timer); C.timer = null; }
-  }
+  function stopCoopPoll() { stopPoll(C); }
 
   function startCoopPoll(onState) {
-    stopCoopPoll();
-    // One request in flight at a time (same rule in all three pollers): on
-    // a slow link a bare interval stacks requests, and answers landing out
-    // of order repaint newer state with older.
-    let busy = false;
-    C.timer = setInterval(async () => {
-      if (!C.code || busy) return;
-      busy = true;
-      try {
-        const st = await coopFetch('/api/rooms/' + C.code);
-        onState(st);
-      } catch (e) {
-        if (e.status === 404 || e.status === 410) {
-          stopCoopPoll();
-          toast(T().coopGone);
-          leaveCoop();
-        }
-      } finally { busy = false; }
-    }, 2500);
+    startPoll(
+      C, 2500,
+      () => (C.code ? coopFetch('/api/rooms/' + C.code) : null),
+      onState,
+      () => { toast(T().coopGone); leaveCoop(); }
+    );
   }
 
   async function createCoopRoom(level) {
@@ -2229,6 +2282,10 @@
     startCoopPoll(st => {
       const prevIdx = C.st ? C.st.idx : -1;
       const wasFinished = C.st ? C.st.finished : false;
+      // A poll that left before our own /advance and lands after it
+      // carries the deck as it was. Never step backwards: the fresh card
+      // used to fly away to show the old one, then fly again a tick later.
+      if (C.st && !st.finished && st.idx < prevIdx) return;
       C.st = st;
       if (st.finished && !wasFinished) { coopFinish(); return; }
       if (st.idx !== prevIdx) {
@@ -2350,8 +2407,8 @@
   async function libFetch(path) {
     const headers = {};
     if (tg && tg.initData) headers['Authorization'] = 'tma ' + tg.initData;
-    const res = await fetch(path, { cache: 'no-cache', headers });
-    if (!res.ok) throw new Error('http ' + res.status);
+    const res = await timedFetch(path, { cache: 'no-cache', headers });
+    if (!res.ok) throw await httpError(res, path);
     return res.json();
   }
 
@@ -2419,7 +2476,7 @@
         btn.onclick = () => { LIB_BACK_TO = 'library'; openLibModule(btn.dataset.module); };
       });
     } catch (e) {
-      toast(T().libLoadError);
+      toast(e.status ? statusMessage(e) : T().libLoadError);
     } finally {
       $('loader').classList.remove('show');
     }
@@ -2471,7 +2528,7 @@
       // it again. The category screen stays underneath as the way back.
       if (openCategory) openLibCategory(data, id, openCategory);
     } catch (e) {
-      toast(T().libLoadError);
+      toast(e.status ? statusMessage(e) : T().libLoadError);
     } finally {
       $('loader').classList.remove('show');
     }
@@ -2641,32 +2698,22 @@
   const CT = { code: null, st: null, timer: null, questions: null, idx: 0, invite: null,
                pending: false, resultCode: null };
 
-  function stopCompatPoll() {
-    if (CT.timer) { clearInterval(CT.timer); CT.timer = null; }
-  }
+  function stopCompatPoll() { stopPoll(CT); }
 
   function startCompatPoll() {
-    stopCompatPoll();
-    let busy = false;  // one request in flight; see startCoopPoll
-    CT.timer = setInterval(async () => {
-      if (!CT.code || busy) return;
-      busy = true;
-      try {
-        const st = await coopFetch('/api/compat/' + CT.code);
-        CT.st = st;
-        onCompatState(st);
-      } catch (e) {
-        if (e.status === 404) {
-          stopCompatPoll();
-          // Deleted by the partner or swept: forget the code, or the entry
-          // screen keeps offering a test that no longer exists.
-          if (store.get('compatCode', null) === CT.code) store.set('compatCode', null);
-          CT.code = null;
-          toast(T().coopGone);
-          show('compat');
-        }
-      } finally { busy = false; }
-    }, 2500);
+    startPoll(
+      CT, 2500,
+      () => (CT.code ? coopFetch('/api/compat/' + CT.code) : null),
+      st => { CT.st = st; onCompatState(st); },
+      () => {
+        // Deleted by the partner or swept: forget the code, or the entry
+        // screen keeps offering a test that no longer exists.
+        if (store.get('compatCode', null) === CT.code) store.set('compatCode', null);
+        CT.code = null;
+        toast(T().coopGone);
+        show('compat');
+      }
+    );
   }
 
   function onCompatState(st) {
@@ -3935,22 +3982,23 @@
     show('home');
   }
 
-  function stopS69Poll() { if (G.timer) { clearInterval(G.timer); G.timer = null; } }
+  function stopS69Poll() { stopPoll(G); }
 
   function startS69Poll(onState) {
-    stopS69Poll();
-    let busy = false;  // one request in flight; see startCoopPoll
-    G.timer = setInterval(async () => {
-      if (!G.code || busy) return;
-      busy = true;
-      try { onState(await coopFetch('/api/steps69/' + G.code)); }
-      catch (e) {
-        if (e.status === 404 || e.status === 410) { stopS69Poll(); toast(T().s69Gone); leaveS69(); }
-      } finally { busy = false; }
-    }, 2200);
+    startPoll(
+      G, 2200,
+      () => (G.code ? coopFetch('/api/steps69/' + G.code) : null),
+      onState,
+      () => { toast(T().s69Gone); leaveS69(); }
+    );
   }
 
   function onS69State(st) {
+    // A poll that left before our own /roll and lands after it carries the
+    // board as it was: the piece jumped back a square for a tick. Rolls
+    // only ever go up within one game, so an answer with fewer is old.
+    if (G.st && G.st.code === st.code && st.you && st.partner &&
+        st.you.rolls + st.partner.rolls < G.st.you.rolls + G.st.partner.rolls) return;
     // A poll must not stomp on the portal animation the roll started: the
     // server already reports the final square, so repainting here would
     // teleport the piece past the flight the partner is watching.

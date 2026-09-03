@@ -149,6 +149,3 @@ alembic.ini.bak
 scripts/*.log
 scripts/__pycache__/
 
-# SQL temporary files
-sql/*.tmp
-sql/*.backup

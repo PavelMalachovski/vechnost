@@ -32,6 +32,8 @@ from .handlers import (
     start_command,
 )
 from .monitoring import initialize_monitoring, log_bot_event, track_performance
+from .privacy import CALLBACK_PATTERN as DELETE_ME_PATTERN
+from .privacy import delete_me_callback, delete_me_command
 from .simple_redis_manager import (
     cleanup_simple_redis_auto_start,
     initialize_simple_redis_auto_start,
@@ -94,6 +96,7 @@ async def _publish_entry_points(application: Application) -> None:
         BotCommand("about", get_text("commands.about", language)),
         BotCommand("invite", get_text("commands.invite", language)),
         BotCommand("reset", get_text("commands.reset", language)),
+        BotCommand("delete_me", get_text("commands.delete_me", language)),
     ]
     try:
         await application.bot.set_my_commands(commands)
@@ -141,6 +144,14 @@ def create_application() -> Application:
     application.add_handler(CommandHandler("activate", activate_certificate_command))
     application.add_handler(CommandHandler("invite", invite_command))
 
+    # /delete_me: the question, and its two buttons. The callback is
+    # registered ahead of the game's catch-all on a pattern, like the
+    # broadcast's, so it never reaches the callback registry.
+    application.add_handler(CommandHandler("delete_me", delete_me_command))
+    application.add_handler(CallbackQueryHandler(
+        delete_me_callback, pattern=DELETE_ME_PATTERN, block=False,
+    ))
+
     # The admin broadcast, and only where ADMIN_IDS names somebody. With it
     # unset none of this exists: no command to type, and no button for a
     # stray callback to reach. Its callback handler is registered *before*
@@ -169,7 +180,7 @@ def create_application() -> Application:
 
     logger = logging.getLogger(__name__)
     logger.info("Application created with handlers:")
-    logger.info("- Command handlers: start, help, reset, about, activate, invite")
+    logger.info("- Command handlers: start, help, reset, about, activate, invite, delete_me")
     logger.info("- Callback query handler: handle_callback_query")
     if admin_ids:
         logger.info(f"- Admin broadcast enabled for {len(admin_ids)} admin(s)")

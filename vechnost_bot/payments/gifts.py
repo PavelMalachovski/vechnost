@@ -6,6 +6,7 @@ gift card image instead of personal access; the receiving couple activates
 the code with /activate.
 """
 
+import asyncio
 import logging
 import secrets
 from io import BytesIO
@@ -80,7 +81,7 @@ async def deliver_gift_certificate(
         code=code, bot=settings.bot_username or ""
     )
     try:
-        image = render_gift_card(code, language)
+        image = await asyncio.to_thread(render_gift_card, code, language)
         await bot.send_photo(
             chat_id=telegram_user_id,
             photo=image.getvalue(),

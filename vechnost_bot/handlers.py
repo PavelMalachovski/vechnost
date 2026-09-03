@@ -54,7 +54,8 @@ async def _send_invite_button(message: Message, screen: str, code: str) -> bool:
         web_app=WebAppInfo(url=url),
     )]])
     await message.reply_text(text, reply_markup=keyboard)
-    logger.info(f"Invite link opened: {screen} {code}")
+    # The screen only: the code is a seat in someone's game while it is open.
+    logger.info(f"Invite link opened: {screen}")
     return True
 
 
@@ -74,16 +75,18 @@ async def start_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
         return
 
     user_id = user.id
-    username = user.username
 
     # Set user context for monitoring
-    set_user_context(user_id, username)
+    set_user_context(user_id)
 
+    # Whether there was a parameter, never what it was: a /start argument
+    # can be a gift certificate code, which is lifetime access to whoever
+    # reads the log.
     logger.info(
-        f"Start command received from chat {chat.id}, "
-        f"args: {context.args if context.args else 'None'}"
+        f"Start command received from chat {chat.id} "
+        f"(with parameter: {bool(context.args)})"
     )
-    log_bot_event("start_command", user_id=user_id, username=username)
+    log_bot_event("start_command", user_id=user_id)
 
     # Register the user on plain /start, not only on the referral and
     # /invite paths: the daily card selects its recipients from the users
@@ -97,7 +100,7 @@ async def start_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
     # Check for certificate activation parameter
     if context.args and len(context.args) > 0:
         param = context.args[0]
-        logger.info(f"Start command parameter: {param}")
+        logger.info(f"Start command parameter kind: {param.partition('_')[0]!r}")
 
         # A referral link. Credited before the greeting and never instead of
         # it: whoever followed the link came to see the bot, and a failed
@@ -145,7 +148,7 @@ async def start_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
                             get_text("referral.welcome_no_discount", Language.RUSSIAN)
                         )
             except Exception as e:
-                logger.warning(f"Referral {referral_code} not credited: {e}")
+                logger.warning(f"Referral not credited: {e}")
 
         # An invite link: `?start=s69_XXXXXX` and its two siblings. Whoever
         # tapped it came to join something, not to read the greeting, so the
@@ -163,7 +166,7 @@ async def start_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
         if param.startswith("activate_"):
             # Extract certificate code
             code = param.replace("activate_", "").strip().upper()
-            logger.info(f"Certificate activation via deep link: {code}")
+            logger.info("Certificate activation via deep link")
 
             # Activate certificate with full user information
             from .payments.services import activate_certificate
@@ -348,13 +351,12 @@ async def activate_certificate_command(
         return
 
     user_id = user.id
-    username = user.username
 
     # Set user context for monitoring
-    set_user_context(user_id, username)
+    set_user_context(user_id)
 
     logger.info(f"Activate certificate command received from user {user_id}")
-    log_bot_event("activate_certificate_command", user_id=user_id, username=username)
+    log_bot_event("activate_certificate_command", user_id=user_id)
 
     # Get session to determine language
     session = await get_session(chat.id)

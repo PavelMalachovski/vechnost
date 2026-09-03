@@ -219,9 +219,10 @@ class TestSetUserContext:
         with patch('vechnost_bot.monitoring.set_user') as mock_set_user:
             set_user_context(123, "testuser", theme="Acquaintance")
 
+            # The handle is accepted and dropped: Sentry gets an id to count
+            # by, never a person's public name.
             mock_set_user.assert_called_once_with({
                 "id": "123",
-                "username": "testuser",
                 "theme": "Acquaintance"
             })
 
@@ -258,8 +259,10 @@ class TestSentryIntegration:
     """Test Sentry integration."""
 
     def test_configure_sentry_with_dsn(self):
-        """Test configuring Sentry with DSN."""
-        with patch.dict(os.environ, {"SENTRY_DSN": "https://test@sentry.io/123"}):
+        """The DSN is read from settings, so one set only in .env counts."""
+        from vechnost_bot.config import settings
+
+        with patch.object(settings, "sentry_dsn", "https://test@sentry.io/123"):
             with patch('sentry_sdk.init') as mock_init:
                 from vechnost_bot.monitoring import configure_sentry
                 configure_sentry()
@@ -268,7 +271,9 @@ class TestSentryIntegration:
 
     def test_configure_sentry_without_dsn(self):
         """Test configuring Sentry without DSN."""
-        with patch.dict(os.environ, {}, clear=True):
+        from vechnost_bot.config import settings
+
+        with patch.object(settings, "sentry_dsn", None):
             with patch('sentry_sdk.init') as mock_init:
                 from vechnost_bot.monitoring import configure_sentry
                 configure_sentry()

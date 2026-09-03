@@ -342,6 +342,31 @@ def render_card(
         )
 
 
+@lru_cache(maxsize=256)
+def render_card_bytes(
+    text: str,
+    bg_path: str,
+    footer: str | None = None,
+    watermark: str | None = None,
+    single_line: bool = False,
+) -> bytes:
+    """`render_card` as bytes, memoised.
+
+    The deck is static, so the same card asked for twice is the same JPEG,
+    and there are a few hundred of them: a cache the size of the deck means
+    each is composited once per process. Callers on the event loop reach
+    this through `asyncio.to_thread`, because a composite is ~25 ms of
+    Pillow (145 ms cold) and used to run on the loop itself, where a burst
+    of `/api/card` requests stalled webhooks and every game at once.
+
+    Bytes rather than BytesIO so a cached value cannot be consumed by one
+    reader and handed empty to the next.
+    """
+    return render_card(
+        text, bg_path, footer=footer, watermark=watermark, single_line=single_line
+    ).getvalue()
+
+
 def get_background_path(topic: str, level_or_0: int, category: str) -> str:
     """
     Get the appropriate background path for a topic/level/category.

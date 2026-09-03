@@ -4,12 +4,13 @@ The prompt is deterministic per calendar date and shared by all users; each
 user receives it rendered in their own language.
 """
 
+import asyncio
 import logging
 from datetime import UTC, date, datetime
 from pathlib import Path
+from typing import Any
 
 from telegram import Bot, InlineKeyboardButton, InlineKeyboardMarkup, WebAppInfo
-from telegram.error import Forbidden
 
 from .config import settings
 from .i18n import Language, get_text
@@ -80,7 +81,17 @@ def render_daily_card(day: date, language: Language):
 
 
 async def send_daily_cards(bot: Bot) -> int:
-    """Send today's card to every recipient. Returns how many were sent."""
+    """Send today's card to every recipient. Returns how many were sent.
+
+    Each send goes through `broadcast.deliver`, which is the one delivery
+    loop the bot has: a pause between sends, Telegram's own `retry_after`
+    honoured and the send retried, and a user who blocked the bot opted
+    out. This function used to have its own loop with none of that, so
+    once flood control tripped - a few thousand recipients is enough -
+    every remaining send in the window failed unretried and the job ended
+    with «sent 900/3000» as if that were fine.
+    """
+    from . import broadcast
     from .payments.database import get_db
     from .payments.repositories import UserRepository
 
@@ -98,7 +109,10 @@ async def send_daily_cards(bot: Bot) -> int:
     # Render once per language, reuse the bytes for every user.
     rendered: dict[Language, tuple[bytes, str]] = {}
     render_failed: set[Language] = set()
-    sent = 0
+    # Telegram returns a file_id for the first upload of an image; every
+    # later recipient gets the id instead of the same hundred kilobytes.
+    file_ids: dict[Language, str] = {}
+    sent = blocked = failed = 0
 
     for user in recipients:
         language = _user_language(user.language)
@@ -106,9 +120,10 @@ async def send_daily_cards(bot: Bot) -> int:
             continue
         try:
             # Inside the per-user try on purpose: a render failure used to
-            # kill the whole job before the first send.
+            # kill the whole job before the first send. In a thread: this
+            # runs on the bot's loop, which handles every tap meanwhile.
             if language not in rendered:
-                image, caption = render_daily_card(today, language)
+                image, caption = await asyncio.to_thread(render_daily_card, today, language)
                 rendered[language] = (image.getvalue(), caption)
             image_bytes, caption = rendered[language]
         except Exception as e:
@@ -116,25 +131,38 @@ async def send_daily_cards(bot: Bot) -> int:
             render_failed.add(language)
             continue
 
-        try:
-            await bot.send_photo(
-                chat_id=user.telegram_user_id,
-                photo=image_bytes,
-                caption=caption,
-                reply_markup=_daily_keyboard(language),
+        async def send(
+            user_id: int,
+            _language: Language = language,
+            _bytes: bytes = image_bytes,
+            _caption: str = caption,
+        ) -> Any:
+            message = await bot.send_photo(
+                chat_id=user_id,
+                photo=file_ids.get(_language, _bytes),
+                caption=_caption,
+                reply_markup=_daily_keyboard(_language),
             )
-            sent += 1
-        except Forbidden:
-            # User blocked the bot — stop pushing to them.
-            async with get_db() as session:
-                await UserRepository.set_daily_card_opt_out(
-                    session, user.telegram_user_id, True
-                )
-            logger.info(f"Daily card: user {user.telegram_user_id} blocked the bot, opted out")
-        except Exception as e:
-            logger.warning(f"Daily card: failed for {user.telegram_user_id}: {e}")
+            if _language not in file_ids:
+                try:
+                    file_ids[_language] = message.photo[-1].file_id
+                except Exception:
+                    pass  # an unusual reply shape costs a re-upload, nothing more
+            return message
 
-    logger.info(f"Daily card: sent to {sent}/{len(recipients)} recipients")
+        status = await broadcast.deliver(send, user.telegram_user_id)
+        if status == broadcast.SENT:
+            sent += 1
+        elif status == broadcast.BLOCKED:
+            blocked += 1  # deliver() has already opted them out
+        else:
+            failed += 1
+        await asyncio.sleep(broadcast.SECONDS_BETWEEN_SENDS)
+
+    logger.info(
+        f"Daily card: sent to {sent}/{len(recipients)} recipients "
+        f"({blocked} blocked the bot, {failed} failed)"
+    )
     return sent
 
 

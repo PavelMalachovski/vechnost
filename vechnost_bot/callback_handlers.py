@@ -1,7 +1,9 @@
 """Refactored callback handlers for the Vechnost bot - Complete Implementation."""
 
+import asyncio
 import logging
 from abc import ABC, abstractmethod
+from io import BytesIO
 from typing import Any
 
 from telegram import (
@@ -39,7 +41,7 @@ from .keyboards import (
 )
 from .logic import load_game_data, localized_game_data
 from .models import ContentType, SessionState, Theme
-from .renderer import get_background_path, render_card
+from .renderer import get_background_path, render_card_bytes
 from .storage import get_session, reset_session
 
 logger = logging.getLogger(__name__)
@@ -536,7 +538,11 @@ class QuestionHandler(CallbackHandler):
 
             # Render card image with theme + progress footer
             footer = _card_footer(theme, callback_data.index, len(items), session.language)
-            image_data = render_card(question, bg_path, footer=footer, watermark=_card_watermark())
+            # In a thread and memoised: PTB handles updates one at a time,
+            # so a composite on the loop held every other user's tap.
+            image_data = BytesIO(await asyncio.to_thread(
+                render_card_bytes, question, bg_path, footer, _card_watermark()
+            ))
             logger.info(f"Card rendered successfully, size: {len(image_data.getvalue())} bytes")
 
             # Try to edit message to photo, fallback to new message if that fails
@@ -629,7 +635,11 @@ class NavigationHandler(CallbackHandler):
 
             # Render card image with theme + progress footer
             footer = _card_footer(theme, callback_data.index, len(items), session.language)
-            image_data = render_card(question, bg_path, footer=footer, watermark=_card_watermark())
+            # In a thread and memoised: PTB handles updates one at a time,
+            # so a composite on the loop held every other user's tap.
+            image_data = BytesIO(await asyncio.to_thread(
+                render_card_bytes, question, bg_path, footer, _card_watermark()
+            ))
             logger.info(f"Card rendered successfully, size: {len(image_data.getvalue())} bytes")
 
             # Try to edit message to photo, fallback to new message if that fails
@@ -1232,10 +1242,10 @@ class CheckPaymentHandler(CallbackHandler):
         """Handle check payment status callback."""
         from .payments.handlers import handle_check_payment
 
-        # Create a mock update and context for the payment handler
+        # The payment handler takes an Update; wrap the query in one. It
+        # must not answer the query again - the registry's caller already
+        # has, and Telegram refuses a second answer.
         update = Update(update_id=0, callback_query=query)
-        # Note: We don't have direct access to context here, but the payment handler
-        # doesn't actually use it, so we can pass None or create a minimal mock
         await handle_check_payment(update, None)
 
 

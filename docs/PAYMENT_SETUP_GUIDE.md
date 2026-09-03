@@ -327,8 +327,8 @@ services:
 
 ### Invalid signature error
 
-1. Verify `WEBHOOK_SECRET` matches Tribute configuration
-2. Check signature header name (`X-Tribute-Signature`)
+1. Verify `TRIBUTE_API_KEY` is the key of the account the webhook is configured in: Tribute signs the body with it
+2. Check the signature header (`trbt-signature`, HMAC-SHA256 of the raw body)
 3. Review signature verification algorithm
 
 ### User denied access despite payment

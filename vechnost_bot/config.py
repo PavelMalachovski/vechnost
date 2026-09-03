@@ -98,7 +98,10 @@ class Settings(BaseSettings):
     webhook_secret: str | None = Field(
         default=None,
         validation_alias="WEBHOOK_SECRET",
-        description="Webhook signature secret"
+        description="Optional second key webhooks may be signed with, for a "
+                    "relay or a test harness in front of the endpoint. Tribute "
+                    "itself signs with TRIBUTE_API_KEY; this is accepted "
+                    "alongside it, never instead of it."
     )
 
     admin_ids: str | None = Field(
@@ -187,6 +190,18 @@ class Settings(BaseSettings):
         description="Comma-separated origins allowed to read API responses "
                     "from script. The Mini App is same-origin and needs none, "
                     "so the default is no allowance at all."
+    )
+
+    trusted_proxy_hops: int = Field(
+        default=1,
+        ge=1,
+        le=5,
+        validation_alias="TRUSTED_PROXY_HOPS",
+        description="How many proxies stand between the internet and this "
+                    "app and append to X-Forwarded-For. The rate limiter "
+                    "reads the client address that many entries from the "
+                    "end of the header; the entries before it were written "
+                    "by the client. One on Railway; two with a CDN in front.",
     )
 
     allowed_hosts: str | None = Field(

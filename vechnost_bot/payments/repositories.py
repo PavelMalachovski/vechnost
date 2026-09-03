@@ -3,7 +3,7 @@
 import logging
 from datetime import datetime
 
-from sqlalchemy import delete, or_, select
+from sqlalchemy import delete, or_, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..compat import TOTAL_QUESTIONS
@@ -175,6 +175,65 @@ class UserRepository:
     async def is_referred(session: AsyncSession, telegram_user_id: int) -> bool:
         user = await UserRepository.get_by_telegram_id(session, telegram_user_id)
         return bool(user and user.referred_by is not None)
+
+    @staticmethod
+    async def erase(session: AsyncSession, telegram_user_id: int) -> dict[str, int]:
+        """Delete everything the bot holds about one person. Returns counts.
+
+        The user row goes with its payments and subscriptions (the money
+        side lives at Tribute, and a journal keyed by a person is still a
+        record of that person). A room, a test or a board the user sat in
+        is one row shared with a partner and goes too: the answers in it
+        are half theirs, and consent to keep them has to be unanimous, the
+        same rule `DELETE /api/compat/{code}` follows. A certificate the
+        user redeemed stays spent but forgets who spent it, so the code
+        cannot be redeemed again. Anyone this user invited keeps their
+        discount and loses the link to who invited them.
+        """
+        from sqlalchemy import update as _update
+
+        removed: dict[str, int] = {}
+
+        for name, model in (
+            ("rooms", Room),
+            ("compat_tests", CompatTest),
+            ("games", Steps69Game),
+        ):
+            result = await session.execute(
+                delete(model).where(
+                    or_(
+                        model.creator_telegram_user_id == telegram_user_id,
+                        model.guest_telegram_user_id == telegram_user_id,
+                    )
+                )
+            )
+            removed[name] = result.rowcount or 0
+
+        result = await session.execute(
+            _update(Certificate)
+            .where(Certificate.used_by_telegram_user_id == telegram_user_id)
+            .values(used_by_telegram_user_id=None)
+        )
+        removed["certificates_unlinked"] = result.rowcount or 0
+
+        result = await session.execute(
+            _update(User)
+            .where(User.referred_by == telegram_user_id)
+            .values(referred_by=None)
+        )
+        removed["referrals_unlinked"] = result.rowcount or 0
+
+        user = await UserRepository.get_by_telegram_id(session, telegram_user_id)
+        if user is None:
+            removed["user"] = 0
+        else:
+            # Through the session, so the ORM cascade takes payments and
+            # subscriptions with it.
+            await session.delete(user)
+            removed["user"] = 1
+        await session.flush()
+        logger.info(f"Erased user {telegram_user_id}: {removed}")
+        return removed
 
     @staticmethod
     async def get_all(session: AsyncSession) -> list[User]:
@@ -373,6 +432,42 @@ class SubscriptionRepository:
         return subscription
 
     @staticmethod
+    async def revoke_for_user(
+        session: AsyncSession,
+        user_id: int,
+        subscription_id: int | None = None,
+        status: str = "canceled",
+        when: datetime | None = None,
+    ) -> int:
+        """Withdraw a user's access. Returns how many rows changed.
+
+        A cancellation or a refund names what it undoes; when a row with
+        that id exists it is the only one touched. When none does - an
+        older row filed under a different key, or a refund that names the
+        product rather than the purchase - every active row of the user is
+        closed, because a refund with no effect is worse than one with too
+        much: the money went back and the deck stayed open.
+        """
+        result = await session.execute(
+            select(Subscription)
+            .where(Subscription.user_id == user_id)
+            .where(Subscription.status.in_(["active", "trialing"]))
+        )
+        rows = list(result.scalars().all())
+        if subscription_id is not None:
+            named = [row for row in rows if row.subscription_id == subscription_id]
+            if named:
+                rows = named
+        stamp = when or datetime.utcnow()
+        for row in rows:
+            row.status = status
+            row.last_event_at = stamp
+        await session.flush()
+        if rows:
+            logger.info(f"Revoked {len(rows)} subscription row(s) for user {user_id}")
+        return len(rows)
+
+    @staticmethod
     async def get_active_subscriptions_for_user(
         session: AsyncSession, user_id: int
     ) -> list[Subscription]:
@@ -463,7 +558,42 @@ class CertificateRepository:
         certificate = Certificate(code=code)
         session.add(certificate)
         await session.flush()
-        logger.info(f"Created certificate with code: {code}")
+        # The id, never the code: a code in the log is lifetime access to
+        # whoever can read the log.
+        logger.info(f"Created certificate #{certificate.id}")
+        return certificate
+
+    @staticmethod
+    async def claim(
+        session: AsyncSession, code: str, telegram_user_id: int
+    ) -> Certificate | None:
+        """Take an unused certificate for this user, atomically.
+
+        One UPDATE whose WHERE clause carries the condition, so two people
+        redeeming the same code at the same moment cannot both read
+        `is_used = false` and both mark it: the database decides, exactly
+        one row changes, and the loser gets None. `mark_as_used` below sets
+        the same fields on an instance already checked, which is the
+        read-then-write this replaces on the activation path.
+        """
+        result = await session.execute(
+            update(Certificate)
+            .where(Certificate.code == code)
+            .where(Certificate.is_used == False)  # noqa: E712
+            .values(
+                is_used=True,
+                used_by_telegram_user_id=telegram_user_id,
+                used_at=datetime.utcnow(),
+            )
+        )
+        if result.rowcount != 1:
+            return None
+        certificate = await CertificateRepository.get_by_code(session, code)
+        if certificate is not None:
+            await session.refresh(certificate)
+            logger.info(
+                f"Claimed certificate #{certificate.id} for user {telegram_user_id}"
+            )
         return certificate
 
     @staticmethod
@@ -478,7 +608,7 @@ class CertificateRepository:
         certificate.used_at = datetime.utcnow()
         await session.flush()
         logger.info(
-            f"Marked certificate {certificate.code} as used by user {telegram_user_id}"
+            f"Marked certificate #{certificate.id} as used by user {telegram_user_id}"
         )
         return certificate
 
@@ -546,8 +676,34 @@ class RoomRepository:
         )
         session.add(room)
         await session.flush()
-        logger.info(f"Created room {code} by {creator_telegram_user_id}")
+        # Rooms, tests and games are logged by row id, never by code: the
+        # code is the seat itself for as long as the game is open.
+        logger.info(f"Created room #{room.id} by {creator_telegram_user_id}")
         return room
+
+    @staticmethod
+    async def seat_guest(
+        session: AsyncSession, room: Room, telegram_user_id: int, name: str | None
+    ) -> bool:
+        """Take the second seat, atomically. False when somebody else has it.
+
+        The WHERE clause carries the emptiness check, so two partners who
+        open the same link at once cannot both read an empty seat and both
+        write themselves into it with the last one winning silently. The
+        instance is refreshed either way, so the caller sees who sits there.
+        """
+        result = await session.execute(
+            update(Room)
+            .where(Room.id == room.id)
+            .where(Room.guest_telegram_user_id.is_(None))
+            .values(
+                guest_telegram_user_id=telegram_user_id,
+                guest_name=name,
+                updated_at=datetime.utcnow(),
+            )
+        )
+        await session.refresh(room)
+        return result.rowcount == 1
 
 
 class Steps69Repository:
@@ -592,8 +748,31 @@ class Steps69Repository:
         )
         session.add(game)
         await session.flush()
-        logger.info(f"Created steps69 game {code} ({mode}) by {creator_telegram_user_id}")
+        logger.info(f"Created steps69 game #{game.id} ({mode}) by {creator_telegram_user_id}")
         return game
+
+    @staticmethod
+    async def seat_guest(
+        session: AsyncSession,
+        game: Steps69Game,
+        telegram_user_id: int,
+        name: str | None,
+        piece: str,
+    ) -> bool:
+        """Take the second seat, atomically. See `RoomRepository.seat_guest`."""
+        result = await session.execute(
+            update(Steps69Game)
+            .where(Steps69Game.id == game.id)
+            .where(Steps69Game.guest_telegram_user_id.is_(None))
+            .values(
+                guest_telegram_user_id=telegram_user_id,
+                guest_name=name,
+                guest_piece=piece,
+                updated_at=datetime.utcnow(),
+            )
+        )
+        await session.refresh(game)
+        return result.rowcount == 1
 
     @staticmethod
     async def delete(session: AsyncSession, game_id: int) -> None:
@@ -764,8 +943,32 @@ class CompatTestRepository:
         )
         session.add(test)
         await session.flush()
-        logger.info(f"Created compat test {code} by {creator_telegram_user_id}")
+        logger.info(f"Created compat test #{test.id} by {creator_telegram_user_id}")
         return test
+
+    @staticmethod
+    async def seat_guest(
+        session: AsyncSession, test: CompatTest, telegram_user_id: int, name: str | None
+    ) -> bool:
+        """Take the second seat, atomically. See `RoomRepository.seat_guest`.
+
+        Also writes the pair key, which is what a retake later supersedes
+        by: it belongs to the moment the pair became a pair.
+        """
+        low, high = sorted((test.creator_telegram_user_id, telegram_user_id))
+        result = await session.execute(
+            update(CompatTest)
+            .where(CompatTest.id == test.id)
+            .where(CompatTest.guest_telegram_user_id.is_(None))
+            .values(
+                guest_telegram_user_id=telegram_user_id,
+                guest_name=name,
+                pair_key=f"{low}:{high}",
+                updated_at=datetime.utcnow(),
+            )
+        )
+        await session.refresh(test)
+        return result.rowcount == 1
 
     @staticmethod
     async def latest_completed_for(

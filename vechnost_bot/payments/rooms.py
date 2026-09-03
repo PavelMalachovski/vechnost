@@ -202,10 +202,12 @@ async def join_room(
         if room.creator_telegram_user_id == user_id:
             pass  # creator re-opening their own room
         elif room.guest_telegram_user_id is None:
-            room.guest_telegram_user_id = user_id
-            room.guest_name = name
-            room.updated_at = datetime.utcnow()
-            await session.flush()
+            # One conditional UPDATE, not a read followed by a write: two
+            # people opening the link at once must not both be seated with
+            # the last writer silently displacing the first.
+            await RoomRepository.seat_guest(session, room, user_id, name)
+            if room.guest_telegram_user_id != user_id:
+                raise HTTPException(status_code=409, detail="room is full")
         elif room.guest_telegram_user_id != user_id:
             raise HTTPException(status_code=409, detail="room is full")
         return _room_state(room, user_id, language)
@@ -224,7 +226,8 @@ async def get_room(
     async with get_db() as session:
         room = await _load_room(session, code)
         if user_id not in (room.creator_telegram_user_id, room.guest_telegram_user_id):
-            raise HTTPException(status_code=403, detail="not a player in this room")
+            # 404, not 403: a stranger must not learn that the code is live.
+            raise HTTPException(status_code=404, detail="room not found")
         return _room_state(room, user_id, language)
 
 
@@ -241,7 +244,8 @@ async def advance_room(
     async with get_db() as session:
         room = await _load_room(session, code)
         if user_id not in (room.creator_telegram_user_id, room.guest_telegram_user_id):
-            raise HTTPException(status_code=403, detail="not a player in this room")
+            # 404, not 403: a stranger must not learn that the code is live.
+            raise HTTPException(status_code=404, detail="room not found")
         if room.guest_telegram_user_id is None:
             raise HTTPException(status_code=409, detail="partner has not joined yet")
         if room.finished:

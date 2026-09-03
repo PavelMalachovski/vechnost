@@ -80,7 +80,10 @@ async def _load(session, code: str, user_id: int, for_update: bool = False):
     if not test:
         raise HTTPException(status_code=404, detail="test not found")
     if user_id not in (test.creator_telegram_user_id, test.guest_telegram_user_id):
-        raise HTTPException(status_code=403, detail="not a participant in this test")
+        # The same answer a code nobody minted gets. A 403 here told a
+        # stranger sweeping the code space which codes were live, and the
+        # read endpoints are not throttled the way `join` is.
+        raise HTTPException(status_code=404, detail="test not found")
     return test
 
 
@@ -167,12 +170,10 @@ async def join(
         if test.creator_telegram_user_id == user_id:
             pass  # creator re-opening their own test
         elif test.guest_telegram_user_id is None:
-            test.guest_telegram_user_id = user_id
-            test.guest_name = name
-            low, high = sorted((test.creator_telegram_user_id, user_id))
-            test.pair_key = f"{low}:{high}"
-            test.updated_at = datetime.utcnow()
-            await session.flush()
+            # Conditional UPDATE: see RoomRepository.seat_guest.
+            await CompatTestRepository.seat_guest(session, test, user_id, name)
+            if test.guest_telegram_user_id != user_id:
+                raise HTTPException(status_code=409, detail="test is full")
         elif test.guest_telegram_user_id != user_id:
             raise HTTPException(status_code=409, detail="test is full")
         return _state(test, user_id)
@@ -285,7 +286,7 @@ async def delete(
     async with get_db() as session:
         test = await _load(session, code, user_id)
         await CompatTestRepository.delete(session, test.id)
-        logger.info(f"Compat test {test.code} deleted by participant")
+        logger.info(f"Compat test #{test.id} deleted by participant")
         return {"deleted": True}
 
 

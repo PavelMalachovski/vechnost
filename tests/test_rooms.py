@@ -76,7 +76,19 @@ def test_outsider_cannot_read_room(client):
     code = create_room(client)["code"]
     client.post(f"/api/rooms/{code}/join", headers=BOB)
     response = client.get(f"/api/rooms/{code}", headers=EVE)
-    assert response.status_code == 403
+    assert response.status_code == 404
+
+
+def test_a_stranger_cannot_tell_a_live_code_from_a_dead_one(client):
+    """A 403 for someone else's room and a 404 for no room was an oracle:
+    the read endpoints are not throttled like `join`, so a sweep of the
+    code space could find live rooms at wire speed and join them after."""
+    code = create_room(client)["code"]
+    live = client.get(f"/api/rooms/{code}", headers=EVE)
+    dead = client.get("/api/rooms/NOPE42", headers=EVE)
+    assert live.status_code == dead.status_code == 404
+    assert live.json() == dead.json()
+    assert client.post(f"/api/rooms/{code}/advance", headers=EVE).status_code == 404
 
 
 def test_turns_alternate_and_wrong_turn_is_rejected(client):

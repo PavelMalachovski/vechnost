@@ -58,7 +58,9 @@ class TestCommandHandlers:
 
             await start_command(mock_update, mock_context)
 
-            mock_set_context.assert_called_once_with(12345, "testuser")
+            # The id only: the handle is a person's public name and stays
+            # out of the error tracker.
+            mock_set_context.assert_called_once_with(12345)
             # brand logo first, as its own message, then the greeting
             mock_update.message.reply_photo.assert_called_once()
             mock_update.message.reply_text.assert_called_once_with(
