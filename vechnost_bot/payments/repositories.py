@@ -177,6 +177,65 @@ class UserRepository:
         return bool(user and user.referred_by is not None)
 
     @staticmethod
+    async def erase(session: AsyncSession, telegram_user_id: int) -> dict[str, int]:
+        """Delete everything the bot holds about one person. Returns counts.
+
+        The user row goes with its payments and subscriptions (the money
+        side lives at Tribute, and a journal keyed by a person is still a
+        record of that person). A room, a test or a board the user sat in
+        is one row shared with a partner and goes too: the answers in it
+        are half theirs, and consent to keep them has to be unanimous, the
+        same rule `DELETE /api/compat/{code}` follows. A certificate the
+        user redeemed stays spent but forgets who spent it, so the code
+        cannot be redeemed again. Anyone this user invited keeps their
+        discount and loses the link to who invited them.
+        """
+        from sqlalchemy import update as _update
+
+        removed: dict[str, int] = {}
+
+        for name, model in (
+            ("rooms", Room),
+            ("compat_tests", CompatTest),
+            ("games", Steps69Game),
+        ):
+            result = await session.execute(
+                delete(model).where(
+                    or_(
+                        model.creator_telegram_user_id == telegram_user_id,
+                        model.guest_telegram_user_id == telegram_user_id,
+                    )
+                )
+            )
+            removed[name] = result.rowcount or 0
+
+        result = await session.execute(
+            _update(Certificate)
+            .where(Certificate.used_by_telegram_user_id == telegram_user_id)
+            .values(used_by_telegram_user_id=None)
+        )
+        removed["certificates_unlinked"] = result.rowcount or 0
+
+        result = await session.execute(
+            _update(User)
+            .where(User.referred_by == telegram_user_id)
+            .values(referred_by=None)
+        )
+        removed["referrals_unlinked"] = result.rowcount or 0
+
+        user = await UserRepository.get_by_telegram_id(session, telegram_user_id)
+        if user is None:
+            removed["user"] = 0
+        else:
+            # Through the session, so the ORM cascade takes payments and
+            # subscriptions with it.
+            await session.delete(user)
+            removed["user"] = 1
+        await session.flush()
+        logger.info(f"Erased user {telegram_user_id}: {removed}")
+        return removed
+
+    @staticmethod
     async def get_all(session: AsyncSession) -> list[User]:
         """Every registered user, oldest first.
 

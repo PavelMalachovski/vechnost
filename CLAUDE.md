@@ -283,6 +283,15 @@ ruff check .                             # lint (CI gates on this)
   or a video broadcasts as well as text; the confirm callback is registered
   ahead of the game's catch-all and with `block=False`, or a send to
   thousands of people would hold every other update behind it.
+- **`/delete_me` forgets a person on request.** `privacy.py` asks with two
+  buttons and `UserRepository.erase` does it in one transaction: the user
+  row (payments and subscriptions cascade), every room, test and board the
+  user sat in (one row shared with a partner, gone for both — the same
+  unanimous-consent rule as `DELETE /api/compat/{code}`), the bot session;
+  a redeemed certificate stays spent but forgets who, and `referred_by`
+  links to the user are cleared. Its callback is registered ahead of the
+  game's catch-all on a pattern, like the broadcast's. Anything new that
+  stores a person must be added to `erase`, or the promise is broken.
 - **The daily push has one button into the app.** «Играть» and «Библиотека»
   were the same app opened at two screens, and the choice came before the
   reader had seen either. It is one «Зайти в приложение» now, with the

@@ -160,6 +160,17 @@ All settings are read from environment variables (or `.env`). See
 When `ENABLE_PAYMENT=FALSE` (the default for local dev) everything is
 unlocked and no Tribute setup is needed.
 
+## Deleting a user's data
+
+`/delete_me` asks once, then removes everything the bot holds about the
+person: the user row with its access and payment journal, the daily-push
+setting, the bot session, and every room, compatibility test and «69
+ступеней» board they sat in — those rows are shared with a partner and go
+for both, on the same unanimous-consent rule as deleting one test. A gift
+certificate they redeemed stays spent but forgets who spent it; anyone they
+invited keeps their discount and loses the link. Access does not come back:
+a new purchase or certificate is needed.
+
 ## Broadcasts
 
 One message to every registered user, through either of two doors onto the
