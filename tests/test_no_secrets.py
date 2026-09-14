@@ -39,7 +39,10 @@ PLACEHOLDER_PASSWORDS = {"password", "pass", "secret", "***", "xxx", "changeme"}
 BOT_TOKEN = re.compile(r"\b\d{8,10}:[A-Za-z0-9_-]{35}\b")
 DB_URL = re.compile(r"[a-z+]+://[^:/\s@]+:([^@\s]+)@[^\s]+")
 TRIBUTE_KEY = re.compile(r"TRIBUTE_API_KEY\s*[=:]\s*['\"]?([0-9a-fA-F][0-9a-fA-F-]{19,})")
-CERTIFICATE = re.compile(r"\bVECH-[A-Z2-9]{4}-[A-Z2-9]{4}\b")
+# The body is 4+4 today (payments/gifts.py); the codes that leaked were the
+# older 4+8, and a {4} on the second group let those through - it stopped
+# at a word boundary that was not there.
+CERTIFICATE = re.compile(r"\bVECH-[A-Z2-9]{4}-[A-Z2-9]{4,8}\b")
 TELEGRAM_ID = re.compile(r"(?<![\w.])\d{9,10}(?![\w.])")
 
 
@@ -120,6 +123,18 @@ def test_no_certificate_codes_in_docs_or_scripts():
         if "XXXX" not in code
     ]
     assert not hits, f"a gift certificate code is committed: {hits}"
+
+
+def test_the_certificate_pattern_knows_both_lengths():
+    """The leaked codes were VECH-XXXX-XXXXXXXX; the current ones VECH-XXXX-XXXX.
+
+    Neither string here is a real code: the alphabet has no O, I, 0 or 1, and
+    these are built from letters in order.
+    """
+    assert CERTIFICATE.search("/activate VECH-ABCD-EFGH")
+    assert CERTIFICATE.search("/activate VECH-ABCD-EFGHJKLM")
+    assert not CERTIFICATE.search("VECH-ABCD-EFG")
+    assert not CERTIFICATE.search("VECH-XXXX-XXXX0")
 
 
 def test_no_real_telegram_ids_in_docs_or_scripts():
