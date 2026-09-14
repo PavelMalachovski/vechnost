@@ -264,6 +264,17 @@ ruff check .                             # lint (CI gates on this)
   script and unreadable by hand. The fade is an overlay on `.card .front`
   with `pointer-events: none`, and `markZoneEdges` puts the `cut-*` flags on
   the face for that reason. `tests/test_webapp_static.py` holds it.
+- **A certificate code is lifetime access to whoever reads it.** Two
+  things mint one: a gift bought through Tribute (`payments/gifts.py`) and
+  `scripts/generate_certificates.py` for printed vouchers, and the script
+  calls the same `create_gift_certificate`, so there is one alphabet and one
+  length (`VECH-XXXX-XXXX`) for `tests/test_no_secrets.py` to know. The
+  script writes its QR cards to `certificates/`, which `.gitignore` covers
+  along with `certificates*/`, `certificate_*.png` and `certificates*.sql`,
+  and refuses any other directory inside the checkout that git does not
+  ignore. Five live codes were once committed in a review document; they
+  are gone from the tree but not from the public history, so they must be
+  treated as spent. The repository logs a certificate's id, never its code.
 - **Referral discounts are a second Tribute product, not a coupon.** Tribute
   owns the price, so `referrals.payment_url_for` only chooses which of two
   payment pages a user sees. With `REFERRAL_PAYMENT_URL` unset the codes are
