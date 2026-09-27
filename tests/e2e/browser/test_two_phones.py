@@ -190,3 +190,37 @@ def test_a_link_to_a_seat_that_is_taken_says_so(server: Server, phones, kind: st
     c.page.wait_for_selector("#toast.show", timeout=POLL)
     c.shot("refused")
     assert c.text("#toast"), "the refusal is said, not silent"
+
+
+def test_telegram_web_can_open_the_app_in_its_frame(chromium, live_url: str) -> None:
+    """Telegram Web shows a Mini App in an <iframe> under web.telegram.org.
+
+    Both origins are served through Playwright routes - the parent is a page
+    with the iframe, the app is the live server's own response, headers and
+    all - so this checks what Chromium does with the headers the server
+    really sends. With `X-Frame-Options: SAMEORIGIN` it refused to display
+    the frame, and Telegram Web users saw a blank app.
+    """
+    parent, app_origin = "https://web.telegram.org/k/", "https://vechnost-app.invalid"
+    context = chromium.new_context()
+    refused: list[str] = []
+
+    def route(route, request):
+        if request.url.startswith(parent):
+            route.fulfill(
+                body=f'<iframe id="app" src="{app_origin}/app/" width="390" height="700"></iframe>',
+                content_type="text/html",
+            )
+        elif request.url.startswith(app_origin):
+            route.fulfill(response=route.fetch(url=request.url.replace(app_origin, live_url)))
+        else:
+            route.abort()
+
+    context.route("**/*", route)
+    page = context.new_page()
+    page.on("console", lambda m: refused.append(m.text) if "frame" in m.text.lower() else None)
+    page.goto(parent)
+    frame = page.frame_locator("#app")
+    frame.locator("section#home").wait_for(state="attached", timeout=10_000)
+    assert not refused, refused
+    context.close()

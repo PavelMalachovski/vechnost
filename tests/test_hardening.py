@@ -336,3 +336,29 @@ def test_a_throttled_creator_is_told_they_are_throttled_not_that_it_broke():
         assert status in index.split("function statusMessage(")[1].split("}")[0], (
             f"the client has no sentence for a {status}"
         )
+
+
+# --------------------------------------------------------------------------
+# Framing, and which commit is answering
+# --------------------------------------------------------------------------
+
+def test_telegram_web_may_frame_the_app_and_nobody_else_may(client):
+    """Telegram Web opens a Mini App in an <iframe> under web.telegram.org.
+    `X-Frame-Options: SAMEORIGIN` refused that parent, and the app opened
+    blank there; `frame-ancestors` can name Telegram and still refuse the
+    rest (tests/e2e/browser checks it in Chromium)."""
+    response = client.get("/app/")
+    csp = response.headers.get("content-security-policy", "")
+    assert "frame-ancestors" in csp
+    assert "https://web.telegram.org" in csp
+    assert "'self'" in csp
+    assert "*" not in csp.replace("https://*.telegram.org", ""), "no wildcard beyond Telegram"
+    assert response.headers.get("x-frame-options") is None, "XFO SAMEORIGIN blocks Telegram Web"
+    assert response.headers.get("x-content-type-options") == "nosniff"
+
+
+def test_health_says_which_commit_is_answering(client, monkeypatch):
+    monkeypatch.setenv("RAILWAY_GIT_COMMIT_SHA", "0123456789abcdef")
+    assert client.get("/health").json()["commit"] == "0123456789abcdef"
+    monkeypatch.delenv("RAILWAY_GIT_COMMIT_SHA")
+    assert client.get("/health").json()["commit"] is None

@@ -4,6 +4,7 @@ import asyncio
 import hmac
 import json
 import logging
+import os
 from contextlib import asynccontextmanager
 from pathlib import Path
 from typing import Any
@@ -68,14 +69,25 @@ app = FastAPI(
 )
 
 
+# Who may put the app in a frame: ourselves, and Telegram. The phone and
+# desktop clients open a Mini App in a native webview, but Telegram Web
+# (web.telegram.org, the K and A clients) opens it in an <iframe> whose
+# parent is Telegram's origin, not ours.
+FRAME_ANCESTORS = "frame-ancestors 'self' https://web.telegram.org https://*.telegram.org"
+
+
 @app.middleware("http")
 async def security_headers(request: Request, call_next):
     """Headers the app had none of.
 
-    The Mini App runs inside Telegram's own webview, which frames it itself,
-    so `X-Frame-Options: DENY` would break the product. `SAMEORIGIN` refuses
-    everyone else, which is the part that matters: nothing here should be
-    embedded in a stranger's page and clicked through.
+    Framing is allowed to Telegram and refused to everyone else, which is
+    the part that matters: nothing here should be embedded in a stranger's
+    page and clicked through. It used to be `X-Frame-Options: SAMEORIGIN`,
+    on the belief that Telegram frames the app the same way everywhere; in
+    Telegram Web the parent is web.telegram.org, SAMEORIGIN refused it, and
+    the Mini App opened blank there (Chromium: "Refused to display ... in a
+    frame"). CSP `frame-ancestors` can name Telegram, and every browser that
+    runs Telegram Web honours it.
 
     `nosniff` stops a browser second-guessing a content type, and the
     referrer policy keeps a room code out of the Referer header on any link
@@ -83,7 +95,7 @@ async def security_headers(request: Request, call_next):
     """
     response = await call_next(request)
     response.headers.setdefault("X-Content-Type-Options", "nosniff")
-    response.headers.setdefault("X-Frame-Options", "SAMEORIGIN")
+    response.headers.setdefault("Content-Security-Policy", FRAME_ANCESTORS)
     response.headers.setdefault("Referrer-Policy", "strict-origin-when-cross-origin")
     return response
 
@@ -131,12 +143,18 @@ app.include_router(steps69_router)
 
 
 @app.get("/health")
-async def health_check() -> dict[str, str]:
-    """Health check endpoint."""
+async def health_check() -> dict[str, str | None]:
+    """Health check endpoint, and which commit is answering.
+
+    Railway sets RAILWAY_GIT_COMMIT_SHA on a deploy from GitHub; reporting
+    it lets the post-deploy smoke test (scripts/smoke_production.py) wait
+    for the commit it was started for instead of testing the old one.
+    """
     return {
         "status": "ok",
         "service": "vechnost-payment-webhooks",
         "payment_enabled": str(settings.enable_payment),
+        "commit": os.environ.get("RAILWAY_GIT_COMMIT_SHA") or None,
     }
 
 
