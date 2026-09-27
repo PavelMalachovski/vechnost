@@ -15,14 +15,18 @@ content set and one payment/access model:
    swipeable card deck; content comes from `GET /api/questions`.
 
 The FastAPI app in `vechnost_bot/payments/web.py` also handles Tribute
-payment webhooks. In production `run_webhook.py` supervises the web server
-and the bot as two child processes and exits when either dies, so the
-platform's restart policy restarts the pair together.
+payment webhooks. In production (Railway builds the repository's
+`Dockerfile`) `run_webhook.py` supervises the web server and the bot as two
+child processes: it exits when either dies, so the platform's restart policy
+restarts the pair together, and it passes SIGTERM on to both, so a redeploy
+lets uvicorn drain and the bot stop polling cleanly.
 
 ## Commands
 
 ```bash
-pip install -e ".[dev]"                 # install with dev deps
+pip install --require-hashes --no-deps -r requirements-dev.lock && pip install --no-deps -e .
+                                         # the locked versions CI and production run
+pip install -e ".[dev]"                 # ...or today's versions, unpinned
 python -m vechnost_bot                   # run the bot (polling)
 python -m uvicorn vechnost_bot.payments.web:app --reload --port 8000  # web + Mini App
 pytest                                   # run tests (parallel, ~10s)
@@ -55,10 +59,17 @@ python scripts/smoke_production.py $URL  # read-only smoke of a deployed server
 
 - **The three CI gates are `pytest -q`, `ruff check .` and
   `scripts/typecheck.sh`, and all three pass.** Keep them passing. CI runs on
-  pull requests, on `master`, and nightly on today's PyPI (nothing pins the
-  tree: SQLAlchemy 2.1 broke a fresh install with no commit behind it); it
-  used to name `main` and `develop`, neither of which exists here, so it had
-  never run at all. `e2e.yml` gates on the two-user suite the same way.
+  pull requests, on `master`, and nightly; it used to name `main` and
+  `develop`, neither of which exists here, so it had never run at all.
+  `e2e.yml` gates on the two-user suite the same way.
+- **Dependencies are locked.** `requirements.lock` is what the production
+  image installs and `requirements-dev.lock` (constrained by it) what CI
+  installs: exact versions, hashes, wheels only. SQLAlchemy 2.1 broke a
+  fresh install with no commit behind it, because nothing pinned the tree.
+  Change a dependency in `pyproject.toml`, then regenerate both locks with
+  the two commands in `docs/RAILWAY_DEPLOYMENT.md`; `pip check` in CI fails
+  if you forget. The nightly `upstream` job runs the suite on today's PyPI,
+  unpinned, to hear about a breaking release before a lock update does.
 - **`scripts/typecheck.sh` is mypy on a list, not on the repo.** The strict
   settings in `[tool.mypy]` are real but the repo does not satisfy them yet
   (`python -m mypy vechnost_bot` shows the backlog; CI prints it without
