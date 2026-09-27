@@ -267,6 +267,10 @@ def _ensure_user_columns(sync_conn) -> None:
             "ALTER TABLE users ADD COLUMN daily_card_opt_out BOOLEAN "
             "NOT NULL DEFAULT '0'"
         ),
+        "can_message": (
+            "ALTER TABLE users ADD COLUMN can_message BOOLEAN "
+            "NOT NULL DEFAULT '1'"
+        ),
         # No UNIQUE here: SQLite cannot add a unique column to a populated
         # table, and the code is minted from a uniqueness check in the
         # repository anyway. The model and the migration both declare it, so

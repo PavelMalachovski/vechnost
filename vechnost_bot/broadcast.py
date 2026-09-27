@@ -90,7 +90,7 @@ def app_keyboard() -> InlineKeyboardMarkup | None:
 
 
 async def recipients() -> list[tuple[int, str | None]]:
-    """Everyone the bot knows, as (telegram_user_id, first_name).
+    """Everyone the bot knows and can write to, as (telegram_user_id, first_name).
 
     `get_all` deliberately ignores `daily_card_opt_out`: that flag is a
     choice about the daily prompt, not consent withdrawn from the bot.
@@ -116,12 +116,28 @@ async def _opt_out(user_id: int) -> None:
         logger.warning(f"Broadcast: could not opt {user_id} out of the daily push: {e}")
 
 
+async def _cannot_message(user_id: int) -> None:
+    """Note that the bot cannot start a conversation with this user (see
+    `User.can_message`). Never raises, like `_opt_out`."""
+    from .payments.database import get_db
+    from .payments.repositories import UserRepository
+
+    try:
+        async with get_db() as session:
+            await UserRepository.set_can_message(session, user_id, False)
+    except Exception as e:
+        logger.warning(f"Broadcast: could not mark {user_id} unreachable: {e}")
+
+
 async def deliver(send: Callable[[int], Awaitable[Any]], user_id: int) -> str:
     """One recipient, with the retries that make a bulk send survivable.
 
-    Returns SENT, BLOCKED (the user blocked the bot or the account is gone —
-    retrying is pointless, and they are opted out of the daily push too) or
+    Returns SENT, BLOCKED (the user blocked the bot, the account is gone, or
+    the bot was never let into a chat with them — retrying is pointless) or
     FAILED (attempts exhausted, or Telegram refused for a reason of its own).
+    A block or a deleted account opts the user out of the daily push too; a
+    chat that was never opened only marks them `can_message` false, which
+    their first message to the bot undoes.
     """
     for attempt in range(1, SEND_ATTEMPTS + 1):
         try:
@@ -137,8 +153,13 @@ async def deliver(send: Callable[[int], Awaitable[Any]], user_id: int) -> str:
             if attempt == SEND_ATTEMPTS:
                 return FAILED
             await asyncio.sleep(e.retry_after + 1)
-        except Forbidden:
-            await _opt_out(user_id)
+        except Forbidden as e:
+            if "initiate conversation" in str(e).lower():
+                # Never opened a chat with the bot: not a choice about the
+                # daily push, and gone the day they write to it.
+                await _cannot_message(user_id)
+            else:
+                await _opt_out(user_id)
             return BLOCKED
         except BadRequest as e:
             # "Chat not found" is the deleted-account twin of Forbidden:

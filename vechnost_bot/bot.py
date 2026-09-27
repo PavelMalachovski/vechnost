@@ -35,6 +35,7 @@ from .handlers import (
     invite_command,
     reset_command,
     start_command,
+    write_access_allowed,
 )
 from .jobs import DailyJob, schedule
 from .monitoring import initialize_monitoring, log_bot_event, track_performance
@@ -288,6 +289,13 @@ def create_application() -> Application:
     application.add_handler(CommandHandler("delete_me", delete_me_command))
     application.add_handler(CallbackQueryHandler(
         delete_me_callback, pattern=DELETE_ME_PATTERN, block=False,
+    ))
+
+    # Somebody allowed the bot to write from the Mini App. Ahead of the
+    # admin's broadcast capture below, which would otherwise take an
+    # admin's service message as a draft that nobody asked for.
+    application.add_handler(MessageHandler(
+        filters.StatusUpdate.WRITE_ACCESS_ALLOWED, write_access_allowed,
     ))
 
     # The admin broadcast, and only where ADMIN_IDS names somebody. With it

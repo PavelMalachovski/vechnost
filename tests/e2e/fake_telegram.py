@@ -68,6 +68,9 @@ class FakeTelegram:
         self.calls: list[tuple[str, dict[str, Any]]] = []
         self.sent: list[Sent] = []
         self.blocked: set[int] = set()
+        # People who never opened a chat with the bot: Telegram refuses to
+        # start one. They leave the set the moment they write to the bot.
+        self.strangers: set[int] = set()
         self._ids = itertools.count(1000)
 
     def bot(self, token: str) -> Bot:
@@ -97,6 +100,8 @@ class FakeTelegram:
         chat_id = params.get("chat_id")
         if chat_id is not None and int(chat_id) in self.blocked:
             return 403, "Forbidden: bot was blocked by the user"
+        if chat_id is not None and int(chat_id) in self.strangers:
+            return 403, "Forbidden: bot can't initiate conversation with a user"
         if name in _SENDS or name == "copymessage":
             text = str(params.get("text") or params.get("caption") or "")
             markup = params.get("reply_markup")
@@ -173,6 +178,10 @@ class BotDriver:
         self._update_ids = itertools.count(1)
 
     def _run(self, update: dict[str, Any]) -> None:
+        sender = (update.get("message") or update.get("callback_query") or {}).get("from")
+        if sender:
+            # Writing to the bot opens the chat.
+            self.server.telegram.strangers.discard(int(sender["id"]))
         parsed = Update.de_json(update, self.application.bot)
         self.server.portal.call(self.application.process_update, parsed)
 

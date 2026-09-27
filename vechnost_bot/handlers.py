@@ -252,6 +252,7 @@ async def invite_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
                 telegram_user_id=user_id,
                 username=update.effective_user.username,
                 first_name=update.effective_user.first_name,
+                can_message=True,
             )
             code = await UserRepository.ensure_referral_code(session, user_id)
             invited = await UserRepository.count_referrals(session, user_id)
@@ -420,6 +421,20 @@ _CERTIFICATE_CODE = re.compile(
     r"(?<![A-Za-z0-9])VECH[-\s]?([A-Z0-9]{4})[-\s]?([A-Z0-9]{4})(?![A-Za-z0-9])",
     re.IGNORECASE,
 )
+
+
+async def write_access_allowed(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """Telegram's word that the bot may now write to this person.
+
+    A service message, sent when someone allows the bot to message them
+    from a Mini App - its `requestWriteAccess`, or the checkbox on opening
+    one from a link - without ever pressing /start. It marks them reachable
+    (`User.can_message`) so the pushes they allowed reach them, and says
+    nothing back: the person is in the app, not in this chat.
+    """
+    from .payments.middleware import check_and_register_user
+
+    await check_and_register_user(update, context)
 
 
 async def free_text_hint(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:

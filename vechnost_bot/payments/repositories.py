@@ -45,8 +45,14 @@ class UserRepository:
         first_name: str | None = None,
         last_name: str | None = None,
         language: str | None = None,
+        can_message: bool | None = None,
     ) -> User:
-        """Create or update user."""
+        """Create or update user.
+
+        `can_message=True` from the bot's own handlers: someone writing to
+        the bot can be written to (see `User.can_message`). The payment
+        webhook leaves it alone, since a purchase says nothing about a chat.
+        """
         user = await UserRepository.get_by_telegram_id(session, telegram_user_id)
 
         if user:
@@ -59,6 +65,8 @@ class UserRepository:
                 user.last_name = last_name
             if language is not None:
                 user.language = language
+            if can_message is not None:
+                user.can_message = can_message
             logger.info(f"Updated user: {telegram_user_id}")
         else:
             # Create new user
@@ -68,6 +76,7 @@ class UserRepository:
                 first_name=first_name,
                 last_name=last_name,
                 language=language,
+                can_message=True if can_message is None else can_message,
             )
             session.add(user)
             logger.info(f"Created new user: {telegram_user_id}")
@@ -95,16 +104,34 @@ class UserRepository:
         await session.flush()
 
     @staticmethod
+    async def set_can_message(
+        session: AsyncSession, telegram_user_id: int, can_message: bool
+    ) -> None:
+        """Record whether the bot can start a conversation with this user.
+
+        Only an existing row: a send that failed for somebody the bot never
+        wrote down has nothing to mark.
+        """
+        await session.execute(
+            update(User)
+            .where(User.telegram_user_id == telegram_user_id)
+            .values(can_message=can_message)
+        )
+
+    @staticmethod
     async def get_daily_card_recipients(
         session: AsyncSession, after: int | None = None, limit: int | None = None
     ) -> list[User]:
-        """Users who haven't opted out of the daily card, by Telegram id.
+        """Users who haven't opted out of the daily card and whom the bot
+        can write to, by Telegram id.
 
         In id order, so a run can go a page at a time (`limit`) and be
         resumed after the last person it reached (`after`): the list is
         read as the run goes, and somebody who opts out mid-run is skipped.
         """
-        query = select(User).where(User.daily_card_opt_out.is_(False))
+        query = select(User).where(
+            User.daily_card_opt_out.is_(False), User.can_message.is_(True)
+        )
         if after is not None:
             query = query.where(User.telegram_user_id > after)
         query = query.order_by(User.telegram_user_id)
@@ -299,14 +326,17 @@ class UserRepository:
 
     @staticmethod
     async def get_all(session: AsyncSession) -> list[User]:
-        """Every registered user, oldest first.
+        """Every registered user the bot can write to, oldest first.
 
         Deliberately does not honour `daily_card_opt_out`: that flag is a
         choice about the daily prompt, not consent withdrawn from the bot,
         and the one caller is an announcement about the product itself.
-        Anything recurring belongs in `get_daily_card_recipients`.
+        Anything recurring belongs in `get_daily_card_recipients`. It does
+        skip `can_message` false: a send there can only fail.
         """
-        result = await session.execute(select(User).order_by(User.id))
+        result = await session.execute(
+            select(User).where(User.can_message.is_(True)).order_by(User.id)
+        )
         return list(result.scalars().all())
 
 

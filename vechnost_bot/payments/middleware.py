@@ -74,6 +74,8 @@ async def check_and_register_user(update: Update, context: ContextTypes.DEFAULT_
                 first_name=update.effective_user.first_name,
                 last_name=update.effective_user.last_name,
                 language=update.effective_user.language_code,
+                # They are talking to the bot, so it can talk back.
+                can_message=True,
             )
     except Exception as e:
         logger.error(f"Error registering user: {e}")
