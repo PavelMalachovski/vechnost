@@ -42,10 +42,19 @@ Child = tuple[str, Callable[..., Any], tuple[Any, ...]]
 
 
 def serve_web(port: int) -> None:
-    """The web process: FastAPI under uvicorn."""
+    """The web process: FastAPI under uvicorn, logging in the app's format.
+
+    The log config routes uvicorn's lines through the app's structured
+    handler and masks room, test and game codes out of the access log.
+    """
     import uvicorn
 
-    uvicorn.run("vechnost_bot.payments.web:app", host="0.0.0.0", port=port, log_level="info")
+    from vechnost_bot.monitoring import uvicorn_log_config
+
+    uvicorn.run(
+        "vechnost_bot.payments.web:app", host="0.0.0.0", port=port, log_level="info",
+        log_config=uvicorn_log_config(),
+    )
 
 
 def serve_bot() -> None:

@@ -269,6 +269,31 @@ class TestSentryIntegration:
 
                 mock_init.assert_called_once()
 
+    @pytest.mark.parametrize(("env", "release"), [
+        ({"RAILWAY_GIT_COMMIT_SHA": "0123abc", "RELEASE_VERSION": "1.2.0"}, "0123abc"),
+        ({"RELEASE_VERSION": "1.2.0"}, "1.2.0"),
+        ({}, None),
+    ])
+    def test_the_release_is_the_deployed_commit(self, monkeypatch, env, release):
+        """Every event used to be filed under one release called "unknown",
+        so no error in Sentry could be traced to the deploy that caused it."""
+        from vechnost_bot.config import settings
+        from vechnost_bot.monitoring import configure_sentry
+
+        monkeypatch.delenv("RAILWAY_GIT_COMMIT_SHA", raising=False)
+        monkeypatch.delenv("RELEASE_VERSION", raising=False)
+        for name, value in env.items():
+            monkeypatch.setenv(name, value)
+        with (
+            patch.object(settings, "sentry_dsn", "https://test@sentry.io/123"),
+            patch.object(settings, "environment", "production"),
+            patch('sentry_sdk.init') as mock_init,
+        ):
+            configure_sentry()
+
+        assert mock_init.call_args.kwargs["release"] == release
+        assert mock_init.call_args.kwargs["environment"] == "production"
+
     def test_configure_sentry_without_dsn(self):
         """Test configuring Sentry without DSN."""
         from vechnost_bot.config import settings
