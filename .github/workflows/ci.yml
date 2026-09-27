@@ -160,7 +160,7 @@ jobs:
     # ratchet. Raise it when the total rises; never lower it to get a pull
     # request through - add the test instead. 88.6 % on 2026-09-27.
     - name: Run tests
-      run: pytest -q --cov --cov-report=term-missing:skip-covered --cov-report=xml --cov-fail-under=88
+      run: pytest -q --cov --cov-report=term-missing:skip-covered --cov-report=xml --cov-fail-under=89
 
     # How much of what this pull request changes the tests reach. Advisory:
     # the floor above is the gate, this is where to look first.
