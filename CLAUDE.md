@@ -783,6 +783,17 @@ python scripts/smoke_production.py $URL --deep  # ...and its database and bot he
   off the bottom of the screen. The music presets are synthesised WebAudio
   beds, not files; swap them for licensed stems when there are any and keep
   the control surface.
+- **Readable on every phone, and one Back.** Nothing on the page is set
+  under 11px and the page may be zoomed; tile text reads at 4.5:1 on every
+  stop of its tile's gradient (the light tiles carry the cards' ink); a
+  pressable thing is at least `--tap-min` (44px). Inside Telegram the page's
+  own header «←» (`.icon-btn.back`, one per screen) is hidden, because the
+  header has Telegram's Back - and Telegram's Back presses the active
+  screen's «←», so a screen has exactly one back behaviour. Outside
+  Telegram the page's own shows. `tests/test_webapp_readability.py` holds
+  all of this on the source; `tests/e2e/browser/test_readability.py` as
+  drawn. In a browser test, go back with Telegram's Back
+  (`BackButton._cb()`), never a click on a `#…Back`: it is hidden.
 - **One swipe engine, one stage builder.** The game deck and the Library
   deck share `buildStage` and the same drag handler in
   `webapp/index.html`; the Library plugs in through `drag.onAdvance` /
