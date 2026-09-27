@@ -1,11 +1,15 @@
 """Main bot application setup."""
 
+import asyncio
 import logging
+from collections.abc import Awaitable
 from datetime import time, timedelta
+from typing import Any
 
 from telegram.error import Conflict, NetworkError, TimedOut
 from telegram.ext import (
     Application,
+    BaseUpdateProcessor,
     CallbackQueryHandler,
     CommandHandler,
     ContextTypes,
@@ -189,6 +193,66 @@ async def _report_session_store() -> None:
         )
 
 
+# How many updates are handled at once. Updates used to be handled strictly
+# one after another, so one slow render or a Telegram call waiting out a
+# retry held every other person's tap behind it.
+CONCURRENT_UPDATES = 32
+
+
+class PerChatUpdateProcessor(BaseUpdateProcessor):
+    """Different chats side by side; one chat's updates in the order sent.
+
+    A chat's session is read, changed and saved by each handler, so two taps
+    of one person handled at once could each save over the other - the
+    reason PTB's own concurrency was never switched on. Here every update
+    that has a chat waits for that chat's previous one, and only chats run
+    in parallel. Updates without a chat (none the bot registers today) run
+    as they come.
+    """
+
+    def __init__(self, max_concurrent_updates: int = CONCURRENT_UPDATES) -> None:
+        super().__init__(max_concurrent_updates)
+        self._locks: dict[int, asyncio.Lock] = {}
+        self._waiting: dict[int, int] = {}
+
+    async def do_process_update(self, update: object, coroutine: Awaitable[Any]) -> None:
+        chat_id = _chat_of(update)
+        if chat_id is None:
+            await coroutine
+            return
+        lock = self._locks.setdefault(chat_id, asyncio.Lock())
+        self._waiting[chat_id] = self._waiting.get(chat_id, 0) + 1
+        try:
+            async with lock:
+                await coroutine
+        finally:
+            self._waiting[chat_id] -= 1
+            if not self._waiting[chat_id]:
+                # Nobody else is queued on this chat: forget its lock, or
+                # the table would hold one per person who ever wrote.
+                del self._waiting[chat_id]
+                del self._locks[chat_id]
+
+    async def initialize(self) -> None:
+        """Nothing to set up."""
+
+    async def shutdown(self) -> None:
+        """Nothing to tear down."""
+
+
+def _chat_of(update: object) -> int | None:
+    """The chat an update belongs to, or its sender when it has no chat."""
+    from telegram import Update
+
+    if not isinstance(update, Update):
+        return None
+    if update.effective_chat is not None:
+        return update.effective_chat.id
+    if update.effective_user is not None:
+        return update.effective_user.id
+    return None
+
+
 async def _post_init(application: Application) -> None:
     await _report_session_store()
     await _publish_entry_points(application)
@@ -204,6 +268,7 @@ def create_application() -> Application:
     application = (
         Application.builder()
         .bot(bot)
+        .concurrent_updates(PerChatUpdateProcessor())
         .post_init(_post_init)
         .post_shutdown(_post_shutdown)
         .build()

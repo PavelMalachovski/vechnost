@@ -79,6 +79,21 @@ class TestBotSetup:
             "retention_sweep": time(3, 30),
         }
 
+    def test_updates_run_side_by_side_but_each_chat_in_order(self):
+        from vechnost_bot.bot import CONCURRENT_UPDATES, PerChatUpdateProcessor
+
+        app = create_application()
+        assert isinstance(app.update_processor, PerChatUpdateProcessor)
+        assert app.update_processor.max_concurrent_updates == CONCURRENT_UPDATES > 1
+
+    def test_the_bot_has_a_pool_for_them(self):
+        from vechnost_bot.config import BOT_API_CONNECTIONS, BOT_API_POOL_TIMEOUT
+
+        request = create_application().bot.request
+        pool = request._client_kwargs["limits"]
+        assert pool.max_connections == BOT_API_CONNECTIONS >= 32
+        assert request._client_kwargs["timeout"].pool == BOT_API_POOL_TIMEOUT
+
     def test_a_missing_token_is_refused_at_import_not_at_call(self):
         """There is no token check inside create_application, by design.
 
@@ -160,3 +175,81 @@ class TestConfig:
         with pytest.raises(ValueError):
             Settings()
 
+
+# ---------------------------------------------------------------------------
+# Updates side by side, one chat in order (audit I-06)
+# ---------------------------------------------------------------------------
+
+def _message_from(chat_id: int, update_id: int):
+    from telegram import Update
+
+    return Update.de_json({
+        "update_id": update_id,
+        "message": {
+            "message_id": update_id,
+            "date": 0,
+            "chat": {"id": chat_id, "type": "private"},
+            "from": {"id": chat_id, "is_bot": False, "first_name": "P"},
+            "text": "/start",
+        },
+    }, None)
+
+
+async def test_one_chat_is_handled_in_order_and_other_chats_meanwhile():
+    """Two taps of one person must not run at once - each handler reads,
+    changes and saves that chat's session - but another person's tap must
+    not wait behind them either."""
+    import asyncio
+
+    from vechnost_bot.bot import PerChatUpdateProcessor
+
+    processor = PerChatUpdateProcessor(max_concurrent_updates=8)
+    log: list[str] = []
+
+    async def handle(name: str, pause: float) -> None:
+        log.append(f"{name} start")
+        await asyncio.sleep(pause)
+        log.append(f"{name} end")
+
+    await asyncio.gather(
+        processor.process_update(_message_from(1, 1), handle("alice 1", 0.05)),
+        processor.process_update(_message_from(1, 2), handle("alice 2", 0)),
+        processor.process_update(_message_from(2, 3), handle("bob", 0)),
+    )
+
+    assert log.index("alice 1 end") < log.index("alice 2 start"), log
+    assert log.index("bob end") < log.index("alice 1 end"), "bob waited for alice"
+    assert processor._locks == {} and processor._waiting == {}, "locks are not kept"
+
+
+async def test_an_update_without_a_chat_is_handled_as_it_comes():
+    from vechnost_bot.bot import PerChatUpdateProcessor
+
+    processor = PerChatUpdateProcessor()
+    done: list[str] = []
+
+    async def handle() -> None:
+        done.append("ok")
+
+    await processor.process_update(object(), handle())
+    assert done == ["ok"]
+
+
+async def test_a_failing_update_does_not_leave_its_chat_locked():
+    from vechnost_bot.bot import PerChatUpdateProcessor
+
+    processor = PerChatUpdateProcessor()
+
+    async def boom() -> None:
+        raise RuntimeError("handler failed")
+
+    with pytest.raises(RuntimeError):
+        await processor.process_update(_message_from(5, 1), boom())
+
+    reached: list[bool] = []
+
+    async def after() -> None:
+        reached.append(True)
+
+    await processor.process_update(_message_from(5, 2), after())
+    assert reached == [True] and processor._locks == {}
