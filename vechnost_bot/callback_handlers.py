@@ -55,6 +55,26 @@ def _card_footer(theme: Theme, index: int, total: int, language: Language) -> st
     return f"{plain} · {index + 1}/{total}"
 
 
+def _calendar_text(
+    session: SessionState, content_type: ContentType, remaining_count: int,
+    page: int, total_pages: int,
+) -> str:
+    """The calendar's message: its header, and which page this is.
+
+    The page used to be a button in the keyboard's bottom row, «Страница 1
+    из 2», that did nothing when tapped and looked like every button that
+    did (audit D-33). A count is text, so it lives in the text, and only
+    when there is more than one page to count.
+    """
+    header = _calendar_header(session, content_type, remaining_count)
+    if total_pages > 1:
+        page_line = get_text('navigation.page', session.language).format(
+            current=page + 1, total=total_pages
+        )
+        header = f"{header}\n{page_line}"
+    return header
+
+
 def _calendar_header(
     session: SessionState, content_type: ContentType, remaining_count: int
 ) -> str:
@@ -269,7 +289,7 @@ class ThemeHandler(CallbackHandler):
         # Calculate remaining count
         remaining_count = len(items)
 
-        header = _calendar_header(session, content_type, remaining_count)
+        header = _calendar_text(session, content_type, remaining_count, page, total_pages)
 
         # Show toggle only for Sex theme
         show_toggle = (session.theme == Theme.SEX)
@@ -352,7 +372,7 @@ class LevelHandler(CallbackHandler):
         # Calculate remaining count
         remaining_count = len(items)
 
-        header = _calendar_header(session, content_type, remaining_count)
+        header = _calendar_text(session, content_type, remaining_count, page, total_pages)
 
         # Show toggle only for Sex theme
         show_toggle = (session.theme == Theme.SEX)
@@ -442,7 +462,7 @@ class CalendarHandler(CallbackHandler):
         # Calculate remaining count
         remaining_count = len(items)
 
-        header = _calendar_header(session, content_type, remaining_count)
+        header = _calendar_text(session, content_type, remaining_count, page, total_pages)
 
         # Show toggle only for Sex theme
         show_toggle = (session.theme == Theme.SEX)
@@ -735,7 +755,7 @@ class ToggleHandler(CallbackHandler):
         # Calculate remaining count
         remaining_count = len(items)
 
-        header = _calendar_header(session, content_type, remaining_count)
+        header = _calendar_text(session, content_type, remaining_count, page, total_pages)
 
         # Show toggle only for Sex theme
         show_toggle = (session.theme == Theme.SEX)
@@ -847,7 +867,7 @@ class BackHandler(CallbackHandler):
         # Calculate remaining count
         remaining_count = len(items)
 
-        header = _calendar_header(session, content_type, remaining_count)
+        header = _calendar_text(session, content_type, remaining_count, page, total_pages)
 
         # Show toggle only for Sex theme
         show_toggle = (session.theme == Theme.SEX)
@@ -1012,7 +1032,7 @@ class SimpleActionHandler(CallbackHandler):
         # Calculate remaining count
         remaining_count = len(items)
 
-        header = _calendar_header(session, content_type, remaining_count)
+        header = _calendar_text(session, content_type, remaining_count, page, total_pages)
 
         # Show toggle only for Sex theme
         show_toggle = (session.theme == Theme.SEX)
