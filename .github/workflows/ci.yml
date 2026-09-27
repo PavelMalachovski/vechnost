@@ -170,12 +170,12 @@ jobs:
         BASE: ${{ github.base_ref }}
       run: |
         pip install diff-cover
-        diff-cover coverage.xml --compare-branch="origin/$BASE" --markdown-report diff-cover.md
+        diff-cover coverage.xml --compare-branch="origin/$BASE" --format markdown:diff-cover.md
         cat diff-cover.md >> "$GITHUB_STEP_SUMMARY"
 
     - name: Keep the coverage report
       if: always()
-      uses: actions/upload-artifact@v5
+      uses: actions/upload-artifact@v6
       with:
         name: coverage
         path: coverage.xml
@@ -234,7 +234,7 @@ jobs:
 
     - name: Keep the installed versions
       if: always()
-      uses: actions/upload-artifact@v5
+      uses: actions/upload-artifact@v6
       with:
         name: runtime-freeze
         path: runtime-freeze.txt
@@ -268,7 +268,7 @@ jobs:
 
     - name: Keep the resolved versions
       if: always()
-      uses: actions/upload-artifact@v5
+      uses: actions/upload-artifact@v6
       with:
         name: upstream-freeze
         path: upstream-freeze.txt

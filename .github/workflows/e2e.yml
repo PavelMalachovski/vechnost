@@ -133,7 +133,7 @@ jobs:
 
     - name: Keep the report
       if: always()
-      uses: actions/upload-artifact@v5
+      uses: actions/upload-artifact@v6
       with:
         name: e2e-postgres
         path: e2e-report
@@ -170,7 +170,7 @@ jobs:
 
     - name: Keep what the runs reached
       if: always()
-      uses: actions/upload-artifact@v5
+      uses: actions/upload-artifact@v6
       with:
         name: e2e-fuzz
         path: e2e-report
@@ -230,7 +230,7 @@ jobs:
     # trace of each phone when a test fails (`playwright show-trace`).
     - name: Keep screenshots and traces
       if: always()
-      uses: actions/upload-artifact@v5
+      uses: actions/upload-artifact@v6
       with:
         name: e2e-browser
         path: e2e-report
