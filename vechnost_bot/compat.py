@@ -3,9 +3,18 @@
 Deliberately imports neither FastAPI nor python-telegram-bot — the web API,
 the bot, and the tests all use this module directly.
 
-Individual answers go in; they never come out. The result carries zones,
-verdict texts and question numbers with their texts, and nothing that would
-let one partner reconstruct the other's answers.
+Individual answers go in; they never come out. The result carries the
+overall percent, each sphere's zone and verdict, and the numbers and texts
+of the questions where the answers diverge, and nothing more: every other
+part of it - which spheres are listed, in what order, with which framing -
+is a function of those alone, never of a hidden score.
+
+That is not the same as nothing being inferable, and the product says so
+to the people taking the test. A partner who knows their own answer to a
+divergent question knows the other's to within one or two values (a gap
+of three or more from a 2 can only be a 5), a zone bounds the other's
+average on that sphere, and the percent their overall total. What must
+not happen is the result telling more than that.
 """
 
 from functools import cache
@@ -42,8 +51,9 @@ class SphereResult(BaseModel):
     `(avg_a + avg_b) / 2` over five questions, so a partner who knows their
     own five answers could solve `sum_b = 10 * score - sum_a` exactly — at
     the boundaries (a sphere sum of 25) that pins every individual answer.
-    The score exists only to order `strengths` and `attention`, and stays
-    inside `build_result` as a parallel list.
+    The score stays inside `build_result` and feeds only `percent`; it used
+    to order `strengths` and `attention` as well, and an order by score is
+    the same leak one comparison at a time.
     """
 
     id: str
@@ -94,12 +104,9 @@ def scale_labels(language: Language = Language.RUSSIAN) -> list[str]:
 
 
 def _both_low(avg_a: float, avg_b: float) -> bool:
-    """True when both partners averaged under 3 on a sphere.
-
-    The single source of truth for "both low" — `_zone`'s crisis check and
-    `build_result`'s framing selection both call this rather than each
-    restating the threshold.
-    """
+    """True when both partners averaged under 3 on a sphere: one of the two
+    ways into the crisis zone. Only `_zone` asks; see `_framing` for why the
+    framing does not."""
     return avg_a < 3 and avg_b < 3
 
 
@@ -118,6 +125,27 @@ def _zone(avg_a: float, avg_b: float, max_gap: int) -> Zone:
     return "growth"
 
 
+def _framing(result: SphereResult, framings: dict[str, str]) -> str | None:
+    """Why a sphere that needs the talk needs it, read off the result alone.
+
+    A divergent question means one partner answered 4 or 5 and the other 1
+    or 2, so "one of you has enough here, the other does not" is true of
+    that question whatever the averages. A crisis with no divergent
+    question can only be two averages under 3 - a gap of four would have
+    been divergent - so "both_low" says nothing the zone does not. A
+    middling sphere with neither gets no sentence rather than a false one.
+
+    It used to prefer "both_low" whenever both averages were under 3, which
+    told a partner under 3 that the other was under 3 as well, on a sphere
+    whose zone alone did not say so.
+    """
+    if result.divergent:
+        return framings["gap"]
+    if result.zone == "crisis":
+        return framings["both_low"]
+    return None
+
+
 def build_result(
     a: list[int], b: list[int], language: Language = Language.RUSSIAN
 ) -> CompatResult:
@@ -130,13 +158,9 @@ def build_result(
     content = _content(language)
     spheres = load_spheres(language)
     results: list[SphereResult] = []
-    # Parallel to `results`: whether both partners averaged under 3 on that
-    # sphere. Drives the attention framing below — kept separate from
-    # SphereResult because it is an internal signal, not part of the result
-    # a partner sees.
-    both_low_flags: list[bool] = []
-    # Parallel to `results`: the sphere's `(avg_a + avg_b) / 2`. Same reason,
-    # and a stronger one — it is invertible. See SphereResult's docstring.
+    # Parallel to `results`: the sphere's `(avg_a + avg_b) / 2`, kept out of
+    # SphereResult because it is invertible (see its docstring). It feeds
+    # `percent` and nothing else.
     scores: list[float] = []
 
     for index, sphere in enumerate(spheres):
@@ -160,53 +184,26 @@ def build_result(
             # 1-based and global: sphere 8's questions are 36..40.
             divergent=[start + i + 1 for i, gap in enumerate(gaps) if gap >= 3],
         ))
-        both_low_flags.append(_both_low(avg_a, avg_b))
         scores.append((avg_a + avg_b) / 2)
 
     percent = round((sum(scores) / len(scores) - 1) / 4 * 100)
 
-    strengths = [
-        result
-        for result, _ in sorted(
-            (
-                pair for pair in zip(results, scores, strict=True)
-                if pair[0].zone == "strength"
-            ),
-            key=lambda pair: pair[1],
-            reverse=True,
-        )[:3]
-    ]
+    # Both lists follow the authored order of the spheres and hold every
+    # sphere that qualifies. They used to be the three best-scoring
+    # strengths and the two worst-scoring others: an order by score, like a
+    # score, lets a partner who knows their own answers solve for the
+    # other's, one comparison at a time (backend audit B-25).
+    strengths = [result for result in results if result.zone == "strength"]
 
-    # The attention block only ever holds spheres that are *not* a strength —
+    # The attention block only ever holds spheres that are *not* a strength -
     # a sphere can't be both "where you are a team" and "worth talking
     # about" at once, and a couple with eight strong spheres does not get
-    # told to go have a difficult conversation about their best area. Among
-    # the qualifying (growth/crisis) spheres, the two lowest-scoring lead;
-    # if none qualify, attention is empty and the caller renders nothing.
-    #
-    # Both averages under 3 means the partners agree the sphere is a
-    # problem — "both_low" wins even if some individual question also
-    # happened to diverge. "gap" is for spheres that landed here through
-    # divergence with at least one average at 3 or above. Neither applies
-    # to a merely middling sphere with no divergence — there's no true
-    # sentence to explain why. Say nothing rather than something false.
-    ranked = sorted(
-        (
-            triple for triple in zip(results, both_low_flags, scores, strict=True)
-            if triple[0].zone != "strength"
-        ),
-        key=lambda triple: triple[2],
-    )[:2]
+    # told to go have a difficult conversation about their best area. If
+    # none qualify, attention is empty and the caller renders nothing.
     attention = [
-        AttentionEntry(
-            sphere=result,
-            framing=(
-                content["framings"]["both_low"] if both_low
-                else content["framings"]["gap"] if result.divergent
-                else None
-            ),
-        )
-        for result, both_low, _ in ranked
+        AttentionEntry(sphere=result, framing=_framing(result, content["framings"]))
+        for result in results
+        if result.zone != "strength"
     ]
 
     divergent_all = sorted(n for r in results for n in r.divergent)

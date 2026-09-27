@@ -197,8 +197,18 @@ python scripts/smoke_production.py $URL  # read-only smoke of a deployed server
   answers, and **no per-sphere score**. A score is `(avg_a + avg_b) / 2` over
   five questions, so a partner who knows their own five could solve
   `sum_theirs = 10 * score - sum_mine` exactly; it stays inside
-  `build_result` as a list parallel to the results, next to `both_low_flags`.
-  Only `percent` is public — one coarse global number, deliberately so.
+  `build_result` as a list parallel to the results and feeds `percent`,
+  which is public — one coarse global number, deliberately so. Everything
+  else in the result follows from the zones and the divergent questions
+  alone: `strengths` and `attention` list every sphere of their zones in
+  authored order (they used to be the top three and bottom two *by score*,
+  and an order by score leaks one comparison at a time), and
+  `compat._framing` reads only those two (it used to say «both low» where
+  the zone did not). That is still not nothing — beside your own answer, a
+  divergent question pins your partner's to within one or two values — so
+  the product says what a partner sees rather than promising they see
+  nothing: `compatIntro` in the Mini App and `feature_privacy_desc` in the
+  bot. `test_compat.py` holds the property on fuzzed inputs.
   `tests/test_compat_api.py` asserts this on the raw response body
   (`"creator_answers" not in body`) rather than on parsed fields, on purpose:
   a leak under an unexpected key would slip past a field-level check, and

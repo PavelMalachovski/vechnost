@@ -185,9 +185,11 @@ about:
   # оно последним.
   feature_privacy: "🔒 Приватность"
   # Honest, not reassuring: the server does keep tests, boards and rooms.
-  # What is true is that a partner never sees the other's answers, and
-  # that /delete_me erases everything.
-  feature_privacy_desc: "Партнёр видит только общий результат теста, а не ваши ответы. Удалить всё о себе можно командой /delete_me"
+  # What is true is that a partner never sees the other's answers - but
+  # does see where the two diverged, which says a good deal about them to
+  # someone who knows their own. Say so, and that /delete_me erases
+  # everything.
+  feature_privacy_desc: "Партнёр не видит ваших ответов в тесте: только общий результат и вопросы, где вы ответили по-разному. Удалить всё о себе можно командой /delete_me"
 
   how_it_works: "🎮 Как это работает:"
   step1: "1️⃣ Выберите раздел"
