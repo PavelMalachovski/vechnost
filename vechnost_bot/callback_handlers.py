@@ -29,7 +29,6 @@ from .callback_models import (
     ToggleCallbackData,
 )
 from .config import settings
-from .hybrid_storage import get_redis_storage
 from .i18n import Language, format_number, get_text
 from .keyboards import (
     get_calendar_keyboard,
@@ -42,7 +41,7 @@ from .keyboards import (
 from .logic import load_game_data, localized_game_data
 from .models import ContentType, SessionState, Theme
 from .renderer import get_background_path, render_card_bytes
-from .storage import get_session
+from .storage import get_session, save_session
 
 logger = logging.getLogger(__name__)
 
@@ -1069,8 +1068,7 @@ class CallbackHandlerRegistry:
             await handler.handle(query, callback_data, session)
 
             # Save session after handler modifies it
-            storage = await get_redis_storage()
-            await storage.save_session(chat_id, session)
+            await save_session(chat_id, session)
 
         except ValueError as e:
             logger.warning(f"Invalid callback data: {data}, error: {e}")

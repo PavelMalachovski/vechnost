@@ -57,7 +57,7 @@ inside a polished Telegram Mini App.
 | Bot | [python-telegram-bot](https://docs.python-telegram-bot.org) 21.6 (`[job-queue]`) |
 | Web / Mini App API | FastAPI + Uvicorn |
 | Data | SQLAlchemy 2 (async) — SQLite locally, PostgreSQL in production; Alembic migrations |
-| Sessions / cache | Redis (with in-memory fallback) |
+| Bot sessions | In the bot process's memory (expiring, bounded); Redis when `REDIS_URL` is set |
 | Card rendering | Pillow (Inter / Lora / Forum, Cyrillic-aware font fallback) |
 | Payments | [Tribute](https://tribute.to) webhooks |
 | Config | pydantic-settings |
@@ -83,7 +83,7 @@ vechnost/
 │   ├── compat_notify.py   # "Your result is ready" push to both partners
 │   ├── steps69.py         # 69 Steps: board, portals, dice, the Joker
 │   ├── steps69_notify.py  # "Your piece is waiting on cell 45" nudge
-│   ├── storage.py, redis_storage.py, hybrid_storage.py
+│   ├── storage.py         # Bot sessions: memory, or the Redis REDIS_URL names
 │   └── payments/          # Tribute integration + Mini App API
 │       ├── web.py         # FastAPI app: /app, /api/questions, /api/card, webhooks
 │       ├── library_api.py # /api/library
@@ -160,7 +160,7 @@ All settings are read from environment variables (or `.env`). See
 | `REFERRAL_PAYMENT_URL`, `REFERRAL_DISCOUNT_PERCENT` | Discounted Tribute product shown to users who arrived on someone's invite link. Unset: referrals are tracked, everyone pays the same |
 | `DAILY_CARD_ENABLED`, `DAILY_CARD_HOUR_UTC` | Daily self-reflection push (default on, 17:00 UTC ≈ 19:00 Prague) |
 | `DATABASE_URL` | SQLite locally, PostgreSQL in production |
-| `REDIS_URL` | Session/cache store (falls back to in-memory) |
+| `REDIS_URL` | Where bot sessions live. Unset: the bot's own memory, each forgotten `SESSION_TTL` seconds (default 3600) after its last save. Set: that Redis, and an outage is reported rather than papered over. Nothing starts a Redis for you |
 
 When `ENABLE_PAYMENT=FALSE` (the default for local dev) everything is
 unlocked and no Tribute setup is needed.
@@ -228,7 +228,7 @@ pytest tests/test_freemium.py tests/test_webapp_auth.py   # focused
 ```
 
 Some suites need a local Redis on `localhost:6379`; those are marked with
-the `redis` marker and fail only when Redis is absent.
+the `redis` marker and are skipped, with a reason, when nothing listens there.
 
 ## Deployment
 
