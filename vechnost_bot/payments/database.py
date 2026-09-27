@@ -280,6 +280,10 @@ def _ensure_user_columns(sync_conn) -> None:
         "referral_code": "ALTER TABLE users ADD COLUMN referral_code VARCHAR",
         "referred_by": "ALTER TABLE users ADD COLUMN referred_by BIGINT",
         "referred_at": "ALTER TABLE users ADD COLUMN referred_at TIMESTAMP",
+        "partner_telegram_user_id": (
+            "ALTER TABLE users ADD COLUMN partner_telegram_user_id BIGINT"
+        ),
+        "partner_since": "ALTER TABLE users ADD COLUMN partner_since TIMESTAMP",
     }
     for column, ddl in additions.items():
         if column not in existing:

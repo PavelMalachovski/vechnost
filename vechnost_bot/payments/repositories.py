@@ -85,6 +85,103 @@ class UserRepository:
         return user
 
     @staticmethod
+    async def ensure(
+        session: AsyncSession,
+        telegram_user_id: int,
+        first_name: str | None = None,
+        username: str | None = None,
+        last_name: str | None = None,
+        language: str | None = None,
+    ) -> User:
+        """The user's row, made if missing and its names brought up to date.
+
+        One INSERT that does nothing on a conflict, not a read followed by a
+        write: the bot's /start, the Mini App's boot and a join can each be
+        the first to see a new person, and at once. `create_or_update` read
+        first, so the second of two lost the race to the unique constraint.
+        """
+        bind = session.bind
+        assert bind is not None, "get_db() always binds its sessions"
+        if bind.dialect.name == "postgresql":
+            from sqlalchemy.dialects.postgresql import insert
+        else:
+            from sqlalchemy.dialects.sqlite import insert
+        await session.execute(
+            insert(User)
+            .values(
+                telegram_user_id=telegram_user_id,
+                first_name=first_name,
+                username=username,
+                last_name=last_name,
+                language=language,
+                daily_card_opt_out=False,
+                created_at=datetime.utcnow(),
+            )
+            .on_conflict_do_nothing(index_elements=["telegram_user_id"])
+        )
+        user = await UserRepository.get_by_telegram_id(session, telegram_user_id)
+        assert user is not None
+        for field, value in (
+            ("first_name", first_name), ("username", username),
+            ("last_name", last_name), ("language", language),
+        ):
+            if value is not None and getattr(user, field) != value:
+                setattr(user, field, value)
+        await session.flush()
+        return user
+
+    @staticmethod
+    async def pair(session: AsyncSession, one: int, other: int) -> None:
+        """Make two people each other's partner, both ways, as of now."""
+        if one == other:
+            return
+        now = datetime.utcnow()
+        for user_id, partner_id in ((one, other), (other, one)):
+            await session.execute(
+                update(User)
+                .where(User.telegram_user_id == user_id)
+                .values(partner_telegram_user_id=partner_id, partner_since=now)
+            )
+        await session.flush()
+
+    @staticmethod
+    async def partner_of(session: AsyncSession, telegram_user_id: int) -> User | None:
+        """The person this user last played with, if they are still here."""
+        user = await UserRepository.get_by_telegram_id(session, telegram_user_id)
+        if not user or user.partner_telegram_user_id is None:
+            return None
+        return await UserRepository.get_by_telegram_id(session, user.partner_telegram_user_id)
+
+    @staticmethod
+    async def record_invite(
+        session: AsyncSession, telegram_user_id: int, inviter_id: int
+    ) -> bool:
+        """Credit the person whose invite link seated a newcomer. True when
+        it counted.
+
+        The same newcomer rule as a `ref_` link (`record_referral`), and the
+        same first-credit-wins, but it only counts: `referred_by` goes up in
+        the inviter's /invite, and `referred_at` - the marker the referral
+        price reads - stays unset. A partner invited into a game pays what
+        everyone pays.
+        """
+        from ..referrals import joined_recently
+
+        if telegram_user_id == inviter_id:
+            return False
+        user = await UserRepository.get_by_telegram_id(session, telegram_user_id)
+        if not user or user.referred_by is not None or user.referred_at is not None:
+            return False
+        if not joined_recently(user.created_at, datetime.utcnow()):
+            return False
+        if await UserRepository.has_history(session, user):
+            return False
+        user.referred_by = inviter_id
+        await session.flush()
+        logger.info(f"User {telegram_user_id} was invited by {inviter_id}")
+        return True
+
+    @staticmethod
     async def set_daily_card_opt_out(
         session: AsyncSession, telegram_user_id: int, opt_out: bool
     ) -> None:
@@ -217,7 +314,9 @@ class UserRepository:
         from ..referrals import joined_recently
 
         user = await UserRepository.get_by_telegram_id(session, telegram_user_id)
-        if not user or user.referred_at is not None:
+        # `referred_by` alone is an invitation into a game (`record_invite`),
+        # which came first and keeps the credit.
+        if not user or user.referred_at is not None or user.referred_by is not None:
             return False
         now = datetime.utcnow()
         if not joined_recently(user.created_at, now):
@@ -270,7 +369,8 @@ class UserRepository:
         not a person, and is what lets a later refund of the gift still
         revoke it. Anyone this user invited keeps their discount and loses
         the link to who invited them: `referred_by` is cleared,
-        `referred_at` - the marker the discount reads - stays. Every
+        `referred_at` - the marker the discount reads - stays. Whoever had
+        them as a partner loses that link too. Every
         analytics event of the user goes as well: counted, it is still a
         record of what they did.
         """
@@ -311,6 +411,15 @@ class UserRepository:
             .values(referred_by=None)
         )
         removed["referrals_unlinked"] = result.rowcount or 0
+
+        # Whoever played with them forgets them too: their partner link is
+        # a record of this person.
+        result = await session.execute(
+            _update(User)
+            .where(User.partner_telegram_user_id == telegram_user_id)
+            .values(partner_telegram_user_id=None, partner_since=None)
+        )
+        removed["partners_unlinked"] = result.rowcount or 0
 
         user = await UserRepository.get_by_telegram_id(session, telegram_user_id)
         if user is None:

@@ -29,13 +29,14 @@ import logging
 from datetime import datetime
 from typing import Any, Literal
 
-from fastapi import APIRouter, Depends, Header, HTTPException
+from fastapi import APIRouter, BackgroundTasks, Depends, Header, HTTPException
 from pydantic import BaseModel, Field
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from .. import analytics, invites, steps69
 from ..config import settings
 from ..i18n import Language
+from . import partner_notify, partners
 from .database import get_db
 from .models import Steps69Game
 from .repositories import Steps69Repository
@@ -341,6 +342,7 @@ async def mine(
 async def join(
     code: str,
     body: JoinRequest,
+    background: BackgroundTasks,
     lang: str = "ru",
     authorization: str | None = Header(default=None),
     x_guest_id: str | None = Header(default=None),
@@ -348,6 +350,7 @@ async def join(
     """Take the second seat. The creator's access covers the guest."""
     user_id, name = _caller(authorization, x_guest_id)
     language = _language(lang)
+    seated: partners.Seated | None = None
 
     async with get_db() as session:
         game = await _find(session, code)
@@ -366,9 +369,19 @@ async def join(
             if game.guest_telegram_user_id != user_id:
                 raise HTTPException(status_code=409, detail="game is full")
             analytics.record(session, "s69_join", user_id)
+            seated = await partners.seat_taken(
+                session, screen="steps69", code=game.code,
+                creator_id=game.creator_telegram_user_id, creator_name=game.creator_name,
+                guest_id=user_id, guest_name=name,
+            )
         elif game.guest_telegram_user_id != user_id:
             raise HTTPException(status_code=409, detail="game is full")
-        return _state(game, user_id, language)
+        state = _state(game, user_id, language)
+
+    # After the commit, and after the answer: see partner_notify.
+    if seated is not None:
+        background.add_task(partner_notify.notify_partner_joined, seated)
+    return state
 
 
 @router.get("/{code}/board")

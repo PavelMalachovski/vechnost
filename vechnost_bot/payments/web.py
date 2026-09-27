@@ -29,9 +29,10 @@ from ..logic import localized_game_data
 from ..models import ContentType, Theme
 from ..renderer import get_background_path, render_card_bytes
 from .compat_api import router as compat_router
-from .database import close_db, init_db
+from .database import close_db, get_db, init_db
 from .grant_notify import notify_access_granted
 from .library_api import router as library_router
+from .repositories import UserRepository
 from .rooms import room_dealt_card
 from .rooms import router as rooms_router
 from .services import (
@@ -370,6 +371,52 @@ async def client_event(
     else:
         await analytics.track(body.name, user_id, body.detail)
     return Response(status_code=204)
+
+
+def _signed_user(authorization: str | None) -> dict[str, Any] | None:
+    """The Telegram user a Mini App request is signed for, or None."""
+    scheme, _, init_data = (authorization or "").partition(" ")
+    if scheme.lower() != "tma" or not init_data:
+        return None
+    try:
+        user = validate_init_data(init_data, settings.telegram_bot_token)["user"]
+        int(user["id"])
+        return user
+    except (InitDataError, KeyError, TypeError, ValueError):
+        return None
+
+
+@app.post("/api/me", dependencies=[Depends(throttle("events"))])
+async def me(authorization: str | None = Header(default=None)) -> dict[str, Any]:
+    """The person holding the app, as the app boots.
+
+    Makes their row if it is missing and brings their names up to date, the
+    way the bot's /start does: a partner who only ever opened the app, from
+    an invite, used to have no row at all, so nothing could remember who
+    they play with or credit whoever invited them - and a row made at boot
+    is what dates them as a newcomer. Answers with their partner's first
+    name and whether Telegram lets the bot write to them
+    (`allows_write_to_pm`), which is what the app's «Разрешить сообщения»
+    asks for.
+    """
+    user = _signed_user(authorization)
+    if user is None:
+        raise HTTPException(status_code=401, detail="unauthorized")
+    async with get_db() as session:
+        await UserRepository.ensure(
+            session,
+            int(user["id"]),
+            first_name=user.get("first_name"),
+            username=user.get("username"),
+            last_name=user.get("last_name"),
+            language=user.get("language_code"),
+        )
+        partner = await UserRepository.partner_of(session, int(user["id"]))
+        partner_name = partner.first_name if partner else None
+    return {
+        "can_write": bool(user.get("allows_write_to_pm")),
+        "partner": {"name": partner_name} if partner_name else None,
+    }
 
 
 @app.get("/api/questions")
