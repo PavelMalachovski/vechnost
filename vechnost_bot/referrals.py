@@ -14,6 +14,7 @@ of what a code is and who may claim one.
 
 import hashlib
 import logging
+from datetime import datetime, timedelta
 
 from .config import settings
 
@@ -24,6 +25,19 @@ CODE_ALPHABET = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"
 CODE_LENGTH = 6
 
 PREFIX = "ref_"
+
+# An invitation counts for someone the link brought in, and for nobody else.
+# The /start that carries the code registers a new user a moment before it
+# is credited, and this is the slack for that - and for someone who pressed
+# Start and then followed a partner's link in the same sitting. An account
+# older than this was already here: any published link used to hand it the
+# referral price, and inflated the inviter's count on the way.
+NEW_USER_WINDOW = timedelta(minutes=10)
+
+
+def joined_recently(created_at: datetime | None, now: datetime) -> bool:
+    """Whether a user row is young enough for an invitation to count."""
+    return created_at is not None and now - created_at <= NEW_USER_WINDOW
 
 
 def code_from_seed(seed: str) -> str:

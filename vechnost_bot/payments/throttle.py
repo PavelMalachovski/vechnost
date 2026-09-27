@@ -18,18 +18,32 @@ every limit below by the worker count. That is a weaker guarantee, not a
 broken one, and the fix is a shared store rather than a different shape of
 code.
 
-The client key is the forwarded address when there is one, because behind a
-platform proxy every request otherwise looks like the proxy. The header is
-a list the client may start and each proxy appends to, so the entry to
-trust is counted from the *right*: `TRUSTED_PROXY_HOPS` proxies in front
-of the app means the client is that many entries from the end (one, on
-Railway). The first entry - which this used to read - is whatever the
-caller wrote, and a caller who rotates it never spends a budget.
+A per-client budget belongs to a person when Telegram vouches for one. The
+Mini App signs every request with initData, and on the buckets its
+endpoints serve (`BY_PERSON`) a request whose initData validates spends
+the budget of that Telegram user. Keyed by address, everyone behind one
+mobile carrier's NAT - hundreds of strangers on one public IP - shared a
+single `join` and `write` budget, so one of them probing codes, or a busy
+evening of dice, turned into 429s for couples who had never met. Now one
+person has one budget on every network, and a stranger on the same
+address cannot spend it. A request whose initData does not validate is
+budgeted by its address, so nobody spends someone else's budget by
+claiming their id.
+
+Everything else is keyed by address: anonymous requests, the Tribute
+webhook and the admin routes, which do not authenticate by initData. The
+address is the forwarded one when there is one, because behind a platform
+proxy every request otherwise looks like the proxy. The header is a list
+the client may start and each proxy appends to, so the entry to trust is
+counted from the *right*: `TRUSTED_PROXY_HOPS` proxies in front of the app
+means the client is that many entries from the end (one, on Railway). The
+first entry - which this used to read - is whatever the caller wrote, and a
+caller who rotates it never spends a budget.
 
 `GLOBAL_LIMITS` exists because even the right entry can be forged by a
-caller with many addresses: every bucket where a single success is worth
-something to a stranger, or where each request costs the box real work, is
-also capped across all clients at once.
+caller with many addresses, or many Telegram accounts: every bucket where a
+single success is worth something to a stranger, or where each request
+costs the box real work, is also capped across all clients at once.
 """
 
 import logging
@@ -40,6 +54,7 @@ from collections.abc import Callable
 from fastapi import HTTPException, Request
 
 from ..config import settings
+from .webapp_auth import InitDataError, validate_init_data
 
 logger = logging.getLogger(__name__)
 
@@ -62,6 +77,12 @@ LIMITS: dict[str, tuple[int, int]] = {
     # is a stranger making the box hash and HMAC 64 KB bodies all day.
     "webhook": (60, 60),
 }
+
+# Buckets whose endpoints authenticate the caller by Telegram initData, and
+# so may budget the person rather than the address. Not "admin" or
+# "webhook": neither is a Mini App request, and a budget there must not be
+# something a caller can pick by attaching initData of their own.
+BY_PERSON = frozenset({"create", "join", "write", "render"})
 
 # Ceilings applied across every client at once. Only the buckets where a
 # single success is worth a lot to a stranger need one; ordinary gameplay
@@ -108,6 +129,27 @@ def client_key(request: Request) -> str:
             index = max(len(entries) - hops, 0)
             return entries[index]
     return request.client.host if request.client else "unknown"
+
+
+def telegram_user_key(request: Request) -> str | None:
+    """`tg:<id>` when the request carries initData that validates, else None."""
+    scheme, _, init_data = (request.headers.get("authorization") or "").partition(" ")
+    if scheme.lower() != "tma" or not init_data:
+        return None
+    try:
+        parsed = validate_init_data(init_data, settings.telegram_bot_token)
+        return f"tg:{int(parsed['user']['id'])}"
+    except (InitDataError, KeyError, TypeError, ValueError, OverflowError):
+        return None
+
+
+def caller_key(request: Request, bucket: str) -> str:
+    """Whose budget one request spends: the person if known, else the address."""
+    if bucket in BY_PERSON:
+        person = telegram_user_key(request)
+        if person is not None:
+            return person
+    return client_key(request)
 
 
 def _prune(stamps: deque[float], now: float, window: int) -> None:
@@ -167,7 +209,7 @@ def throttle(bucket: str) -> Callable:
         raise KeyError(bucket)
 
     async def dependency(request: Request) -> None:
-        check(bucket, client_key(request))
+        check(bucket, caller_key(request, bucket))
 
     return dependency
 

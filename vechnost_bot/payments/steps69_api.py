@@ -500,7 +500,10 @@ async def finale(
 
         valid = {c.id for c in steps69.load_finale(language).choices}
         if body.choice not in valid:
-            raise HTTPException(status_code=404, detail="unknown finale")
+            # A body the game cannot take, not a game that is gone: the
+            # client reads 404 as "this game was deleted" and leaves the
+            # board, which a stale choice id must not do to a live game.
+            raise HTTPException(status_code=422, detail="unknown finale")
 
         if game.finished and game.finale_choice != body.choice:
             # Both partners tap at once; the first choice stands rather than

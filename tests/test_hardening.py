@@ -233,6 +233,89 @@ def test_a_cdn_in_front_of_the_platform_is_one_more_hop():
         assert throttle.client_key(short) == "1.2.3.4"
 
 
+def _person(user_id: int, **kwargs) -> str:
+    from tests.test_webapp_auth import make_init_data
+
+    return "tma " + make_init_data(
+        settings.telegram_bot_token, user={"id": user_id, "first_name": "P"}, **kwargs
+    )
+
+
+def _probe_joins(client, authorization: str, address: str, count: int) -> list[int]:
+    """`count` joins of codes nobody minted: each a 404, each spending `join`."""
+    return [
+        client.post(
+            f"/api/rooms/AAAA{n:02d}/join",
+            headers={"Authorization": authorization, "X-Forwarded-For": address},
+        ).status_code
+        for n in range(count)
+    ]
+
+
+def test_two_people_behind_one_address_do_not_share_a_budget(client):
+    """A mobile carrier puts hundreds of strangers behind one public address.
+    Keyed by address, one of them probing codes spent everyone's `join`
+    budget, and the partner opening an invite on the same network got 429."""
+    throttle.reset()
+    limit, _ = throttle.LIMITS["join"]
+    with patch.object(settings, "trusted_proxy_hops", 1):
+        statuses = _probe_joins(client, _person(501), "100.64.0.1", limit + 1)
+        assert statuses[:limit] == [404] * limit and statuses[-1] == 429
+        assert _probe_joins(client, _person(502), "100.64.0.1", 1) == [404]
+
+
+def test_one_person_behind_two_addresses_has_one_budget(client):
+    """The budget follows the person, so hopping from Wi-Fi to mobile data
+    does not refill it."""
+    throttle.reset()
+    limit, _ = throttle.LIMITS["join"]
+    with patch.object(settings, "trusted_proxy_hops", 1):
+        assert _probe_joins(client, _person(501), "100.64.0.1", limit) == [404] * limit
+        assert _probe_joins(client, _person(501), "198.51.100.9", 1) == [429]
+
+
+def test_initdata_that_does_not_validate_is_budgeted_by_address(client):
+    """Claiming someone's id buys nothing: a forged or stale initData is an
+    anonymous request, charged to its address, and the person it names
+    keeps their budget."""
+    throttle.reset()
+    limit, _ = throttle.LIMITS["join"]
+    forged = _person(501, tamper=True)
+    stale = _person(501, auth_date=1_600_000_000)
+    with patch.object(settings, "trusted_proxy_hops", 1):
+        statuses = _probe_joins(client, forged, "203.0.113.5", limit)
+        assert set(statuses) == {401}
+        assert _probe_joins(client, stale, "203.0.113.5", 1) == [429]
+        assert _probe_joins(client, _person(501), "203.0.113.5", 1) == [404]
+
+
+def test_only_the_mini_app_buckets_budget_a_person():
+    """The webhook and the admin routes do not authenticate by initData, so
+    attaching some must not move their budget off the address."""
+    with patch.object(settings, "trusted_proxy_hops", 1):
+        request = _request(
+            {"authorization": _person(501), "x-forwarded-for": "1.2.3.4"}, "10.0.0.1"
+        )
+        for bucket in ("join", "write", "create", "render"):
+            assert throttle.caller_key(request, bucket) == "tg:501"
+        for bucket in ("webhook", "admin"):
+            assert throttle.caller_key(request, bucket) == "1.2.3.4"
+        anonymous = _request({"x-forwarded-for": "1.2.3.4"}, "10.0.0.1")
+        assert throttle.caller_key(anonymous, "join") == "1.2.3.4"
+
+
+def test_the_global_ceiling_still_bounds_many_people():
+    """Per-person budgets do not lift the ceiling: many accounts are as
+    bounded as many addresses."""
+    throttle.reset()
+    ceiling, _ = throttle.GLOBAL_LIMITS["join"]
+    for n in range(ceiling):
+        throttle.check("join", f"tg:{n}")
+    with pytest.raises(Exception) as excinfo:
+        throttle.check("join", "tg:999999")
+    assert excinfo.value.status_code == 429
+
+
 def test_every_bucket_that_costs_the_box_has_a_global_ceiling():
     """A per-client budget is a courtesy; the ceiling is the guarantee.
     Rendering burns CPU, creating fills tables, writes hold row locks."""

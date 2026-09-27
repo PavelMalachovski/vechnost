@@ -61,9 +61,11 @@ A `Player` (`harness.py`) is a Telegram identity as far as the server can
 tell: its requests carry initData signed with the bot token exactly the way
 Telegram signs it, so `validate_init_data` runs for real. Access is bought
 the way a customer buys it, with a `new_digital_product` webhook signed by
-the Tribute key. Each player sends their own `X-Forwarded-For`, so the
-throttle budgets two phones on two networks separately; give two players the
-same `ip=` to put a couple on one home Wi-Fi.
+the Tribute key. Each player sends their own `X-Forwarded-For`; give two
+players the same `ip=` to put a couple on one home Wi-Fi, or strangers
+behind one carrier NAT. The throttle budgets a player with valid initData
+by their Telegram id, so a shared address shares no budget; the address
+keys only what carries no valid initData.
 
 Isolation is by identity, not by database: every player is a fresh random
 Telegram id and every game a fresh code, so scenarios can share one live

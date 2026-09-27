@@ -508,13 +508,17 @@ def test_the_first_choice_stands_when_both_partners_tap(client):
     assert client.get(f"/api/steps69/{code}", headers=BOB).json()["finale_choice"] == "sync"
 
 
-def test_an_unknown_finale_is_refused(client):
+def test_an_unknown_finale_is_refused_without_saying_the_game_is_gone(client):
+    """422, not 404: the client reads 404 as "this game was deleted" and
+    leaves a board that is still there, with both pieces home."""
     code = started_game(client)
     _walk_home(client, code)
     response = client.post(
         f"/api/steps69/{code}/finale", json={"choice": "whatever"}, headers=ALICE
     )
-    assert response.status_code == 404
+    assert response.status_code == 422
+    state = client.get(f"/api/steps69/{code}", headers=ALICE).json()
+    assert state["finished"] is False and state["finale_choice"] is None
 
 
 # ---------------------------------------------------------------------------

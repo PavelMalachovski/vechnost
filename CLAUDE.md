@@ -230,8 +230,18 @@ python scripts/smoke_production.py $URL  # read-only smoke of a deployed server
   answers, and **no per-sphere score**. A score is `(avg_a + avg_b) / 2` over
   five questions, so a partner who knows their own five could solve
   `sum_theirs = 10 * score - sum_mine` exactly; it stays inside
-  `build_result` as a list parallel to the results, next to `both_low_flags`.
-  Only `percent` is public — one coarse global number, deliberately so.
+  `build_result` as a list parallel to the results and feeds `percent`,
+  which is public — one coarse global number, deliberately so. Everything
+  else in the result follows from the zones and the divergent questions
+  alone: `strengths` and `attention` list every sphere of their zones in
+  authored order (they used to be the top three and bottom two *by score*,
+  and an order by score leaks one comparison at a time), and
+  `compat._framing` reads only those two (it used to say «both low» where
+  the zone did not). That is still not nothing — beside your own answer, a
+  divergent question pins your partner's to within one or two values — so
+  the product says what a partner sees rather than promising they see
+  nothing: `compatIntro` in the Mini App and `feature_privacy_desc` in the
+  bot. `test_compat.py` holds the property on fuzzed inputs.
   `tests/test_compat_api.py` asserts this on the raw response body
   (`"creator_answers" not in body`) rather than on parsed fields, on purpose:
   a leak under an unexpected key would slip past a field-level check, and
@@ -359,7 +369,14 @@ python scripts/smoke_production.py $URL  # read-only smoke of a deployed server
   owns the price, so `referrals.payment_url_for` only chooses which of two
   payment pages a user sees. With `REFERRAL_PAYMENT_URL` unset the codes are
   still minted and invites still recorded, and nobody is promised a discount
-  that does not exist.
+  that does not exist. Who counts as invited is `users.referred_at`, the
+  invitee's own marker, never `referred_by`: that is a link to another
+  person and goes when they are erased, and reading it took the discount
+  from everyone an erased user had invited. Only a newcomer can be invited
+  (`UserRepository.record_referral`): a row younger than
+  `referrals.NEW_USER_WINDOW` - the one the same /start just created - with
+  nothing bought or redeemed. For anyone already here a ref link changes
+  nothing; it used to hand any old user the referral price.
 - **A broadcast has two doors and one delivery loop.** `broadcast.py` owns
   the loop — the pause between sends, the retry that honours Telegram's own
   `retry_after`, and the rule that a user who blocked the bot is opted out
@@ -380,9 +397,13 @@ python scripts/smoke_production.py $URL  # read-only smoke of a deployed server
   user sat in (one row shared with a partner, gone for both — the same
   unanimous-consent rule as `DELETE /api/compat/{code}`), the bot session;
   a redeemed certificate stays spent but forgets who, and `referred_by`
-  links to the user are cleared. Its callback is registered ahead of the
+  links to the user are cleared while the invitees keep `referred_at`, the
+  marker their discount reads. Its callback is registered ahead of the
   game's catch-all on a pattern, like the broadcast's. Anything new that
   stores a person must be added to `erase`, or the promise is broken.
+  The question (`privacy.ask`) also tells the person to cancel a Tribute
+  subscription at Tribute: erasing the row does not stop the billing, and
+  the next renewal event creates the user again.
 - **The bot never answers a failure with silence, or with the wrong
   words.** `bot.py::on_error` logs, then sends the chat one line
   (`errors.something_went_wrong`), never a traceback; an error with no chat
@@ -432,7 +453,13 @@ python scripts/smoke_production.py $URL  # read-only smoke of a deployed server
   in-process (every throttled endpoint lives in the single web process;
   the bot runs beside it as a second process), and the `join` bucket also
   has a **global** ceiling because `X-Forwarded-For` is client-settable and
-  a per-client budget alone would not bound a code sweep. `tests/conftest.py`
+  a per-client budget alone would not bound a code sweep. The per-client
+  budget is the **person** where the Mini App calls (`BY_PERSON`: create,
+  join, write, render) and the initData validates, keyed `tg:<id>`; the
+  address otherwise (anonymous requests, the webhook, admin). Keyed by
+  address, strangers behind one carrier NAT shared one `join` and `write`
+  budget, and initData that fails validation still counts against its
+  address, so nobody spends a budget by claiming an id. `tests/conftest.py`
   resets it between tests; without that a suite creating more rooms than the
   hourly budget starts 429ing halfway through.
 - **A Tribute webhook is signed with the API key, and checked first.**
@@ -532,7 +559,18 @@ python scripts/smoke_production.py $URL  # read-only smoke of a deployed server
   and a failing one no longer stops the rest; write SQL that PostgreSQL
   accepts (type your NULLs), because a step that only works on SQLite fails
   on every production start. `tests/test_postgres.py` checks that alembic
-  and `create_all` build the same schema.
+  and `create_all` build the same schema, indexes included.
+- **Indexes follow the model at startup too.** `create_all` indexes a table
+  only the day it creates it, so `_ensure_indexes` creates every index the
+  model declares that a deployed table lacks, and drops the plain indexes
+  that only doubled a unique constraint (`REDUNDANT_INDEXES`, and only
+  where the constraint is really there). An index goes in the model and an
+  alembic revision; the startup step picks it up by itself. A lookup by
+  person ("creator or guest") needs both sides indexed or PostgreSQL scans
+  the table; a filter on unfinished rows gets a partial index spelled as
+  the query spells it (`finished IS false`). Rooms are deliberately not
+  indexed beyond their code: they live a day. `tests/test_postgres.py`
+  EXPLAINs the statements the repositories actually send.
 
 ## Conventions
 
