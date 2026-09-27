@@ -133,6 +133,34 @@ def test_a_gift_bought_by_one_user_unlocks_the_other(server: Server, bot) -> Non
     assert paid(alice) is False
 
 
+def test_a_refunded_gift_is_taken_back_from_whoever_redeemed_it(server: Server, bot) -> None:
+    """The refund of a gift used to close the buyer's own access and leave
+    the code working for life (backend audit B-06); its retry minted a
+    second code (B-07)."""
+    alice = server.player("Alice", paid=True)
+    bob = server.player("Bob")
+    with patch.object(settings, "gift_product_id", "777"):
+        purchase = server.webhook_body("new_digital_product", alice, product_id=777, purchase_id=4401)
+        server.deliver(purchase)
+        server.deliver(server.redelivery(purchase), label="Tribute's retry of the gift")
+        cards = [s for s in server.telegram.to(alice.id) if GIFT_CODE.search(s.text)]
+        assert len(cards) == 1, "one purchase, one certificate, one message"
+        code = GIFT_CODE.search(cards[0].text).group(0)
+
+        bot.send(bob, f"/activate {code}")
+        assert paid(bob) is True
+
+        refund = server.deliver(server.webhook_body(
+            "digital_product_refunded", alice, product_id=777, purchase_id=4401
+        ))
+        assert refund.json()["action"] == "revoke"
+
+    assert paid(bob) is False, "the gift went back with the money"
+    assert paid(alice) is True, "the buyer's own purchase was never the gift"
+    bot.send(bob, f"/activate {code}")
+    assert server.telegram.texts_to(bob.id)[-1] == get_text("certificate.revoked")
+
+
 def test_delete_me_takes_the_shared_rows_for_both(server: Server, bot) -> None:
     """One row per couple, and consent to keep it has to be unanimous."""
     alice = server.player("Alice", paid=True)

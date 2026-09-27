@@ -273,6 +273,44 @@ def _ensure_steps69_columns(sync_conn) -> None:
             logger.info(f"Added steps69_games.{column} column")
 
 
+def _ensure_payment_columns(sync_conn: Connection) -> None:
+    """Add the columns that keep a Tribute event from applying twice.
+
+    `webhook_events.event_key` identifies an event across redeliveries,
+    whose bodies differ in `sent_at`; `certificates.purchase_id` ties a gift
+    certificate to the purchase that paid for it, and `revoked_at` records
+    that purchase's refund. The first two are unique where set, and an
+    index built by create_all on a fresh database is the same one `IF NOT
+    EXISTS` finds here, on SQLite and PostgreSQL alike.
+    """
+    from sqlalchemy import inspect, text
+
+    inspector = inspect(sync_conn)
+    tables = set(inspector.get_table_names())
+    columns = (
+        ("webhook_events", "event_key", "VARCHAR"),
+        ("certificates", "purchase_id", "VARCHAR"),
+        # TIMESTAMP is `timestamp without time zone` on PostgreSQL, the
+        # type the model's naive datetimes are stored in.
+        ("certificates", "revoked_at", "TIMESTAMP"),
+    )
+    unique_indexes = (
+        ("uq_webhook_events_event_key", "webhook_events", "event_key"),
+        ("uq_certificates_purchase_id", "certificates", "purchase_id"),
+    )
+    for table, column, sql_type in columns:
+        if table not in tables:
+            continue
+        if column not in {c["name"] for c in inspector.get_columns(table)}:
+            sync_conn.execute(text(f"ALTER TABLE {table} ADD COLUMN {column} {sql_type}"))
+            logger.info(f"Added {table}.{column} column")
+    for index, table, column in unique_indexes:
+        if table in tables:
+            sync_conn.execute(
+                text(f"CREATE UNIQUE INDEX IF NOT EXISTS {index} ON {table} ({column})")
+            )
+
+
 def _release_dropped_columns(sync_conn) -> None:
     """Let go of NOT NULL on columns the model no longer has.
 
@@ -362,6 +400,7 @@ def _match_model_nullability(sync_conn: Connection) -> None:
 _STARTUP_STEPS = (
     _ensure_user_columns,
     _ensure_steps69_columns,
+    _ensure_payment_columns,
     _release_dropped_columns,
     _match_model_nullability,
     _backfill_access_from_payments,

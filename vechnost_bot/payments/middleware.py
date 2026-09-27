@@ -5,10 +5,9 @@ import logging
 from telegram import InlineKeyboardButton, InlineKeyboardMarkup, Update
 from telegram.ext import ContextTypes
 
-from ..config import settings
 from .database import get_db
 from .repositories import UserRepository
-from .services import get_products_for_purchase
+from .services import purchase_url_for, user_is_referred
 
 logger = logging.getLogger(__name__)
 
@@ -35,42 +34,26 @@ def get_payment_keyboard_text(language: str = "en") -> dict:
     return texts.get(language, texts["en"])
 
 
-async def get_payment_keyboard(language: str = "en") -> InlineKeyboardMarkup:
+async def get_payment_keyboard(
+    language: str = "en", telegram_user_id: int | None = None
+) -> InlineKeyboardMarkup:
+    """The paywall's two buttons: buy access, and check the payment.
+
+    One purchase button, never one per synced product. The catalogue also
+    holds the gift and the referral discount, and listing all of it offered
+    both to everyone (backend audit B-10). The link is the Mini App's
+    (`services.purchase_url_for`), so a user who came in on someone's invite
+    - `telegram_user_id` says who is asking - gets the discounted page here
+    as well.
     """
-    Generate payment keyboard with product links.
-
-    Args:
-        language: User's language preference
-
-    Returns:
-        InlineKeyboardMarkup with payment options
-    """
-    products = await get_products_for_purchase()
-    keyboard = []
-
-    # Add product buttons
-    for product in products:
-        # Prefer Telegram link, fallback to web link
-        link = product.t_link or product.web_link
-        if link:
-            button_text = f"💎 {product.name}"
-            keyboard.append([InlineKeyboardButton(button_text, url=link)])
-
-    # If no products, add fallback Tribute link
-    if not keyboard:
-        texts = get_payment_keyboard_text(language)
-        # Fallback to configured Tribute payment URL
-        keyboard.append(
-            [InlineKeyboardButton(texts["purchase"], url=settings.tribute_payment_url)]
-        )
-
-    # Add check status button
+    referred = False
+    if telegram_user_id:
+        referred = await user_is_referred(telegram_user_id)
     texts = get_payment_keyboard_text(language)
-    keyboard.append(
-        [InlineKeyboardButton(texts["check_status"], callback_data="check_payment")]
-    )
-
-    return InlineKeyboardMarkup(keyboard)
+    return InlineKeyboardMarkup([
+        [InlineKeyboardButton(texts["purchase"], url=await purchase_url_for(referred))],
+        [InlineKeyboardButton(texts["check_status"], callback_data="check_payment")],
+    ])
 
 
 async def check_and_register_user(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:

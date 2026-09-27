@@ -61,6 +61,7 @@ class TestCertificateActivation:
 
             # Mock certificate
             mock_cert = MagicMock(spec=Certificate)
+            mock_cert.revoked_at = None  # its purchase was not refunded
             mock_cert.id = 1
             mock_cert.code = "VECH-TEST-1234"
             mock_cert.is_used = False
@@ -104,6 +105,7 @@ class TestCertificateActivation:
             mock_session = AsyncMock()
             mock_get_db.return_value.__aenter__.return_value = mock_session
             mock_cert = MagicMock(spec=Certificate)
+            mock_cert.revoked_at = None  # its purchase was not refunded
             mock_cert.id = 1
             mock_cert.is_used = False
             mock_cert_repo.get_by_code = AsyncMock(return_value=mock_cert)
@@ -144,6 +146,7 @@ class TestCertificateActivation:
 
             # Mock already used certificate
             mock_cert = MagicMock(spec=Certificate)
+            mock_cert.revoked_at = None  # its purchase was not refunded
             mock_cert.code = "VECH-TEST-1234"
             mock_cert.is_used = True  # Already used!
             mock_cert.used_by_telegram_user_id = 987654321  # Used by another user
@@ -169,6 +172,7 @@ class TestCertificateActivation:
 
             # Certificate already used by user 111
             mock_cert = MagicMock(spec=Certificate)
+            mock_cert.revoked_at = None  # its purchase was not refunded
             mock_cert.is_used = True
             mock_cert.used_by_telegram_user_id = 111
             mock_cert_repo.get_by_code = AsyncMock(return_value=mock_cert)
@@ -192,6 +196,7 @@ class TestCertificateActivation:
             mock_get_db.return_value.__aenter__.return_value = mock_session
 
             mock_cert = MagicMock(spec=Certificate)
+            mock_cert.revoked_at = None  # its purchase was not refunded
             mock_cert.id = 1
             mock_cert.is_used = False
             mock_cert_repo.get_by_code = AsyncMock(return_value=mock_cert)
@@ -248,6 +253,7 @@ class TestUserAccess:
 
             # Mock activated certificate
             mock_cert = MagicMock(spec=Certificate)
+            mock_cert.revoked_at = None  # its purchase was not refunded
             mock_cert.code = "VECH-TEST-1234"
             mock_cert.is_used = True
             mock_cert.used_by_telegram_user_id = 123456789
