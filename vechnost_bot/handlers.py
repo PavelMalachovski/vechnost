@@ -105,8 +105,9 @@ async def start_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
 
         # A referral link. Credited before the greeting and never instead of
         # it: whoever followed the link came to see the bot, and a failed
-        # credit (their own link, a second link, an unknown code) must still
-        # leave them on the welcome screen.
+        # credit (their own link, a second link, an unknown code, or an
+        # account that was here before the link - see `record_referral`)
+        # must still leave them on the welcome screen, and says nothing.
         from .referrals import parse_start_param
 
         referral_code = parse_start_param(param)

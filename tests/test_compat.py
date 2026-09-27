@@ -53,7 +53,7 @@ def test_perfect_agreement_is_100_percent_and_all_strengths():
     assert result.divergent_all == []
     assert result.critical_blocks == []
     assert result.strengths_fallback is None
-    assert len(result.strengths) == 3
+    assert [s.id for s in result.strengths] == SPHERE_IDS
 
 
 def test_total_disagreement_is_zero_percent_and_all_crisis():
@@ -161,27 +161,42 @@ def test_recommendation_lists_the_divergent_numbers():
     assert "40" in result.recommendation
 
 
-def test_attention_carries_two_spheres_with_a_framing():
+def test_attention_carries_every_non_strength_sphere_with_a_framing():
     result = build_result([2] * 40, [2] * 40)
-    assert len(result.attention) == 2
+    assert [e.sphere.id for e in result.attention] == SPHERE_IDS
     for entry in result.attention:
         assert entry.framing.strip()
         assert entry.sphere.zone == "crisis"
 
 
-def test_both_low_framing_wins_even_with_a_divergent_question():
-    """Both averages under 3 means they agree it's bad — even if one
-    question inside the sphere also happened to diverge, they are not
-    disagreeing about the sphere as a whole, so "gap" would be the wrong
-    story to tell them."""
+def test_a_divergent_question_is_framed_as_a_gap_even_when_both_are_low():
+    """The framing reads only what the result shows. Both averages under 3
+    used to win over a divergent question, and so told a partner under 3
+    that the other was under 3 too - on a sphere whose zone and divergent
+    question would equally fit two high averages and one gap of four.
+    The gap framing stays true: a divergent question always has one
+    partner at 4 or 5 and the other at 1 or 2."""
     a = [2, 2, 2, 2, 2] + [5] * 35     # sphere 1 avg 2.0
     b = [2, 2, 2, 2, 5] + [5] * 35     # sphere 1 avg 2.6, question 5 gap of 3
     result = build_result(a, b)
     sphere_1 = next(e for e in result.attention if e.sphere.id == "values")
+    assert sphere_1.sphere.zone == "crisis"
     assert sphere_1.sphere.divergent == [5]
     framings = _content(Language.RUSSIAN)["framings"]
+    assert sphere_1.framing == framings["gap"]
+
+
+def test_both_low_framing_only_where_the_zone_already_says_so():
+    """A crisis with no divergent question can only be two averages under
+    3, so there the framing adds nothing a partner could not work out."""
+    a = [2, 3, 2, 2, 2] + [5] * 35     # sphere 1 avg 2.2
+    b = [3, 2, 2, 1, 2] + [5] * 35     # sphere 1 avg 2.0, no gap >= 3
+    result = build_result(a, b)
+    sphere_1 = next(e for e in result.attention if e.sphere.id == "values")
+    assert sphere_1.sphere.zone == "crisis"
+    assert sphere_1.sphere.divergent == []
+    framings = _content(Language.RUSSIAN)["framings"]
     assert sphere_1.framing == framings["both_low"]
-    assert sphere_1.framing != framings["gap"]
 
 
 def test_gap_framing_is_used_when_divergence_alone_put_it_there():
@@ -198,10 +213,10 @@ def test_gap_framing_is_used_when_divergence_alone_put_it_there():
 
 
 def test_no_framing_when_neither_condition_applies():
-    """The attention block excludes strength spheres and ranks the rest by
-    score, so a growth/crisis sphere with no shared low and no divergent
-    question can still land here. There is nothing true to say about why,
-    so framing must be None rather than defaulting to "gap"."""
+    """The attention block holds every sphere outside the strength zone, so
+    a growth sphere with no divergent question lands here too. There is
+    nothing true to say about why, so framing must be None rather than
+    defaulting to "gap"."""
     a = [3, 4, 3, 4, 3] + [5] * 35     # sphere 1 avg 3.4
     b = [4, 3, 4, 4, 3] + [5] * 35     # sphere 1 avg 3.6, no gap >= 3
     result = build_result(a, b)
@@ -258,6 +273,65 @@ def test_no_sphere_is_ever_in_both_strengths_and_attention():
         strength_ids = {s.id for s in result.strengths}
         attention_ids = {e.sphere.id for e in result.attention}
         assert not (strength_ids & attention_ids), (a, b)
+
+
+def test_lists_follow_the_authored_order_not_the_score():
+    """Ranking by score was the leak one comparison at a time: a partner
+    who knows their own averages learns from the order which of the
+    other's is higher. Here the best sphere is the last one authored, and
+    the worst one comes after a better one."""
+    a = [4] * 5 + [3] * 5 + [1] * 5 + [4] * 20 + [5] * 5
+    b = [4] * 5 + [4] * 5 + [2] * 5 + [4] * 20 + [5] * 5
+    result = build_result(a, b)
+    assert [s.id for s in result.strengths] == [
+        "values", "intimacy", "home", "trust", "social", "empathy",
+    ]
+    # money is growth (3.0 and 4.0), communication a crisis (1.0 and 2.0).
+    assert [e.sphere.id for e in result.attention] == ["money", "communication"]
+    assert [e.sphere.zone for e in result.attention] == ["growth", "crisis"]
+
+
+def test_everything_but_the_percent_follows_from_zones_and_divergence():
+    """The property B-25 asked for, on a pair a partner could otherwise tell
+    apart: sphere 1 is a crisis with question 5 divergent both times, once
+    from two low averages and once from two high ones and a gap of four."""
+    both_low = build_result(
+        [2, 2, 2, 2, 2] + [5] * 35,
+        [2, 2, 2, 2, 5] + [5] * 35,
+    )
+    one_gap = build_result(
+        [5, 5, 5, 5, 1] + [5] * 35,
+        [5, 5, 5, 5, 5] + [5] * 35,
+    )
+    assert both_low.percent != one_gap.percent
+    assert both_low.model_dump(exclude={"percent"}) == one_gap.model_dump(
+        exclude={"percent"}
+    )
+
+
+def test_lists_and_framings_are_a_function_of_the_public_result():
+    """Over a spread of inputs: strengths and attention are exactly the
+    spheres of their zones in authored order, and the framing is decided by
+    the zone and the divergent questions alone."""
+    framings = _content(Language.RUSSIAN)["framings"]
+    rng = random.Random(20260927)
+    for _ in range(300):
+        a = [rng.randint(1, 5) for _ in range(TOTAL_QUESTIONS)]
+        b = [rng.randint(1, 5) for _ in range(TOTAL_QUESTIONS)]
+        result = build_result(a, b)
+        assert result.strengths == [
+            s for s in result.spheres if s.zone == "strength"
+        ], (a, b)
+        assert [e.sphere for e in result.attention] == [
+            s for s in result.spheres if s.zone != "strength"
+        ], (a, b)
+        for entry in result.attention:
+            expected = (
+                framings["gap"] if entry.sphere.divergent
+                else framings["both_low"] if entry.sphere.zone == "crisis"
+                else None
+            )
+            assert entry.framing == expected, (a, b)
 
 
 def test_result_never_contains_raw_answers():
