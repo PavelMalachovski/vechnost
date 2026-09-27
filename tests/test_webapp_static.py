@@ -533,3 +533,37 @@ def test_the_finale_overlay_is_not_rebuilt_under_a_tap():
     html = INDEX.read_text(encoding="utf-8")
     body = html.split("function showS69Finale(st) {")[1].split("\n  }")[0]
     assert "contains('show')) return" in body
+
+
+def _root_block(html: str) -> str:
+    """The declarations of the page's :root rule: the design tokens."""
+    return html.split("  :root {", 1)[1].split("\n  }", 1)[0]
+
+
+def test_the_old_custom_property_names_are_aliases_of_the_tokens():
+    """The token block is the one place a value is spelled. The names the
+    rules were written against stay, pointing at it, so a colour changed in
+    the palette reaches every rule that still says --ink or --card-bg; and
+    the two that nothing ever read are gone."""
+    html = INDEX.read_text(encoding="utf-8")
+    root = _root_block(html)
+    for alias, token in (("--ink", "--c-ink"), ("--card-bg", "--card-ground"),
+                         ("--text-on-dark", "--text-1"), ("--muted-on-dark", "--text-2"),
+                         ("--radius-card", "--r-card")):
+        assert f"{alias}: var({token});" in root, alias
+    assert re.search(r"--card-ground:\s+var\(--c-blush-50\)", root)
+    assert re.search(r"--c-blush-50:\s+#FFE5FA", root), "generate_card_assets.PALE"
+    assert "--shell-1" not in html
+    assert "--font-emblem" not in html
+
+
+def test_every_custom_property_the_page_reads_is_declared():
+    """A misspelt token is not an error in CSS: var() of an undeclared name
+    quietly falls back to the property's initial value, so a colour turns
+    black or a gap turns zero and nothing says why."""
+    html = INDEX.read_text(encoding="utf-8")
+    declared = set(re.findall(r"(--[\w-]+)\s*:", html))
+    used = set(re.findall(r"var\((--[\w-]+)", html))
+    # Telegram sets its own --tg-* on the document from telegram-web-app.js.
+    missing = {name for name in used - declared if not name.startswith("--tg-")}
+    assert not missing, missing

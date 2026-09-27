@@ -495,6 +495,15 @@ python scripts/smoke_production.py $URL  # read-only smoke of a deployed server
   YAML translations — update **both** when changing shared copy. `I18N` is
   one flat dictionary now, not a per-language map, and there is no language
   chip row.
+- **Design tokens live in the page's `:root`.** Palette, roles, type
+  scale, space, radii, shadows, motion, layers and the safe area, in that
+  order (`docs/AUDIT_2026-09.md`, section 4). A new rule reads a token; the
+  names older rules were written against (`--ink`, `--card-bg`,
+  `--muted-on-dark`, ...) are aliases of it, so a colour is spelled once.
+  Literals move over to tokens a step at a time, and a step that is meant to
+  change nothing is proved by comparing screenshots pixel for pixel.
+  `tests/test_webapp_static.py` fails on a `var()` of a name nobody declares,
+  which CSS itself would swallow silently.
 - New user-facing text is Russian. There is no second language to fill in.
 - **No gendered verb forms in user-facing text.** Not «уверен», and not the
   «уверен(а)» bracket either: the reader may be of any gender, and the
