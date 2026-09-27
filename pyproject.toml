@@ -153,9 +153,10 @@ known_first_party = ["vechnost_bot"]
 optional_dependencies_dev_groups = ["dev", "e2e"]
 
 [tool.deptry.per_rule_ignores]
-# The PostgreSQL driver alembic runs on (alembic/env.py spells the URL
-# postgresql+psycopg2); nothing imports it by name.
-DEP002 = ["psycopg2-binary"]
+# The database drivers SQLAlchemy loads by the name in the URL: asyncpg and
+# aiosqlite for the app, psycopg2 for alembic (alembic/env.py). Nothing
+# imports them by name.
+DEP002 = ["asyncpg", "aiosqlite", "psycopg2-binary"]
 # FastAPI is built on Starlette and pins it; web.py takes one type from it.
 DEP003 = ["starlette"]
 
