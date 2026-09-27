@@ -11,10 +11,11 @@ Which events change access is a table, not a substring match on the name:
 the old code granted lifetime access to anything with "subscription" or
 "product" in its name, cancellations included, and recorded every other
 event as a payment that also counted as access. Here `new_digital_product`,
-`new_subscription` and `renewed_subscription` grant; a cancellation, a
-refund or a chargeback revokes; anything else is acknowledged, written
-down, and changes nothing. An event Tribute adds tomorrow can only ever be
-ignored, never mistaken for a purchase.
+`new_subscription` and `renewed_subscription` grant; a cancellation cancels,
+which ends the subscription at the end of the period already paid for; a
+refund or a chargeback revokes, at once; anything else is acknowledged,
+written down, and changes nothing. An event Tribute adds tomorrow can only
+ever be ignored, never mistaken for a purchase.
 
 Imports nothing but pydantic, so the web layer, the scripts and the tests
 share one reading of a delivery.
@@ -25,18 +26,26 @@ from typing import Any, Literal
 
 from pydantic import BaseModel, Field
 
-Action = Literal["grant", "revoke", "ignore"]
+Action = Literal["grant", "cancel", "revoke", "ignore"]
 
 GRANT_EVENTS = frozenset({
     "new_digital_product",
     "new_subscription",
     "renewed_subscription",
 })
-REVOKE_EVENTS = frozenset({
+# Auto-renewal switched off. The customer has paid up to `expires_at` and
+# keeps access until then (backend audit B-09); it used to revoke at once.
+CANCEL_EVENTS = frozenset({
     "cancelled_subscription",
     "canceled_subscription",
+})
+# The money went back: access ends now.
+REFUND_EVENTS = frozenset({
     "refund",
     "refunded",
+    "digital_product_refunded",
+})
+CHARGEBACK_EVENTS = frozenset({
     "chargeback",
 })
 
@@ -50,11 +59,26 @@ def action_for(name: str) -> Action:
     lowered = name.strip().lower()
     if lowered in GRANT_EVENTS:
         return "grant"
-    if lowered in REVOKE_EVENTS:
+    if lowered in CANCEL_EVENTS:
+        return "cancel"
+    if lowered in REFUND_EVENTS or lowered in CHARGEBACK_EVENTS:
         return "revoke"
-    if any(word in lowered for word in ("refund", "chargeback", "cancel")):
+    # Names this table has not met yet. Money going back wins over a
+    # cancellation, which is the milder of the two.
+    if "refund" in lowered or "chargeback" in lowered:
         return "revoke"
+    if "cancel" in lowered:
+        return "cancel"
     return "ignore"
+
+
+def revoked_status(name: str) -> str:
+    """The status a revoked subscription row is left in: what happened to
+    the money, for whoever reads the row later."""
+    lowered = name.strip().lower()
+    if lowered in CHARGEBACK_EVENTS or "chargeback" in lowered:
+        return "charged_back"
+    return "refunded"
 
 
 def _to_int(value: Any) -> int | None:
@@ -202,6 +226,14 @@ class TributeEvent(BaseModel):
         return "lifetime" if "product" in self.name.lower() else "month"
 
     @property
+    def stated_expires_at(self) -> datetime | None:
+        """The end of the paid period as the delivery states it, if it does."""
+        try:
+            return parse_timestamp(self._first("expires_at"))
+        except ValueError:
+            return None
+
+    @property
     def expires_at(self) -> datetime | None:
         """When the granted access ends. None is forever.
 
@@ -210,10 +242,7 @@ class TributeEvent(BaseModel):
         rather than forever: a monthly plan must not become a lifetime one
         because a field was missing.
         """
-        try:
-            stated = parse_timestamp(self._first("expires_at"))
-        except ValueError:
-            stated = None
+        stated = self.stated_expires_at
         if stated is not None:
             return stated
         if "subscription" in self.name.lower():

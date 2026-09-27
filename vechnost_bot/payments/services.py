@@ -6,6 +6,7 @@ from datetime import datetime
 from typing import Any
 
 from sqlalchemy.exc import IntegrityError
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from .. import referrals
 from ..config import settings
@@ -18,6 +19,7 @@ from .gifts import (
 )
 from .models import Product
 from .repositories import (
+    CANCELED,
     CertificateRepository,
     PaymentRepository,
     ProductRepository,
@@ -32,7 +34,7 @@ from .signature import (
     verify_tribute_signature,
 )
 from .tribute_client import TributeAPIError, TributeClient
-from .tribute_event import TributeEvent
+from .tribute_event import TributeEvent, revoked_status
 
 logger = logging.getLogger(__name__)
 
@@ -95,9 +97,10 @@ async def apply_webhook_event(
     was lost for good.
 
     What the event *does* is decided by `tribute_event.action_for`, a
-    table: grant, revoke, or ignore. A `payments` row is written for every
-    grant and revoke as a journal, and only as a journal - access is read
-    from `subscriptions`, never inferred from the existence of a payment.
+    table: grant, cancel, revoke, or ignore. A `payments` row is written
+    for every grant, cancellation and revocation as a journal, and only as
+    a journal - access is read from `subscriptions`, never inferred from
+    the existence of a payment.
 
     Returns a dict with `status`, `message` and, on failure, an HTTP `code`.
     """
@@ -218,12 +221,15 @@ async def apply_webhook_event(
                     f"Access granted to {telegram_user_id} by {event.name}: "
                     f"period={event.period}, expires_at={event.expires_at}"
                 )
+            elif action == "cancel":
+                note = await _cancel(session, event, user.id, now)
+                logger.info(f"{event.name} for {telegram_user_id}: {note}")
             elif action == "revoke":
                 revoked = await SubscriptionRepository.revoke_for_user(
                     session,
                     user.id,
                     subscription_id=event.access_key or None,
-                    status="refunded" if "refund" in event.name.lower() else "canceled",
+                    status=revoked_status(event.name),
                     when=now,
                 )
                 note = f"revoked {revoked}"
@@ -276,6 +282,34 @@ async def apply_webhook_event(
         return _error("internal error", 500)
 
 
+async def _cancel(
+    session: AsyncSession, event: TributeEvent, user_id: int, when: datetime
+) -> str:
+    """A subscription's renewal switched off. Returns the note to record.
+
+    The customer has paid up to `expires_at` and keeps access until then;
+    this used to revoke at once (backend audit B-09). Refunds and
+    chargebacks still do. Only the subscription the event names is touched:
+    a cancellation that matches no row changes nothing, where it used to
+    close every row the user had - a lifetime purchase included. A row with
+    no end date is a lifetime purchase, and a cancellation cannot shorten it.
+    """
+    row = None
+    if event.access_key:
+        row = await SubscriptionRepository.get_by_user_and_subscription_id(
+            session, user_id, event.access_key
+        )
+    if row is None:
+        return "nothing to cancel: no subscription under that id"
+    if row.expires_at is None:
+        return "cancellation of a purchase without an end date: unchanged"
+    row.status = CANCELED
+    row.expires_at = event.stated_expires_at or row.expires_at
+    row.last_event_at = when
+    await session.flush()
+    return f"canceled, access until {row.expires_at:%Y-%m-%d %H:%M} UTC"
+
+
 async def _delivery_recorded(body_sha256: str) -> bool:
     """Whether a delivery with this body is on record as processed."""
     try:
@@ -291,7 +325,8 @@ async def user_has_access(telegram_user_id: int) -> bool:
     """Whether this user may see paid content.
 
     Access is an active, unexpired row in `subscriptions` (a lifetime
-    purchase is one with no expiry), or an activated certificate, or
+    purchase is one with no expiry; a cancelled subscription counts until
+    the end of the period paid for), or an activated certificate, or
     payments being switched off altogether. A row in `payments` is a
     journal entry and counts for nothing on its own: it used to, and every
     event Tribute sent - a cancellation included - became lifetime access.

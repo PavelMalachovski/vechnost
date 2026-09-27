@@ -3,7 +3,7 @@
 import logging
 from datetime import datetime
 
-from sqlalchemy import delete, or_, select, update
+from sqlalchemy import and_, delete, or_, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..compat import TOTAL_QUESTIONS
@@ -371,6 +371,13 @@ class PaymentRepository:
         return list(result.scalars().all())
 
 
+# Statuses of a subscription row that grant access while unexpired, and the
+# one that grants it only until `expires_at`: renewal switched off, the
+# period paid for still running.
+GRANTING_STATUSES = ("active", "trialing")
+CANCELED = "canceled"
+
+
 class SubscriptionRepository:
     """Repository for Subscription operations."""
 
@@ -436,22 +443,23 @@ class SubscriptionRepository:
         session: AsyncSession,
         user_id: int,
         subscription_id: int | None = None,
-        status: str = "canceled",
+        status: str = "refunded",
         when: datetime | None = None,
     ) -> int:
         """Withdraw a user's access. Returns how many rows changed.
 
-        A cancellation or a refund names what it undoes; when a row with
-        that id exists it is the only one touched. When none does - an
-        older row filed under a different key, or a refund that names the
-        product rather than the purchase - every active row of the user is
-        closed, because a refund with no effect is worse than one with too
-        much: the money went back and the deck stayed open.
+        A refund names what it undoes; when a row with that id exists it is
+        the only one touched. When none does - an older row filed under a
+        different key, or a refund that names the product rather than the
+        purchase - every row that still grants access is closed, because a
+        refund with no effect is worse than one with too much: the money
+        went back and the deck stayed open. A cancelled subscription still
+        inside its paid period is one of those rows.
         """
         result = await session.execute(
             select(Subscription)
             .where(Subscription.user_id == user_id)
-            .where(Subscription.status.in_(["active", "trialing"]))
+            .where(Subscription.status.in_([*GRANTING_STATUSES, CANCELED]))
         )
         rows = list(result.scalars().all())
         if subscription_id is not None:
@@ -471,15 +479,27 @@ class SubscriptionRepository:
     async def get_active_subscriptions_for_user(
         session: AsyncSession, user_id: int
     ) -> list[Subscription]:
-        """Get active subscriptions for user (including lifetime subscriptions)."""
+        """The rows that grant this user access now.
+
+        An active row until it expires (a lifetime purchase never does),
+        and a cancelled subscription until the end of the period already
+        paid for: a cancellation switches the renewal off, it does not take
+        back what was bought (backend audit B-09). A cancelled row with no
+        expiry is never access - the code that cancelled rows that way was
+        also recording chargebacks as cancellations.
+        """
         now = datetime.utcnow()
         result = await session.execute(
             select(Subscription)
             .where(Subscription.user_id == user_id)
-            .where(Subscription.status.in_(["active", "trialing"]))
             .where(
-                (Subscription.expires_at.is_(None)) |  # Lifetime subscription
-                (Subscription.expires_at > now)  # Or not expired yet
+                or_(
+                    and_(
+                        Subscription.status.in_(GRANTING_STATUSES),
+                        or_(Subscription.expires_at.is_(None), Subscription.expires_at > now),
+                    ),
+                    and_(Subscription.status == CANCELED, Subscription.expires_at > now),
+                )
             )
         )
         return list(result.scalars().all())
