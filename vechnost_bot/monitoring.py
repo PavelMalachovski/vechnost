@@ -68,6 +68,19 @@ def configure_logging() -> None:
 BREADCRUMB_LEVEL = logging.WARNING
 
 
+def sentry_release() -> str | None:
+    """Which build an event came from: the deployed commit.
+
+    Railway sets RAILWAY_GIT_COMMIT_SHA on a deploy from GitHub - the same
+    value `/health` reports - so an error in Sentry names the commit it
+    happened on and a regression names the deploy that brought it.
+    RELEASE_VERSION is for a build that is not a Railway deploy. With
+    neither, None lets the SDK look for itself, rather than filing every
+    event of every deploy under one release called "unknown".
+    """
+    return os.getenv("RAILWAY_GIT_COMMIT_SHA") or os.getenv("RELEASE_VERSION") or None
+
+
 def configure_sentry() -> None:
     """Configure Sentry for error tracking and performance monitoring."""
     from .config import settings
@@ -93,7 +106,7 @@ def configure_sentry() -> None:
         integrations=integrations,
         traces_sample_rate=0.1,  # Capture 10% of transactions for performance monitoring
         environment=settings.environment,
-        release=os.getenv("RELEASE_VERSION", "unknown"),
+        release=sentry_release(),
         send_default_pii=False,
         before_send=before_send_filter,
     )

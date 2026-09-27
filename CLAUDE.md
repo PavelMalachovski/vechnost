@@ -37,6 +37,7 @@ ruff check .                             # lint (CI gates on this)
 pytest tests/e2e -n0                     # the two-user suite, in-process
 E2E_BROWSER=1 pytest tests/e2e/browser -n0   # two Chromium phones (needs .[e2e])
 python scripts/smoke_production.py $URL  # read-only smoke of a deployed server
+python scripts/smoke_production.py $URL --deep  # ...and its database and bot heartbeat
 ```
 
 - **Two users, not one.** `tests/e2e` plays both partners against the real
@@ -426,6 +427,17 @@ python scripts/smoke_production.py $URL  # read-only smoke of a deployed server
   `ABANDONED_KEEP`. It deliberately never touches a *completed* compat test
   or a finished game: those have no TTL on purpose and a couple is meant to
   re-read them months later.
+- **`/health` is light, `/health/deep` is thorough.** `/health` is
+  Railway's healthcheck and touches nothing: a database blip or a restarting
+  bot must not block a deploy or recycle a web process that serves fine.
+  `/health/deep` runs `SELECT 1` and reads the `heartbeats` row the bot
+  rewrites every minute (`heartbeat.py`, registered in `bot.py`'s job
+  setup), and answers 503 when the database does not answer or the beat is
+  older than `STALE_AFTER` – the only way the web process can see a bot that
+  died, or one whose event loop is stuck. `scripts/smoke_production.py
+  --deep` checks it; the default smoke does not, because CI serves the web
+  process without a bot. Sentry files events under the deployed commit
+  (`RAILWAY_GIT_COMMIT_SHA`, else `RELEASE_VERSION`).
 - **The web app sets its own security headers.** `payments/web.py`'s
   `security_headers` middleware adds `nosniff`, a CSP `frame-ancestors` that
   names `'self'` and Telegram, and a referrer policy that keeps a room code

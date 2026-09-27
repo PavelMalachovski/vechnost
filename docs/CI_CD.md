@@ -82,6 +82,7 @@ ruff check . && ./scripts/typecheck.sh              # what `lint` gates on
 pytest tests/e2e -n0                                # the two-user suite, in-process
 E2E_BROWSER=1 pytest tests/e2e/browser -n0          # two phones (needs .[e2e] + Chromium)
 python scripts/smoke_production.py https://your-app.up.railway.app
+python scripts/smoke_production.py https://your-app.up.railway.app --deep   # + database and bot heartbeat
 ```
 
 PostgreSQL locally: start a server, then

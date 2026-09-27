@@ -24,7 +24,11 @@ One service, built from the repository's [`Dockerfile`](../Dockerfile)
 - **The healthcheck.** Railway moves traffic to a new deploy only once
   `/health` answers (up to 120 s), and keeps the previous one serving until
   then, so a build that cannot start never replaces a working one. `/health`
-  reports the deployed commit (`RAILWAY_GIT_COMMIT_SHA`).
+  reports the deployed commit (`RAILWAY_GIT_COMMIT_SHA`) and touches nothing
+  else, on purpose: a database blip must not block a deploy. `/health/deep`
+  is the thorough one - the database answers `SELECT 1` and the bot wrote
+  its heartbeat in the last five minutes - and answers 503 otherwise;
+  `scripts/smoke_production.py --deep` checks it.
 - **The database.** PostgreSQL. Tables are created at startup, and new
   columns are added by idempotent startup steps, so a deploy needs no manual
   migration. `alembic/` is kept in step with the models
@@ -90,4 +94,5 @@ break something.
   that needs attention.
 - **The bot is silent but the Mini App works.** The service stops when
   either process dies, so look for `[!] The bot died` in the log and the
-  traceback before it.
+  traceback before it. A bot that is alive but stuck does not die:
+  `/health/deep` shows how long ago it last beat (`bot_heartbeat_age_s`).

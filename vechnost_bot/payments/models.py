@@ -356,6 +356,25 @@ class Steps69Game(Base):
         )
 
 
+class Heartbeat(Base):
+    """When a process last proved it was alive: one row per process.
+
+    The web process and the bot share nothing but this database, so the bot
+    writes its row here every minute (`heartbeat.py`, from its JobQueue) and
+    `/health/deep` in the web process reads how old it is. A bot that died,
+    or whose event loop is stuck, stops writing - which is the signal.
+    """
+
+    __tablename__ = "heartbeats"
+
+    name: Mapped[str] = mapped_column(String, primary_key=True)
+    # Naive UTC, like every other timestamp in this schema.
+    beat_at: Mapped[datetime] = mapped_column(nullable=False)
+
+    def __repr__(self) -> str:
+        return f"<Heartbeat(name='{self.name}', beat_at={self.beat_at})>"
+
+
 class CompatTest(Base):
     """A couples compatibility test: two partners answer 40 questions apart."""
 
