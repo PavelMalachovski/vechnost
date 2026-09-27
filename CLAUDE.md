@@ -522,7 +522,15 @@ python scripts/smoke_production.py $URL --deep  # ...and its database and bot he
   `callback_handlers.py::features_block(language, bold=…)`; `bold` is the
   only difference between the hosts, because the greeting is sent with
   `parse_mode="HTML"` and `/about` is plain text. Add a feature there, not at
-  each screen.
+  each screen. The greeting itself is short on purpose - two sentences, the
+  decks in one line, that block, the button (`tests/test_welcome.py` caps
+  it): it once ran to 1 900 characters of manifesto before its only button,
+  and the long copy lives behind «Что тебя ждёт внутри?» instead.
+- **Every button in the bot does something.** A count is text, not a
+  button: the calendar's page is a line of its message (`_calendar_text`)
+  and a card's number is printed on the card; the calendar shows only its
+  cards, no blank padding. `noop` still answers, for buttons already sitting
+  in chats (`tests/test_keyboards.py`).
 - **Rate limiting lives in `payments/throttle.py`**, as FastAPI
   dependencies (the client's budget is checked before the global one, and an
   attempt counts only once it passes both - refused requests used to spend
@@ -573,11 +581,41 @@ python scripts/smoke_production.py $URL --deep  # ...and its database and bot he
   database and in links already sent — so the length check is a range, in
   `webapp/index.html` too.
 - **Nothing keeps a room or an abandoned test forever.** `retention.py` runs
-  a daily sweep at 03:30 UTC (`bot.py` schedules it) that drops rooms past
-  `ROOM_KEEP` and compat tests and games that were never finished past
-  `ABANDONED_KEEP`. It deliberately never touches a *completed* compat test
+  a daily sweep at 03:30 UTC (`bot.py::daily_jobs` schedules it) that drops
+  rooms past `ROOM_KEEP` and compat tests and games that were never finished
+  past `ABANDONED_KEEP`, and the scheduler's own `job_runs` rows past
+  `jobs.KEEP`. It deliberately never touches a *completed* compat test
   or a finished game: those have no TTL on purpose and a couple is meant to
   re-read them months later.
+- **A daily job runs once a day, whatever restarts in between.** The daily
+  card, the «69 ступеней» nudge and the retention sweep are `DailyJob`s
+  (`bot.py::daily_jobs`), started by one JobQueue tick a minute in
+  `jobs.py`, not `run_daily` jobs: those lost the rest of the list on a
+  restart mid-send, lost the whole day on a restart across the slot
+  (APScheduler gives a late run one second) and ran twice during a deploy's
+  overlap. A day's run is a `job_runs` row claimed by one statement - an
+  INSERT that does nothing on a conflict, or an UPDATE taking over a row
+  whose lease ran out - and a job moves its cursor after every recipient
+  (`run.check()` before, `run.advance()` after; the daily card pages through
+  recipients in Telegram-id order, the nudge flags each game the moment it
+  is reached). So a bot that was down at the slot sends late within the
+  job's window, one that died is resumed after the last person reached, and
+  a second bot finds the run taken; at most the one message in flight at a
+  crash goes out twice. A stopping bot hands its run back; five failed
+  attempts park it until tomorrow. Each run checks in with Sentry Crons when
+  a DSN is set, keeping the check-in id on the row so a takeover closes the
+  same check-in. The cursor is a person's id for the daily card and is
+  cleared when the run finishes. A new bulk send takes a `Run` the same way
+  and sends through `broadcast.deliver`; the race tests are in
+  `tests/test_postgres.py`, because SQLite here shares one connection
+  between sessions.
+- **Chats are handled side by side, one chat in order.**
+  `bot.py::PerChatUpdateProcessor` runs up to `CONCURRENT_UPDATES` updates
+  at once, but each chat's in the order they came: every handler reads,
+  changes and saves that chat's session, and two taps handled at once could
+  each save over the other. `config.create_bot` gives the Bot API
+  `BOT_API_CONNECTIONS` connections; the default was one, with a one-second
+  wait, so a tap during the daily push failed with `Pool timeout`.
 - **`/health` is light, `/health/deep` is thorough.** `/health` is
   Railway's healthcheck and touches nothing: a database blip or a restarting
   bot must not block a deploy or recycle a web process that serves fine.
@@ -642,6 +680,16 @@ python scripts/smoke_production.py $URL --deep  # ...and its database and bot he
   `assets/fonts/` with Cyrillic; if you touch fonts, keep that coverage —
   Russian is the only audience. Note Forum has no Greek capital lambda
   glyph, so the `Λ` mark is a `V` rotated 180°.
+- **No text on a corner mark.** The deck faces print a V and a suit in the
+  top-left corner and a Λ and a suit in the bottom-right; `CORNER_MARKS` in
+  `renderer.py` holds their boxes, measured on every face. `layout_text`
+  lays a card out in the central band as it always did, and only a text too
+  long for the band at `MIN_FONT_SIZE` gets the height beside the marks,
+  with the lines that pass one narrowed to clear it (down to
+  `LONG_TEXT_MIN_FONT_SIZE`); four long «Провокация» cards used to run over
+  both marks. `tests/test_card_layout.py` lays out every card and daily
+  prompt on its face, and fails if a redrawn face moves a mark out of its
+  box.
 - **Both front-ends print the same cards.** The Mini App does not draw a CSS
   likeness — it loads the very PNGs the bot composites onto, through a
   read-only `/assets` mount in `payments/web.py` (`CARD_ART` / `LIBRARY_ART`

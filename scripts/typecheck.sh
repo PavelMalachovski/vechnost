@@ -28,10 +28,12 @@ exec python -m mypy --follow-imports=silent \
     vechnost_bot/compat.py \
     vechnost_bot/compat_notify.py \
     vechnost_bot/config.py \
+    vechnost_bot/daily_card.py \
     vechnost_bot/freemium.py \
     vechnost_bot/heartbeat.py \
     vechnost_bot/i18n.py \
     vechnost_bot/invites.py \
+    vechnost_bot/jobs.py \
     vechnost_bot/keyboards.py \
     vechnost_bot/library.py \
     vechnost_bot/logic.py \

@@ -52,6 +52,26 @@ def _card_footer(theme: Theme, index: int, total: int, language: Language) -> st
     return f"{plain} · {index + 1}/{total}"
 
 
+def _calendar_text(
+    session: SessionState, content_type: ContentType, remaining_count: int,
+    page: int, total_pages: int,
+) -> str:
+    """The calendar's message: its header, and which page this is.
+
+    The page used to be a button in the keyboard's bottom row, «Страница 1
+    из 2», that did nothing when tapped and looked like every button that
+    did (audit D-33). A count is text, so it lives in the text, and only
+    when there is more than one page to count.
+    """
+    header = _calendar_header(session, content_type, remaining_count)
+    if total_pages > 1:
+        page_line = get_text('navigation.page', session.language).format(
+            current=page + 1, total=total_pages
+        )
+        header = f"{header}\n{page_line}"
+    return header
+
+
 def _calendar_header(
     session: SessionState, content_type: ContentType, remaining_count: int
 ) -> str:
@@ -266,7 +286,7 @@ class ThemeHandler(CallbackHandler):
         # Calculate remaining count
         remaining_count = len(items)
 
-        header = _calendar_header(session, content_type, remaining_count)
+        header = _calendar_text(session, content_type, remaining_count, page, total_pages)
 
         # Show toggle only for Sex theme
         show_toggle = (session.theme == Theme.SEX)
@@ -349,7 +369,7 @@ class LevelHandler(CallbackHandler):
         # Calculate remaining count
         remaining_count = len(items)
 
-        header = _calendar_header(session, content_type, remaining_count)
+        header = _calendar_text(session, content_type, remaining_count, page, total_pages)
 
         # Show toggle only for Sex theme
         show_toggle = (session.theme == Theme.SEX)
@@ -439,7 +459,7 @@ class CalendarHandler(CallbackHandler):
         # Calculate remaining count
         remaining_count = len(items)
 
-        header = _calendar_header(session, content_type, remaining_count)
+        header = _calendar_text(session, content_type, remaining_count, page, total_pages)
 
         # Show toggle only for Sex theme
         show_toggle = (session.theme == Theme.SEX)
@@ -732,7 +752,7 @@ class ToggleHandler(CallbackHandler):
         # Calculate remaining count
         remaining_count = len(items)
 
-        header = _calendar_header(session, content_type, remaining_count)
+        header = _calendar_text(session, content_type, remaining_count, page, total_pages)
 
         # Show toggle only for Sex theme
         show_toggle = (session.theme == Theme.SEX)
@@ -844,7 +864,7 @@ class BackHandler(CallbackHandler):
         # Calculate remaining count
         remaining_count = len(items)
 
-        header = _calendar_header(session, content_type, remaining_count)
+        header = _calendar_text(session, content_type, remaining_count, page, total_pages)
 
         # Show toggle only for Sex theme
         show_toggle = (session.theme == Theme.SEX)
@@ -1009,7 +1029,7 @@ class SimpleActionHandler(CallbackHandler):
         # Calculate remaining count
         remaining_count = len(items)
 
-        header = _calendar_header(session, content_type, remaining_count)
+        header = _calendar_text(session, content_type, remaining_count, page, total_pages)
 
         # Show toggle only for Sex theme
         show_toggle = (session.theme == Theme.SEX)
@@ -1145,21 +1165,20 @@ def features_block(language: Language, *, bold: bool = False) -> str:
 
 def welcome_screen(language: Language) -> tuple[str, InlineKeyboardMarkup]:
     """The greeting page: what `/start` opens on and what every 'back'
-    button returns to. One builder, so the two can never drift apart."""
+    button returns to. One builder, so the two can never drift apart.
+
+    Short on purpose: what VECHNOST is in two sentences, the four decks in
+    one line, the shared `features:` list, then the button. It used to run
+    to about 1 900 characters of manifesto before the only button that
+    mattered (audit D-34), much of it said again under «Что тебя ждёт
+    внутри?», which is still one tap away for whoever wants it.
+    """
     text = (
         f"<b>{get_text('welcome.greeting_title', language)}</b>\n"
         f"<i>{get_text('welcome.greeting_subtitle', language)}</i>\n\n"
-        f"━━━━━━━━━━━━━━━━━━━━\n\n"
-        f"<b>{get_text('welcome.section_connection_title', language)}</b>\n"
-        f"{get_text('welcome.section_connection_text', language)}\n\n"
-        f"<b>{get_text('welcome.section_intimacy_title', language)}</b>\n"
-        f"{get_text('welcome.section_intimacy_text', language)}\n\n"
-        f"<b>{get_text('welcome.section_themes_title', language)}</b>\n"
-        f"{get_text('welcome.section_themes_text', language)}\n\n"
-        f"{features_block(language, bold=True)}\n\n"
-        f"<b>{get_text('welcome.section_best_title', language)}</b>\n"
-        f"{get_text('welcome.section_best_text', language)}\n\n"
-        f"━━━━━━━━━━━━━━━━━━━━"
+        f"<b>{get_text('welcome.decks_title', language)}</b>\n"
+        f"{get_text('welcome.decks_text', language)}\n\n"
+        f"{features_block(language, bold=True)}"
     )
 
     # The game is played in the Mini App, not in the chat, so a configured

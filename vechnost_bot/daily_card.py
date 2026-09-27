@@ -7,6 +7,7 @@ user receives it rendered in their own language.
 import asyncio
 import logging
 from datetime import UTC, date, datetime
+from io import BytesIO
 from pathlib import Path
 from typing import Any
 
@@ -14,10 +15,14 @@ from telegram import Bot, InlineKeyboardButton, InlineKeyboardMarkup, WebAppInfo
 
 from .config import settings
 from .i18n import Language, get_text
+from .jobs import Run
 from .library import REFLECTION_TOTAL, question_of_the_day
 from .renderer import render_card
 
 logger = logging.getLogger(__name__)
+
+# Its row in `job_runs` and its Sentry monitor.
+JOB_NAME = "daily_card"
 
 # The daily prompt belongs to no deck, so it rides the Library card: the
 # brand face with the V/Λ letters and the VECHNOST wordmark, and no suit.
@@ -60,7 +65,7 @@ def _daily_keyboard(language: Language) -> InlineKeyboardMarkup:
     return InlineKeyboardMarkup(rows)
 
 
-def render_daily_card(day: date, language: Language):
+def render_daily_card(day: date, language: Language) -> tuple[BytesIO, str]:
     """Rendered prompt image + caption for the given date and language."""
     text, number = question_of_the_day(day.timetuple().tm_yday, language)
     watermark = (
@@ -80,8 +85,19 @@ def render_daily_card(day: date, language: Language):
     return image, caption
 
 
-async def send_daily_cards(bot: Bot) -> int:
-    """Send today's card to every recipient. Returns how many were sent.
+# The list is read a page at a time as the run goes: somebody who opts out
+# mid-run is not sent to, and memory does not grow with the audience.
+RECIPIENTS_PER_PAGE = 500
+
+
+async def send_daily_cards(bot: Bot, run: Run | None = None) -> int:
+    """Send the day's card to every recipient. Returns how many were sent.
+
+    `run` is the day's claimed run (`jobs.py`): recipients are taken in id
+    order after its cursor, and the cursor moves after each one, so a run
+    cut short by a restart is resumed after the last person reached rather
+    than started over or dropped. Without one - a test, a hand-run - the
+    list is sent from the top with nothing recorded.
 
     Each send goes through `broadcast.deliver`, which is the one delivery
     loop the bot has: a pause between sends, Telegram's own `retry_after`
@@ -95,77 +111,86 @@ async def send_daily_cards(bot: Bot) -> int:
     from .payments.database import get_db
     from .payments.repositories import UserRepository
 
-    async with get_db() as session:
-        recipients = await UserRepository.get_daily_card_recipients(session)
-
-    if not recipients:
-        logger.info("Daily card: no recipients")
-        return 0
-
-    # The job fires on a UTC clock, so the calendar date is read from the
-    # same clock: `date.today()` is server-local and rolls the prompt at the
-    # wrong moment on any non-UTC host.
-    today = datetime.now(UTC).date()
+    # The run's own date, not today's: a run resumed after midnight still
+    # sends the card of the day it belongs to. It is a UTC date either way,
+    # like the clock the job fires on.
+    run = run or Run.detached_for(JOB_NAME, datetime.now(UTC).date())
+    day = run.day
     # Render once per language, reuse the bytes for every user.
     rendered: dict[Language, tuple[bytes, str]] = {}
     render_failed: set[Language] = set()
     # Telegram returns a file_id for the first upload of an image; every
     # later recipient gets the id instead of the same hundred kilobytes.
     file_ids: dict[Language, str] = {}
-    sent = blocked = failed = 0
+    sent = 0
+    after = run.cursor
 
-    for user in recipients:
-        language = _user_language(user.language)
-        if language in render_failed:
-            continue
-        try:
-            # Inside the per-user try on purpose: a render failure used to
-            # kill the whole job before the first send. In a thread: this
-            # runs on the bot's loop, which handles every tap meanwhile.
-            if language not in rendered:
-                image, caption = await asyncio.to_thread(render_daily_card, today, language)
-                rendered[language] = (image.getvalue(), caption)
-            image_bytes, caption = rendered[language]
-        except Exception as e:
-            logger.error(f"Daily card: render failed for {language}: {e}")
-            render_failed.add(language)
-            continue
+    while True:
+        async with get_db() as session:
+            page = [
+                (user.telegram_user_id, user.language)
+                for user in await UserRepository.get_daily_card_recipients(
+                    session, after=after, limit=RECIPIENTS_PER_PAGE
+                )
+            ]
+        if not page:
+            break
 
-        async def send(
-            user_id: int,
-            _language: Language = language,
-            _bytes: bytes = image_bytes,
-            _caption: str = caption,
-        ) -> Any:
-            message = await bot.send_photo(
-                chat_id=user_id,
-                photo=file_ids.get(_language, _bytes),
-                caption=_caption,
-                reply_markup=_daily_keyboard(_language),
-            )
-            if _language not in file_ids:
-                try:
-                    file_ids[_language] = message.photo[-1].file_id
-                except Exception:
-                    pass  # an unusual reply shape costs a re-upload, nothing more
-            return message
+        for user_id, code in page:
+            run.check()
+            after = user_id
+            language = _user_language(code)
+            if language in render_failed:
+                await run.advance(user_id, broadcast.FAILED)
+                continue
+            try:
+                # Inside the per-user try on purpose: a render failure used
+                # to kill the whole job before the first send. In a thread:
+                # this runs on the bot's loop, which handles every tap
+                # meanwhile.
+                if language not in rendered:
+                    image, caption = await asyncio.to_thread(render_daily_card, day, language)
+                    rendered[language] = (image.getvalue(), caption)
+                image_bytes, caption = rendered[language]
+            except Exception as e:
+                logger.error(f"Daily card: render failed for {language}: {e}")
+                render_failed.add(language)
+                await run.advance(user_id, broadcast.FAILED)
+                continue
 
-        status = await broadcast.deliver(send, user.telegram_user_id)
-        if status == broadcast.SENT:
-            sent += 1
-        elif status == broadcast.BLOCKED:
-            blocked += 1  # deliver() has already opted them out
-        else:
-            failed += 1
-        await asyncio.sleep(broadcast.SECONDS_BETWEEN_SENDS)
+            async def send(
+                chat_id: int,
+                _language: Language = language,
+                _bytes: bytes = image_bytes,
+                _caption: str = caption,
+            ) -> Any:
+                message = await bot.send_photo(
+                    chat_id=chat_id,
+                    photo=file_ids.get(_language, _bytes),
+                    caption=_caption,
+                    reply_markup=_daily_keyboard(_language),
+                )
+                if _language not in file_ids:
+                    try:
+                        file_ids[_language] = message.photo[-1].file_id
+                    except Exception:
+                        pass  # an unusual reply shape costs a re-upload, nothing more
+                return message
+
+            status = await broadcast.deliver(send, user_id)
+            if status == broadcast.SENT:
+                sent += 1
+            await run.advance(user_id, status)
+            await asyncio.sleep(broadcast.SECONDS_BETWEEN_SENDS)
 
     logger.info(
-        f"Daily card: sent to {sent}/{len(recipients)} recipients "
-        f"({blocked} blocked the bot, {failed} failed)"
+        f"Daily card for {day}: sent to {run.sent} "
+        f"({run.blocked} blocked the bot, {run.failed} failed)"
+        + (" - resumed after a restart" if run.resumed else "")
     )
     return sent
 
 
-async def daily_card_job(context) -> None:
-    """PTB JobQueue entry point."""
-    await send_daily_cards(context.bot)
+async def run_daily_card(bot: Bot, run: Run) -> None:
+    """The scheduler's entry point (`jobs.DailyJob.run`)."""
+    await send_daily_cards(bot, run)
