@@ -429,9 +429,10 @@ python scripts/smoke_production.py $URL --deep  # ...and its database and bot he
   unanimous-consent rule as `DELETE /api/compat/{code}`), the bot session;
   a redeemed certificate stays spent but forgets who, and `referred_by`
   links to the user are cleared while the invitees keep `referred_at`, the
-  marker their discount reads. Its callback is registered ahead of the
-  game's catch-all on a pattern, like the broadcast's. Anything new that
-  stores a person must be added to `erase`, or the promise is broken.
+  marker their discount reads; their analytics events go with them. Its
+  callback is registered ahead of the game's catch-all on a pattern, like
+  the broadcast's. Anything new that stores a person must be added to
+  `erase`, or the promise is broken.
   The question (`privacy.ask`) also tells the person to cancel a Tribute
   subscription at Tribute: erasing the row does not stop the billing, and
   the next renewal event creates the user again.
@@ -447,6 +448,23 @@ python scripts/smoke_production.py $URL --deep  # ...and its database and bot he
   `handlers.py::free_text_hint`: a pasted `VECH-XXXX-XXXX` gets the
   `/activate` command ready to copy, anything else a pointer to /start and
   /help. The text itself is never logged; it may be a certificate code.
+- **Analytics is one table and one rule: a name and one token, never
+  text.** `analytics.py` (a domain module: no FastAPI, no
+  python-telegram-bot) holds `EVENTS`, each name with the closed set its
+  `detail` may come from - a paywall's door, a deck, a Library module -
+  and `event_row` drops anything else rather than store it: no answers, no
+  card texts, no names, no room codes. `source` is the channel of an
+  arrival (`bot_start`, `app_open`): a `src_<tag>` from the bot or Mini App
+  link, or `ref` / `invite` / `gift` / `push`; `/stats` credits a person to
+  the source of their first arrival. What only the server can know - a
+  seat taken, a test finished, a purchase, a refund - is recorded where it
+  happens, with `analytics.record` in the same transaction; the Mini App
+  may report only `CLIENT_EVENTS` through `POST /api/events`, signed by
+  initData or not kept, one `app_open` a day, under `throttle("events")`.
+  `/stats` (`stats.py`) is registered only where `ADMIN_IDS` names
+  somebody, like `/broadcast`. `/delete_me` erases a person's events and
+  the retention sweep drops them after `analytics.KEEP`. Add an event to
+  `EVENTS` with its allow-list, never a free-form field.
 - **The daily push has one button into the app.** «Играть» and «Библиотека»
   were the same app opened at two screens, and the choice came before the
   reader had seen either. It is one «Зайти в приложение» now, with the
