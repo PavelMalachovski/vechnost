@@ -3,6 +3,7 @@
 import asyncio
 import logging
 import os
+import re
 import sys
 import time
 from contextlib import asynccontextmanager
@@ -13,52 +14,208 @@ import structlog
 from sentry_sdk import capture_exception, set_context, set_tag, set_user
 from sentry_sdk.integrations.logging import LoggingIntegration
 
+# --------------------------------------------------------------------------
+# Logging: one format for every line
+# --------------------------------------------------------------------------
+#
+# Most of the code logs through the standard library, a little through
+# structlog, and uvicorn through its own loggers. All of it goes to one
+# handler on the root logger whose formatter renders every record the same
+# way: JSON with a level, a logger name and a UTC timestamp (or colours in a
+# terminal). It used to be `basicConfig(format="%(message)s")`, so a
+# standard-library line reached the log with neither level nor time, set
+# among structlog's JSON - on Railway an error could not be told from an
+# info line.
 
-# Configure structlog
+# The one handler this module puts on the root logger. It is found again by
+# its type, so configuring twice (the bot, the web process, a test) never
+# stacks a second one.
+class StdoutHandler(logging.StreamHandler):
+    """A stream handler that writes to whatever `sys.stdout` is right now.
+
+    Not the stream it was created with: a test runner swaps `sys.stdout`
+    per test and closes the old one, and a handler holding on to that
+    raises on every later line. (The standard library's own last-resort
+    handler does the same for stderr.)
+    """
+
+    def __init__(self) -> None:
+        super().__init__(sys.stdout)
+
+    @property
+    def stream(self) -> Any:
+        return sys.stdout
+
+    @stream.setter
+    def stream(self, value: Any) -> None:
+        pass
+
+
+# The processors every line runs through, whichever door it came in by.
+_SHARED_PROCESSORS: list[Any] = [
+    structlog.stdlib.add_log_level,
+    structlog.stdlib.add_logger_name,
+]
+
+
+def structured_formatter() -> logging.Formatter:
+    """The formatter for the root handler (and for uvicorn's log config).
+
+    The timestamp is added here, at the end, rather than in structlog's own
+    chain: what reaches Sentry is the event before formatting, and a
+    timestamp inside it would make every occurrence of one error a message
+    of its own.
+    """
+    renderer: Any
+    if sys.stdout.isatty():
+        renderer = structlog.dev.ConsoleRenderer(colors=True)
+    else:
+        renderer = structlog.processors.JSONRenderer()
+    return structlog.stdlib.ProcessorFormatter(
+        foreign_pre_chain=_SHARED_PROCESSORS,
+        processors=[
+            structlog.stdlib.ProcessorFormatter.remove_processors_meta,
+            structlog.processors.TimeStamper(fmt="iso", utc=True),
+            # A traceback as one string field: readable in Railway's log
+            # viewer, and still greppable for "Traceback" (ci.yml does).
+            structlog.processors.format_exc_info,
+            renderer,
+        ],
+    )
+
+
+# A room, a compatibility test and a «69 ступеней» game are addressed by a
+# code in the path, and the code is the key to the seat: whoever reads it
+# can sit down in a stranger's game. The two-partner screens poll every few
+# seconds, so uvicorn's access log wrote every live code, for every player,
+# many times a minute. The first segment after these prefixes is a code
+# unless it is one of the fixed routes beside the codes.
+_CODE_IN_PATH = re.compile(r"(/api/(?:rooms|compat|steps69)/)([^/?#\s\"]+)")
+_NOT_A_CODE = frozenset({"questions", "mine", "pieces"})
+# The same codes travel in the Mini App's own address: `?code=` when the bot
+# hands a tap on, `tgWebAppStartParam=` when Telegram opens a direct link.
+_CODE_IN_QUERY = re.compile(r"([?&](?:code|startapp|start|tgWebAppStartParam)=)[^&#\s\"]*")
+CODE_MASK = "***"
+
+
+def mask_codes(text: str) -> str:
+    """`text` with every room, test and game code replaced by `***`."""
+    def path(match: re.Match[str]) -> str:
+        if match.group(2) in _NOT_A_CODE:
+            return match.group(0)
+        return match.group(1) + CODE_MASK
+
+    text = _CODE_IN_PATH.sub(path, text)
+    return _CODE_IN_QUERY.sub(lambda match: match.group(1) + CODE_MASK, text)
+
+
+class MaskInviteCodes(logging.Filter):
+    """Masks codes in uvicorn's access log, before any handler sees them.
+
+    uvicorn logs a request as a format string with the path among its
+    arguments; every string argument is masked, so the filter does not
+    depend on where in the line the path sits.
+    """
+
+    def filter(self, record: logging.LogRecord) -> bool:
+        if isinstance(record.args, tuple):
+            record.args = tuple(
+                mask_codes(arg) if isinstance(arg, str) else arg for arg in record.args
+            )
+        elif isinstance(record.msg, str) and not record.args:
+            record.msg = mask_codes(record.msg)
+        return True
+
+
+def uvicorn_log_config(level: str = "INFO") -> dict[str, Any]:
+    """The `log_config` uvicorn is started with (`run_webhook.serve_web`).
+
+    uvicorn's own default gives its loggers handlers of their own, in its
+    own format, with the access log writing every path as it came. Here its
+    loggers keep no handlers and hand their records to the root handler
+    above, so its lines look like everyone else's from the first one, and
+    the access log passes through `MaskInviteCodes` first.
+    """
+    return {
+        "version": 1,
+        "disable_existing_loggers": False,
+        "filters": {"mask_codes": {"()": MaskInviteCodes}},
+        "formatters": {"structured": {"()": structured_formatter}},
+        "handlers": {"stdout": {"()": StdoutHandler, "formatter": "structured"}},
+        "loggers": {
+            "uvicorn": {"handlers": [], "level": level, "propagate": True},
+            "uvicorn.error": {"level": level, "propagate": True},
+            "uvicorn.access": {
+                "handlers": [], "level": level, "propagate": True, "filters": ["mask_codes"],
+            },
+        },
+        "root": {"handlers": ["stdout"], "level": level},
+    }
+
+
+def _route_uvicorn_through_root() -> None:
+    """Make uvicorn's loggers use the root handler, however it was started.
+
+    `run_webhook.serve_web` passes `uvicorn_log_config()`, which already does
+    this. A plain `uvicorn ...` on the command line (local development, CI's
+    smoke servers) applies uvicorn's default instead, whose handlers would
+    print unmasked, unstructured lines; this undoes that once the app starts.
+    A logger with no handlers is left as it is: `--no-access-log` switches
+    the access log off exactly that way, and must stay off.
+    """
+    for name in ("uvicorn", "uvicorn.access"):
+        uvicorn_logger = logging.getLogger(name)
+        if uvicorn_logger.handlers:
+            uvicorn_logger.handlers.clear()
+            uvicorn_logger.propagate = True
+    access = logging.getLogger("uvicorn.access")
+    if not any(isinstance(f, MaskInviteCodes) for f in access.filters):
+        access.addFilter(MaskInviteCodes())
+
+
 def configure_logging() -> None:
-    """Configure structured logging with structlog."""
+    """Route every logger in the process through one structured handler."""
     from .config import settings
 
     # LOG_LEVEL was documented and never read: INFO was hard-coded here.
     level = getattr(logging, settings.log_level.upper(), logging.INFO)
-    logging.basicConfig(
-        format="%(message)s",
-        stream=sys.stdout,
-        level=level,
+
+    structlog.configure(
+        processors=[
+            # A DEBUG line under LOG_LEVEL=INFO is dropped before any work.
+            structlog.stdlib.filter_by_level,
+            structlog.contextvars.merge_contextvars,
+            *_SHARED_PROCESSORS,
+            structlog.stdlib.PositionalArgumentsFormatter(),
+            structlog.processors.StackInfoRenderer(),
+            structlog.stdlib.ProcessorFormatter.wrap_for_formatter,
+        ],
+        logger_factory=structlog.stdlib.LoggerFactory(),
+        wrapper_class=structlog.stdlib.BoundLogger,
+        cache_logger_on_first_use=True,
     )
+
+    root = logging.getLogger()
+    handler = next((h for h in root.handlers if isinstance(h, StdoutHandler)), None)
+    if handler is None:
+        handler = StdoutHandler()
+        handler.setFormatter(structured_formatter())
+        root.addHandler(handler)
+    # On the handler too: a record that propagates up from a logger with a
+    # lower level of its own (uvicorn's are INFO) is not stopped by the root
+    # logger's level, only by its handlers'.
+    handler.setLevel(level)
+    root.setLevel(level)
 
     # httpx logs every Telegram API request at INFO with the full URL,
     # which includes the bot token — keep those out of production logs.
     logging.getLogger("httpx").setLevel(logging.WARNING)
     logging.getLogger("httpcore").setLevel(logging.WARNING)
+    # APScheduler writes two INFO lines for every job it runs, and the
+    # heartbeat runs every minute. A job that fails still logs at ERROR.
+    logging.getLogger("apscheduler.executors.default").setLevel(logging.WARNING)
 
-    # Configure structlog
-    shared_processors = [
-        structlog.stdlib.add_log_level,
-        structlog.stdlib.add_logger_name,
-        structlog.processors.TimeStamper(fmt="iso", utc=True),
-        structlog.processors.StackInfoRenderer(),
-        structlog.processors.format_exc_info,
-    ]
-
-    if sys.stderr.isatty():
-        # Pretty printing when we run in a terminal session
-        processors = shared_processors + [
-            structlog.dev.ConsoleRenderer(colors=True),
-        ]
-    else:
-        # JSON output for production
-        processors = shared_processors + [
-            structlog.processors.dict_tracebacks,
-            structlog.processors.JSONRenderer(),
-        ]
-
-    structlog.configure(
-        processors=processors,
-        logger_factory=structlog.stdlib.LoggerFactory(),
-        wrapper_class=structlog.stdlib.BoundLogger,
-        cache_logger_on_first_use=True,
-    )
+    _route_uvicorn_through_root()
 
 
 # Breadcrumbs start at WARNING. At INFO every callback, every /start
@@ -128,7 +285,12 @@ def before_send_filter(event, hint):
 
 
 class BotMetrics:
-    """Bot metrics and monitoring."""
+    """Bot metrics and monitoring.
+
+    Every counter and timer is logged at DEBUG. A tap on a card used to
+    write about ten INFO lines - the callback, two counters, the render,
+    three timers - which buried everything else in the log.
+    """
 
     def __init__(self):
         self.logger = structlog.get_logger("bot_metrics")
@@ -138,12 +300,12 @@ class BotMetrics:
     def increment_counter(self, name: str, value: int = 1, **context) -> None:
         """Increment a counter metric."""
         self._counters[name] = self._counters.get(name, 0) + value
-        self.logger.info("counter_incremented", counter=name, value=value, **context)
+        self.logger.debug("counter_incremented", counter=name, value=value, **context)
 
     def record_timer(self, name: str, duration: float, **context) -> None:
         """Record a timer metric."""
         self._timers[name] = duration
-        self.logger.info("timer_recorded", timer=name, duration=duration, **context)
+        self.logger.debug("timer_recorded", timer=name, duration=duration, **context)
 
     def get_metrics(self) -> dict[str, Any]:
         """Get current metrics."""
@@ -315,7 +477,7 @@ def set_user_context(user_id: int, username: str | None = None, **extra_context)
     set_user({"id": str(user_id), **extra_context})
 
     logger = structlog.get_logger("user_tracking")
-    logger.info("user_context_set", user_id=user_id, **extra_context)
+    logger.debug("user_context_set", user_id=user_id, **extra_context)
 
 
 def log_bot_event(event_type: str, **context):
@@ -334,9 +496,11 @@ def log_callback_event(callback_data: str | None, user_id: int, **context):
     and the caller hands `query.data` straight through. The body already
     guards every use of it; the signature was the only thing claiming
     otherwise.
+
+    DEBUG, like the metrics: one line per tap is a firehose at INFO.
     """
     logger = structlog.get_logger("callback_events")
-    logger.info(
+    logger.debug(
         "callback_event",
         callback_data=callback_data,
         user_id=user_id,
@@ -366,9 +530,9 @@ def log_callback_event(callback_data: str | None, user_id: int, **context):
 
 
 def log_image_rendering_event(success: bool, duration: float, **context):
-    """Log an image rendering event."""
+    """Log an image rendering event (DEBUG: one per card shown)."""
     logger = structlog.get_logger("image_rendering")
-    logger.info(
+    logger.debug(
         "image_rendering_event",
         success=success,
         duration=duration,

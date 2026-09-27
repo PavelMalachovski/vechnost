@@ -139,6 +139,14 @@ production `python -m vechnost_bot.run_webhook` runs both, the web server and
 the bot, as two supervised child processes (this is the Railway start
 command).
 
+Both log the way production does: one JSON line per record, with `level`,
+`logger` and `timestamp` (colours when the output is a terminal), and the
+room, test and game codes masked out of uvicorn's access log. The app
+applies that when it starts, so the plain `uvicorn` command above needs no
+flag; production passes the same configuration to uvicorn up front
+(`monitoring.uvicorn_log_config()`), which covers uvicorn's first two lines
+as well. `LOG_LEVEL=DEBUG` adds the per-tap metrics.
+
 ## Configuration
 
 All settings are read from environment variables (or `.env`). See
