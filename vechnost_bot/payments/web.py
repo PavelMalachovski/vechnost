@@ -22,6 +22,7 @@ from starlette.types import Scope
 from .. import referrals
 from ..config import settings
 from ..freemium import FREE_CARDS_PER_DECK, free_slice, is_index_free
+from ..heartbeat import deep_status
 from ..i18n import Language, get_text
 from ..logic import localized_game_data
 from ..models import ContentType, Theme
@@ -243,6 +244,29 @@ async def health_check() -> dict[str, str | None]:
         "payment_enabled": str(settings.enable_payment),
         "commit": os.environ.get("RAILWAY_GIT_COMMIT_SHA") or None,
     }
+
+
+@app.get("/health/deep")
+async def deep_health_check() -> JSONResponse:
+    """Whether the database answers and the bot is alive: 200, or 503.
+
+    Not Railway's healthcheck - that is `/health`, which must stay light so
+    a database blip or a restarting bot never blocks a deploy or recycles a
+    web process that serves fine. This one is for the smoke test and for
+    whoever is looking: `SELECT 1`, and the age of the heartbeat the bot
+    writes every minute (`heartbeat.py`), which stops when the bot dies or
+    its event loop is stuck.
+    """
+    healthy, checks = await deep_status()
+    return JSONResponse(
+        status_code=200 if healthy else 503,
+        content={
+            "status": "ok" if healthy else "unhealthy",
+            "commit": os.environ.get("RAILWAY_GIT_COMMIT_SHA") or None,
+            "checks": checks,
+        },
+        headers={"Cache-Control": "no-store"},
+    )
 
 
 async def _caller_is_referred(authorization: str | None) -> bool:

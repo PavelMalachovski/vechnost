@@ -117,7 +117,10 @@ class TestConfig:
     @patch.dict(os.environ, {
         "TELEGRAM_BOT_TOKEN": "test_token",
         "LOG_LEVEL": "DEBUG",
-        "ENVIRONMENT": "production"
+        "ENVIRONMENT": "production",
+        # Production refuses to start without these (tests/test_config.py).
+        "DATABASE_URL": "postgresql+asyncpg://vechnost@db.internal:5432/vechnost",
+        "ENABLE_PAYMENT": "false",
     })
     def test_settings_from_env(self):
         """Test settings from environment variables."""

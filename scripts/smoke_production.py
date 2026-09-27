@@ -5,6 +5,7 @@ Run after a deploy (and on a schedule) against the public URL:
 
     python scripts/smoke_production.py https://your-app.up.railway.app
     python scripts/smoke_production.py $URL --expect-commit $GITHUB_SHA --wait 600
+    python scripts/smoke_production.py $URL --deep   # and the database and the bot
 
 It only reads. It never authenticates, never creates a room, a test or a
 board, and never posts to the Tribute webhook, so it leaves no rows behind
@@ -18,7 +19,11 @@ and cannot page anyone. What it proves is what a user notices first:
 * the paid and the two-partner endpoints refuse an anonymous caller (401),
   i.e. authentication is switched on rather than silently open;
 * the security headers are there, and the page can be framed by Telegram
-  Web (a `frame-ancestors` that names web.telegram.org).
+  Web (a `frame-ancestors` that names web.telegram.org);
+* with --deep, that /health/deep is green too: the database answers and the
+  bot wrote its heartbeat in the last few minutes. Off by default, because
+  it asks about more than the web process (a server started without the
+  bot, as CI starts one, is red there by design).
 
 Exit status 0 when every check passes, 1 otherwise; a table goes to stdout,
 and to $GITHUB_STEP_SUMMARY when run inside GitHub Actions.
@@ -57,7 +62,7 @@ def _run(name: str, fn: Callable[[], str]) -> Check:
     return Check(name, ok, detail, (time.perf_counter() - started) * 1000)
 
 
-def smoke(client: httpx.Client, expect_commit: str | None) -> list[Check]:
+def smoke(client: httpx.Client, expect_commit: str | None, deep: bool = False) -> list[Check]:
     checks: list[Check] = []
 
     def health() -> str:
@@ -112,14 +117,25 @@ def smoke(client: httpx.Client, expect_commit: str | None) -> list[Check]:
             assert status == 401, f"{path} answered an anonymous caller with {status}"
         return f"{len(seen)} endpoints -> 401"
 
-    for name, fn in (
+    def deep_health() -> str:
+        # 503 is an answer here, not a transport failure: read its body.
+        r = client.get("/health/deep")
+        body = r.json()
+        found = body.get("checks", {})
+        assert r.status_code == 200 and body.get("status") == "ok", f"{r.status_code} {found}"
+        return f"database {found.get('database')}, bot beat {found.get('bot_heartbeat_age_s')}s ago"
+
+    named: list[tuple[str, Callable[[], str]]] = [
         ("health", health),
         ("mini app page", app_page),
         ("decks", questions),
         ("compatibility questions", compat_questions),
         ("69 steps suits", pieces),
         ("anonymous callers refused", refuses_strangers),
-    ):
+    ]
+    if deep:
+        named.append(("database and bot", deep_health))
+    for name, fn in named:
         checks.append(_run(name, fn))
     return checks
 
@@ -153,12 +169,14 @@ def main() -> int:
     parser.add_argument("--expect-commit", help="fail unless /health reports this commit")
     parser.add_argument("--wait", type=float, default=0,
                         help="seconds to wait for --expect-commit to go live first")
+    parser.add_argument("--deep", action="store_true",
+                        help="also require /health/deep: the database answers and the bot is beating")
     args = parser.parse_args()
 
     with httpx.Client(base_url=args.url.rstrip("/"), timeout=20, follow_redirects=True) as client:
         if args.expect_commit and args.wait:
             wait_for_commit(client, args.expect_commit, args.wait)
-        checks = smoke(client, args.expect_commit)
+        checks = smoke(client, args.expect_commit, deep=args.deep)
 
     table = report(checks, args.url)
     print(table)

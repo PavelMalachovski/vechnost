@@ -29,6 +29,7 @@ pip install --require-hashes --no-deps -r requirements-dev.lock && pip install -
 pip install -e ".[dev]"                 # ...or today's versions, unpinned
 python -m vechnost_bot                   # run the bot (polling)
 python -m uvicorn vechnost_bot.payments.web:app --reload --port 8000  # web + Mini App
+                                         # (logs as production does once the app starts)
 pytest                                   # run tests (parallel, ~10s)
 pytest -n0                               # ...serially, for a debugger
 pytest tests/test_freemium.py -q         # run one suite
@@ -37,6 +38,7 @@ ruff check .                             # lint (CI gates on this)
 pytest tests/e2e -n0                     # the two-user suite, in-process
 E2E_BROWSER=1 pytest tests/e2e/browser -n0   # two Chromium phones (needs .[e2e])
 python scripts/smoke_production.py $URL  # read-only smoke of a deployed server
+python scripts/smoke_production.py $URL --deep  # ...and its database and bot heartbeat
 ```
 
 - **Two users, not one.** `tests/e2e` plays both partners against the real
@@ -499,6 +501,30 @@ python scripts/smoke_production.py $URL  # read-only smoke of a deployed server
   `ABANDONED_KEEP`. It deliberately never touches a *completed* compat test
   or a finished game: those have no TTL on purpose and a couple is meant to
   re-read them months later.
+- **`/health` is light, `/health/deep` is thorough.** `/health` is
+  Railway's healthcheck and touches nothing: a database blip or a restarting
+  bot must not block a deploy or recycle a web process that serves fine.
+  `/health/deep` runs `SELECT 1` and reads the `heartbeats` row the bot
+  rewrites every minute (`heartbeat.py`, registered in `bot.py`'s job
+  setup), and answers 503 when the database does not answer or the beat is
+  older than `STALE_AFTER` – the only way the web process can see a bot that
+  died, or one whose event loop is stuck. `scripts/smoke_production.py
+  --deep` checks it; the default smoke does not, because CI serves the web
+  process without a bot. Sentry files events under the deployed commit
+  (`RAILWAY_GIT_COMMIT_SHA`, else `RELEASE_VERSION`).
+- **One log format, and no codes in it.** `monitoring.configure_logging`
+  puts one handler on the root logger whose `ProcessorFormatter` renders
+  every record – standard library, structlog, uvicorn – as JSON with
+  `level`, `logger` and `timestamp` (colours in a terminal). It replaced
+  `basicConfig(format="%(message)s")`, under which most lines had neither
+  level nor time. uvicorn's access log passes through `MaskInviteCodes`,
+  which turns the code in `/api/rooms|compat|steps69/{code}` and in
+  `?code=` / `tgWebAppStartParam=` into `***`: the two-partner screens poll,
+  and a code is a seat in a stranger's game. `run_webhook.serve_web` starts
+  uvicorn with `monitoring.uvicorn_log_config()`; a plain `uvicorn` command
+  is brought into line when the app starts (only uvicorn's first two lines
+  come before that). Per-tap metrics – callbacks, counters, timers, renders
+  – log at DEBUG; `LOG_LEVEL=DEBUG` brings them back.
 - **The web app sets its own security headers.** `payments/web.py`'s
   `security_headers` middleware adds `nosniff`, a CSP `frame-ancestors` that
   names `'self'` and Telegram, and a referrer policy that keeps a room code
@@ -662,6 +688,14 @@ python scripts/smoke_production.py $URL  # read-only smoke of a deployed server
 - `ENABLE_PAYMENT=false` unlocks everything and skips initData checks — great
   for local dev, but means auth/paywall paths aren't exercised unless you
   flip it on.
+- **`ENVIRONMENT=production` refuses development defaults.**
+  `config.production_problems` lists what a production start needs – a
+  `postgresql+asyncpg` `DATABASE_URL`, an explicit `ENABLE_PAYMENT`,
+  `TRIBUTE_API_KEY` when payments are on, an `https://` `WEBAPP_URL` – and
+  `Settings` raises `ProductionConfigError` naming every one. Not a
+  `ValueError`: pydantic would repeat every setting, the token and the
+  database password included, into the crash log. Development and the test
+  suite are unaffected; the production service has to set the variable.
 - There is a large legacy `docs/` folder with historical setup notes; the
   root `README.md` is the current source of truth.
 

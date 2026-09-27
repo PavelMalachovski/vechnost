@@ -28,6 +28,7 @@ exec python -m mypy --follow-imports=silent \
     vechnost_bot/compat_notify.py \
     vechnost_bot/config.py \
     vechnost_bot/freemium.py \
+    vechnost_bot/heartbeat.py \
     vechnost_bot/i18n.py \
     vechnost_bot/invites.py \
     vechnost_bot/keyboards.py \
