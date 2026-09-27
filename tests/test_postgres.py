@@ -178,6 +178,36 @@ def test_a_stray_not_null_is_released_at_startup(pg_url: str) -> None:
         engine.dispose()
 
 
+def test_rejected_deliveries_are_kept_and_released_on_postgres(pg_url: str) -> None:
+    """The release step renames a hash with `||` and matches with LIKE: both
+    have to hold on the database production runs, and twice in a row."""
+    from sqlalchemy import select
+
+    from vechnost_bot.payments.models import WebhookEvent
+    from vechnost_bot.payments.repositories import WebhookEventRepository
+
+    async def seed() -> None:
+        await database.create_tables()
+        async with database.get_db() as session:
+            for sha, status in (("pg-stuck", 401), ("pg-fine", 200)):
+                await WebhookEventRepository.create(
+                    session, name="new_digital_product", sent_at=datetime.utcnow(),
+                    body_sha256=sha, status_code=status,
+                )
+
+    async def restart_twice_and_read() -> list[tuple[str, int]]:
+        await database.create_tables()
+        await database.create_tables()
+        async with database.get_db() as session:
+            found = (await session.execute(select(WebhookEvent))).scalars().all()
+            return sorted((row.body_sha256, row.status_code) for row in found)
+
+    _run(pg_url, seed)
+    assert _run(pg_url, restart_twice_and_read) == [
+        ("pg-fine", 200), (database.RELEASED_PREFIX + "pg-stuck", 401),
+    ]
+
+
 def _schema(sync_url: str) -> dict[str, dict[str, tuple[str, bool]]]:
     from sqlalchemy import create_engine, inspect
 

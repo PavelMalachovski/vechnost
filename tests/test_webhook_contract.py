@@ -459,7 +459,8 @@ async def test_a_payment_row_alone_is_not_access_and_is_backfilled_once(memory_d
 
 
 async def test_rejected_delivery_records_are_released_at_startup(memory_db):
-    """The rows that stood between a lost payment and its retry."""
+    """The rows that stood between a lost payment and its retry: their hash is
+    freed, and the row stays, because it is the list of payments to redeliver."""
     await database.create_tables()
     async with database.get_db() as session:
         await WebhookEventRepository.create(
@@ -471,6 +472,35 @@ async def test_rejected_delivery_records_are_released_at_startup(memory_db):
             body_sha256="fine", status_code=200,
         )
     await database.create_tables()
+    await database.create_tables()   # the restart after: nothing is renamed twice
     async with database.get_db() as session:
         left = list((await session.execute(select(WebhookEvent))).scalars().all())
-    assert [row.body_sha256 for row in left] == ["fine"]
+    assert sorted((row.body_sha256, row.status_code) for row in left) == [
+        ("fine", 200), (database.RELEASED_PREFIX + "stuck", 401),
+    ]
+
+
+def test_a_payment_rejected_before_the_fix_lands_when_redelivered(client):
+    """A purchase the old code refused and recorded under its hash: every
+    retry of it was 'already processed'. After the startup step the same
+    bytes are applied, and the old record is still there to say so."""
+    body = event("new_digital_product", product_id=555)
+
+    async def stuck() -> None:
+        async with database.get_db() as session:
+            await WebhookEventRepository.create(
+                session, name="new_digital_product", sent_at=datetime.utcnow(),
+                body_sha256=hashlib.sha256(body).hexdigest(), status_code=401,
+                error="Invalid webhook signature",
+            )
+
+    asyncio.run(stuck())
+    assert "already processed" in deliver(client, body).json()["message"]
+    assert access() is False, "the state production is in before the fix"
+
+    asyncio.run(database.create_tables())   # the deploy
+    response = deliver(client, body)
+    assert response.status_code == 200, response.text
+    assert "already processed" not in response.json()["message"]
+    assert access() is True
+    assert sorted(row.status_code for row in rows(WebhookEvent)) == [200, 401]

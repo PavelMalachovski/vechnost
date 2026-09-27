@@ -42,11 +42,18 @@ def upgrade() -> None:
         "AND p.created_at < '2026-09-03 16:00:00' "
         "AND NOT EXISTS (SELECT 1 FROM subscriptions s WHERE s.user_id = p.user_id)"
     )
-    op.execute("DELETE FROM webhook_events WHERE status_code >= 400")
+    # Rejected deliveries keep their rows with the hash renamed, as the
+    # startup step does (payments/database.py::_release_stuck_webhooks): the
+    # retry is no longer a duplicate, and the row still says which payment
+    # to redeliver.
+    op.execute(
+        "UPDATE webhook_events SET body_sha256 = 'released:' || body_sha256 "
+        "WHERE status_code >= 400 AND body_sha256 NOT LIKE 'released:%'"
+    )
 
 
 def downgrade() -> None:
     # Data only. The backfilled rows are indistinguishable from real ones
-    # by design, and the deleted rejection records were only ever in the
-    # way; neither is restored.
+    # by design, and a released rejection record is better left released;
+    # neither is undone.
     pass

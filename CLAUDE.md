@@ -391,7 +391,10 @@ python scripts/smoke_production.py $URL  # read-only smoke of a deployed server
   processed: a rejected one leaves no trace, so Tribute's retry of the same
   bytes is judged on its own. (It used to be recorded under the body's hash
   first, so the correctly signed retry was told "already processed" and the
-  payment was lost.) An IntegrityError is a duplicate only if the delivery
+  payment was lost. A startup step frees those old rows by renaming the hash
+  to `released:<hash>` and keeps them: they are the list of payments to
+  redeliver from the Tribute dashboard, so nothing has to be copied out
+  before a deploy.) An IntegrityError is a duplicate only if the delivery
   is on record afterwards; otherwise the answer is 503 so Tribute redelivers
   (two purchases by a new buyer race to create the user row). The body is
   read as a stream and cut at 64 KB, chunked or not.

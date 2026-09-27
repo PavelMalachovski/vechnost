@@ -168,28 +168,39 @@ def _backfill_access_from_payments(sync_conn) -> None:
         )
 
 
+# A rejected delivery keeps its row with the hash renamed, so the next
+# delivery of the same body is not taken for a duplicate.
+RELEASED_PREFIX = "released:"
+
+
 def _release_stuck_webhooks(sync_conn) -> None:
-    """Forget deliveries that were recorded as rejected.
+    """Free the hashes of deliveries that were recorded as rejected.
 
     A webhook refused for its signature used to be written down under the
     body's hash, and Tribute's retry of that body - the same bytes, now
     with a key we accept - was then answered "already processed". Those
-    rows are exactly the payments this deployment lost. Deleting them lets
-    a retry, or a manual redelivery from the Tribute dashboard, land. The
-    handler no longer writes a row for anything it did not process, so
-    after the first run this deletes nothing.
+    rows are exactly the payments this deployment lost. Renaming their hash
+    lets a retry, or a manual redelivery from the Tribute dashboard, land,
+    and keeps the row: it is the list of payments to redeliver. This step
+    used to delete them, which left that list only in a copy someone had to
+    remember to take before the first deploy. The handler no longer writes
+    a row for anything it did not process, so after the first run this
+    changes nothing.
     """
     from sqlalchemy import inspect, text
 
     if "webhook_events" not in inspect(sync_conn).get_table_names():
         return
-    result = sync_conn.execute(
-        text("DELETE FROM webhook_events WHERE status_code >= 400")
-    )
+    result = sync_conn.execute(text(
+        f"UPDATE webhook_events SET body_sha256 = '{RELEASED_PREFIX}' || body_sha256 "
+        f"WHERE status_code >= 400 AND body_sha256 NOT LIKE '{RELEASED_PREFIX}%'"
+    ))
     if result.rowcount:
         logger.warning(
             f"Released {result.rowcount} rejected webhook delivery record(s) so "
-            "Tribute's retries can be processed"
+            "Tribute's retries can be processed. They stay in webhook_events "
+            f"with body_sha256 starting '{RELEASED_PREFIX}': redeliver those "
+            "payments from the Tribute dashboard"
         )
 
 
