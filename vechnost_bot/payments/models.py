@@ -422,6 +422,37 @@ class Heartbeat(Base):
         return f"<Heartbeat(name='{self.name}', beat_at={self.beat_at})>"
 
 
+class AnalyticsEvent(Base):
+    """One thing a person did, counted: a name and one token, never text.
+
+    Written through `vechnost_bot/analytics.py`, which holds the list of
+    names and, for each, the closed set its `detail` may come from - a
+    paywall's door, a deck, a Library module. `source` is the first-touch
+    channel an arrival carries (`src_<tag>`, or ref / invite / gift / push).
+    No answers, no card texts, no names, no room codes. Erased with the
+    person and dropped after `analytics.KEEP` by the retention sweep.
+    """
+
+    __tablename__ = "events"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    telegram_user_id: Mapped[int | None] = mapped_column(BigInteger, nullable=True)
+    name: Mapped[str] = mapped_column(String(32), nullable=False)
+    detail: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    source: Mapped[str | None] = mapped_column(String(32), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(default=datetime.utcnow, nullable=False)
+
+    # /stats counts by name over a window, and by person for first touch and
+    # for coming back; the sweep and /delete_me find rows by age and person.
+    __table_args__ = (
+        Index("idx_events_name_created", "name", "created_at"),
+        Index("idx_events_user_created", "telegram_user_id", "created_at"),
+    )
+
+    def __repr__(self) -> str:
+        return f"<AnalyticsEvent(id={self.id}, name='{self.name}')>"
+
+
 class CompatTest(Base):
     """A couples compatibility test: two partners answer 40 questions apart."""
 

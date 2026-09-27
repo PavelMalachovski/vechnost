@@ -149,7 +149,11 @@ async def _publish_entry_points(application: Application) -> None:
     for admin_id in sorted(settings.admin_user_ids):
         try:
             await application.bot.set_my_commands(
-                [*commands, BotCommand("broadcast", get_text("commands.broadcast", language))],
+                [
+                    *commands,
+                    BotCommand("broadcast", get_text("commands.broadcast", language)),
+                    BotCommand("stats", get_text("commands.stats", language)),
+                ],
                 scope=BotCommandScopeChat(chat_id=admin_id),
             )
         except Exception as e:
@@ -228,6 +232,10 @@ def create_application() -> Application:
     # as its own task instead of holding every other update behind it.
     admin_ids = sorted(settings.admin_user_ids)
     if admin_ids:
+        from .stats import stats_command
+
+        # The funnel, read off the events table: same gate as the broadcast.
+        application.add_handler(CommandHandler("stats", stats_command))
         application.add_handler(CommandHandler("broadcast", broadcast_command))
         application.add_handler(CommandHandler("cancel", broadcast_cancel_command))
         application.add_handler(MessageHandler(

@@ -1748,6 +1748,7 @@
   function showPaywall(ctx, vars) {
     const t = T();
     PAYWALL_CTX = ctx;
+    track('paywall_view', ctx);
     $('paywallTitle').textContent = (ctx === 'deck' || ctx === 'room') ? t.paywallTitle : t.paywallTitleFull;
     $('paywallLead').textContent = fmt(t[PAYWALL_LEAD[ctx]] || '', vars || {});
     $('paywallList').innerHTML = t.payItems.map(item => '<li>' + escapeHTML(item) + '</li>').join('');
@@ -1771,6 +1772,7 @@
     if (!url) return;
     haptic('light');
     PAY_PENDING = true;
+    track('buy_click', PAYWALL_CTX);
     try {
       if (tg && url.startsWith('https://t.me')) tg.openTelegramLink(url);
       else if (tg) tg.openLink(url);
@@ -2071,6 +2073,7 @@
 
   function enterDeck(forceReset) {
     deckGen++;                                   // a new deck owns the stage
+    track('deck_open', S.theme + ':' + (S.level || '') + ':' + S.type);
     drag.onAdvance = null; drag.onBack = null;   // the Library's, if we came from it
     COOP.active = false;
     $('turnChip').style.display = 'none';
@@ -2498,9 +2501,31 @@
     el.textContent = url || T().inviteNoLink;
   }
 
+  // Counts for /stats (vechnost_bot/analytics.py): an event name and one
+  // token from a closed list, never text. Fire and forget - a count must
+  // never hold up or break what it counts - and only with signed initData:
+  // the server keeps nothing for a request Telegram does not vouch for.
+  function track(name, detail, source) {
+    try {
+      if (!tg || !tg.initData) return;
+      fetch('/api/events', {
+        method: 'POST', keepalive: true,
+        headers: { 'Content-Type': 'application/json', 'Authorization': 'tma ' + tg.initData },
+        body: JSON.stringify({ name: name, detail: detail || null, source: source || null })
+      }).catch(() => {});
+    } catch (e) {}
+  }
+
+  // Which of the three an invite link opens, from its payload.
+  function inviteKind(url) {
+    const m = /(?:startapp|start)=(duo|cmp|s69)_/.exec(url || '');
+    return m ? m[1] : null;
+  }
+
   function shareInvite(url, message) {
     if (!url) { toast(T().inviteNoLink); return; }
     haptic('light');
+    track('invite_share', inviteKind(url));
     // url and text are separate parameters: Telegram renders the link as a
     // tappable preview and the sentence as the message around it. Passing
     // the whole sentence as `url`, which is what this used to do, sent the
@@ -2515,6 +2540,7 @@
   function copyInvite(url) {
     if (!url) { toast(T().inviteNoLink); return; }
     haptic('light');
+    track('invite_share', inviteKind(url));
     if (!navigator.clipboard) { toast(T().shareError); return; }
     // The promise is the answer: a WebView refuses the clipboard when the
     // document is not focused, and «Ссылка скопирована» used to show
@@ -2871,6 +2897,7 @@
 
   async function openLibModule(id, openCategory) {
     LIB_OPEN = { module: id, category: openCategory || null };
+    if (!openCategory) track('lib_open', id);
     $('loader').classList.add('show');
     try {
       const data = await libFetch(`/api/library/${id}?lang=${lang}${libNsfwParam()}`);
@@ -4804,7 +4831,22 @@
     return null;
   }
 
+  // The channel this launch came by: a `src_<tag>` link, an invite, or a
+  // button the bot sent (a push, a nudge). Nothing otherwise.
+  function arrivalSource() {
+    try {
+      const q = new URLSearchParams(location.search);
+      const param = (tg && tg.initDataUnsafe && tg.initDataUnsafe.start_param)
+                    || q.get('tgWebAppStartParam') || '';
+      if (/^src_/i.test(param)) return param.slice(4);
+      if (INVITE_SCREENS[param.split('_')[0]]) return 'invite';
+      if (q.get('screen')) return q.get('code') ? 'invite' : 'push';
+    } catch (e) {}
+    return null;
+  }
+
   async function boot() {
+    track('app_open', null, arrivalSource());
     const target = bootTarget();
     if (!target) return;
     if (target.broken) { toast(T().inviteBroken); return; }

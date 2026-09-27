@@ -124,18 +124,33 @@ async def test_a_room_being_played_right_now_is_kept(db):
     assert await _alive(RoomRepository, "LIVEROOM")
 
 
+async def _event(age: timedelta) -> None:
+    from vechnost_bot.payments.models import AnalyticsEvent
+
+    async with get_db() as session:
+        session.add(AnalyticsEvent(
+            telegram_user_id=1, name="deck_open", created_at=datetime.utcnow() - age,
+        ))
+
+
 async def test_a_sweep_with_nothing_to_do_deletes_nothing(db):
     await _room("LIVEROOM", timedelta(minutes=1))
     await _compat("LIVECMP1", timedelta(minutes=1))
     await _game("LIVEGAM1", timedelta(minutes=1))
-    assert await sweep() == {"rooms": 0, "compat_tests": 0, "games": 0}
+    await _event(timedelta(days=30))
+    assert await sweep() == {"events": 0, "rooms": 0, "compat_tests": 0, "games": 0}
 
 
-async def test_one_sweep_clears_all_three_kinds(db):
+async def test_one_sweep_clears_all_four_kinds(db):
+    """Analytics events go after `analytics.KEEP`, with the rest."""
+    from vechnost_bot.analytics import KEEP
+
     await _room("OLDROOM1", ROOM_KEEP * 2)
     await _compat("OLDCMP01", ABANDONED_KEEP * 2)
     await _game("OLDGAME1", ABANDONED_KEEP * 2)
-    assert await sweep() == {"rooms": 1, "compat_tests": 1, "games": 1}
+    await _event(KEEP + timedelta(days=1))
+    await _event(KEEP - timedelta(days=1))
+    assert await sweep() == {"events": 1, "rooms": 1, "compat_tests": 1, "games": 1}
 
 
 async def test_the_room_window_is_wider_than_the_ttl(db):
