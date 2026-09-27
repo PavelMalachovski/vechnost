@@ -3,7 +3,6 @@
 import asyncio
 import logging
 from abc import ABC, abstractmethod
-from io import BytesIO
 from typing import Any
 
 from telegram import (
@@ -505,7 +504,13 @@ class QuestionHandler(CallbackHandler):
         # Get items
         items = localized_game_data.get_content(theme, session.level, content_type, session.language)
         if not items or callback_data.index >= len(items):
-            await query.edit_message_text("❌ Вопрос недоступен.")
+            # Through `_show_text`: the tap usually comes from under a card,
+            # which is a photo, and a photo has no text to edit.
+            await _show_text(
+                query,
+                get_text('errors.question_unavailable', session.language),
+                get_theme_keyboard(session.language),
+            )
             return
 
         # Freemium gate: cards past the free preview require payment
@@ -539,22 +544,25 @@ class QuestionHandler(CallbackHandler):
             footer = _card_footer(theme, callback_data.index, len(items), session.language)
             # In a thread and memoised: PTB handles updates one at a time,
             # so a composite on the loop held every other user's tap.
-            image_data = BytesIO(await asyncio.to_thread(
+            image = await asyncio.to_thread(
                 render_card_bytes, question, bg_path, footer, _card_watermark()
-            ))
-            logger.info(f"Card rendered successfully, size: {len(image_data.getvalue())} bytes")
+            )
+            logger.info(f"Card rendered successfully, size: {len(image)} bytes")
 
-            # Try to edit message to photo, fallback to new message if that fails
+            # Try to edit message to photo, fallback to new message if that fails.
+            # Bytes, not a BytesIO: InputMediaPhoto reads a file object to
+            # the end, and the fallback used to send what was left of it -
+            # an empty file, which Telegram refuses.
             try:
                 await query.edit_message_media(
-                    media=InputMediaPhoto(media=image_data),
+                    media=InputMediaPhoto(media=image),
                     reply_markup=keyboard
                 )
             except Exception as edit_error:
                 logger.warning(f"Could not edit message to photo: {edit_error}, sending new message")
                 # Fallback: send new photo message
                 await query.message.reply_photo(
-                    photo=image_data,
+                    photo=image,
                     reply_markup=keyboard
                 )
         except Exception as e:
@@ -602,7 +610,13 @@ class NavigationHandler(CallbackHandler):
         # Get items
         items = localized_game_data.get_content(theme, session.level, content_type, session.language)
         if not items or callback_data.index >= len(items):
-            await query.edit_message_text("❌ Вопрос недоступен.")
+            # Through `_show_text`: the tap usually comes from under a card,
+            # which is a photo, and a photo has no text to edit.
+            await _show_text(
+                query,
+                get_text('errors.question_unavailable', session.language),
+                get_theme_keyboard(session.language),
+            )
             return
 
         # Freemium gate: cards past the free preview require payment
@@ -636,22 +650,25 @@ class NavigationHandler(CallbackHandler):
             footer = _card_footer(theme, callback_data.index, len(items), session.language)
             # In a thread and memoised: PTB handles updates one at a time,
             # so a composite on the loop held every other user's tap.
-            image_data = BytesIO(await asyncio.to_thread(
+            image = await asyncio.to_thread(
                 render_card_bytes, question, bg_path, footer, _card_watermark()
-            ))
-            logger.info(f"Card rendered successfully, size: {len(image_data.getvalue())} bytes")
+            )
+            logger.info(f"Card rendered successfully, size: {len(image)} bytes")
 
-            # Try to edit message to photo, fallback to new message if that fails
+            # Try to edit message to photo, fallback to new message if that fails.
+            # Bytes, not a BytesIO: InputMediaPhoto reads a file object to
+            # the end, and the fallback used to send what was left of it -
+            # an empty file, which Telegram refuses.
             try:
                 await query.edit_message_media(
-                    media=InputMediaPhoto(media=image_data),
+                    media=InputMediaPhoto(media=image),
                     reply_markup=keyboard
                 )
             except Exception as edit_error:
                 logger.warning(f"Could not edit message to photo: {edit_error}, sending new message")
                 # Fallback: send new photo message
                 await query.message.reply_photo(
-                    photo=image_data,
+                    photo=image,
                     reply_markup=keyboard
                 )
         except Exception as e:
