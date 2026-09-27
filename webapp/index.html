@@ -1357,6 +1357,15 @@
   </section>
 
   <!-- NSFW overlay -->
+  <!-- Permission to message: asked once, where a partner is involved -->
+  <div class="overlay" id="writeAsk">
+    <div class="big-emoji">🔔</div>
+    <h2 data-i18n="writeAskTitle"></h2>
+    <p data-i18n="writeAskText"></p>
+    <button class="btn btn-play" id="writeAskYes" data-i18n="writeAskYes"></button>
+    <button class="btn btn-ghost" id="writeAskNo" data-i18n="writeAskNo" data-dismiss></button>
+  </div>
+
   <div class="overlay" id="nsfw">
     <div class="big-emoji">🔞</div>
     <h2 data-i18n="nsfwTitle"></h2>
@@ -1500,6 +1509,11 @@
       yourTurn: '✨ Твой ход', partnerTurn: 'Отвечает {name}…',
       notYourTurn: 'Сейчас ход партнёра',
       partnerJoined: '{name} в игре!',
+      writeAskTitle: 'Сообщать, когда игра ждёт вас?',
+      writeAskText: 'Бот напишет, когда партнёр придёт по приглашению, когда будет готов результат теста или доска будет ждать хода. Иногда пришлёт вопрос дня. Отписаться можно в любой момент.',
+      writeAskYes: 'Разрешить',
+      writeAskNo: 'Не сейчас',
+      writeAskDone: 'Готово: бот напишет',
       coopGone: 'Игра не найдена или закончилась',
       coopFull: 'В этой игре уже двое',
       coopDoneText: 'Вы прошли колоду вместе. Это только начало разговора.',
@@ -2649,6 +2663,61 @@
     } catch (e) {}
   }
 
+  // Who is holding the app (POST /api/me): made known to the server at boot,
+  // so a partner who only ever opens invites still has a row - their pair
+  // and their invitation are recorded on it - and told back whether the bot
+  // may write to them.
+  let ME = null;
+  async function loadMe() {
+    try {
+      if (!tg || !tg.initData) return;
+      const res = await fetch('/api/me', {
+        method: 'POST', headers: { 'Authorization': 'tma ' + tg.initData }
+      });
+      if (res.ok) ME = await res.json();
+    } catch (e) {}
+  }
+
+  // Permission to message, asked where it is worth something: on a game with
+  // a partner, once a month at most, and never of someone the bot can
+  // already write to (they started it, or allowed it before). Without it the
+  // bot cannot tell an invite's sender that the partner came, nor either of
+  // them that the test's result is ready.
+  const WRITE_ASK_EVERY = 30 * 24 * 3600 * 1000;
+  function canAskToWrite() {
+    try {
+      if (!tg || typeof tg.requestWriteAccess !== 'function') return false;
+      if (tg.isVersionAtLeast && !tg.isVersionAtLeast('6.9')) return false;
+      const user = tg.initDataUnsafe && tg.initDataUnsafe.user;
+      if (!user || user.allows_write_to_pm || (ME && ME.can_write)) return false;
+      const last = store.get('writeAskedAt', 0);
+      return !last || Date.now() - last > WRITE_ASK_EVERY;
+    } catch (e) { return false; }
+  }
+  // Call it once the screen it belongs to is showing: `show()` closes every
+  // overlay, and one closed that way would count as asked.
+  function askToWrite() {
+    if (!canAskToWrite()) return;
+    store.set('writeAskedAt', Date.now());
+    $('writeAsk').classList.add('show');
+  }
+  $('writeAskYes').onclick = () => {
+    $('writeAsk').classList.remove('show');
+    try {
+      tg.requestWriteAccess(granted => {
+        track('write_access', granted ? 'granted' : 'declined');
+        if (granted) {
+          if (ME) ME.can_write = true;
+          toast(T().writeAskDone);
+        }
+      });
+    } catch (e) {}
+  };
+  $('writeAskNo').onclick = () => {
+    $('writeAsk').classList.remove('show');
+    track('write_access', 'declined');
+  };
+
   // Which of the three an invite link opens, from its payload.
   function inviteKind(url) {
     const m = /(?:startapp|start)=(duo|cmp|s69)_/.exec(url || '');
@@ -2737,6 +2806,7 @@
       showInviteLink($('inviteCode'), C.invite);
       $('inviteWaiting').textContent = T().inviteWaiting;
       show('invite');
+      askToWrite();
       startCoopPoll(st2 => {
         C.st = st2;
         if (st2.started) {
@@ -2767,6 +2837,7 @@
       const st = await coopFetch('/api/rooms/' + code + '/join' + adult, { method: 'POST' });
       C.code = st.code; C.st = st;
       enterCoopDeck();
+      askToWrite();
     } catch (e) {
       if (e.status === 403 && !store.get('nsfwOk', false)) {
         nsfwGate('deck', () => joinCoopRoom(code));
@@ -3335,6 +3406,7 @@
       showInviteLink($('compatCode'), CT.invite);
       $('compatWaiting').textContent = T().inviteWaiting;
       show('compatInvite');
+      askToWrite();
       startCompatPoll();
     } catch (e) {
       if (e.status === 402) showPaywall('compat'); else toast(T().loadError);
@@ -3360,7 +3432,9 @@
         return;
       }
       if (CT.idx > 0 && CT.idx < st.total) toast(fmt(T().compatResume, { n: CT.idx + 1 }));
-      enterCompatQuiz();
+      // After the quiz is on screen: a screen switch closes every overlay.
+      await enterCompatQuiz();
+      askToWrite();
     } catch (e) {
       if (e.status === 409) toast(T().coopFull);
       else if (e.status === 404) {
@@ -4512,6 +4586,7 @@
       showInviteLink($('s69Code'), G.invite);
       $('s69Waiting').textContent = T().s69Waiting;
       show('s69Invite');
+      askToWrite();
       startS69Poll(st2 => {
         if (!st2.started) return;
         stopS69Poll();
@@ -4536,7 +4611,9 @@
       G.piece = st.you.piece || G.piece;
       store.set('s69Code', st.code);
       store.set('s69Piece', G.piece);
-      enterS69();
+      // After the board is on screen: a screen switch closes every overlay.
+      await enterS69();
+      askToWrite();
     } catch (e) { s69Error(e); }
     finally { $('loader').classList.remove('show'); }
   }
@@ -5028,6 +5105,7 @@
 
   async function boot() {
     track('app_open', null, arrivalSource());
+    loadMe();
     const target = bootTarget();
     if (!target) return;
     if (target.broken) { toast(T().inviteBroken); return; }

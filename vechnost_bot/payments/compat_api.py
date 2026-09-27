@@ -21,6 +21,7 @@ from ..compat import TOTAL_QUESTIONS, build_result, load_spheres, scale_labels
 from ..compat_notify import notify_result_ready
 from ..config import settings
 from ..i18n import Language
+from . import partner_notify, partners
 from .database import get_db
 from .models import CompatTest
 from .repositories import CompatTestRepository
@@ -170,11 +171,13 @@ async def create(
 @router.post("/{code}/join", dependencies=[Depends(throttle("join"))])
 async def join(
     code: str,
+    background: BackgroundTasks,
     lang: str = "ru",
     authorization: str | None = Header(default=None),
     x_guest_id: str | None = Header(default=None),
 ) -> dict[str, Any]:
     user_id, name = _caller(authorization, x_guest_id)
+    seated: partners.Seated | None = None
 
     async with get_db() as session:
         test = await _find(session, code)
@@ -188,9 +191,19 @@ async def join(
             if test.guest_telegram_user_id != user_id:
                 raise HTTPException(status_code=409, detail="test is full")
             analytics.record(session, "compat_join", user_id)
+            seated = await partners.seat_taken(
+                session, screen="compat", code=test.code,
+                creator_id=test.creator_telegram_user_id, creator_name=test.creator_name,
+                guest_id=user_id, guest_name=name,
+            )
         elif test.guest_telegram_user_id != user_id:
             raise HTTPException(status_code=409, detail="test is full")
-        return _state(test, user_id)
+        state = _state(test, user_id)
+
+    # After the commit, and after the answer: see partner_notify.
+    if seated is not None:
+        background.add_task(partner_notify.notify_partner_joined, seated)
+    return state
 
 
 @router.get("/mine")

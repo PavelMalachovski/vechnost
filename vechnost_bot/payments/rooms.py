@@ -18,7 +18,7 @@ import random
 from datetime import datetime, timedelta
 from typing import Any
 
-from fastapi import APIRouter, Depends, Header, HTTPException
+from fastapi import APIRouter, BackgroundTasks, Depends, Header, HTTPException
 from pydantic import BaseModel, Field
 
 from .. import analytics, invites
@@ -27,6 +27,7 @@ from ..freemium import FREE_CARDS_PER_DECK
 from ..i18n import Language
 from ..logic import localized_game_data
 from ..models import ContentType, Theme
+from . import partner_notify, partners
 from .database import get_db
 from .repositories import RoomRepository
 from .services import user_has_access
@@ -339,6 +340,7 @@ async def create_room(
 @router.post("/{code}/join", dependencies=[Depends(throttle("join"))])
 async def join_room(
     code: str,
+    background: BackgroundTasks,
     lang: str = "ru",
     nsfw: int = 0,
     authorization: str | None = Header(default=None),
@@ -346,6 +348,7 @@ async def join_room(
 ) -> dict[str, Any]:
     user_id, name = _identity(authorization, x_guest_id)
     language = _language(lang)
+    seated: partners.Seated | None = None
 
     async with get_db() as session:
         room = await _load_room(session, code)
@@ -366,10 +369,19 @@ async def join_room(
             if room.guest_telegram_user_id != user_id:
                 raise HTTPException(status_code=409, detail="room is full")
             analytics.record(session, "room_join", user_id)
+            seated = await partners.seat_taken(
+                session, screen="coop", code=room.code,
+                creator_id=room.creator_telegram_user_id, creator_name=room.creator_name,
+                guest_id=user_id, guest_name=name,
+            )
         elif room.guest_telegram_user_id != user_id:
             raise HTTPException(status_code=409, detail="room is full")
         state = _room_state(room, user_id, language)
         seats = _seats(room)
+
+    # After the commit, and after the answer: see partner_notify.
+    if seated is not None:
+        background.add_task(partner_notify.notify_partner_joined, seated)
 
     # A paying guest in an unpaid creator's room: the rest of the deck is
     # theirs to share, from the first card.

@@ -93,6 +93,13 @@ class User(Base):
     # instead meant the inviter's /delete_me took the discount away from
     # everyone they had invited.
     referred_at: Mapped[datetime | None] = mapped_column(nullable=True)
+    # Who they last played with: set both ways the moment a guest takes the
+    # empty seat in a room, a compatibility test or a «69 ступеней» board
+    # (`payments/partners.py`), so each of the two knows the other outside
+    # any one game. The latest partner wins. A link to another person, so
+    # it goes when that person is erased.
+    partner_telegram_user_id: Mapped[int | None] = mapped_column(BigInteger, nullable=True)
+    partner_since: Mapped[datetime | None] = mapped_column(nullable=True)
     created_at: Mapped[datetime] = mapped_column(
         default=datetime.utcnow, nullable=False
     )
@@ -111,6 +118,11 @@ class User(Base):
         Index(
             "idx_users_referred_by", "referred_by",
             **_partial(column("referred_by").is_not(None)),
+        ),
+        # Whose partner a user is, for `erase`; partial for the same reason.
+        Index(
+            "idx_users_partner", "partner_telegram_user_id",
+            **_partial(column("partner_telegram_user_id").is_not(None)),
         ),
     )
 

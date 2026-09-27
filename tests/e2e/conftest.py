@@ -49,7 +49,7 @@ def _inprocess_server(tmp_path: Any) -> Iterator[Any]:
     import vechnost_bot.payments.database as database
     from vechnost_bot import compat_notify
     from vechnost_bot.config import settings
-    from vechnost_bot.payments import gifts, grant_notify
+    from vechnost_bot.payments import gifts, grant_notify, partner_notify
     from vechnost_bot.payments.web import app
 
     from .fake_telegram import FakeTelegram
@@ -95,6 +95,9 @@ def _inprocess_server(tmp_path: Any) -> Iterator[Any]:
         ))
         stack.enter_context(patch.object(
             grant_notify, "_bot", lambda: telegram.bot(settings.telegram_bot_token)
+        ))
+        stack.enter_context(patch.object(
+            partner_notify, "_bot", lambda: telegram.bot(settings.telegram_bot_token)
         ))
         stack.enter_context(patch.object(gifts, "Bot", lambda token: telegram.bot(token)))
         client = stack.enter_context(TestClient(app, base_url="http://e2e.test"))

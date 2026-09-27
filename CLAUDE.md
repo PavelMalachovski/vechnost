@@ -270,6 +270,25 @@ python scripts/smoke_production.py $URL --deep  # ...and its database and bot he
   person opening the link sends `nsfw=1` (403 until then), so a partner who
   says no is never seated. `/api/card?room=` lets the partner who did not
   pay share a card the room has dealt them, and only such a card.
+- **Taking a seat makes a pair.** Whichever door the guest came in by,
+  the join calls `payments/partners.py::seat_taken` in its transaction,
+  right after the conditional UPDATE and never for a creator reopening their
+  own game. Both people get a user row (`UserRepository.ensure`: one INSERT
+  that does nothing on a conflict, since /start, the app's boot and a join
+  can each be first), each becomes the other's
+  `users.partner_telegram_user_id` (the latest pairing wins, `partner_since`
+  says when), and a newcomer is credited to the creator (`record_invite`,
+  see the referral bullet). After the commit, `payments/partner_notify.py`
+  tells the creator in the bot that the partner came, with a `web_app`
+  button back into that very game; it never raises, and never logs the
+  code. `POST /api/me` gives a person who only ever opens the app a row at
+  boot and tells the app whether the bot may write to them
+  (`allows_write_to_pm`; a yes also sets `users.can_message`, a no is left
+  for a real send to find out, see the broadcast bullet). When it may not,
+  the app asks with Telegram's
+  `requestWriteAccess` - on a game with a partner, at most once in
+  `WRITE_ASK_EVERY`, and only once that game's screen is up: `show()`
+  closes every overlay, and an ask closed that way counted as asked.
 - **The compatibility test** is the second two-partner feature and follows a
   similar shape: `compat.py` is the domain layer (content, scoring, result
   assembly — no FastAPI or python-telegram-bot imports, exactly like
@@ -440,7 +459,11 @@ python scripts/smoke_production.py $URL --deep  # ...and its database and bot he
   (`UserRepository.record_referral`): a row younger than
   `referrals.NEW_USER_WINDOW` - the one the same /start just created - with
   nothing bought or redeemed. For anyone already here a ref link changes
-  nothing; it used to hand any old user the referral price.
+  nothing; it used to hand any old user the referral price. An invite
+  into a game counts and prices nothing: a newcomer it seats gets
+  `referred_by` - one more in the inviter's /invite - and never
+  `referred_at` (`UserRepository.record_invite`). The first credit wins,
+  whichever kind of link came later.
 - **A broadcast has two doors and one delivery loop.** `broadcast.py` owns
   the loop — the pause between sends, the retry that honours Telegram's own
   `retry_after`, and the rule that a user who blocked the bot is opted out
@@ -470,7 +493,8 @@ python scripts/smoke_production.py $URL --deep  # ...and its database and bot he
   unanimous-consent rule as `DELETE /api/compat/{code}`), the bot session;
   a redeemed certificate stays spent but forgets who, and `referred_by`
   links to the user are cleared while the invitees keep `referred_at`, the
-  marker their discount reads; their analytics events go with them. Its
+  marker their discount reads, and so is the partner link on the other
+  side of the pair; their analytics events go with them. Its
   callback is registered ahead of the game's catch-all on a pattern, like
   the broadcast's. Anything new that stores a person must be added to
   `erase`, or the promise is broken.

@@ -546,6 +546,7 @@ def test_the_hot_queries_use_an_index_on_postgres(pg_url: str) -> None:
         "DELETE FROM compat_tests": {"idx_compat_creator", "idx_compat_guest"},
         "DELETE FROM steps69_games": {"idx_steps69_creator", "idx_steps69_guest"},
         "UPDATE users SET referred_by": {"idx_users_referred_by"},
+        "UPDATE users SET partner_telegram_user_id": {"idx_users_partner"},
         "UPDATE certificates": {"idx_certificate_used_by"},
     }
 
