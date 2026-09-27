@@ -271,3 +271,30 @@ def test_delete_me_takes_the_shared_rows_for_both(server: Server, bot) -> None:
     assert bob.status("GET", "/api/steps69/mine") == 404
     assert paid(bob) is True, "the partner keeps their own access"
     assert paid(alice) is False, "access does not come back after erasure"
+
+
+def test_a_buyer_who_never_opened_the_chat_gets_the_daily_card_after_start(
+    server: Server, bot
+) -> None:
+    """A purchase registers the buyer, often before they have ever written
+    to the bot, and Telegram refuses to start that chat. The daily card used
+    to read the refusal as a block and opt them out for good: the /start
+    that came later changed nothing, and they never got a card."""
+    from vechnost_bot import broadcast, daily_card
+
+    bob = server.player("Bob", paid=True)
+    server.telegram.strangers.add(bob.id)
+
+    def photos() -> int:
+        return sum(1 for s in server.telegram.to(bob.id) if s.method == "sendphoto")
+
+    with patch.object(broadcast, "SECONDS_BETWEEN_SENDS", 0):
+        before = photos()
+        server.portal.call(daily_card.send_daily_cards, bot.application.bot)
+        assert photos() == before, "no chat, no card"
+
+        bot.send(bob, "/start")
+        after_start = photos()
+        server.portal.call(daily_card.send_daily_cards, bot.application.bot)
+    assert photos() == after_start + 1, "the card reaches them once they have written"
+

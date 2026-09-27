@@ -444,7 +444,15 @@ python scripts/smoke_production.py $URL --deep  # ...and its database and bot he
 - **A broadcast has two doors and one delivery loop.** `broadcast.py` owns
   the loop — the pause between sends, the retry that honours Telegram's own
   `retry_after`, and the rule that a user who blocked the bot is opted out
-  of the daily push too, since that is the same signal. `scripts/broadcast.py`
+  of the daily push too, since that is the same signal. A chat that was
+  never opened is not that signal: "bot can't initiate conversation" (a
+  Tribute buyer, anyone who only ever used the Mini App) marks
+  `users.can_message` false, which the daily card and a broadcast skip, and
+  anything the person does in the bot's chat marks it true again
+  (`check_and_register_user`, and the `write_access_allowed` service message
+  Telegram sends when they allow the bot to write from the Mini App). It
+  used to opt them out for good, and their /start changed nothing.
+  `scripts/broadcast.py`
   is the deliberate door and still sends nothing without `--confirm`;
   `/broadcast` in the bot is the convenient one, and it is registered **only**
   where `ADMIN_IDS` names somebody. That gate is the whole safety story the

@@ -70,6 +70,16 @@ class User(Base):
     daily_card_opt_out: Mapped[bool] = mapped_column(
         Boolean, default=False, nullable=False, server_default="0"
     )
+    # Whether the bot can start a conversation with them. False once a send
+    # has come back "bot can't initiate conversation": someone who never
+    # opened a chat with the bot (a Tribute buyer, a partner who only ever
+    # opened an invite in the Mini App). True again the moment they write to
+    # the bot or allow it to write. Kept apart from `daily_card_opt_out`,
+    # which is their choice: that answer used to opt a person out for good,
+    # and a /start days later never undid it.
+    can_message: Mapped[bool] = mapped_column(
+        Boolean, default=True, nullable=False, server_default="1"
+    )
     # The code this user hands out, minted on first ask and stable after.
     referral_code: Mapped[str | None] = mapped_column(String, unique=True, nullable=True)
     # Who brought them in. Set once, on the /start that carried a code, and
