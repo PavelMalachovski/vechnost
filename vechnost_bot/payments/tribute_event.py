@@ -2,8 +2,10 @@
 
 A delivery is a JSON object with the event's `name`, `created_at`,
 `sent_at`, and a `payload` holding the purchase: `telegram_user_id`,
-`product_id` or `subscription_id`, `amount`, `currency`, and for a
-subscription its `period` and `expires_at`. Two older shapes the project's
+`product_id` or `subscription_id`, `amount`, `currency`, for a product the
+`purchase_id` its refund will carry too, and for a subscription its `period`
+and `expires_at`. `created_at` is when the event happened and stays the
+same on every attempt; `sent_at` is the attempt's. Two older shapes the project's
 own test scripts used (`event_name` + top-level fields, `event` + `data`)
 are read as well, so a hand-made delivery still parses.
 
@@ -21,6 +23,7 @@ Imports nothing but pydantic, so the web layer, the scripts and the tests
 share one reading of a delivery.
 """
 
+import hashlib
 from datetime import UTC, datetime, timedelta
 from typing import Any, Literal
 
@@ -212,6 +215,45 @@ class TributeEvent(BaseModel):
         """What the granted access is filed under: the subscription, else
         the product, else the one lifetime purchase a user can hold."""
         return self.subscription_id or self.product_id or 0
+
+    @property
+    def purchase_id(self) -> str | None:
+        """Tribute's id for one purchase of a product. Its refund carries
+        the same id, which is how the two are matched."""
+        value = self._first("purchase_id")
+        if value is None or isinstance(value, bool):
+            return None
+        return str(value).strip() or None
+
+    @property
+    def idempotency_key(self) -> str | None:
+        """A hash of what makes two deliveries one event, whatever their `sent_at`.
+
+        Tribute stamps each attempt with its own `sent_at`, so a delivery
+        and its retry have different bodies and different body hashes; the
+        body hash alone let a retried gift purchase mint a second lifetime
+        certificate (backend audit B-07). A product purchase is named by its
+        purchase id, of which there is one purchase and at most one refund.
+        Anything else - a subscription renews under one id - is its name,
+        the moment it happened, the buyer and what was bought. None when a
+        delivery has neither a purchase id nor a time: then the body is all
+        there is to go by.
+        """
+        try:
+            buyer = str(self.telegram_user_id or "")
+        except ValueError:
+            buyer = ""
+        name = self.name.strip().lower()
+        if self.purchase_id and not self.subscription_id:
+            parts = ["purchase", name, self.purchase_id, buyer, str(self.product_id or "")]
+        elif self.created_at is not None:
+            parts = [
+                "event", name, self.created_at.isoformat(), buyer,
+                str(self.access_key), self.purchase_id or "",
+            ]
+        else:
+            return None
+        return hashlib.sha256("\x1f".join(parts).encode()).hexdigest()
 
     @property
     def amount(self) -> int:

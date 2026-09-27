@@ -9,19 +9,24 @@ signature. This file holds its meaning, finding by finding of the September
 * B-08 - events are applied in the order they happened, not the order
   they arrived: one older than the last event applied to that access is
   acknowledged, recorded, and changes nothing.
+* B-07 - an event is processed once however often it is delivered: a
+  redelivery with a new `sent_at` is a duplicate, a gift purchase mints one
+  certificate, and its code is sent only after the certificate is saved.
 
 Every delivery here is signed the way Tribute signs it, and access is read
 back through `user_has_access`, the one function that decides it.
 """
 
+import asyncio
 import hashlib
 import hmac
 import json
 import os
+import sqlite3
 from collections.abc import Iterator
 from datetime import datetime, timedelta
 from typing import Any
-from unittest.mock import patch
+from unittest.mock import AsyncMock, patch
 
 import pytest
 from sqlalchemy import select
@@ -32,9 +37,9 @@ from fastapi.testclient import TestClient
 
 import vechnost_bot.payments.database as database
 from vechnost_bot.config import settings
-from vechnost_bot.payments.models import Payment, Subscription, WebhookEvent
+from vechnost_bot.payments.models import Certificate, Payment, Subscription, WebhookEvent
 from vechnost_bot.payments.services import user_has_access
-from vechnost_bot.payments.tribute_event import action_for
+from vechnost_bot.payments.tribute_event import TributeEvent, action_for
 from vechnost_bot.payments.web import app
 
 API_KEY = "tribute-api-key-for-tests"
@@ -289,14 +294,195 @@ def test_an_older_cancellation_does_not_end_a_newer_renewal(tribute):
     assert row.status == "active" and row.last_event_at == datetime(2026, 9, 3, 10, 0)
 
 
+def journal(tribute: Tribute) -> list[str]:
+    """The event names in the payments journal, oldest first."""
+    async def read() -> list[str]:
+        async with database.get_db() as session:
+            found = (await session.execute(select(Payment).order_by(Payment.id))).scalars().all()
+            return [row.event_name for row in found]
+
+    return tribute.client.portal.call(read)
+
+
 def test_a_stale_event_is_recorded_once_and_not_journaled(tribute):
     tribute.send("digital_product_refunded", created_at=T2, product_id=PRODUCT)
     tribute.send("new_digital_product", created_at=T1, product_id=PRODUCT)
-
-    async def journal() -> list[str]:
-        async with database.get_db() as session:
-            found = (await session.execute(select(Payment))).scalars().all()
-            return [row.event_name for row in found]
-
-    assert tribute.client.portal.call(journal) == ["digital_product_refunded"]
+    assert journal(tribute) == ["digital_product_refunded"]
     assert len(notes(tribute)) == 2, "both deliveries are on record"
+
+
+# ---------------------------------------------------------------------------
+# B-07: one event, however many deliveries
+# ---------------------------------------------------------------------------
+
+GIFT = 999
+
+
+@pytest.fixture
+def gifts(tribute) -> Iterator[AsyncMock]:
+    """The gift product configured; what reaches the buyer's chat, recorded."""
+    with (
+        patch.object(settings, "gift_product_id", str(GIFT)),
+        patch("vechnost_bot.payments.services.deliver_gift_certificate",
+              new_callable=AsyncMock) as sent,
+    ):
+        yield sent
+
+
+def certificates(tribute: Tribute) -> list[Certificate]:
+    async def read() -> list[Certificate]:
+        async with database.get_db() as session:
+            found = await session.execute(select(Certificate).order_by(Certificate.id))
+            return list(found.scalars().all())
+
+    return tribute.client.portal.call(read)
+
+
+def test_the_event_key_ignores_the_attempt_and_hides_the_buyer():
+    def key(**body: Any) -> str | None:
+        return TributeEvent.parse({
+            "name": "new_subscription", "created_at": T1, "sent_at": T1,
+            "payload": {"telegram_user_id": BUYER, "subscription_id": SUBSCRIPTION},
+            **body,
+        }).idempotency_key
+
+    first = key()
+    assert first and len(first) == 64 and str(BUYER) not in first
+    assert key(sent_at=T3) == first, "a retry is the same event"
+    assert key(created_at=T2) != first, "another renewal is another event"
+    assert key(created_at=None) is None, "nothing stable to key on: the body decides"
+
+    def purchase(**body: Any) -> str | None:
+        return TributeEvent.parse({
+            "name": "new_digital_product", "created_at": T1,
+            "payload": {"telegram_user_id": BUYER, "product_id": GIFT, "purchase_id": 31337},
+            **body,
+        }).idempotency_key
+
+    assert purchase(created_at=T2) == purchase(), "a purchase is named by its id"
+    assert purchase(name="digital_product_refunded") != purchase()
+
+
+def test_a_redelivery_with_a_new_sent_at_is_the_same_event(tribute):
+    tribute.send("new_digital_product", created_at=T1, product_id=PRODUCT)
+    again = tribute.send("new_digital_product", created_at=T1, sent_at=T3, product_id=PRODUCT)
+    assert "already processed" in again["message"]
+    assert journal(tribute) == ["new_digital_product"]
+    assert len(notes(tribute)) == 1
+
+
+def test_two_purchases_at_two_moments_are_two_events(tribute):
+    tribute.send("new_digital_product", created_at=T1, product_id=PRODUCT)
+    tribute.send("new_digital_product", created_at=T2, product_id=PRODUCT)
+    assert journal(tribute) == ["new_digital_product", "new_digital_product"]
+
+
+def test_a_retried_gift_purchase_mints_one_certificate(tribute, gifts):
+    for sent_at in (T1, "2026-09-01T10:05:00.000000Z", "2026-09-01T11:00:00.000000Z"):
+        tribute.send("new_digital_product", created_at=T1, sent_at=sent_at, product_id=GIFT)
+    [certificate] = certificates(tribute)
+    gifts.assert_awaited_once()
+    assert gifts.await_args.args[1] == certificate.code
+
+
+def test_a_gift_purchase_mints_one_certificate_whatever_its_timestamps(tribute, gifts):
+    tribute.send("new_digital_product", created_at=T1, product_id=GIFT, purchase_id=4242)
+    tribute.send("new_digital_product", created_at=T2, product_id=GIFT, purchase_id=4242)
+    [certificate] = certificates(tribute)
+    assert certificate.purchase_id == "4242"
+    gifts.assert_awaited_once()
+
+
+def test_two_gift_purchases_are_two_certificates(tribute, gifts):
+    tribute.send("new_digital_product", created_at=T1, product_id=GIFT, purchase_id=1)
+    tribute.send("new_digital_product", created_at=T1, product_id=GIFT, purchase_id=2)
+    assert [c.purchase_id for c in certificates(tribute)] == ["1", "2"]
+    assert gifts.await_count == 2
+
+
+def test_the_gift_code_is_sent_only_once_the_certificate_is_saved(tribute, gifts):
+    """The old code sent the code from inside the transaction: when the
+    commit then failed, the buyer held a code for a certificate that was
+    rolled back, and Tribute's retry minted and sent a second one."""
+    from sqlalchemy.exc import IntegrityError
+
+    import vechnost_bot.payments.services as services
+
+    body = tribute.body("new_digital_product", product_id=GIFT)
+    signature = hmac.new(API_KEY.encode(), body, hashlib.sha256).hexdigest()
+    with patch.object(services.WebhookEventRepository, "create",
+                      side_effect=IntegrityError("INSERT", {}, Exception("lost"))):
+        response = tribute.client.post(
+            "/webhooks/tribute", content=body,
+            headers={"Content-Type": "application/json", "trbt-signature": signature},
+        )
+    assert response.status_code == 503, "not applied, so Tribute sends it again"
+    gifts.assert_not_awaited()
+    assert certificates(tribute) == []
+
+    tribute.post(body)
+    [certificate] = certificates(tribute)
+    gifts.assert_awaited_once()
+    assert gifts.await_args.args[1] == certificate.code
+
+
+def test_a_redelivery_racing_the_first_is_turned_away_by_the_database(tribute, gifts):
+    """Both copies looked before either had committed. The event key is
+    unique, so the second copy's insert fails and its certificate goes with
+    its rolled-back transaction."""
+    import vechnost_bot.payments.services as services
+
+    tribute.send("new_digital_product", created_at=T1, product_id=GIFT)
+    with patch.object(services.WebhookEventRepository, "get_by_event_key",
+                      side_effect=[None, object()]):
+        again = tribute.send("new_digital_product", created_at=T1, sent_at=T3, product_id=GIFT)
+    assert again["message"] == "Webhook already processed (race condition)"
+    assert len(certificates(tribute)) == 1
+    gifts.assert_awaited_once()
+
+
+def test_an_old_database_gets_the_event_key_and_the_purchase_link(tmp_path):
+    """Deploys run create_all, which never alters a table: the startup step
+    adds both columns and their unique indexes to tables made without them."""
+    from sqlalchemy.exc import IntegrityError
+
+    path = tmp_path / "old.db"
+    with sqlite3.connect(path) as conn:
+        conn.executescript(OLD_PAYMENT_TABLES)
+
+    async def restart_and_insert_twice() -> None:
+        try:
+            await database.create_tables()
+            await database.create_tables()   # and the restart after it
+            async with database.get_db() as session:
+                session.add(Certificate(code="VECH-AAAA-AAAA", purchase_id="7"))
+            with pytest.raises(IntegrityError):
+                async with database.get_db() as session:
+                    session.add(Certificate(code="VECH-BBBB-BBBB", purchase_id="7"))
+        finally:
+            await database.close_db()
+
+    with (
+        patch.object(settings, "database_url", f"sqlite:///{path}"),
+        patch.object(database, "engine", None),
+        patch.object(database, "async_session_maker", None),
+        patch.object(database, "_tables_created", False),
+    ):
+        asyncio.run(restart_and_insert_twice())
+
+    with sqlite3.connect(path) as conn:
+        columns = {row[1] for row in conn.execute("PRAGMA table_info(webhook_events)")}
+        indexes = {row[1] for row in conn.execute("PRAGMA index_list(webhook_events)")}
+    assert "event_key" in columns and "uq_webhook_events_event_key" in indexes
+
+
+# The two tables as the code before these columns created them.
+OLD_PAYMENT_TABLES = (
+    "CREATE TABLE webhook_events (id INTEGER PRIMARY KEY, name VARCHAR NOT NULL,"
+    " sent_at DATETIME NOT NULL, created_at DATETIME NOT NULL,"
+    " body_sha256 VARCHAR NOT NULL UNIQUE, status_code INTEGER NOT NULL,"
+    " processed_at DATETIME, error TEXT);"
+    "CREATE TABLE certificates (id INTEGER PRIMARY KEY, code VARCHAR NOT NULL UNIQUE,"
+    " is_used BOOLEAN NOT NULL, used_by_telegram_user_id BIGINT, used_at DATETIME,"
+    " created_at DATETIME NOT NULL);"
+)

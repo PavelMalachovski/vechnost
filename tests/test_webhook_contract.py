@@ -395,9 +395,13 @@ def test_a_delivery_racing_its_own_duplicate_is_still_a_duplicate(client):
 
     body = event("new_digital_product", product_id=555)
     assert deliver(client, body).status_code == 200
+    # The other copy had not committed when this one looked, by body or by
+    # event key; it had by the time this one's insert failed.
     with (
         patch.object(services.WebhookEventRepository, "get_by_body_sha256",
                      side_effect=[None, object()]),
+        patch.object(services.WebhookEventRepository, "get_by_event_key",
+                     return_value=None),
         patch.object(services.UserRepository, "create_or_update",
                      side_effect=IntegrityError("INSERT", {}, Exception("dup"))),
     ):

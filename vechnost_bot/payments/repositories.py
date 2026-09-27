@@ -522,6 +522,16 @@ class WebhookEventRepository:
         return result.scalar_one_or_none()
 
     @staticmethod
+    async def get_by_event_key(
+        session: AsyncSession, event_key: str
+    ) -> WebhookEvent | None:
+        """The delivery on record for this event, whatever its body said."""
+        result = await session.execute(
+            select(WebhookEvent).where(WebhookEvent.event_key == event_key)
+        )
+        return result.scalar_one_or_none()
+
+    @staticmethod
     async def create(
         session: AsyncSession,
         name: str,
@@ -530,12 +540,14 @@ class WebhookEventRepository:
         status_code: int,
         processed_at: datetime | None = None,
         error: str | None = None,
+        event_key: str | None = None,
     ) -> WebhookEvent:
         """Create webhook event record."""
         webhook_event = WebhookEvent(
             name=name,
             sent_at=sent_at,
             body_sha256=body_sha256,
+            event_key=event_key,
             status_code=status_code,
             processed_at=processed_at,
             error=error,
@@ -573,12 +585,24 @@ class CertificateRepository:
         return result.scalar_one_or_none()
 
     @staticmethod
+    async def get_by_purchase(
+        session: AsyncSession, purchase_id: str, for_update: bool = False
+    ) -> Certificate | None:
+        """The certificate a Tribute purchase paid for, if one was issued."""
+        stmt = select(Certificate).where(Certificate.purchase_id == purchase_id)
+        if for_update:
+            stmt = stmt.with_for_update()
+        result = await session.execute(stmt)
+        return result.scalar_one_or_none()
+
+    @staticmethod
     async def create(
         session: AsyncSession,
         code: str,
+        purchase_id: str | None = None,
     ) -> Certificate:
-        """Create a new certificate."""
-        certificate = Certificate(code=code)
+        """Create a new certificate, for the purchase that paid for it if any."""
+        certificate = Certificate(code=code, purchase_id=purchase_id)
         session.add(certificate)
         await session.flush()
         # The id, never the code: a code in the log is lifetime access to

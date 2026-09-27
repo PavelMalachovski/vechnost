@@ -149,6 +149,9 @@ async def apply_webhook_event(
         return _error("Missing telegram_user_id in payload", 400)
 
     body_sha256 = compute_body_sha256(raw_body)
+    # The same event in other bytes: Tribute stamps every attempt with its
+    # own `sent_at` (backend audit B-07).
+    event_key = event.idempotency_key
     action = event.action
     now = datetime.utcnow()
     # When it happened, by Tribute's clock: what orders this event against
@@ -162,6 +165,8 @@ async def apply_webhook_event(
             existing = await WebhookEventRepository.get_by_body_sha256(
                 session, body_sha256
             )
+            if existing is None and event_key:
+                existing = await WebhookEventRepository.get_by_event_key(session, event_key)
             if existing:
                 logger.info(f"Webhook already processed: {body_sha256[:12]}")
                 return {
@@ -177,21 +182,10 @@ async def apply_webhook_event(
                 first_name=event.first_name,
                 last_name=event.last_name,
             )
+            language = gift_language(user.language)
 
             if action == "grant" and is_gift_purchase(event.product_id):
-                # A present: the buyer gets a certificate to hand on, not
-                # access of their own.
-                gift_code = await create_gift_certificate(session)
-                outcome = _Outcome(note="gift certificate issued")
-                logger.info(f"Gift purchase by {telegram_user_id}: certificate issued")
-                try:
-                    await deliver_gift_certificate(
-                        telegram_user_id, gift_code, gift_language(user.language)
-                    )
-                except Exception as e:
-                    # The certificate exists either way; support can recover
-                    # the code from the certificates table.
-                    logger.error(f"Failed to deliver gift certificate: {e}")
+                outcome = await _issue_gift(session, event)
             elif action == "grant":
                 outcome = await _grant(session, event, user.id, happened_at)
             elif action == "cancel":
@@ -232,12 +226,13 @@ async def apply_webhook_event(
                 name=event.name,
                 sent_at=event.sent_at or event.created_at or now,
                 body_sha256=body_sha256,
+                event_key=event_key,
                 status_code=200,
                 processed_at=now,
                 error=outcome.note,
             )
 
-            return {
+            result = {
                 "status": "success",
                 "message": (
                     "Stale event ignored" if outcome.stale
@@ -249,14 +244,14 @@ async def apply_webhook_event(
             }
 
     except IntegrityError as e:
-        # A duplicate only if the delivery is now on record: the same body
+        # A duplicate only if the delivery is now on record: the same event
         # landing twice at once, and the other copy wrote it. Anything else -
         # two *different* purchases by a new buyer racing to create the same
         # user row, a constraint the schema should not have - was not
         # applied, and answering 200 told Tribute never to retry it: the
         # customer paid and got nothing (backend audit B-04). An error makes
         # Tribute redeliver, and the redelivery finds the user in place.
-        if await _delivery_recorded(body_sha256):
+        if await _delivery_recorded(body_sha256, event_key):
             logger.info(f"Webhook raced its own duplicate: {body_sha256[:12]}")
             return {
                 "status": "success",
@@ -268,14 +263,46 @@ async def apply_webhook_event(
         logger.error(f"Error processing webhook: {e}", exc_info=True)
         return _error("internal error", 500)
 
+    if outcome.gift_code:
+        # Only now, with the certificate committed: sending it from inside
+        # the transaction handed out codes for certificates a failed commit
+        # then rolled back, and kept a database connection waiting on a
+        # render and a Telegram round trip.
+        try:
+            await deliver_gift_certificate(telegram_user_id, outcome.gift_code, language)
+        except Exception as e:
+            # The certificate exists either way; support can find it by the
+            # purchase and send the code by hand.
+            logger.error(f"Failed to deliver gift certificate: {e}")
+    return result
+
 
 @dataclass
 class _Outcome:
-    """What one delivery did: the note it is recorded with, and whether it
-    was older than what it would have changed and so changed nothing."""
+    """What one delivery did: the note it is recorded with, whether it was
+    older than what it would have changed and so changed nothing, and a
+    gift code minted by it, to send once the transaction has committed."""
 
     note: str | None = None
     stale: bool = False
+    gift_code: str | None = None
+
+
+async def _issue_gift(session: AsyncSession, event: TributeEvent) -> _Outcome:
+    """A present: the buyer gets a certificate to hand on, not access of
+    their own.
+
+    One certificate per purchase. A purchase Tribute names by id finds the
+    certificate it already paid for, however often and however late it is
+    delivered; one without an id relies on the event key to be seen once.
+    """
+    purchase_id = event.purchase_id
+    if purchase_id:
+        issued = await CertificateRepository.get_by_purchase(session, purchase_id)
+        if issued is not None:
+            return _Outcome(note=f"gift certificate #{issued.id} already issued for this purchase")
+    code = await create_gift_certificate(session, purchase_id=purchase_id)
+    return _Outcome(note="gift certificate issued", gift_code=code)
 
 
 def _stale(row: Subscription | None, happened_at: datetime) -> _Outcome | None:
@@ -397,12 +424,16 @@ async def _revoke(
     return _Outcome(note=f"revoked {revoked} ({status}): no row under the id it names")
 
 
-async def _delivery_recorded(body_sha256: str) -> bool:
-    """Whether a delivery with this body is on record as processed."""
+async def _delivery_recorded(body_sha256: str, event_key: str | None = None) -> bool:
+    """Whether this delivery is on record as processed: these bytes, or the
+    same event in other bytes."""
     try:
         async with get_db() as session:
-            found = await WebhookEventRepository.get_by_body_sha256(session, body_sha256)
-            return found is not None
+            if await WebhookEventRepository.get_by_body_sha256(session, body_sha256):
+                return True
+            if event_key:
+                return await WebhookEventRepository.get_by_event_key(session, event_key) is not None
+            return False
     except Exception as e:
         logger.warning(f"Could not look the delivery up: {e}")
         return False
