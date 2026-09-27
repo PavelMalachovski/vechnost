@@ -346,15 +346,20 @@ def memory_db():
 
 async def test_a_payment_row_alone_is_not_access_and_is_backfilled_once(memory_db):
     """Access no longer derives from `payments`; whoever had it that way
-    keeps it through the backfill that runs at startup."""
+    keeps it through the backfill that runs at startup. "That way" is a
+    payment the old code wrote, i.e. one from before the cutover; see
+    tests/test_access_backfill.py for the journal rows written since."""
     await database.create_tables()
     async with database.get_db() as session:
         user = await UserRepository.create_or_update(session, telegram_user_id=1001)
-        await PaymentRepository.create(
+        payment = await PaymentRepository.create(
             session, provider="tribute", event_name="new_digital_product",
             user_id=user.id, telegram_user_id=1001, amount=990, currency="eur",
             raw_body={}, signature="", body_sha256="abc", expires_at=None,
         )
+        payment.created_at = datetime.fromisoformat(
+            database.ACCESS_FROM_PAYMENTS_CUTOVER
+        ) - timedelta(days=10)
     assert await user_has_access(1001) is False
 
     await database.create_tables()   # the next deploy

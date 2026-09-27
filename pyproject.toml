@@ -148,6 +148,7 @@ markers = [
     "live_only: Needs a live server over real HTTP (E2E_BASE_URL); skipped in-process",
     "fuzz: Randomised two-user state-machine runs (budget: E2E_FUZZ_EXAMPLES)",
     "browser: Two real browsers driving the Mini App (needs Playwright + Chromium)",
+    "postgres: Needs a PostgreSQL server (POSTGRES_TEST_URL); skipped with a reason without one",
 ]
 filterwarnings = [
     "ignore::DeprecationWarning",

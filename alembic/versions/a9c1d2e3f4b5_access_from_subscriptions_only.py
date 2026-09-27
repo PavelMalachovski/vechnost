@@ -27,12 +27,19 @@ depends_on = None
 
 
 def upgrade() -> None:
+    # The NULL is typed: PostgreSQL types a bare NULL in SELECT DISTINCT as
+    # text and refuses it for a timestamp, which failed this revision - and,
+    # the whole upgrade being one transaction, left no tables at all. The
+    # cutover keeps it to payments the old access rule actually counted;
+    # see ACCESS_FROM_PAYMENTS_CUTOVER in payments/database.py.
     op.execute(
         "INSERT INTO subscriptions "
         "(user_id, subscription_id, period, status, expires_at, last_event_at) "
-        "SELECT DISTINCT p.user_id, 0, 'lifetime', 'active', NULL, CURRENT_TIMESTAMP "
+        "SELECT DISTINCT p.user_id, 0, 'lifetime', 'active', "
+        "CAST(NULL AS TIMESTAMP), CURRENT_TIMESTAMP "
         "FROM payments p "
         "WHERE p.expires_at IS NULL "
+        "AND p.created_at < '2026-09-03 16:00:00' "
         "AND NOT EXISTS (SELECT 1 FROM subscriptions s WHERE s.user_id = p.user_id)"
     )
     op.execute("DELETE FROM webhook_events WHERE status_code >= 400")
