@@ -156,11 +156,14 @@ class Phone:
 
 @pytest.fixture
 def phones(chromium: Any, live_url: str, request: pytest.FixtureRequest) -> Iterator[Any]:
-    """`open_phone(player, start_param=None)` -> a Phone with the app loaded."""
+    """`open_phone(player, start_param=None, init_script=None)` -> a Phone
+    with the app loaded."""
     opened: list[Phone] = []
     shots = REPORT_DIR / request.node.name
 
-    def open_phone(player: Player, start_param: str | None = None) -> Phone:
+    def open_phone(
+        player: Player, start_param: str | None = None, init_script: str | None = None
+    ) -> Phone:
         context = chromium.new_context(
             viewport={"width": 390, "height": 844},
             device_scale_factor=2,
@@ -190,6 +193,9 @@ def phones(chromium: Any, live_url: str, request: pytest.FixtureRequest) -> Iter
                 route.abort()
 
         context.route("**/*", route_request)
+        if init_script:
+            # Runs before the app's own script, in every page of the phone.
+            context.add_init_script(init_script)
         page = context.new_page()
         phone = Phone(player.name, player, page, context, shots)
 

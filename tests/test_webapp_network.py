@@ -23,13 +23,15 @@ def _body(name: str) -> str:
 def test_every_request_has_a_deadline():
     assert "AbortController" in INDEX
     assert "REQUEST_TIMEOUT_MS" in INDEX
-    for fn in ("coopFetch", "libFetch", "loadData"):
+    # fetchData is loadData's one request, shared by the quiet preload and
+    # «Играть» (audit D-16).
+    for fn in ("coopFetch", "libFetch", "fetchData"):
         assert "timedFetch(" in _body(fn), f"{fn} still calls fetch() with no deadline"
 
 
 def test_errors_carry_their_status_everywhere():
     """statusMessage() can only word a failure it can see the status of."""
-    for fn in ("coopFetch", "libFetch", "loadData"):
+    for fn in ("coopFetch", "libFetch", "fetchData"):
         assert "httpError(" in _body(fn), fn
 
 

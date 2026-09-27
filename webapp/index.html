@@ -272,6 +272,19 @@
   .deck-fan i:nth-child(4) { transform: rotate(12deg);  animation-delay: 1.2s; }
   @keyframes fan-float { 0%,100% { translate: 0 0; } 50% { translate: 0 -7px; } }
 
+  /* Someone who asked their phone for less motion gets it: no floating fan,
+     no tumbling die, no card flights, no confetti (see confetti()). Motion
+     that carries meaning - a card leaving, the board moving - still ends in
+     the same place, only without the travel (audit D-13). */
+  @media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after {
+      animation-duration: .01ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: .01ms !important;
+      scroll-behavior: auto !important;
+    }
+  }
+
   .btn {
     border: 0; cursor: pointer; font: inherit;
     border-radius: 16px; font-weight: 600;
@@ -1289,7 +1302,7 @@
     <h2 data-i18n="nsfwTitle"></h2>
     <p id="nsfwText" data-i18n="nsfwText"></p>
     <button class="btn btn-play" id="nsfwYes" data-i18n="nsfwYes"></button>
-    <button class="btn btn-ghost" id="nsfwNo" data-i18n="nsfwNo"></button>
+    <button class="btn btn-ghost" id="nsfwNo" data-i18n="nsfwNo" data-dismiss></button>
   </div>
 
   <!-- PAYWALL overlay -->
@@ -1305,7 +1318,7 @@
     <h2 id="s69DoneTitle"></h2>
     <p id="s69DoneText"></p>
     <button class="btn btn-play" id="s69DoneAgain"></button>
-    <button class="btn btn-ghost" id="s69DoneHome"></button>
+    <button class="btn btn-ghost" id="s69DoneHome" data-dismiss></button>
   </div>
 
   <!-- A tapped board cell: its number, its action, its portal. -->
@@ -1315,7 +1328,7 @@
     <p class="s69-info-kind" id="s69InfoKind"></p>
     <p class="s69-info-text" id="s69InfoText"></p>
     <p class="s69-info-note" id="s69InfoNote"></p>
-    <button class="btn btn-ghost" id="s69InfoClose"></button>
+    <button class="btn btn-ghost" id="s69InfoClose" data-dismiss></button>
   </div>
 
   <div class="overlay" id="paywall" role="dialog" aria-labelledby="paywallTitle">
@@ -1328,7 +1341,7 @@
     <p class="pay-referral" id="paywallReferral"></p>
     <button class="btn btn-play" id="paywallBuy" data-i18n="paywallBuy"></button>
     <button class="btn btn-ghost" id="paywallRefresh" data-i18n="paywallRefresh"></button>
-    <button class="btn btn-ghost" id="paywallClose" data-i18n="paywallClose"></button>
+    <button class="btn btn-ghost" id="paywallClose" data-i18n="paywallClose" data-dismiss></button>
   </div>
 
   <!-- DONE overlay -->
@@ -1337,7 +1350,7 @@
     <h2 data-i18n="doneTitle"></h2>
     <p data-i18n="doneText"></p>
     <button class="btn btn-play" id="btnAgain" data-i18n="again"></button>
-    <button class="btn btn-ghost" id="btnToThemes" data-i18n="toThemes"></button>
+    <button class="btn btn-ghost" id="btnToThemes" data-i18n="toThemes" data-dismiss></button>
   </div>
 
   <div id="toast" role="status" aria-live="polite"></div>
@@ -1603,16 +1616,40 @@
     // whichever path led here: the button used to keep a stale closure and
     // 404 forever after a delete or a second test.
     if (id === 'compat') refreshCompatResume();
+    // So does «69 ступеней»'s: back from the invite screen it used to offer
+    // nothing, and a second board silently left the first one behind
+    // (audit D-19).
+    if (id === 's69') s69OfferResume();
     $(id).classList.add('active');
+    syncBackButton();
+  }
+  function syncBackButton() {
     try {
-      if (tg && tg.BackButton) {
-        if (id === 'home') tg.BackButton.hide(); else tg.BackButton.show();
-      }
+      if (!tg || !tg.BackButton) return;
+      const home = $('home').classList.contains('active');
+      if (!home || document.querySelector('.overlay.show')) tg.BackButton.show();
+      else tg.BackButton.hide();
     } catch (e) {}
   }
+  try {
+    const layers = new MutationObserver(syncBackButton);
+    document.querySelectorAll('.overlay').forEach(o =>
+      layers.observe(o, { attributes: true, attributeFilter: ['class'] }));
+  } catch (e) {}
+
   if (tg && tg.BackButton) {
     try {
       tg.BackButton.onClick(() => {
+        // The top layer first. An open overlay is what Back closes, the way
+        // its own «Назад» or «Закрыть» would (`data-dismiss`); the Android
+        // gesture used to leave the screen under a paywall or an 18+
+        // question instead (audit D-06).
+        const layer = document.querySelector('.overlay.show');
+        if (layer) {
+          const dismiss = layer.querySelector('[data-dismiss]');
+          if (dismiss) dismiss.click(); else layer.classList.remove('show');
+          return;
+        }
         if ($('deck').classList.contains('active')) leaveDeck();
         else if ($('invite').classList.contains('active')) $('inviteBack').click();
         else if ($('coop').classList.contains('active')) show('home');
@@ -1881,22 +1918,45 @@
     return true;
   }
 
-  async function loadData() {
-    $('loader').classList.add('show');
+  // One request at a time, shared: the preload at launch and a tap on
+  // «Играть» while it is still on its way wait for the same answer.
+  let dataRequest = null;
+
+  function fetchData() {
+    if (!dataRequest) {
+      dataRequest = (async () => {
+        try {
+          const headers = {};
+          if (tg && tg.initData) headers['Authorization'] = 'tma ' + tg.initData;
+          const res = await timedFetch('/api/questions?lang=' + lang, { cache: 'no-cache', headers });
+          if (!res.ok) throw await httpError(res, '/api/questions');
+          const json = await res.json();
+          DATA = json.themes;
+          ACCESS = json.access || { paid: true };
+          BOT_URL = json.bot_url || null;
+          return null;
+        } catch (e) {
+          DATA = null;
+          return e;
+        } finally {
+          dataRequest = null;
+        }
+      })();
+    }
+    return dataRequest;
+  }
+
+  // The preload at launch is quiet: it used to put the full-screen loader
+  // over the home screen on every launch, for content the home screen does
+  // not show (audit D-16). Whoever actually waits for the content - a tap
+  // on «Играть» - gets the loader and, if it fails, the reason.
+  async function loadData(quiet) {
+    if (!quiet) $('loader').classList.add('show');
     try {
-      const headers = {};
-      if (tg && tg.initData) headers['Authorization'] = 'tma ' + tg.initData;
-      const res = await timedFetch('/api/questions?lang=' + lang, { cache: 'no-cache', headers });
-      if (!res.ok) throw await httpError(res, '/api/questions');
-      const json = await res.json();
-      DATA = json.themes;
-      ACCESS = json.access || { paid: true };
-      BOT_URL = json.bot_url || null;
-    } catch (e) {
-      DATA = null;
-      toast(e.status ? statusMessage(e) : T().loadError);
+      const error = await fetchData();
+      if (error && !quiet) toast(error.status ? statusMessage(error) : T().loadError);
     } finally {
-      $('loader').classList.remove('show');
+      if (!quiet) $('loader').classList.remove('show');
     }
   }
 
@@ -2456,7 +2516,13 @@
     $('done').classList.add('show');
     confetti();
   }
+  const REDUCED_MOTION = (() => {
+    try { return window.matchMedia('(prefers-reduced-motion: reduce)').matches; }
+    catch (e) { return false; }
+  })();
+
   function confetti() {
+    if (REDUCED_MOTION) return;
     const colors = ['#E86BB5', '#C4256E', '#8E7CF3', '#F98D68', '#FFD9EF'];
     for (let i = 0; i < 60; i++) {
       const c = document.createElement('div');
@@ -4244,8 +4310,7 @@
     haptic('light');
     G.piece = store.get('s69Piece', 'hearts');
     renderS69Suits(null);
-    show('s69');
-    s69OfferResume();
+    show('s69');   // which also asks for the game in play
   }
 
   // A game in play is offered back, with the way to abandon it beside the way
@@ -4760,8 +4825,8 @@
   $('backThemes').onclick = () => show('themes');
 
   applyI18n();
-  // Preload content in background for instant start
-  loadData();
+  // Preload content in the background for an instant start, without a word.
+  loadData(true);
   renderHomeModules();
 
   /* ---------------- arriving through a link ---------------- */
