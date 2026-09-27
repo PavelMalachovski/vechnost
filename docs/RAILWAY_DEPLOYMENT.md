@@ -1,133 +1,90 @@
-# Railway.com Deployment Guide
+# Deploying to Railway
 
-This guide will help you deploy the Vechnost Telegram bot to Railway.com.
+How production is built and run. The checks in front of it, and the one-time
+settings that make Railway wait for them, are in [`CI_CD.md`](CI_CD.md).
 
-## Prerequisites
+## What Railway runs
 
-1. **Railway Account**: Sign up at [railway.app](https://railway.app)
-2. **GitHub Repository**: Your code should be in a GitHub repository
-3. **Telegram Bot Token**: Get one from [@BotFather](https://t.me/BotFather)
+One service, built from the repository's [`Dockerfile`](../Dockerfile)
+(`railway.toml`: `builder = "DOCKERFILE"`).
 
-## Deployment Steps
+- **The image.** `python:3.11-slim-bookworm`, dependencies from
+  `requirements.lock`: exact versions, every file checked against its hash,
+  wheels only, nothing resolved at build time. A release on PyPI therefore
+  cannot change what a deploy installs (SQLAlchemy 2.1 once broke a fresh
+  build with no commit on our side). CI builds and smokes the same image
+  before a merge can reach production. The app runs as a non-root user.
+- **The command.** `python -m vechnost_bot.run_webhook` runs two child
+  processes: the FastAPI app (Mini App, API, Tribute webhooks) under uvicorn
+  on `$PORT`, and the bot on long polling. If either dies, the other is
+  stopped and the service exits non-zero, so the restart policy
+  (`ON_FAILURE`, 10 retries) brings the pair back together. On SIGTERM (a
+  redeploy, a stop) both are asked to finish: uvicorn drains its requests
+  and the bot confirms the updates it has handled.
+- **The healthcheck.** Railway moves traffic to a new deploy only once
+  `/health` answers (up to 120 s), and keeps the previous one serving until
+  then, so a build that cannot start never replaces a working one. `/health`
+  reports the deployed commit (`RAILWAY_GIT_COMMIT_SHA`).
+- **The database.** PostgreSQL. Tables are created at startup, and new
+  columns are added by idempotent startup steps, so a deploy needs no manual
+  migration. `alembic/` is kept in step with the models
+  (`tests/test_postgres.py` checks that both build the same schema).
 
-### 1. Connect Repository to Railway
+## Variables
 
-1. Log in to your Railway dashboard
-2. Click "New Project"
-3. Select "Deploy from GitHub repo"
-4. Choose your repository
-5. Railway will automatically detect it as a Python project
+Set them in the service's *Variables* tab. [`env.example`](../env.example)
+lists every setting with an explanation; these are the ones production
+needs:
 
-### 2. Configure Environment Variables
+| Variable | What it is |
+|---|---|
+| `TELEGRAM_BOT_TOKEN` | The bot's token from @BotFather. Required. |
+| `DATABASE_URL` | PostgreSQL with the async driver: `postgresql+asyncpg://…`. Railway's own variable is spelled `postgresql://`; add `+asyncpg`. Without this variable the app falls back to a SQLite file inside the container, which is lost on every deploy. |
+| `ENABLE_PAYMENT` | `true` to enforce the paywall. |
+| `TRIBUTE_API_KEY` | Signs Tribute's webhooks; required when payments are on. |
+| `TRIBUTE_PAYMENT_URL` | The payment page the paywall opens. |
+| `ADMIN_TOKEN` | Bearer token for `/admin/*`. |
+| `WEBAPP_URL` | The public HTTPS address of the Mini App, e.g. `https://<service>.up.railway.app/app/`. |
+| `BOT_USERNAME` | The bot's username, for invite links. |
+| `WEBAPP_MAIN_APP` / `WEBAPP_SHORT_NAME` | How invite links are spelled; see `env.example`. |
+| `SENTRY_DSN` | Optional error reporting. |
 
-In your Railway project dashboard:
+`PORT`, `RAILWAY_GIT_COMMIT_SHA` and the rest of Railway's own variables are
+set by the platform.
 
-1. Go to the "Variables" tab
-2. Add the following environment variables:
+## A deploy, and going back
 
+A merge to `master` runs CI; with "Wait for CI" on, Railway builds only a
+commit whose workflows all passed, then waits for `/health` before
+switching traffic. To go back, redeploy the previous deployment from the
+service's *Deployments* list, or revert the commit on `master`.
+
+## Changing a dependency
+
+Edit `pyproject.toml`, then regenerate both locks
+([uv](https://docs.astral.sh/uv/) does it in seconds):
+
+```bash
+uv pip compile pyproject.toml --python-version 3.11 --python-platform x86_64-unknown-linux-gnu --generate-hashes -o requirements.lock
+uv pip compile pyproject.toml --extra dev --extra e2e -c requirements.lock --python-version 3.11 --python-platform x86_64-unknown-linux-gnu --generate-hashes -o requirements-dev.lock
 ```
-API_TOKEN_TELEGRAM=your_bot_token_here
-CHAT_ID=your_chat_id_here (optional)
-LOG_LEVEL=INFO
-```
 
-**Important**: Replace `your_bot_token_here` with your actual bot token from @BotFather.
+The development lock is constrained by the production one, so tests run on
+exactly the versions production runs. `uv pip compile` keeps the pins
+already in a lock and changes only what `pyproject.toml` asks it to; add
+`--upgrade` to the first command to move everything to today's versions.
+The nightly job "Today's PyPI, unpinned" (`ci.yml`) says when that would
+break something.
 
-### 3. Deploy
+## When something goes wrong
 
-1. Railway will automatically start building and deploying
-2. Monitor the build logs in the "Deployments" tab
-3. The bot will start automatically once deployment is complete
-
-### 4. Verify Deployment
-
-1. Check the deployment logs for any errors
-2. Test your bot by sending `/start` command
-3. The bot should respond with the theme selection menu
-
-## Configuration Files
-
-The project includes several Railway-specific configuration files:
-
-- `railway.toml`: Railway deployment configuration
-- `Procfile`: Alternative deployment method
-- `Dockerfile`: Container-based deployment option
-
-## Environment Variables
-
-| Variable | Description | Required | Default |
-|----------|-------------|----------|---------|
-| `API_TOKEN_TELEGRAM` | Bot token from @BotFather | Yes | - |
-| `CHAT_ID` | Optional chat ID for debugging | No | - |
-| `LOG_LEVEL` | Logging level (DEBUG, INFO, WARNING, ERROR) | No | INFO |
-| `PYTHONPATH` | Python path (set automatically) | No | /app |
-| `PYTHONUNBUFFERED` | Unbuffered Python output (set automatically) | No | 1 |
-
-## Monitoring and Logs
-
-- **Logs**: View real-time logs in the Railway dashboard
-- **Metrics**: Monitor CPU, memory, and network usage
-- **Health Checks**: Railway automatically monitors your service
-
-## Troubleshooting
-
-### Common Issues
-
-1. **Deployment failures**:
-   - Railway monitors the bot process directly (no healthcheck endpoint needed)
-   - If the bot fails to start, check logs for startup errors
-   - Ensure `TELEGRAM_BOT_TOKEN` is set correctly
-
-2. **Bot not responding**:
-   - Check if `TELEGRAM_BOT_TOKEN` is set correctly
-   - Verify the token is valid by testing with @BotFather
-
-3. **Build failures**:
-   - Check build logs for dependency issues
-   - Ensure all required files are in the repository
-
-4. **Runtime errors**:
-   - Check application logs for error messages
-   - Verify environment variables are set correctly
-
-### Getting Help
-
-- Check Railway documentation: [docs.railway.app](https://docs.railway.app)
-- View application logs in Railway dashboard
-- Test locally first: `python -m vechnost_bot`
-
-## Scaling
-
-Railway automatically handles:
-- **Auto-scaling**: Based on traffic
-- **Health checks**: Automatic restarts on failure
-- **Zero-downtime deployments**: Rolling updates
-
-## Security Notes
-
-- Never commit your bot token to the repository
-- Use Railway's environment variables for sensitive data
-- The bot token is automatically encrypted in Railway
-
-## Cost
-
-Railway offers:
-- **Free tier**: $5 credit monthly
-- **Pay-as-you-go**: Only pay for what you use
-- **No hidden fees**: Transparent pricing
-
-## Next Steps
-
-After successful deployment:
-
-1. **Test thoroughly**: Try all bot features
-2. **Monitor usage**: Check Railway metrics
-3. **Set up monitoring**: Consider external monitoring tools
-4. **Backup**: Regular backups of your data
-
-## Support
-
-For issues with:
-- **Railway platform**: Contact Railway support
-- **Bot functionality**: Check the application logs
-- **Code issues**: Review the test suite and run locally
+- **The build fails at `pip install --require-hashes`.** The lock no longer
+  matches `pyproject.toml`, or a pinned file is gone from PyPI: regenerate
+  the locks as above.
+- **The healthcheck never passes.** The deploy log shows why the web
+  process did not start; the previous deploy keeps serving meanwhile.
+  `Database ready, but these startup steps failed` names a startup step
+  that needs attention.
+- **The bot is silent but the Mini App works.** The service stops when
+  either process dies, so look for `[!] The bot died` in the log and the
+  traceback before it.

@@ -12,10 +12,11 @@ on:
   push:
     branches: [ master ]
   pull_request:
-  # Nothing pins the dependency tree, so a release upstream can break a
-  # commit nobody touched: SQLAlchemy 2.1 moved greenlet behind an extra and
-  # a fresh install stopped importing, days before the next push would have
-  # shown it. The nightly run installs today's PyPI and finds out first.
+  # Every job but one installs requirements.lock, so the nightly run checks
+  # the same commit against the same versions - and the `upstream` job
+  # installs today's PyPI unpinned, to hear about a release like SQLAlchemy
+  # 2.1 (greenlet moved behind an extra, a fresh install stopped importing)
+  # before a lock update has to absorb it.
   schedule:
     - cron: "23 3 * * *"
   workflow_dispatch:
@@ -39,12 +40,17 @@ jobs:
       with:
         python-version: '3.11'
         cache: pip
-        cache-dependency-path: pyproject.toml
+        cache-dependency-path: requirements-dev.lock
 
-    - name: Install dependencies
+    # Exactly the versions production runs (requirements.lock, which this
+    # file extends), every file checked against its hash; `pip check` fails
+    # if pyproject.toml asks for something the lock does not satisfy.
+    - name: Install dependencies from the lock
       run: |
         python -m pip install --upgrade pip
-        pip install .[dev]
+        pip install --require-hashes --no-deps -r requirements-dev.lock
+        pip install --no-deps .
+        pip check
 
     - name: Run ruff
       run: ruff check .
@@ -98,12 +104,17 @@ jobs:
       with:
         python-version: '3.11'
         cache: pip
-        cache-dependency-path: pyproject.toml
+        cache-dependency-path: requirements-dev.lock
 
-    - name: Install dependencies
+    # Exactly the versions production runs (requirements.lock, which this
+    # file extends), every file checked against its hash; `pip check` fails
+    # if pyproject.toml asks for something the lock does not satisfy.
+    - name: Install dependencies from the lock
       run: |
         python -m pip install --upgrade pip
-        pip install .[dev]
+        pip install --require-hashes --no-deps -r requirements-dev.lock
+        pip install --no-deps .
+        pip check
 
     # Runs across every core: `-n auto --dist load` is in pyproject's addopts.
     # No environment to set up — conftest supplies a fake bot token, and
@@ -112,16 +123,16 @@ jobs:
     - name: Run tests
       run: pytest -q
 
-  # The build production actually gets: Railway's Nixpacks runs a plain
-  # `pip install .` (no dev extras, today's versions) and starts the app from
-  # the checkout. The test job cannot see a break here, because the dev extras
-  # can drag in what the runtime forgot to declare.
+  # The build production actually gets: Railway builds this repository's
+  # Dockerfile, which installs requirements.lock and starts run_webhook. So
+  # this builds that image, imports every module inside it, serves the web
+  # process from it and smokes it. The test job cannot see a break here: it
+  # installs the dev extras too, which can drag in what the runtime forgot to
+  # declare, and it runs on the runner's Python rather than the image's.
   install-smoke:
     name: Fresh install, the way Railway builds it
     runs-on: ubuntu-latest
-    timeout-minutes: 15
-    env:
-      TELEGRAM_BOT_TOKEN: "1234567890:TEST_TOKEN_FOR_UNIT_TESTS"
+    timeout-minutes: 20
     steps:
     - uses: actions/checkout@v4
 
@@ -130,19 +141,15 @@ jobs:
       with:
         python-version: '3.11'
 
-    - name: Install the runtime dependencies only
-      run: |
-        python -m venv /tmp/runtime
-        /tmp/runtime/bin/pip install --upgrade pip
-        /tmp/runtime/bin/pip install .
-        /tmp/runtime/bin/pip freeze > runtime-freeze.txt
+    - name: Build the production image
+      run: docker build -t vechnost:ci .
 
     # Every module, not just the package: the break that motivated this job
     # lived in `vechnost_bot.payments`, which `import vechnost_bot` never
     # touches, and parts of the bot import it lazily inside handlers.
-    - name: Import every module
+    - name: Import every module inside the image
       run: |
-        /tmp/runtime/bin/python - <<'PY'
+        docker run -i --rm -e TELEGRAM_BOT_TOKEN=1234567890:TEST_TOKEN_FOR_UNIT_TESTS vechnost:ci python - <<'PY'
         import importlib, pkgutil
         import vechnost_bot
         names = [m.name for m in pkgutil.walk_packages(vechnost_bot.__path__, "vechnost_bot.")]
@@ -150,20 +157,24 @@ jobs:
             importlib.import_module(name)
         print(f"imported {len(names)} modules")
         PY
+        docker run --rm vechnost:ci pip freeze > runtime-freeze.txt
 
-    - name: Serve the web process and smoke it
-      env:
-        ENABLE_PAYMENT: "true"
-        TRIBUTE_API_KEY: "ci-signing-key"
-        DATABASE_URL: "sqlite+aiosqlite:///./ci-smoke.db"
-        PYTHONPATH: "."
+    # The web process only: the bot would need a real token to get past
+    # getMe. run_webhook itself is covered by tests/test_run_webhook.py.
+    - name: Serve the web process from the image and smoke it
       run: |
-        /tmp/runtime/bin/python -m uvicorn vechnost_bot.payments.web:app --port 8000 > uvicorn.log 2>&1 &
+        docker run -d --name web -p 8000:8000 \
+          -e TELEGRAM_BOT_TOKEN=1234567890:TEST_TOKEN_FOR_UNIT_TESTS \
+          -e ENABLE_PAYMENT=true -e TRIBUTE_API_KEY=ci-signing-key \
+          -e DATABASE_URL=sqlite+aiosqlite:////tmp/ci-smoke.db \
+          vechnost:ci python -m uvicorn vechnost_bot.payments.web:app --host 0.0.0.0 --port 8000
         for i in $(seq 1 60); do curl -sf http://127.0.0.1:8000/health && break; sleep 1; done
-        /tmp/runtime/bin/python scripts/smoke_production.py http://127.0.0.1:8000
+        python -m pip install httpx
+        python scripts/smoke_production.py http://127.0.0.1:8000
+        docker logs web > uvicorn.log 2>&1
         if grep -E "Traceback|failed" uvicorn.log; then cat uvicorn.log; exit 1; fi
 
-    - name: Keep the resolved versions
+    - name: Keep the installed versions
       if: always()
       uses: actions/upload-artifact@v4
       with:
@@ -171,43 +182,46 @@ jobs:
         path: runtime-freeze.txt
         if-no-files-found: ignore
 
-  docker:
+  # The lock keeps a release upstream away from production; this is how we
+  # hear about one anyway, before the next lock update has to absorb it. It
+  # installs today's PyPI, unpinned, and runs the suite - nightly only, so
+  # an upstream break never blocks a merge.
+  upstream:
+    name: Today's PyPI, unpinned
+    if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-latest
     timeout-minutes: 20
-    needs: [lint, test]
     steps:
     - uses: actions/checkout@v4
 
-    - name: Set up Docker Buildx
-      uses: docker/setup-buildx-action@v3
+    - name: Set up Python 3.11
+      uses: actions/setup-python@v5
+      with:
+        python-version: '3.11'
 
-    - name: Build Docker image
-      run: docker build -t vechnost-bot:ci .
-
-    # It used to run `import vechnost_bot`, a three-line __init__, which
-    # would have passed with the payments package unable to import.
-    - name: Test Docker image
+    - name: Install today's versions
       run: |
-        docker run --rm -e TELEGRAM_BOT_TOKEN=1:ci vechnost-bot:ci python -c "
-        import importlib, pkgutil, vechnost_bot
-        names = [m.name for m in pkgutil.walk_packages(vechnost_bot.__path__, 'vechnost_bot.')]
-        [importlib.import_module(n) for n in names]
-        print('imported', len(names), 'modules')"
-        docker run -d --name web -p 8000:8000 -e TELEGRAM_BOT_TOKEN=1:ci \
-          -e DATABASE_URL=sqlite+aiosqlite:////tmp/ci.db \
-          vechnost-bot:ci python -m uvicorn vechnost_bot.payments.web:app --host 0.0.0.0 --port 8000
-        for i in $(seq 1 60); do curl -sf http://127.0.0.1:8000/health && break; sleep 1; done
-        curl -sf http://127.0.0.1:8000/health
-        curl -sf http://127.0.0.1:8000/app/ > /dev/null
-        docker logs web
-        docker rm -f web
+        python -m pip install --upgrade pip
+        pip install .[dev]
+        pip freeze > upstream-freeze.txt
+
+    - name: Run tests
+      run: pytest -q
+
+    - name: Keep the resolved versions
+      if: always()
+      uses: actions/upload-artifact@v4
+      with:
+        name: upstream-freeze
+        path: upstream-freeze.txt
+        if-no-files-found: ignore
 
   # A red nightly run has no commit behind it and so no author to tell: GitHub
   # mails only whoever last edited the cron line. File it where it is seen.
   report-nightly-failure:
     name: File the nightly failure
     if: failure() && github.event_name == 'schedule'
-    needs: [lint, test, install-smoke, docker]
+    needs: [lint, test, install-smoke, upstream]
     runs-on: ubuntu-latest
     permissions:
       issues: write
@@ -218,8 +232,9 @@ jobs:
           const label = 'ci-nightly';
           const run = `${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`;
           const body = `The nightly CI run failed on ${context.sha.slice(0, 7)}: ${run}\n\n` +
-                       'With no new commit the likely cause is a release on PyPI: compare this ' +
-                       'run\'s runtime-freeze artifact with the last green night\'s.';
+                       'A red "Today\'s PyPI, unpinned" job is a release upstream that the lock ' +
+                       'keeps away from production: its upstream-freeze artifact against ' +
+                       'requirements.lock shows what changed. Any other red job is this commit\'s.';
           try {
             await github.rest.issues.createLabel({
               owner: context.repo.owner, repo: context.repo.repo, name: label, color: 'b60205',

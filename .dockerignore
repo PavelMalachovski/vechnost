@@ -1,0 +1,24 @@
+# The Dockerfile copies only what the app needs; this keeps the rest out of
+# the build context, secrets and local databases above all.
+.git
+.github
+.env
+.env.*
+**/*.db
+**/*.sqlite
+**/__pycache__
+**/*.pyc
+*.egg-info
+build
+dist
+.venv
+venv
+tests
+docs
+scripts
+certificates*
+e2e-report*
+.mypy_cache
+.pytest_cache
+.ruff_cache
+.claude

@@ -68,6 +68,19 @@ IRREGULAR_PAST = re.compile(
 )
 
 
+# The partner, not the reader, but the same problem: «твоя партнёрша» decides
+# that the reader has a woman for a partner, and nine cards of «Провокация»
+# said so. «Партнёр» agrees with the noun and assumes nothing.
+PARTNER_FEMININE = re.compile(r"партн[её]рш", re.IGNORECASE)
+
+# «он/она», «он или она»: the slash dodge again, for a pronoun. Rewrite the
+# sentence so it needs no pronoun at all («видео, на которых партнёр...»).
+PRONOUN_PAIR = re.compile(
+    r"(?<![А-Яа-яЁё])(?:он/она|она/он|он или она|она или он)(?![А-Яа-яЁё])",
+    re.IGNORECASE,
+)
+
+
 def _lines(path):
     """Content lines, minus the YAML comments, with 1-based numbers."""
     for number, line in enumerate(path.read_text(encoding="utf-8").splitlines(), 1):
@@ -83,7 +96,8 @@ def test_content_never_picks_a_gender_for_the_reader(path):
         for number, line in _lines(path)
         if (BRACKETED.search(line) or PERSONAL_PAST.search(line)
             or SLASHED.search(line) or INVERTED_PAST.search(line)
-            or BRACKETED_WORD.search(line) or IRREGULAR_PAST.search(line))
+            or BRACKETED_WORD.search(line) or IRREGULAR_PAST.search(line)
+            or PARTNER_FEMININE.search(line) or PRONOUN_PAIR.search(line))
     ]
     assert not offenders, "gendered form in user-facing text:\n" + "\n".join(offenders)
 
@@ -106,6 +120,8 @@ def test_the_mini_app_copy_never_picks_a_gender():
             assert not BRACKETED.search(line), line.strip()
             assert not PERSONAL_PAST.search(line), line.strip()
             assert not SLASHED.search(line), line.strip()
+            assert not PARTNER_FEMININE.search(line), line.strip()
+            assert not PRONOUN_PAIR.search(line), line.strip()
 
 
 def test_the_test_would_notice():
@@ -116,6 +132,9 @@ def test_the_test_would_notice():
     assert PERSONAL_PAST.search("Я была там вчера")
     assert SLASHED.search("Ради чего я проснулся/проснулась?")
     assert SLASHED.search("За что я благодарен/благодарна себе?")
+    assert PARTNER_FEMININE.search("Если твоя партнёрша совершила преступление")
+    assert PRONOUN_PAIR.search("видео, где он или она снимает себя")
+    assert PRONOUN_PAIR.search("где он/она записывает")
     # And what the rewrites actually use must pass.
     for good in (
         "Что ты будешь делать, если партнёр обидит питомца?",
@@ -123,7 +142,10 @@ def test_the_test_would_notice():
         "В чём сегодня проявилась моя щедрость?",
         "Был ли у тебя опыт эротического массажа?",
         "Ты узнаёшь, что партнёр изменил тебе. Какова твоя реакция?",
+        "Ты узнаёшь о преступлении партнёра. Расскажешь ли ты об этом кому-то?",
     ):
         assert not BRACKETED.search(good), good
         assert not PERSONAL_PAST.search(good), good
         assert not SLASHED.search(good), good
+        assert not PARTNER_FEMININE.search(good), good
+        assert not PRONOUN_PAIR.search(good), good
