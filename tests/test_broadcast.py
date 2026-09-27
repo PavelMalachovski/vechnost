@@ -370,9 +370,11 @@ class TestRegistration:
 
         with patch.object(settings, "admin_ids", "111"):
             app = create_application()
-        patterned = [h for h in app.handlers[0]
-                     if isinstance(h, CallbackQueryHandler) and h.pattern is not None]
-        assert patterned and all(h.block is False for h in patterned)
+        # The send itself; a quick button such as the gift's «Активировать»
+        # stays in its chat's order instead.
+        [confirm] = [h for h in app.handlers[0]
+                     if isinstance(h, CallbackQueryHandler) and h.callback is bc.broadcast_callback]
+        assert confirm.block is False
 
 
 def _command_names(app) -> set[str]:

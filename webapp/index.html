@@ -1070,6 +1070,9 @@
   #paywall .pay-list li::before { content: '♥'; position: absolute; left: 2px; color: #E86BB5; }
   #paywall .pay-promise { margin-bottom: 14px; }
   #paywall .pay-referral { margin-bottom: 18px; color: var(--text-on-dark); }
+  #giftSheet .gift-text { margin-bottom: 14px; }
+  #giftSheet .gift-price { margin-bottom: 14px; color: var(--text-on-dark); font-weight: 600; }
+  #giftSheet .gift-note { margin-bottom: 18px; }
 
   #s69CellInfo .s69-info-meta {
     font-size: 12px; letter-spacing: .06em; text-transform: uppercase;
@@ -1128,6 +1131,10 @@
          /api/library answers, so a module added on the server still lands
          in the right place without another button written by hand. -->
     <div id="homeModules"></div>
+    <!-- The gift button follows here while a gift is on offer, added and
+         removed by setAccess rather than kept hidden: the column is centred
+         by margin-bottom:auto on its :last-child, and a hidden last child
+         took the centring with it. -->
   </section>
 
   <!-- COOP entry -->
@@ -1412,7 +1419,20 @@
     <p class="pay-referral" id="paywallReferral"></p>
     <button class="btn btn-play" id="paywallBuy" data-i18n="paywallBuy"></button>
     <button class="btn btn-ghost" id="paywallRefresh" data-i18n="paywallRefresh"></button>
+    <button class="btn btn-ghost" id="paywallGift" data-i18n="paywallGift"></button>
     <button class="btn btn-ghost" id="paywallClose" data-i18n="paywallClose" data-dismiss></button>
+  </div>
+
+  <!-- A gift: what it is, what it costs, and the one thing the buyer may
+       have to allow first - the certificate arrives as a bot message. -->
+  <div class="overlay" id="giftSheet" role="dialog" aria-labelledby="giftTitle">
+    <div class="big-emoji">🎁</div>
+    <h2 id="giftTitle" data-i18n="giftTitle"></h2>
+    <p class="gift-text" data-i18n="giftText"></p>
+    <p class="gift-price" id="giftPrice"></p>
+    <p class="gift-note" id="giftNote" data-i18n="giftNeedsWrite"></p>
+    <button class="btn btn-play" id="giftBuy" data-i18n="giftBuy"></button>
+    <button class="btn btn-ghost" id="giftClose" data-i18n="giftClose" data-dismiss></button>
   </div>
 
   <!-- DONE overlay -->
@@ -1511,6 +1531,15 @@
       yourTurn: '✨ Твой ход', partnerTurn: 'Отвечает {name}…',
       notYourTurn: 'Сейчас ход партнёра',
       partnerJoined: '{name} в игре!',
+      giftBtn: '🎁 Подарить VECHNOST',
+      giftTitle: 'Подарить VECHNOST',
+      giftText: 'Подарите паре, которая вам дорога, вечер настоящей близости. После оплаты бот пришлёт вам сертификат со ссылкой: перешлите его тем, кому дарите, и у них откроется полный доступ навсегда.',
+      giftPrice: 'Сертификат: {price}',
+      giftNeedsWrite: 'Сертификат придёт сообщением от бота, поэтому Telegram сначала спросит, можно ли боту вам писать.',
+      giftWriteDeclined: 'Без этого бот не сможет прислать сертификат',
+      giftBuy: '🎁 Купить сертификат',
+      giftClose: 'Не сейчас',
+      paywallGift: '🎁 Купить в подарок',
       writeAskTitle: 'Сообщать, когда игра ждёт вас?',
       writeAskText: 'Бот напишет, когда партнёр придёт по приглашению, когда будет готов результат теста или доска будет ждать хода. Иногда пришлёт вопрос дня. Отписаться можно в любой момент.',
       writeAskYes: 'Разрешить',
@@ -1843,6 +1872,26 @@
 
   /* ---------------- data ---------------- */
   let ACCESS = { paid: true };
+  // The one place the access payload lands, so what depends on it - the
+  // gift button, for one - follows every refresh. The button exists only
+  // while a gift is on offer: #home centres its column with
+  // margin-bottom:auto on :last-child, which counts a hidden element too,
+  // and a hidden button there sank the home screen to the bottom of every
+  // tall phone (the visual check, 393x852 and 430x932).
+  function setAccess(access) {
+    ACCESS = access;
+    let gift = $('btnGift');
+    if (ACCESS.gift_url && !gift) {
+      gift = document.createElement('button');
+      gift.className = 'btn btn-ghost';
+      gift.id = 'btnGift';
+      gift.textContent = T().giftBtn;
+      gift.onclick = () => showGift('home');
+      $('home').appendChild(gift);
+    } else if (!ACCESS.gift_url && gift) {
+      gift.remove();
+    }
+  }
   let BOT_URL = null;
 
   const fmt = (tpl, vars) => tpl.replace(/\{(\w+)\}/g, (_, k) => vars[k] != null ? vars[k] : '');
@@ -1873,6 +1922,7 @@
     // No payment link, no button that does nothing - and nothing to refresh.
     $('paywallBuy').style.display = ACCESS.payment_url ? '' : 'none';
     $('paywallRefresh').style.display = ACCESS.payment_url ? '' : 'none';
+    $('paywallGift').style.display = ACCESS.gift_url ? '' : 'none';
     $('paywall').classList.add('show');
   }
 
@@ -1881,18 +1931,25 @@
     PAYWALL_CTX = null;
   }
 
+  // A Tribute page: a t.me link opens inside Telegram, anything else in the
+  // browser Telegram opens.
+  function openPayLink(url) {
+    try {
+      if (tg && url.startsWith('https://t.me')) tg.openTelegramLink(url);
+      else if (tg) tg.openLink(url);
+      else window.open(url, '_blank');
+    } catch (e) { window.open(url, '_blank'); }
+  }
+
   $('paywallBuy').onclick = () => {
     const url = ACCESS.payment_url;
     if (!url) return;
     haptic('light');
     PAY_PENDING = true;
     track('buy_click', PAYWALL_CTX);
-    try {
-      if (tg && url.startsWith('https://t.me')) tg.openTelegramLink(url);
-      else if (tg) tg.openLink(url);
-      else window.open(url, '_blank');
-    } catch (e) { window.open(url, '_blank'); }
+    openPayLink(url);
   };
+  $('paywallGift').onclick = () => { closePaywall(); showGift('paywall'); };
   $('paywallClose').onclick = closePaywall;
   $('paywallRefresh').onclick = () => { haptic('light'); refreshAccess(true); };
 
@@ -1917,12 +1974,12 @@
       const json = await res.json();
       const access = json.access || { paid: true };
       if (!access.paid) {
-        ACCESS = access;
+        setAccess(access);
         if (manual) toast(T().payNotYet);
         return false;
       }
       DATA = json.themes;
-      ACCESS = access;
+      setAccess(access);
       BOT_URL = json.bot_url || null;
       PAY_PENDING = false;
       const ctx = PAYWALL_CTX;
@@ -2011,7 +2068,7 @@
           if (!res.ok) throw await httpError(res, '/api/questions');
           const json = await res.json();
           DATA = json.themes;
-          ACCESS = json.access || { paid: true };
+          setAccess(json.access || { paid: true });
           BOT_URL = json.bot_url || null;
           return null;
         } catch (e) {
@@ -2716,16 +2773,55 @@
   // bot cannot tell an invite's sender that the partner came, nor either of
   // them that the test's result is ready.
   const WRITE_ASK_EVERY = 30 * 24 * 3600 * 1000;
-  function canAskToWrite() {
+  // Whether Telegram can be asked at all (Bot API 6.9), and whether it is
+  // worth asking: not of someone the bot can already write to.
+  function writeAccessMissing() {
     try {
       if (!tg || typeof tg.requestWriteAccess !== 'function') return false;
       if (tg.isVersionAtLeast && !tg.isVersionAtLeast('6.9')) return false;
       const user = tg.initDataUnsafe && tg.initDataUnsafe.user;
-      if (!user || user.allows_write_to_pm || (ME && ME.can_write)) return false;
+      return !!user && !user.allows_write_to_pm && !(ME && ME.can_write);
+    } catch (e) { return false; }
+  }
+  function canAskToWrite() {
+    try {
+      if (!writeAccessMissing()) return false;
       const last = store.get('writeAskedAt', 0);
       return !last || Date.now() - last > WRITE_ASK_EVERY;
     } catch (e) { return false; }
   }
+
+  // A gift, from the home screen or the paywall. The certificate arrives as
+  // a message from the bot, so someone it cannot write to is asked first,
+  // whatever the monthly ask above decided: a gift paid for and never
+  // delivered is the worst way this can go.
+  let GIFT_FROM = null;
+  function showGift(from) {
+    if (!ACCESS.gift_url) return;
+    GIFT_FROM = from;
+    track('gift_view', from);
+    const price = ACCESS.gift_price ? fmt(T().giftPrice, { price: ACCESS.gift_price }) : '';
+    $('giftPrice').textContent = price;
+    $('giftPrice').style.display = price ? '' : 'none';
+    $('giftNote').style.display = writeAccessMissing() ? '' : 'none';
+    $('giftSheet').classList.add('show');
+  }
+  $('giftClose').onclick = () => $('giftSheet').classList.remove('show');
+  $('giftBuy').onclick = () => {
+    const url = ACCESS.gift_url;
+    if (!url) return;
+    haptic('light');
+    track('gift_click', GIFT_FROM);
+    const go = () => { $('giftSheet').classList.remove('show'); openPayLink(url); };
+    if (!writeAccessMissing()) { go(); return; }
+    try {
+      tg.requestWriteAccess(granted => {
+        track('write_access', granted ? 'granted' : 'declined');
+        if (granted) { if (ME) ME.can_write = true; go(); }
+        else toast(T().giftWriteDeclined);
+      });
+    } catch (e) { go(); }
+  };
   // Call it once the screen it belongs to is showing: `show()` closes every
   // overlay, and one closed that way would count as asked.
   function askToWrite() {

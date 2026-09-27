@@ -76,6 +76,19 @@ def render_gift_card(code: str, language: Language) -> BytesIO:
     )
 
 
+def delivered_caption(code: str, language: Language) -> str:
+    """What the buyer reads under the card, and forwards with it.
+
+    A link rides along when the bot's handle is known: whoever it is
+    forwarded to opens it and is asked once, rather than retyping the code.
+    """
+    link = activation_link(code)
+    if link:
+        return get_text('gift.delivered_link', language, code=code, link=link,
+                        bot=settings.bot_username or "")
+    return get_text('gift.delivered', language, code=code)
+
+
 async def deliver_gift_certificate(
     telegram_user_id: int,
     code: str,
@@ -83,9 +96,7 @@ async def deliver_gift_certificate(
 ) -> None:
     """Send the buyer their gift card image and activation instructions."""
     bot = Bot(token=settings.telegram_bot_token)
-    caption = get_text('gift.delivered', language).format(
-        code=code, bot=settings.bot_username or ""
-    )
+    caption = delivered_caption(code, language)
     try:
         image = await asyncio.to_thread(render_gift_card, code, language)
         await bot.send_photo(
@@ -101,14 +112,37 @@ async def deliver_gift_certificate(
         )
 
 
-async def get_gift_purchase_url() -> str | None:
-    """Payment link for the gift product, or the configured fallback page."""
+async def gift_offer() -> tuple[str | None, str | None]:
+    """The gift's payment link and its formatted price, from one read.
+
+    The link is the synced gift product's own (`t_link`, else `web_link`),
+    or GIFT_PAYMENT_URL; the price only when the product is synced with one.
+    """
+    url: str | None = None
+    price: str | None = None
     if settings.gift_product_id:
-        from .services import get_products_for_purchase
+        from .services import format_price, get_products_for_purchase
 
         for product in await get_products_for_purchase():
             if str(product.id) == str(settings.gift_product_id):
-                link = product.t_link or product.web_link
-                if link:
-                    return link
-    return settings.gift_payment_url
+                url = product.t_link or product.web_link or None
+                if product.amount:
+                    price = format_price(product.amount, product.currency or "eur")
+                break
+    return url or settings.gift_payment_url, price
+
+
+async def get_gift_purchase_url() -> str | None:
+    """Payment link for the gift product, or the configured fallback page."""
+    url, _ = await gift_offer()
+    return url
+
+
+def activation_link(code: str) -> str | None:
+    """The link that opens the bot on the question «activate this?».
+
+    None without the bot's handle, where the only way left is /activate.
+    """
+    if not settings.bot_username:
+        return None
+    return f"https://t.me/{settings.bot_username}?start=activate_{code}"

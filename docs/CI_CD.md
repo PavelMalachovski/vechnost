@@ -76,7 +76,7 @@ Both only move one way, and both say what to do when they stop a pull
 request.
 
 - **Coverage.** `test` fails below `--cov-fail-under` in `ci.yml`: the total
-  it measured, rounded down (88 % on 2026-09-27, measured 88.6 %). Raise the
+  it measured, rounded down (89 % since the gifts, measured 89.0 %). Raise the
   number when a change raises the total; a change that would lower it adds
   the missing test instead. `[tool.coverage]` in `pyproject.toml` follows
   greenlets, threads and subprocesses, without which the API modules and

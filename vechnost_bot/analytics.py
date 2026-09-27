@@ -48,6 +48,8 @@ KEEP = timedelta(days=400)
 DOORS = frozenset({"deck", "room", "compat", "s69", "library", "guide"})
 # The three two-partner features, by the prefix their invite links carry.
 INVITE_KINDS = frozenset({"duo", "cmp", "s69"})
+# Where the Mini App offers a gift from.
+GIFT_DOORS = frozenset({"home", "paywall"})
 # How a person reached the bot or the app when no `src_` tag says so; an
 # arrival stores one of these as its `source` (see `arrival_source`).
 VIA = frozenset({"ref", "invite", "gift", "push"})
@@ -87,6 +89,9 @@ EVENTS: dict[str, frozenset[str] | None] = {
     # The app asked for permission to message (requestWriteAccess), and
     # which way it went.
     "write_access": frozenset({"granted", "declined"}),
+    # The gift sheet opened, and «Купить сертификат» pressed, by where from.
+    "gift_view": GIFT_DOORS,
+    "gift_click": GIFT_DOORS,
     "room_create": None,
     "room_join": None,
     "compat_create": None,
@@ -107,7 +112,7 @@ EVENTS: dict[str, frozenset[str] | None] = {
 # forged: a client cannot claim a purchase, a join or a finished test.
 CLIENT_EVENTS = frozenset({
     "app_open", "deck_open", "lib_open", "invite_share", "paywall_view", "buy_click",
-    "write_access",
+    "write_access", "gift_view", "gift_click",
 })
 
 SOURCE_TAG = re.compile(r"^[a-z0-9][a-z0-9_-]{0,31}$")
