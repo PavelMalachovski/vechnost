@@ -25,6 +25,7 @@ from .config import create_bot, settings
 from .handlers import (
     about_command,
     activate_certificate_command,
+    free_text_hint,
     handle_callback_query,
     help_command,
     invite_command,
@@ -34,10 +35,7 @@ from .handlers import (
 from .monitoring import initialize_monitoring, log_bot_event, track_performance
 from .privacy import CALLBACK_PATTERN as DELETE_ME_PATTERN
 from .privacy import delete_me_callback, delete_me_command
-from .simple_redis_manager import (
-    cleanup_simple_redis_auto_start,
-    initialize_simple_redis_auto_start,
-)
+from .storage import MAX_SESSIONS, RedisSessionStore, close_session_store, session_store
 
 
 def setup_logging() -> None:
@@ -47,7 +45,15 @@ def setup_logging() -> None:
 
 
 async def on_error(update: object, context: ContextTypes.DEFAULT_TYPE) -> None:
-    """Global PTB error handler: keep transient noise compact, log the rest fully."""
+    """Global PTB error handler: log the failure, and tell the person.
+
+    Transient network noise is logged compactly and the rest in full, as
+    before. What is new is the second half: a command that failed (/start,
+    /help, /about...) used to leave its sender with silence, which reads as
+    a dead bot. They now get one short line and never a traceback. Errors
+    with no chat behind them - a failed poll, a scheduled job - have nobody
+    to tell.
+    """
     logger = logging.getLogger(__name__)
     error = context.error
 
@@ -58,10 +64,31 @@ async def on_error(update: object, context: ContextTypes.DEFAULT_TYPE) -> None:
         return
     if isinstance(error, (NetworkError, TimedOut)):
         logger.warning(f"Transient Telegram network error: {error}")
-        return
+    else:
+        logger.error("Unhandled error while processing update", exc_info=error)
+        log_bot_event("unhandled_error", error=str(error))
 
-    logger.error("Unhandled error while processing update", exc_info=error)
-    log_bot_event("unhandled_error", error=str(error))
+    await _apologise(update, context)
+
+
+async def _apologise(update: object, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """One short line to the chat the failed update came from, if any."""
+    from telegram import Update
+
+    from .i18n import Language, get_text
+
+    chat = update.effective_chat if isinstance(update, Update) else None
+    if chat is None:
+        return
+    try:
+        await context.bot.send_message(
+            chat_id=chat.id,
+            text=get_text("errors.something_went_wrong", Language.RUSSIAN),
+        )
+    except Exception as e:
+        # Most likely the same outage that caused the error, or a chat that
+        # blocked the bot. Nothing more to be done for this update.
+        logging.getLogger(__name__).warning(f"Could not tell chat {chat.id} about the error: {e}")
 
 
 async def _publish_entry_points(application: Application) -> None:
@@ -131,10 +158,51 @@ async def _publish_entry_points(application: Application) -> None:
             )
 
 
+async def _report_session_store() -> None:
+    """Say where sessions live, and whether a configured Redis answers.
+
+    A Redis that does not answer is logged rather than fatal: the bot
+    shares its deployment with the web process, and a crash here would take
+    payments and the Mini App down with it, in a restart loop, for want of
+    a store whose loss costs a player their place in a deck.
+    """
+    logger = logging.getLogger(__name__)
+    store = session_store()
+    if isinstance(store, RedisSessionStore):
+        try:
+            await store.ping()
+            logger.info("Sessions: in the Redis REDIS_URL names")
+        except Exception as e:
+            logger.error(
+                f"Sessions: the Redis REDIS_URL names does not answer ({e}); "
+                "taps that need a session fail until it does"
+            )
+    else:
+        logger.info(
+            f"Sessions: in memory, kept {settings.session_ttl}s after the "
+            f"last save, at most {MAX_SESSIONS}"
+        )
+
+
+async def _post_init(application: Application) -> None:
+    await _report_session_store()
+    await _publish_entry_points(application)
+
+
+async def _post_shutdown(application: Application) -> None:
+    await close_session_store()
+
+
 def create_application() -> Application:
     """Create and configure the Telegram application."""
     bot = create_bot()
-    application = Application.builder().bot(bot).post_init(_publish_entry_points).build()
+    application = (
+        Application.builder()
+        .bot(bot)
+        .post_init(_post_init)
+        .post_shutdown(_post_shutdown)
+        .build()
+    )
 
     # Add command handlers
     application.add_handler(CommandHandler("start", start_command))
@@ -171,6 +239,18 @@ def create_application() -> Application:
             pattern=f"^({CONFIRM}|{CANCEL})$",
             block=False,
         ))
+
+    # Text nobody asked for - a greeting, a certificate code pasted without
+    # /activate - gets a hint rather than silence. Private chats only, new
+    # messages only (not edits), and registered after the admin's broadcast
+    # capture, which takes an admin's messages first in the same group.
+    application.add_handler(MessageHandler(
+        filters.UpdateType.MESSAGE
+        & filters.ChatType.PRIVATE
+        & filters.TEXT
+        & ~filters.COMMAND,
+        free_text_hint,
+    ))
 
     # Add callback query handler
     application.add_handler(CallbackQueryHandler(handle_callback_query))
@@ -240,30 +320,6 @@ def create_application() -> Application:
     return application
 
 
-def initialize_redis_sync() -> bool:
-    """Initialize Redis with auto-start (synchronous)."""
-    logger = logging.getLogger(__name__)
-    try:
-        redis_started = initialize_simple_redis_auto_start()
-        if redis_started:
-            logger.info("Redis auto-started successfully")
-        else:
-            logger.warning("Redis auto-start failed, using in-memory storage")
-        return redis_started
-    except Exception as e:
-        logger.error(f"Redis initialization error: {e}")
-        return False
-
-
-def cleanup_redis_sync():
-    """Cleanup Redis (synchronous)."""
-    try:
-        cleanup_simple_redis_auto_start()
-    except Exception as e:
-        logger = logging.getLogger(__name__)
-        logger.error(f"Redis cleanup error: {e}")
-
-
 @track_performance("bot_startup")
 def run_bot() -> None:
     """Run the bot."""
@@ -271,18 +327,13 @@ def run_bot() -> None:
     logger = logging.getLogger(__name__)
 
     try:
-        # Initialize Redis with auto-start (synchronous)
-        redis_started = initialize_redis_sync()
-
         application = create_application()
         logger.info("Starting Vechnost bot...")
-        log_bot_event("bot_started", redis_enabled=redis_started)
+        log_bot_event("bot_started", session_store=session_store().kind)
         application.run_polling()
     except KeyboardInterrupt:
         logger.info("Bot shutdown requested")
-        cleanup_redis_sync()
     except Exception as e:
         logger.error(f"Error running bot: {e}")
         log_bot_event("bot_error", error=str(e))
-        cleanup_redis_sync()
         raise

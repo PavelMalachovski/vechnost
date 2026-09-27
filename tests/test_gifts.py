@@ -67,7 +67,7 @@ async def test_create_gift_certificate_retries_on_collision():
             return existing if FakeRepo.calls == 1 else None
 
         @staticmethod
-        async def create(session, code):
+        async def create(session, code, purchase_id=None):
             created.append(code)
 
     with patch("vechnost_bot.payments.gifts.CertificateRepository", FakeRepo):

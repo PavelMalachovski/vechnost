@@ -87,15 +87,14 @@ python scripts/smoke_production.py $URL  # read-only smoke of a deployed server
   and must stay that way: the Redis tests take a database per xdist worker
   (`_test_db()` in `tests/test_redis_storage.py`), and every test gets its
   own storage from the autouse fixture rather than sharing the singleton.
-- **No test may touch a real Redis unless it asks to.** `HybridStorage`
-  auto-starts a server on first use and waits about ninety seconds to give
-  up, then caches the answer process-wide — so one arbitrary test paid for
-  it, which test that was depended on collection order, and under `-n auto`
-  every worker paid again. `tests/conftest.py` hands each test its own
-  storage with the fallback already decided. Tests that genuinely need a
-  server carry the `redis` marker: they run against `localhost:6379`, and
-  are **skipped with a reason** when nothing is listening. CI starts a Redis
-  service so they really run there.
+- **No test may touch a real Redis unless it asks to.** The session store
+  is chosen from `REDIS_URL` on first use and kept for the life of the
+  process, so a machine or CI job exporting `REDIS_URL` would otherwise send
+  every test's sessions there. `tests/conftest.py` hands each test a fresh
+  in-memory store of its own. Tests that genuinely need a server carry the
+  `redis` marker: they run against `localhost:6379`, and are **skipped with
+  a reason** when nothing is listening. CI starts a Redis service so they
+  really run there.
 - Nothing needs `TELEGRAM_BOT_TOKEN` exported to run the tests; conftest
   supplies a fake one before anything imports `config`. It also *overrides*
   `DATABASE_URL` with a throwaway SQLite file: tests that merely called
@@ -112,6 +111,18 @@ python scripts/smoke_production.py $URL  # read-only smoke of a deployed server
   in git history, one revert away. `i18n.Language` has a single member; use
   `Language.coerce(code)` to read a stored or client-supplied `en`/`cs`,
   which comes back as Russian instead of raising.
+- **Bot sessions live in memory unless `REDIS_URL` says otherwise.**
+  `storage.py` keeps a chat's session (theme, level, the 18+ consent) in
+  the bot process, each forgotten `SESSION_TTL` seconds after its last save
+  and at most `MAX_SESSIONS` of them; with `REDIS_URL` set it uses that
+  Redis instead, with a timeout on every call. Nothing starts a Redis
+  server: the code that did ignored `REDIS_URL`, froze the event loop for
+  seconds on every start, and hid behind a fallback nothing could reach. A
+  Redis failure is not papered over with memory either, which would split
+  one chat across two stores; the player gets the short apology. The
+  memory store serializes like Redis, so a read is a copy: a handler
+  changes the session it is handed and the callback registry saves that
+  one (the reset button once reset a second copy, which only memory hid).
 - **Library content** lives in `data/library/` — one YAML per module
   (`dates`, `fall_in_love`, `practices_self`, `practices_couples`,
   `nude_guide`, `reflection`). `library.py` loads it and deliberately imports neither
@@ -123,8 +134,10 @@ python scripts/smoke_production.py $URL  # read-only smoke of a deployed server
   `FREE_LIBRARY_ITEMS_PER_LIST = 3` for Library lists (used by
   `payments/library_api.py`). Change a rule there, not at each call site.
 - **Access** is decided by `payments/services.py::user_has_access()`: an
-  active, unexpired `subscriptions` row (a lifetime purchase has no expiry)
-  OR an activated certificate OR `ENABLE_PAYMENT=false`. A `payments` row
+  active, unexpired `subscriptions` row (a lifetime purchase has no expiry;
+  a cancelled subscription counts until the end of the period paid for) OR
+  an activated certificate that has not been revoked OR
+  `ENABLE_PAYMENT=false`. A `payments` row
   is a journal entry and never counts on its own — it used to, and every
   event Tribute sent, a cancellation included, became lifetime access. Reuse
   the function; don't reinvent access checks. The startup backfill that
@@ -133,12 +146,32 @@ python scripts/smoke_production.py $URL  # read-only smoke of a deployed server
   leaves an undated `payments` row, and must not become a customer.
 - **A Tribute event does what the table says.** `payments/tribute_event.py`
   parses a delivery (`name`, `created_at`, `sent_at`, and the purchase in
-  `payload`) and `action_for(name)` maps it to grant, revoke or ignore:
-  `new_digital_product`, `new_subscription` and `renewed_subscription` grant;
-  a cancellation, refund or chargeback revokes; anything else is
-  acknowledged with a 200, written to `webhook_events` with a note, and
-  changes nothing. Add an event there, never by substring-matching the name
-  in the handler.
+  `payload`) and `action_for(name)` maps it to grant, cancel, revoke or
+  ignore: `new_digital_product`, `new_subscription` and
+  `renewed_subscription` grant; a cancellation cancels, which keeps access
+  until the `expires_at` already paid for; a refund or chargeback revokes at
+  once; anything else is acknowledged with a 200, written to
+  `webhook_events` with a note, and changes nothing. Add an event there,
+  never by substring-matching the name in the handler. Three more rules:
+  - **Events apply in the order they happened.** `subscriptions.last_event_at`
+    holds the event's own `created_at`, and an older event than the one
+    that last decided a row changes nothing: a purchase redelivered after
+    its own refund must not grant again.
+  - **One event is processed once, whatever its bytes.** Tribute stamps
+    every attempt with its own `sent_at`, so besides the body hash a
+    delivery is checked against `TributeEvent.idempotency_key` (the purchase
+    id, or name, time, buyer and product), stored unique in
+    `webhook_events.event_key`.
+  - **A gift's refund revokes its certificate, never the buyer's access.**
+    A gift certificate carries the `purchase_id` that paid for it (one
+    certificate per purchase); a refund or chargeback of that purchase sets
+    `certificates.revoked_at`, and a revoked certificate neither activates
+    nor counts as access, redeemed or not. The code is sent after the
+    transaction commits.
+  The paywall sells exactly `ACCESS_PRODUCT_ID` when it is set (both the
+  Mini App's button and price, and the bot's purchase button); without it,
+  the cheapest synced product that is neither the gift nor the referral
+  discount (`services.access_product`).
 - **Mini App auth.** `/api/*` endpoints authenticate the caller with
   Telegram `initData` via `payments/webapp_auth.py::validate_init_data`
   (`Authorization: tma <initData>`). The server never ships paid content to
@@ -310,7 +343,8 @@ python scripts/smoke_production.py $URL  # read-only smoke of a deployed server
   script and unreadable by hand. The fade is an overlay on `.card .front`
   with `pointer-events: none`, and `markZoneEdges` puts the `cut-*` flags on
   the face for that reason. `tests/test_webapp_static.py` holds it.
-- **A certificate code is lifetime access to whoever reads it.** Two
+- **A certificate code is lifetime access to whoever reads it**, unless
+  the gift it was bought as is refunded (see the Tribute bullet). Two
   things mint one: a gift bought through Tribute (`payments/gifts.py`) and
   `scripts/generate_certificates.py` for printed vouchers, and the script
   calls the same `create_gift_certificate`, so there is one alphabet and one
@@ -349,6 +383,18 @@ python scripts/smoke_production.py $URL  # read-only smoke of a deployed server
   links to the user are cleared. Its callback is registered ahead of the
   game's catch-all on a pattern, like the broadcast's. Anything new that
   stores a person must be added to `erase`, or the promise is broken.
+- **The bot never answers a failure with silence, or with the wrong
+  words.** `bot.py::on_error` logs, then sends the chat one line
+  (`errors.something_went_wrong`), never a traceback; an error with no chat
+  (a poll, a job) tells nobody, and a getUpdates `Conflict` is only logged.
+  In the callback registry an unparseable button is «Неизвестная команда»
+  and anything that fails after parsing (storage, database, Telegram) is
+  `errors.callback_failed`: parsing sits in its own `try` because pydantic's
+  `ValidationError` is a `ValueError` and used to be filed as an unknown
+  button. Text no handler asked for, in a private chat, gets
+  `handlers.py::free_text_hint`: a pasted `VECH-XXXX-XXXX` gets the
+  `/activate` command ready to copy, anything else a pointer to /start and
+  /help. The text itself is never logged; it may be a certificate code.
 - **The daily push has one button into the app.** «Играть» and «Библиотека»
   were the same app opened at two screens, and the choice came before the
   reader had seen either. It is one «Зайти в приложение» now, with the

@@ -11,22 +11,16 @@ from vechnost_bot.storage import get_session
 
 
 def _memory_storage(storage):
-    """Point every `get_redis_storage` binding at the in-memory storage.
+    """Point the session facade at this test's in-memory store.
 
-    `storage.py` and `callback_handlers.py` each did `from .hybrid_storage
-    import get_redis_storage`, so the name lives in two module namespaces and
-    patching one leaves the other talking to a real Redis. That is what these
-    tests used to do: the session the assertions read came from memory while
-    the session the registry saved went to localhost:6379, so on a machine
-    with Redis running the tests passed or failed on whatever the previous
-    test had left in the database.
+    Every reader and writer of a session goes through
+    `vechnost_bot.storage.session_store()`, so this one patch is the whole
+    job. It used to take two: `storage.py` and `callback_handlers.py` each
+    imported their own binding of the store getter, and patching one left
+    the other talking to a real Redis.
     """
     return _MultiPatch(
-        patch('vechnost_bot.storage.get_redis_storage', return_value=storage),
-        patch(
-            'vechnost_bot.callback_handlers.get_redis_storage',
-            return_value=storage,
-        ),
+        patch('vechnost_bot.storage.session_store', return_value=storage),
     )
 
 
@@ -56,12 +50,12 @@ class TestCompleteUserFlows:
         self,
         mock_update,
         mock_context,
-        hybrid_storage_with_memory,
+        memory_session_store,
         mock_translations
     ):
         """Test complete Acquaintance theme flow."""
         # Mock the storage
-        with _memory_storage(hybrid_storage_with_memory):
+        with _memory_storage(memory_session_store):
             # Step 1: Start command
             with patch('vechnost_bot.handlers.welcome_screen') as mock_welcome, \
                  patch('vechnost_bot.handlers.set_user_context') as mock_set_context:
@@ -128,10 +122,10 @@ class TestCompleteUserFlows:
         self,
         mock_update,
         mock_context,
-        hybrid_storage_with_memory
+        memory_session_store
     ):
         """Test complete Sex theme flow with NSFW confirmation."""
-        with _memory_storage(hybrid_storage_with_memory):
+        with _memory_storage(memory_session_store):
             # Step 1: Language selection
             mock_update.callback_query.data = "lang_en"
             await handle_callback_query(mock_update, mock_context)
@@ -174,10 +168,10 @@ class TestCompleteUserFlows:
         self,
         mock_update,
         mock_context,
-        hybrid_storage_with_memory
+        memory_session_store
     ):
         """Test complete reset flow."""
-        with _memory_storage(hybrid_storage_with_memory):
+        with _memory_storage(memory_session_store):
             # Step 1: Create a session with data
             mock_update.callback_query.data = "lang_en"
             await handle_callback_query(mock_update, mock_context)
@@ -217,10 +211,10 @@ class TestCompleteUserFlows:
         self,
         mock_update,
         mock_context,
-        hybrid_storage_with_memory
+        memory_session_store
     ):
         """Test complete navigation flow."""
-        with _memory_storage(hybrid_storage_with_memory):
+        with _memory_storage(memory_session_store):
             # Step 1: Navigate to question
             mock_update.callback_query.data = "lang_en"
             await handle_callback_query(mock_update, mock_context)
@@ -270,11 +264,11 @@ class TestCompleteUserFlows:
         self,
         mock_update,
         mock_context,
-        hybrid_storage_with_memory
+        memory_session_store
     ):
         """A stored `en`/`cs` language callback coerces to Russian, the only
         supported language, rather than raising or sticking."""
-        with _memory_storage(hybrid_storage_with_memory):
+        with _memory_storage(memory_session_store):
             # Step 1: "lang_en" is a pre-single-language callback; it coerces.
             mock_update.callback_query.data = "lang_en"
             await handle_callback_query(mock_update, mock_context)
@@ -318,10 +312,10 @@ class TestErrorRecoveryScenarios:
         self,
         mock_update,
         mock_context,
-        hybrid_storage_with_memory
+        memory_session_store
     ):
         """Test recovery from invalid callback data."""
-        with _memory_storage(hybrid_storage_with_memory):
+        with _memory_storage(memory_session_store):
             # Step 1: Valid callback
             mock_update.callback_query.data = "lang_en"
             await handle_callback_query(mock_update, mock_context)
@@ -348,17 +342,12 @@ class TestErrorRecoveryScenarios:
         mock_redis_error
     ):
         """Test recovery from storage failures."""
-        with patch(
-            'vechnost_bot.storage.get_redis_storage'
-        ) as mock_get_storage, patch(
-            'vechnost_bot.callback_handlers.get_redis_storage'
-        ) as mock_registry_storage:
+        with patch('vechnost_bot.storage.session_store') as mock_get_storage:
             # Mock storage that fails
             mock_storage = AsyncMock()
             mock_storage.get_session.side_effect = mock_redis_error
             mock_storage.save_session.side_effect = mock_redis_error
             mock_get_storage.return_value = mock_storage
-            mock_registry_storage.return_value = mock_storage
 
             # Step 1: Try to handle callback with failing storage
             mock_update.callback_query.data = "lang_en"
@@ -376,11 +365,11 @@ class TestErrorRecoveryScenarios:
         self,
         mock_update,
         mock_context,
-        hybrid_storage_with_memory,
+        memory_session_store,
         mock_telegram_error
     ):
         """Test recovery from Telegram API failures."""
-        with _memory_storage(hybrid_storage_with_memory):
+        with _memory_storage(memory_session_store):
             # Mock Telegram API failure
             mock_update.callback_query.edit_message_text.side_effect = mock_telegram_error
             mock_update.message.reply_text = AsyncMock()
@@ -403,7 +392,7 @@ class TestPerformanceScenarios:
     @pytest.mark.asyncio
     async def test_concurrent_user_sessions(
         self,
-        hybrid_storage_with_memory,
+        memory_session_store,
         performance_timer
     ):
         """Test concurrent user sessions."""
@@ -414,8 +403,8 @@ class TestPerformanceScenarios:
                 theme=Theme.ACQUAINTANCE,
                 level=1
             )
-            await hybrid_storage_with_memory.save_session(user_id, session)
-            return await hybrid_storage_with_memory.get_session(user_id)
+            await memory_session_store.save_session(user_id, session)
+            return await memory_session_store.get_session(user_id)
 
         # Create multiple concurrent sessions
         user_ids = list(range(100))
@@ -441,11 +430,11 @@ class TestPerformanceScenarios:
         self,
         mock_update,
         mock_context,
-        hybrid_storage_with_memory,
+        memory_session_store,
         performance_timer
     ):
         """Test rapid callback handling."""
-        with _memory_storage(hybrid_storage_with_memory):
+        with _memory_storage(memory_session_store):
             callbacks = [
                 "lang_en",
                 "theme_Acquaintance",
@@ -482,10 +471,10 @@ class TestEdgeCases:
         self,
         mock_update,
         mock_context,
-        hybrid_storage_with_memory
+        memory_session_store
     ):
         """Test handling of empty sessions."""
-        with _memory_storage(hybrid_storage_with_memory):
+        with _memory_storage(memory_session_store):
             # Try to navigate without setting up session
             mock_update.callback_query.data = "theme_Acquaintance"
             mock_update.callback_query.edit_message_text = AsyncMock()
@@ -503,17 +492,17 @@ class TestEdgeCases:
         self,
         mock_update,
         mock_context,
-        hybrid_storage_with_memory
+        memory_session_store
     ):
         """Test recovery from corrupted session state."""
-        with _memory_storage(hybrid_storage_with_memory):
+        with _memory_storage(memory_session_store):
             # Create a corrupted session
             corrupted_session = SessionState(
                 language=Language.RUSSIAN,
                 theme=Theme.ACQUAINTANCE,
                 level=999  # Invalid level
             )
-            await hybrid_storage_with_memory.save_session(12345, corrupted_session)
+            await memory_session_store.save_session(12345, corrupted_session)
 
             # Try to navigate with corrupted session
             mock_update.callback_query.data = "q:acq:999:0"
@@ -528,7 +517,7 @@ class TestEdgeCases:
     @pytest.mark.asyncio
     async def test_memory_limit_handling(
         self,
-        hybrid_storage_with_memory,
+        memory_session_store,
         performance_timer
     ):
         """Test handling of memory limits."""
@@ -540,8 +529,8 @@ class TestEdgeCases:
                 theme=Theme.ACQUAINTANCE,
                 level=1
             )
-            await hybrid_storage_with_memory.save_session(i, session)
-            sessions.append(await hybrid_storage_with_memory.get_session(i))
+            await memory_session_store.save_session(i, session)
+            sessions.append(await memory_session_store.get_session(i))
 
         # Verify all sessions are accessible
         assert len(sessions) == 1000
@@ -562,10 +551,10 @@ class TestDataIntegrity:
         self,
         mock_update,
         mock_context,
-        hybrid_storage_with_memory
+        memory_session_store
     ):
         """Test session persistence across multiple operations."""
-        with _memory_storage(hybrid_storage_with_memory):
+        with _memory_storage(memory_session_store):
             # Step 1: Set up session
             mock_update.callback_query.data = "lang_en"
             await handle_callback_query(mock_update, mock_context)
@@ -600,12 +589,12 @@ class TestDataIntegrity:
     @pytest.mark.asyncio
     async def test_concurrent_session_modifications(
         self,
-        hybrid_storage_with_memory
+        memory_session_store
     ):
         """Test concurrent modifications to the same session."""
         async def modify_session(operation: str):
             """Modify session with given operation."""
-            session = await hybrid_storage_with_memory.get_session(12345)
+            session = await memory_session_store.get_session(12345)
             if session is None:
                 session = SessionState()
 
@@ -616,7 +605,7 @@ class TestDataIntegrity:
             elif operation == "set_level":
                 session.level = 1
 
-            await hybrid_storage_with_memory.save_session(12345, session)
+            await memory_session_store.save_session(12345, session)
             return session
 
         # Perform concurrent modifications
@@ -626,7 +615,7 @@ class TestDataIntegrity:
         ])
 
         # Verify final session state
-        final_session = await hybrid_storage_with_memory.get_session(12345)
+        final_session = await memory_session_store.get_session(12345)
         assert final_session is not None
         assert final_session.language == Language.RUSSIAN
         assert final_session.theme == Theme.ACQUAINTANCE

@@ -2,7 +2,7 @@
 
 import logging
 
-from pydantic import Field, RedisDsn
+from pydantic import Field, RedisDsn, TypeAdapter, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 from telegram import Bot
 
@@ -36,15 +36,20 @@ class Settings(BaseSettings):
         description="Application environment"
     )
 
-    # Redis Configuration
-    redis_url: RedisDsn = Field(
-        default="redis://localhost:6379",
-        description="Redis connection URL"
+    # Sessions. Unset (the default) keeps them in the bot process's memory,
+    # bounded by SESSION_TTL and a size cap; set, they live in that Redis.
+    # This had a default of redis://localhost:6379 that nothing read: the
+    # bot started a Redis of its own on localhost whatever the URL said.
+    # Checked as a Redis DSN but kept as written (see the validator below).
+    redis_url: str | None = Field(
+        default=None,
+        description="Redis for bot sessions. Unset: sessions stay in the "
+                    "bot process's memory."
     )
 
     redis_db: int = Field(
         default=0,
-        description="Redis database number"
+        description="Redis database number, when REDIS_URL names none"
     )
 
     # Optional Configuration
@@ -67,8 +72,25 @@ class Settings(BaseSettings):
 
     session_ttl: int = Field(
         default=3600,
-        description="Session TTL in seconds"
+        description="Seconds a bot session outlives its last save, in "
+                    "memory and in Redis alike"
     )
+
+    @field_validator("redis_url", mode="before")
+    @classmethod
+    def _redis_url_as_written(cls, value: object) -> object:
+        """A Redis DSN, kept exactly as written; blank means unset.
+
+        `REDIS_URL=` in a deployment means no Redis, not a broken one. And
+        the URL is not stored in pydantic's normalised form, which appends
+        `/0` to a URL that names no database: that would silently outrank
+        REDIS_DB, whose whole job is to choose the database such a URL
+        leaves open.
+        """
+        if value is None or (isinstance(value, str) and not value.strip()):
+            return None
+        TypeAdapter(RedisDsn).validate_python(value)
+        return str(value).strip()
 
     # Payment Configuration
     enable_payment: bool = Field(
@@ -165,6 +187,18 @@ class Settings(BaseSettings):
                     "short name wins if somehow both are configured. With "
                     "neither, invites fall back to t.me/<bot>?start=..., where "
                     "the bot answers with a button into the app."
+    )
+
+    # The product the paywall sells
+    access_product_id: str | None = Field(
+        default=None,
+        validation_alias="ACCESS_PRODUCT_ID",
+        description="Tribute product id of the access itself. The Mini App's "
+                    "buy button, the price it shows and the bot's purchase "
+                    "button use exactly this product. Unset, they use the "
+                    "cheapest synced product that is neither the gift "
+                    "(GIFT_PRODUCT_ID) nor the referral discount "
+                    "(REFERRAL_PAYMENT_URL)."
     )
 
     # Gift certificates

@@ -27,16 +27,16 @@ from ..logic import localized_game_data
 from ..models import ContentType, Theme
 from ..renderer import get_background_path, render_card_bytes
 from .compat_api import router as compat_router
-from .database import close_db, get_db, init_db
+from .database import close_db, init_db
 from .library_api import router as library_router
-from .repositories import UserRepository
 from .rooms import router as rooms_router
 from .services import (
     apply_webhook_event,
     get_price_label,
-    get_products_for_purchase,
+    purchase_url_for,
     sync_products_from_tribute,
     user_has_access,
+    user_is_referred,
 )
 from .steps69_api import router as steps69_router
 from .throttle import throttle
@@ -245,24 +245,6 @@ async def health_check() -> dict[str, str | None]:
     }
 
 
-async def _get_purchase_url(referred: bool = False) -> str:
-    """Payment link for the Mini App paywall.
-
-    A user who arrived on someone's referral link is sent to the discounted
-    Tribute product instead. Tribute owns the price, so choosing the page is
-    the whole of the discount; with no discounted page configured everyone
-    gets the ordinary one and the referral is still recorded.
-    """
-    discounted = referrals.payment_url_for(referred)
-    if discounted:
-        return discounted
-    for product in await get_products_for_purchase():
-        link = product.t_link or product.web_link
-        if link:
-            return link
-    return settings.tribute_payment_url
-
-
 async def _caller_is_referred(authorization: str | None) -> bool:
     """Whether this Mini App caller came in on someone's invite."""
     if not settings.enable_payment:
@@ -274,12 +256,7 @@ async def _caller_is_referred(authorization: str | None) -> bool:
         parsed = validate_init_data(init_data, settings.telegram_bot_token)
     except InitDataError:
         return False
-    try:
-        async with get_db() as session:
-            return await UserRepository.is_referred(session, parsed["user"]["id"])
-    except Exception as e:
-        logger.warning(f"Referral lookup failed: {e}")
-        return False
+    return await user_is_referred(parsed["user"]["id"])
 
 
 async def _request_is_paid(authorization: str | None) -> bool:
@@ -353,7 +330,9 @@ async def get_questions(
     if not paid:
         referred = await _caller_is_referred(authorization)
         access["free_per_deck"] = FREE_CARDS_PER_DECK
-        access["payment_url"] = await _get_purchase_url(referred)
+        # The access product (or, for an invited user, the discounted page)
+        # and its price: the same link the bot's purchase button carries.
+        access["payment_url"] = await purchase_url_for(referred)
         access["price"] = await get_price_label()
         if referred and referrals.discount_available():
             access["discount_percent"] = settings.referral_discount_percent
@@ -511,10 +490,13 @@ async def tribute_webhook(request: Request) -> JSONResponse:
                 )
 
         # What was done, in the reply Tribute's delivery log keeps: an
-        # operator reading "ignore" there learns more than "success".
+        # operator reading "ignore" there learns more than "success", and
+        # the note says why (a stale event, nothing to cancel).
         content = {"status": result["status"], "message": result["message"]}
         if "action" in result:
             content["action"] = result["action"]
+        if result.get("note"):
+            content["note"] = result["note"]
         return JSONResponse(status_code=status_code, content=content)
 
     except HTTPException:

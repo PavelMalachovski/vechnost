@@ -724,12 +724,11 @@ class TestSimpleActionHandler:
         session = SessionState(language=Language.RUSSIAN, theme=Theme.SEX, level=2)
         callback_data = SimpleCallbackData.parse("reset_confirm")
 
-        with patch(
-            "vechnost_bot.callback_handlers.reset_session", new_callable=AsyncMock
-        ) as mock_reset:
-            await handler.handle(mock_query, callback_data, session)
+        await handler.handle(mock_query, callback_data, session)
 
-        mock_reset.assert_awaited_once_with(12345)
+        # Reset in place: this object is the one the registry saves next.
+        assert session.theme is None
+        assert session.level is None
         targets = _callback_targets(_keyboard_of(mock_query.edit_message_text))
         assert any(t.startswith("theme_") for t in targets)
 
@@ -739,13 +738,10 @@ class TestSimpleActionHandler:
         session = SessionState(language=Language.RUSSIAN, theme=Theme.SEX, level=2)
         callback_data = SimpleCallbackData.parse("reset_cancel")
 
-        with patch(
-            "vechnost_bot.callback_handlers.reset_session", new_callable=AsyncMock
-        ) as mock_reset:
-            await handler.handle(mock_query, callback_data, session)
+        await handler.handle(mock_query, callback_data, session)
 
-        mock_reset.assert_not_awaited()
         assert session.theme == Theme.SEX
+        assert session.level == 2
         targets = _callback_targets(_keyboard_of(mock_query.edit_message_text))
         assert any(t.startswith("theme_") for t in targets)
 

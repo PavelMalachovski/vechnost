@@ -2,8 +2,10 @@
 
 A delivery is a JSON object with the event's `name`, `created_at`,
 `sent_at`, and a `payload` holding the purchase: `telegram_user_id`,
-`product_id` or `subscription_id`, `amount`, `currency`, and for a
-subscription its `period` and `expires_at`. Two older shapes the project's
+`product_id` or `subscription_id`, `amount`, `currency`, for a product the
+`purchase_id` its refund will carry too, and for a subscription its `period`
+and `expires_at`. `created_at` is when the event happened and stays the
+same on every attempt; `sent_at` is the attempt's. Two older shapes the project's
 own test scripts used (`event_name` + top-level fields, `event` + `data`)
 are read as well, so a hand-made delivery still parses.
 
@@ -11,32 +13,42 @@ Which events change access is a table, not a substring match on the name:
 the old code granted lifetime access to anything with "subscription" or
 "product" in its name, cancellations included, and recorded every other
 event as a payment that also counted as access. Here `new_digital_product`,
-`new_subscription` and `renewed_subscription` grant; a cancellation, a
-refund or a chargeback revokes; anything else is acknowledged, written
-down, and changes nothing. An event Tribute adds tomorrow can only ever be
-ignored, never mistaken for a purchase.
+`new_subscription` and `renewed_subscription` grant; a cancellation cancels,
+which ends the subscription at the end of the period already paid for; a
+refund or a chargeback revokes, at once; anything else is acknowledged,
+written down, and changes nothing. An event Tribute adds tomorrow can only
+ever be ignored, never mistaken for a purchase.
 
 Imports nothing but pydantic, so the web layer, the scripts and the tests
 share one reading of a delivery.
 """
 
+import hashlib
 from datetime import UTC, datetime, timedelta
 from typing import Any, Literal
 
 from pydantic import BaseModel, Field
 
-Action = Literal["grant", "revoke", "ignore"]
+Action = Literal["grant", "cancel", "revoke", "ignore"]
 
 GRANT_EVENTS = frozenset({
     "new_digital_product",
     "new_subscription",
     "renewed_subscription",
 })
-REVOKE_EVENTS = frozenset({
+# Auto-renewal switched off. The customer has paid up to `expires_at` and
+# keeps access until then (backend audit B-09); it used to revoke at once.
+CANCEL_EVENTS = frozenset({
     "cancelled_subscription",
     "canceled_subscription",
+})
+# The money went back: access ends now.
+REFUND_EVENTS = frozenset({
     "refund",
     "refunded",
+    "digital_product_refunded",
+})
+CHARGEBACK_EVENTS = frozenset({
     "chargeback",
 })
 
@@ -50,11 +62,26 @@ def action_for(name: str) -> Action:
     lowered = name.strip().lower()
     if lowered in GRANT_EVENTS:
         return "grant"
-    if lowered in REVOKE_EVENTS:
+    if lowered in CANCEL_EVENTS:
+        return "cancel"
+    if lowered in REFUND_EVENTS or lowered in CHARGEBACK_EVENTS:
         return "revoke"
-    if any(word in lowered for word in ("refund", "chargeback", "cancel")):
+    # Names this table has not met yet. Money going back wins over a
+    # cancellation, which is the milder of the two.
+    if "refund" in lowered or "chargeback" in lowered:
         return "revoke"
+    if "cancel" in lowered:
+        return "cancel"
     return "ignore"
+
+
+def revoked_status(name: str) -> str:
+    """The status a revoked subscription row is left in: what happened to
+    the money, for whoever reads the row later."""
+    lowered = name.strip().lower()
+    if lowered in CHARGEBACK_EVENTS or "chargeback" in lowered:
+        return "charged_back"
+    return "refunded"
 
 
 def _to_int(value: Any) -> int | None:
@@ -86,6 +113,13 @@ def parse_timestamp(value: Any) -> datetime | None:
     return parsed
 
 
+def _timestamp_or_none(value: Any) -> datetime | None:
+    try:
+        return parse_timestamp(value)
+    except (TypeError, ValueError):
+        return None
+
+
 class TributeEvent(BaseModel):
     """One delivery, read once, with every field the handler needs."""
 
@@ -112,14 +146,13 @@ class TributeEvent(BaseModel):
             if isinstance(body.get(key), dict):
                 payload = body[key]
                 break
-        try:
-            sent_at = parse_timestamp(body.get("sent_at"))
-            created_at = parse_timestamp(body.get("created_at"))
-        except ValueError:
-            sent_at = created_at = None
         return cls(
             name=str(name).strip(), payload=payload, raw=body,
-            sent_at=sent_at, created_at=created_at,
+            # Each on its own: `created_at` orders the event against the ones
+            # already applied, and an unreadable `sent_at` used to take it
+            # down with it.
+            sent_at=_timestamp_or_none(body.get("sent_at")),
+            created_at=_timestamp_or_none(body.get("created_at")),
         )
 
     @property
@@ -184,6 +217,45 @@ class TributeEvent(BaseModel):
         return self.subscription_id or self.product_id or 0
 
     @property
+    def purchase_id(self) -> str | None:
+        """Tribute's id for one purchase of a product. Its refund carries
+        the same id, which is how the two are matched."""
+        value = self._first("purchase_id")
+        if value is None or isinstance(value, bool):
+            return None
+        return str(value).strip() or None
+
+    @property
+    def idempotency_key(self) -> str | None:
+        """A hash of what makes two deliveries one event, whatever their `sent_at`.
+
+        Tribute stamps each attempt with its own `sent_at`, so a delivery
+        and its retry have different bodies and different body hashes; the
+        body hash alone let a retried gift purchase mint a second lifetime
+        certificate (backend audit B-07). A product purchase is named by its
+        purchase id, of which there is one purchase and at most one refund.
+        Anything else - a subscription renews under one id - is its name,
+        the moment it happened, the buyer and what was bought. None when a
+        delivery has neither a purchase id nor a time: then the body is all
+        there is to go by.
+        """
+        try:
+            buyer = str(self.telegram_user_id or "")
+        except ValueError:
+            buyer = ""
+        name = self.name.strip().lower()
+        if self.purchase_id and not self.subscription_id:
+            parts = ["purchase", name, self.purchase_id, buyer, str(self.product_id or "")]
+        elif self.created_at is not None:
+            parts = [
+                "event", name, self.created_at.isoformat(), buyer,
+                str(self.access_key), self.purchase_id or "",
+            ]
+        else:
+            return None
+        return hashlib.sha256("\x1f".join(parts).encode()).hexdigest()
+
+    @property
     def amount(self) -> int:
         try:
             return _to_int(self._first("amount", "price")) or 0
@@ -202,6 +274,14 @@ class TributeEvent(BaseModel):
         return "lifetime" if "product" in self.name.lower() else "month"
 
     @property
+    def stated_expires_at(self) -> datetime | None:
+        """The end of the paid period as the delivery states it, if it does."""
+        try:
+            return parse_timestamp(self._first("expires_at"))
+        except ValueError:
+            return None
+
+    @property
     def expires_at(self) -> datetime | None:
         """When the granted access ends. None is forever.
 
@@ -210,10 +290,7 @@ class TributeEvent(BaseModel):
         rather than forever: a monthly plan must not become a lifetime one
         because a field was missing.
         """
-        try:
-            stated = parse_timestamp(self._first("expires_at"))
-        except ValueError:
-            stated = None
+        stated = self.stated_expires_at
         if stated is not None:
             return stated
         if "subscription" in self.name.lower():

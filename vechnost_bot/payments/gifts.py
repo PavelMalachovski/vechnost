@@ -42,12 +42,18 @@ def is_gift_purchase(product_id) -> bool:
     return str(product_id) == str(settings.gift_product_id)
 
 
-async def create_gift_certificate(session: AsyncSession) -> str:
-    """Create a certificate with a fresh unique code, return the code."""
+async def create_gift_certificate(
+    session: AsyncSession, purchase_id: str | None = None
+) -> str:
+    """Create a certificate with a fresh unique code, return the code.
+
+    `purchase_id` is the Tribute purchase that paid for it, when a gift did:
+    it keeps a purchase to one certificate, and lets its refund find it.
+    """
     for _ in range(5):
         code = generate_gift_code()
         if not await CertificateRepository.get_by_code(session, code):
-            await CertificateRepository.create(session, code=code)
+            await CertificateRepository.create(session, code=code, purchase_id=purchase_id)
             return code
     raise RuntimeError("could not generate a unique gift code")
 
