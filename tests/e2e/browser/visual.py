@@ -18,7 +18,12 @@ strict:
   the same code in one job come out identical to the pixel, so there is no
   noise for a larger allowance to absorb;
 * content that is random by design - invite codes, the order of a room's
-  deck, the dice - is masked in both tours (`screens.VISUAL_MASKS`).
+  deck, the dice - is masked in both tours (`screens.VISUAL_MASKS`), and
+  motion, which is random in time, is asked away: the tours' phones want
+  reduced motion, which the app honours;
+* a changed screen says where on it the pixels moved, in the job's log as
+  well as in the report, because the log is what a reviewer can always
+  read.
 
 `python -m tests.e2e.browser.visual BASE HEAD OUT` writes `OUT/index.html`
 (base, pull request and difference side by side), `OUT/summary.md` and
@@ -51,6 +56,7 @@ class Verdict:
     status: str            # same | changed | new | gone
     moved: int = 0         # pixels that moved
     diff: str = ""         # the difference picture, relative to OUT
+    where: str = ""        # the box the moved pixels fill: "x 0-375, y 612-628"
 
     @property
     def changed(self) -> bool:
@@ -65,17 +71,35 @@ def compare(base: Path, head: Path, out: Path) -> tuple[str, int]:
         out.parent.mkdir(parents=True, exist_ok=True)
         b.save(out)
         return "changed", b.width * b.height
-    delta = ImageChops.difference(a, b).convert("L").filter(ImageFilter.GaussianBlur(1))
+    delta = _delta(a, b)
     moved = sum(delta.histogram()[THRESHOLD + 1:])
     if moved == 0:
         return "same", 0
     # The pull request's picture, dimmed, with every moved pixel in red.
-    mask = delta.point(lambda v: 255 if v > THRESHOLD else 0)
+    mask = _moved(delta)
     picture = Image.blend(b, Image.new("RGB", b.size, "black"), 0.6)
     picture.paste(Image.new("RGB", b.size, (255, 32, 64)), mask=mask)
     out.parent.mkdir(parents=True, exist_ok=True)
     picture.save(out)
     return ("changed" if moved > TOLERANCE else "same"), moved
+
+
+def where(base: Path, head: Path) -> str:
+    """The box the moved pixels fill, or the two sizes when the size moved."""
+    a = Image.open(base).convert("RGB")
+    b = Image.open(head).convert("RGB")
+    if a.size != b.size:
+        return f"{a.width}x{a.height} -> {b.width}x{b.height}"
+    box = _moved(_delta(a, b)).getbbox()
+    return f"x {box[0]}-{box[2]}, y {box[1]}-{box[3]}" if box else ""
+
+
+def _delta(a: Image.Image, b: Image.Image) -> Image.Image:
+    return ImageChops.difference(a, b).convert("L").filter(ImageFilter.GaussianBlur(1))
+
+
+def _moved(delta: Image.Image) -> Image.Image:
+    return delta.point(lambda v: 255 if v > THRESHOLD else 0)
 
 
 def compare_tours(base: Path, head: Path, out: Path) -> list[Verdict]:
@@ -93,7 +117,10 @@ def compare_tours(base: Path, head: Path, out: Path) -> list[Verdict]:
         else:
             diff = Path("diff") / name
             status, moved = compare(base / name, head / name, out / diff)
-            verdicts.append(Verdict(name, status, moved, diff.as_posix() if moved else ""))
+            verdicts.append(Verdict(
+                name, status, moved, diff.as_posix() if moved else "",
+                where(base / name, head / name) if status == "changed" else "",
+            ))
     return verdicts
 
 
@@ -117,7 +144,8 @@ def write_report(verdicts: list[Verdict], base: Path, head: Path, out: Path) -> 
         return f'<a href="{html.escape(path)}"><img src="{html.escape(path)}"></a>'
 
     rows = "".join(
-        f"<tr><th>{html.escape(v.name)}<br>{v.status} · {v.moved} px</th>"
+        f"<tr><th>{html.escape(v.name)}<br>{v.status} · {v.moved} px"
+        f"{'<br>' + html.escape(v.where) if v.where else ''}</th>"
         f"<td>{img('base/' + v.name)}</td><td>{img('head/' + v.name)}</td>"
         f"<td>{img(v.diff) if v.diff else ''}</td></tr>"
         for v in changed
@@ -141,8 +169,8 @@ its pixels did). Columns: master, this pull request, the difference in red.</p>
         lines.append(f"None: all {len(verdicts)} screens look as they do on master.")
     else:
         lines += [f"{len(changed)} of {len(verdicts)} screens changed:", "",
-                  "| Screen | | Pixels moved |", "|---|---|---|"]
-        lines += [f"| `{v.name}` | {v.status} | {v.moved or ''} |" for v in changed]
+                  "| Screen | | Pixels moved | Where |", "|---|---|---|---|"]
+        lines += [f"| `{v.name}` | {v.status} | {v.moved or ''} | {v.where} |" for v in changed]
     (out / "summary.md").write_text("\n".join(lines) + "\n", encoding="utf-8")
 
 
@@ -158,7 +186,7 @@ def main(argv: list[str] | None = None) -> int:
     write_report(verdicts, args.base, args.head, args.out)
     changed = [v for v in verdicts if v.changed]
     for v in changed:
-        print(f"{v.status:>8}  {v.moved:>7} px  {v.name}")
+        print(f"{v.status:>8}  {v.moved:>7} px  {v.name}" + (f"  ({v.where})" if v.where else ""))
     if not verdicts:
         print("no screens to compare: did both tours run?")
         return 1
