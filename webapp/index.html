@@ -2,7 +2,7 @@
 <html lang="ru">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Vechnost – игра для близости</title>
 <script src="https://telegram.org/js/telegram-web-app.js"></script>
 <style>
@@ -335,6 +335,23 @@
   #turnChip .chip.turn-you {
     color: #fff; background: rgba(232,107,181,.28); border-color: rgba(232,107,181,.8);
   }
+  /* The partner's turn, said before the tap (audit D-20): the main button is
+     dimmed while the chip names whose turn it is, and a tap or a swipe
+     anyway shakes the card and flashes the chip instead of a toast in a
+     corner. */
+  #btnNext[aria-disabled="true"] { opacity: .4; filter: saturate(.4); }
+  .card.wobble { animation: wobble .42s ease; }
+  @keyframes wobble {
+    0%, 100% { translate: 0 0; }
+    20% { translate: -8px 0; } 40% { translate: 7px 0; }
+    60% { translate: -4px 0; } 80% { translate: 2px 0; }
+  }
+  #turnChip .chip.pulse { animation: chip-pulse .7s ease; }
+  @keyframes chip-pulse {
+    0% { box-shadow: 0 0 0 0 rgba(232,107,181,.7); color: #fff; }
+    100% { box-shadow: 0 0 0 12px rgba(232,107,181,0); }
+  }
+  @media (prefers-reduced-motion: reduce) { .card.wobble { animation: none; } }
 
   .chip {
     padding: 8px 16px; border-radius: 999px; font-size: 13px; font-weight: 600;
@@ -343,6 +360,8 @@
     transition: all .15s ease;
   }
   .chip.on { color: #fff; background: rgba(232,107,181,.28); border-color: rgba(232,107,181,.8); }
+  /* A chip you can press is a button, and a button is at least a thumb. */
+  button.chip { min-height: var(--tap-min); }
 
   /* ---------- headers ---------- */
   .top {
@@ -350,13 +369,19 @@
   }
   .top .title { font-size: 17px; font-weight: 700; letter-spacing: .02em; flex: 1; text-align: center; }
   .icon-btn {
-    width: 40px; height: 40px; border-radius: 13px; border: 0; cursor: pointer;
+    width: var(--tap-min); height: var(--tap-min); border-radius: 13px; border: 0; cursor: pointer;
     display: grid; place-items: center; font-size: 17px; color: #fff;
     background: rgba(255,255,255,.09);
     transition: transform .12s ease, background .15s;
   }
   .icon-btn:active { transform: scale(.92); }
   .icon-btn[disabled] { opacity: .35; pointer-events: none; }
+  /* One Back, not two (audit D-25). Inside Telegram the header already has
+     its own Back, and it does exactly what this button does - the handler
+     clicks it - so the page's copy is kept for its place in the layout but
+     not shown. Outside Telegram (a plain browser) it is the only way back. */
+  html.tg-back .top .icon-btn.back { visibility: hidden; }
+  .top-spacer { width: var(--tap-min); flex: none; }
 
   /* ---------- themes ---------- */
   #themeList { display: flex; flex-direction: column; gap: 14px; }
@@ -373,18 +398,24 @@
      has to reserve room for it by hand: 16px of offset plus its ~48px box.
      Without this, "36 вопросов, чтобы влюбиться" wraps straight under it. */
   .theme-card .t-name { font-size: 20px; font-weight: 800; letter-spacing: .01em; padding-right: 56px; }
-  .theme-card .t-desc { font-size: 13px; opacity: .85; line-height: 1.35; padding-right: 56px; }
+  .theme-card .t-desc { font-size: 13px; line-height: 1.35; padding-right: 56px; }
   .theme-card .t-emoji {
     position: absolute; right: 16px; top: 50%; transform: translateY(-50%);
     font-size: 40px; filter: drop-shadow(0 4px 10px rgba(0,0,0,.3));
   }
   .theme-card .t-count {
-    position: absolute; right: 18px; bottom: 10px; font-size: 11px; opacity: .75; font-weight: 600;
+    position: absolute; right: 18px; bottom: 10px; font-size: 11px; font-weight: 600;
   }
-  .g-acq     { background: linear-gradient(135deg, #8E7CF3 0%, #C86DD7 55%, #F3A0D6 100%); }
-  .g-couples { background: linear-gradient(135deg, #F35D8A 0%, #F98D68 100%); }
+  /* Text on a tile has to read on every part of its gradient (audit D-11):
+     white went down to 1.65:1 on the light end of «Знакомство» and «Для
+     пар», so those two carry the printed cards' ink instead (5.4:1 at the
+     worst stop), and «Провокация» ends a shade darker so white holds 4.5:1
+     where the card count sits. No opacity on tile text: it only ever took
+     contrast away. */
+  .g-acq     { background: linear-gradient(135deg, #8E7CF3 0%, #C86DD7 55%, #F3A0D6 100%); color: var(--ink); }
+  .g-couples { background: linear-gradient(135deg, #F35D8A 0%, #F98D68 100%); color: var(--ink); }
   .g-sex     { background: linear-gradient(135deg, #6E1040 0%, #C4256E 100%); }
-  .g-prov    { background: linear-gradient(135deg, #7F2BFF 0%, #E100C7 100%); }
+  .g-prov    { background: linear-gradient(135deg, #7F2BFF 0%, #C900B3 100%); }
 
   /* ---------- levels ---------- */
   #levelList { display: flex; flex-direction: column; gap: 14px; }
@@ -427,11 +458,29 @@
 
   /* ---------- compatibility test ---------- */
   .compat-q{font-size:20px;line-height:1.5}
-  .compat-opt{margin:8px 0;width:100%}
+  /* A scale, not five identical buttons (audit D-21): one joined column,
+     each step with as many bars lit as it is strong, and the answer given
+     marked, so a partner who comes back to a question sees what they said. */
+  .compat-scale{display:flex;flex-direction:column;border-radius:16px;overflow:hidden;
+    border:1px solid rgba(255,255,255,.14);margin:8px 0}
+  .compat-opt{display:flex;align-items:center;gap:14px;width:100%;min-height:var(--tap-min);
+    padding:12px 16px;border:0;border-top:1px solid rgba(255,255,255,.09);
+    background:rgba(255,255,255,.05);color:var(--text-on-dark);font:inherit;font-size:15px;
+    font-weight:600;text-align:left;cursor:pointer;transition:background .15s ease}
+  .compat-opt:first-child{border-top:0}
+  .compat-opt:active{background:rgba(255,255,255,.12)}
+  .compat-opt.on{background:rgba(232,107,181,.3);color:#fff}
+  .compat-bars{display:flex;gap:3px;flex:none}
+  .compat-bars i{width:5px;height:16px;border-radius:2px;background:rgba(255,255,255,.18)}
+  .compat-bars i.lit{background:#E86BB5}
+  .compat-opt.on .compat-bars i.lit{background:#fff}
+  .compat-hint{text-align:center;font-size:13px;color:var(--muted-on-dark);margin:2px 0 0}
+  .compat-prev{display:block;margin:6px auto 0;padding:10px 18px;min-height:var(--tap-min);
+    background:none;border:0;color:var(--muted-on-dark);font:inherit;font-size:14px;cursor:pointer}
   /* An answer is in flight: the next question is already on screen, but its
      buttons stay dead until the previous POST lands, so a fast tapper cannot
      put several read-modify-writes of the answer array in flight at once. */
-  .compat-opt[disabled]{opacity:.35;pointer-events:none}
+  .compat-opt[disabled],.compat-prev[disabled]{opacity:.35;pointer-events:none}
   .compat-percent{font-size:56px;font-weight:700;text-align:center;margin:20px 0 6px}
   .compat-zones{text-align:center;font-size:13px;opacity:.75;margin:0 0 6px;line-height:1.7}
   .compat-danger{margin-top:26px;width:100%;opacity:.85}
@@ -445,7 +494,7 @@
   .compat-qs{margin-top:8px}
   .compat-qi{margin-top:6px;border-radius:10px;background:rgba(255,255,255,.06)}
   .compat-qi summary{padding:8px 12px;font-size:13.5px;font-weight:700;cursor:pointer;
-    list-style:none;display:flex;align-items:center;gap:8px}
+    list-style:none;display:flex;align-items:center;gap:8px;min-height:var(--tap-min)}
   .compat-qi summary::-webkit-details-marker{display:none}
   .compat-qi summary::before{content:'+';opacity:.7}
   .compat-qi[open] summary::before{content:'–'}
@@ -731,7 +780,7 @@
   .guide-lead { font-size: 13.5px; line-height: 1.55; color: var(--muted-on-dark); margin: 0 0 12px 36px; }
 
   .guide-item {
-    display: grid; grid-template-columns: 124px 1fr; gap: 12px;
+    display: grid; grid-template-columns: 136px 1fr; gap: 12px;
     background: rgba(255,255,255,.05); border-radius: 16px;
     padding: 14px; margin-bottom: 10px;
   }
@@ -744,12 +793,12 @@
      A schematic can show that a body is bent without showing which way it is
      turned, and «спиной к камере» and «боком» draw nearly the same outline. */
   .art-cap {
-    font-size: 10.5px; line-height: 1.3; text-align: center;
+    font-size: 12px; line-height: 1.3; text-align: center;
     color: var(--muted-on-dark); opacity: .85;
   }
   /* A silhouette, not a stick figure: the torso is two masses joined at a
      waist, limbs are tapered strokes, and hair marks the sex and the back
-     of a head, so a pose reads as a body at 124px. */
+     of a head, so a pose reads as a body at 136px. */
   .art-limb {
     fill: none; stroke: currentColor;
     stroke-linecap: round; stroke-linejoin: round; opacity: .93;
@@ -799,7 +848,17 @@
   .art-shadow { fill: #1C0414; opacity: .65; stroke: none; }
   .art-diffuse { fill: #FFD96E; opacity: .14; stroke: none; }
   .art-censor { fill: #1C0414; opacity: .9; stroke: none; }
-  .art-note { fill: currentColor; opacity: .6; font-size: 9px; font-weight: 600; }
+  /* 10 units of a 120-unit drawing: 11.3px in the 136px column, larger
+     where the drawing stands above the words (audit D-12). */
+  .art-note { fill: currentColor; opacity: .6; font-size: 10px; font-weight: 600; }
+
+  /* Under 361px the drawing's column left the words about 110px
+     (audit D-23): there the drawing sits above them instead, a little
+     larger, and the words get the card's full width. */
+  @media (max-width: 360px) {
+    .guide-item { grid-template-columns: 1fr; }
+    .art-wrap { width: 100%; max-width: 184px; justify-self: center; }
+  }
 
   .guide-item-title { font-size: 16px; font-weight: 700; margin-bottom: 5px; }
   .guide-item-text { font-size: 14px; line-height: 1.5; }
@@ -849,7 +908,7 @@
      square does, so the whole board reads like the printed game. */
   .s69-cell {
     position: relative; aspect-ratio: 1; border-radius: 8px;
-    display: grid; place-items: center; font-size: 10px; font-weight: 700;
+    display: grid; place-items: center; font-size: 11px; font-weight: 700;
     color: rgba(251,233,244,.5); transition: transform .25s ease, box-shadow .25s ease;
     border: 1px solid rgba(255,255,255,.08); cursor: pointer;
   }
@@ -880,7 +939,7 @@
   .s69-mark {
     position: absolute; top: 2px; right: 3px;
     display: flex; align-items: center; gap: 1px;
-    font-size: 7.5px; font-weight: 800; letter-spacing: -.02em;
+    font-size: 11px; font-weight: 800; letter-spacing: -.02em; line-height: 1;
   }
   .s69-mark i {
     width: 0; height: 0; display: block;
@@ -890,8 +949,8 @@
   .k-ladder .s69-mark i { border-bottom: 5px solid #9FEFC4; }
   .k-snake .s69-mark { color: #FFA8BC; }
   .k-snake .s69-mark i { border-top: 5px solid #FFA8BC; }
-  .k-joker .s69-mark { color: #FFD96E; font-size: 10px; }
-  .k-secret .s69-mark { color: #CFC0FF; font-size: 9px; }
+  .k-joker .s69-mark { color: #FFD96E; }
+  .k-secret .s69-mark { color: #CFC0FF; }
   .s69-cell.milestone::after {
     content: ''; position: absolute; bottom: 3px; left: 50%; translate: -50% 0;
     width: 10px; height: 2px; border-radius: 2px; background: rgba(255,255,255,.4);
@@ -1072,9 +1131,9 @@
   <!-- COOP entry -->
   <section class="screen" id="coop">
     <div class="top">
-      <button class="icon-btn" id="coopBack">←</button>
+      <button class="icon-btn back" id="coopBack" aria-label="Назад">←</button>
       <div class="title" data-i18n="coopTitle"></div>
-      <div style="width:40px"></div>
+      <div class="top-spacer"></div>
     </div>
     <div class="coop-box">
       <p data-i18n="coopIntro"></p>
@@ -1085,18 +1144,18 @@
   <!-- LIBRARY -->
   <section class="screen" id="library">
     <div class="top">
-      <button class="icon-btn" id="libBackHome">←</button>
+      <button class="icon-btn back" id="libBackHome" aria-label="Назад">←</button>
       <div class="title" data-i18n="libraryTitle"></div>
-      <div style="width:40px"></div>
+      <div class="top-spacer"></div>
     </div>
     <div id="libraryList"></div>
   </section>
 
   <section class="screen" id="libraryDetail">
     <div class="top">
-      <button class="icon-btn" id="libBack">←</button>
+      <button class="icon-btn back" id="libBack" aria-label="Назад">←</button>
       <div class="title" id="libDetailTitle"></div>
-      <div style="width:40px"></div>
+      <div class="top-spacer"></div>
     </div>
     <div id="libDetailBody"></div>
   </section>
@@ -1104,9 +1163,9 @@
   <!-- GUIDE: a module read as a document rather than swiped as a deck. -->
   <section class="screen" id="guide">
     <div class="top">
-      <button class="icon-btn" id="guideBack">←</button>
+      <button class="icon-btn back" id="guideBack" aria-label="Назад">←</button>
       <div class="title" id="guideTitle"></div>
-      <div style="width:40px"></div>
+      <div class="top-spacer"></div>
     </div>
     <div id="guideBody"></div>
   </section>
@@ -1115,9 +1174,9 @@
        printed on the Library face instead of a deck face. -->
   <section class="screen" id="libDeck">
     <div class="top">
-      <button class="icon-btn" id="libDeckBack">←</button>
+      <button class="icon-btn back" id="libDeckBack" aria-label="Назад">←</button>
       <div class="title" id="libDeckTitle"></div>
-      <div style="width:40px"></div>
+      <div class="top-spacer"></div>
     </div>
     <div class="progress-wrap">
       <div class="progress-track"><div class="progress-fill" id="libProgressFill"></div></div>
@@ -1134,9 +1193,9 @@
   <!-- COMPATIBILITY TEST -->
   <section class="screen" id="compat">
     <div class="top">
-      <button class="icon-btn" id="compatBack">←</button>
+      <button class="icon-btn back" id="compatBack" aria-label="Назад">←</button>
       <div class="title" data-i18n="compatTitle"></div>
-      <div style="width:40px"></div>
+      <div class="top-spacer"></div>
     </div>
     <div class="coop-box">
       <p data-i18n="compatIntro"></p>
@@ -1149,9 +1208,9 @@
 
   <section class="screen" id="compatInvite">
     <div class="top">
-      <button class="icon-btn" id="compatInviteBack">←</button>
+      <button class="icon-btn back" id="compatInviteBack" aria-label="Назад">←</button>
       <div class="title" data-i18n="inviteTitle"></div>
-      <div style="width:40px"></div>
+      <div class="top-spacer"></div>
     </div>
     <div class="coop-box">
       <p data-i18n="compatInviteHint"></p>
@@ -1164,9 +1223,9 @@
 
   <section class="screen" id="compatQuiz">
     <div class="top">
-      <button class="icon-btn" id="compatQuizBack">←</button>
+      <button class="icon-btn back" id="compatQuizBack" aria-label="Назад">←</button>
       <div class="title" id="compatSphereTitle"></div>
-      <div style="width:40px"></div>
+      <div class="top-spacer"></div>
     </div>
     <div class="progress-wrap">
       <div class="progress-track"><div class="progress-fill" id="compatProgress"></div></div>
@@ -1174,14 +1233,15 @@
     </div>
     <div id="compatQuestion"></div>
     <div id="compatScale"></div>
+    <button class="compat-prev" id="compatPrev" data-i18n="compatPrev"></button>
     <p class="waiting-dots" id="compatPartnerProgress"></p>
   </section>
 
   <section class="screen" id="compatResult">
     <div class="top">
-      <button class="icon-btn" id="compatResultBack">←</button>
+      <button class="icon-btn back" id="compatResultBack" aria-label="Назад">←</button>
       <div class="title" data-i18n="compatResultTitle"></div>
-      <div style="width:40px"></div>
+      <div class="top-spacer"></div>
     </div>
     <div id="compatResultBody"></div>
   </section>
@@ -1189,7 +1249,7 @@
   <!-- 69 ступеней: entry -->
   <section class="screen" id="s69">
     <div class="top">
-      <button class="icon-btn" id="s69Back">←</button>
+      <button class="icon-btn back" id="s69Back" aria-label="Назад">←</button>
       <div class="title" data-i18n="s69Title"></div>
       <span style="width:38px"></span>
     </div>
@@ -1208,7 +1268,7 @@
   <!-- 69 ступеней: invite / waiting -->
   <section class="screen" id="s69Invite">
     <div class="top">
-      <button class="icon-btn" id="s69InviteBack">←</button>
+      <button class="icon-btn back" id="s69InviteBack" aria-label="Назад">←</button>
       <div class="title" data-i18n="inviteTitle"></div>
       <span style="width:38px"></span>
     </div>
@@ -1224,7 +1284,7 @@
   <!-- 69 ступеней: the board -->
   <section class="screen" id="s69Board">
     <div class="top">
-      <button class="icon-btn" id="s69BoardBack">←</button>
+      <button class="icon-btn back" id="s69BoardBack" aria-label="Назад">←</button>
       <div class="title" id="s69BoardTitle"></div>
       <button class="icon-btn" id="s69MapToggle" title="map">🗺</button>
     </div>
@@ -1238,9 +1298,9 @@
   <!-- COOP invite / waiting -->
   <section class="screen" id="invite">
     <div class="top">
-      <button class="icon-btn" id="inviteBack">←</button>
+      <button class="icon-btn back" id="inviteBack" aria-label="Назад">←</button>
       <div class="title" data-i18n="inviteTitle"></div>
-      <div style="width:40px"></div>
+      <div class="top-spacer"></div>
     </div>
     <div class="coop-box">
       <p data-i18n="inviteHint"></p>
@@ -1254,9 +1314,9 @@
   <!-- THEMES -->
   <section class="screen" id="themes">
     <div class="top">
-      <button class="icon-btn" id="backHome">←</button>
+      <button class="icon-btn back" id="backHome" aria-label="Назад">←</button>
       <div class="title" data-i18n="chooseTheme"></div>
-      <div style="width:40px"></div>
+      <div class="top-spacer"></div>
     </div>
     <div id="themeList"></div>
   </section>
@@ -1264,9 +1324,9 @@
   <!-- LEVELS -->
   <section class="screen" id="levels">
     <div class="top">
-      <button class="icon-btn" id="backThemes">←</button>
+      <button class="icon-btn back" id="backThemes" aria-label="Назад">←</button>
       <div class="title" id="levelsTitle"></div>
-      <div style="width:40px"></div>
+      <div class="top-spacer"></div>
     </div>
     <div id="levelList"></div>
   </section>
@@ -1274,7 +1334,7 @@
   <!-- DECK -->
   <section class="screen" id="deck">
     <div class="top">
-      <button class="icon-btn" id="deckBack">←</button>
+      <button class="icon-btn back" id="deckBack" aria-label="Назад">←</button>
       <div class="title" id="deckTitle"></div>
       <button class="icon-btn" id="btnShuffle" title="shuffle">🔀</button>
     </div>
@@ -1466,6 +1526,8 @@
       compatResume: 'Продолжаем с вопроса {n}',
       compatResumeBtn: 'Продолжить тест',
       compatNotStarted: 'Партнёр ещё не присоединился',
+      compatPrev: '← Предыдущий вопрос',
+      compatAnswered: 'Ответ уже есть, можно выбрать другой',
       compatDelete: 'Удалить результат и ответы',
       compatDeleteConfirm: 'Удалить тест? Ваши ответы и ответы партнёра будут стёрты навсегда.',
       compatDeleted: 'Тест удалён',
@@ -1637,6 +1699,16 @@
       layers.observe(o, { attributes: true, attributeFilter: ['class'] }));
   } catch (e) {}
 
+  // Telegram draws its own Back in the header (Bot API 6.1 and later), so
+  // the page's «←» is hidden there (audit D-25); outside Telegram - platform
+  // 'unknown', a plain browser - the page's own is the only one there is.
+  try {
+    if (tg && tg.BackButton && tg.platform && tg.platform !== 'unknown' &&
+        (!tg.isVersionAtLeast || tg.isVersionAtLeast('6.1'))) {
+      document.documentElement.classList.add('tg-back');
+    }
+  } catch (e) {}
+
   if (tg && tg.BackButton) {
     try {
       tg.BackButton.onClick(() => {
@@ -1650,22 +1722,11 @@
           if (dismiss) dismiss.click(); else layer.classList.remove('show');
           return;
         }
-        if ($('deck').classList.contains('active')) leaveDeck();
-        else if ($('invite').classList.contains('active')) $('inviteBack').click();
-        else if ($('coop').classList.contains('active')) show('home');
-        else if ($('levels').classList.contains('active')) show('themes');
-        else if ($('themes').classList.contains('active')) { COOP.creating = false; show('home'); }
-        else if ($('libDeck').classList.contains('active')) libDeckLeave();
-        else if ($('guide').classList.contains('active')) $('guideBack').click();
-        else if ($('libraryDetail').classList.contains('active')) $('libBack').click();
-        else if ($('library').classList.contains('active')) show('home');
-        else if ($('compatResult').classList.contains('active')) show('compat');
-        else if ($('compatQuiz').classList.contains('active')) { stopCompatPoll(); show('compat'); }
-        else if ($('compatInvite').classList.contains('active')) { stopCompatPoll(); CT.code = null; show('compat'); }
-        else if ($('compat').classList.contains('active')) show('home');
-        else if ($('s69Board').classList.contains('active')) leaveS69();
-        else if ($('s69Invite').classList.contains('active')) $('s69InviteBack').click();
-        else if ($('s69').classList.contains('active')) show('home');
+        // Otherwise the screen's own back, the «←» in its header: one
+        // behaviour for both, so hiding the page's copy inside Telegram
+        // (audit D-25) cannot make the two drift apart.
+        const back = document.querySelector('.screen.active .top .icon-btn.back');
+        if (back) back.click();
       });
     } catch (e) {}
   }
@@ -2137,7 +2198,7 @@
     drag.onAdvance = null; drag.onBack = null;   // the Library's, if we came from it
     COOP.active = false;
     $('turnChip').style.display = 'none';
-    $('btnShuffle').style.display = '';
+    $('btnShuffle').style.visibility = '';
     $('btnPrev').style.display = '';
     initOrder(forceReset);
     const meta = T().themes[S.theme];
@@ -2294,8 +2355,11 @@
   function dragStart(e) {
     if (deckDirty || !drag.card) return;
     // The turn gate is couple mode's, not the swipe engine's: a Library deck
-    // borrowing the physics is never turn-based.
-    if (!drag.onAdvance && COOP.active && (!C.st || !C.st.your_turn)) return;
+    // borrowing the physics is never turn-based. On the partner's turn the
+    // gesture is still followed - scrolling the card's text is reading, and
+    // reading is allowed - but a sideways one does not move the card: it is
+    // refused where it happens (`refuseTurn`).
+    drag.refused = !drag.onAdvance && COOP.active && (!C.st || !C.st.your_turn);
     drag.active = true;
     const p = e.touches ? e.touches[0] : e;
     drag.x0 = p.clientX; drag.y0 = p.clientY; drag.dx = 0; drag.dy = 0;
@@ -2315,6 +2379,8 @@
       drag.axis = Math.abs(drag.dx) > Math.abs(drag.dy) ? 'x' : 'y';
     }
     if (drag.axis === 'y') return;
+    // The partner's turn: a sideways drag does not move the card.
+    if (drag.refused) return;
 
     drag.card.style.transform =
       'translate(' + drag.dx + 'px,' + (drag.dy * .35) + 'px) rotate(' + (drag.dx * .055) + 'deg)';
@@ -2325,6 +2391,11 @@
     // where it is and do not step the deck.
     if (drag.axis === 'y') { drag.active = false; drag.axis = null; return; }
     drag.active = false;
+    if (drag.refused) {
+      if (drag.axis === 'x' && Math.abs(drag.dx) > 30) refuseTurn();
+      drag.dx = 0; drag.dy = 0; drag.axis = null; drag.refused = false;
+      return;
+    }
     // Right = next card, left = previous. A left swipe on the first card
     // snaps back; couple mode is turn-based, so left never goes back there.
     // A deck that installed its own callbacks (the Library) is asked about
@@ -2399,11 +2470,7 @@
   }
 
   $('btnNext').onclick = () => {
-    if (COOP.active && (!C.st || !C.st.your_turn)) {
-      haptic('light');
-      toast(T().notYourTurn);
-      return;
-    }
+    if (COOP.active && (!C.st || !C.st.your_turn)) { refuseTurn(); return; }
     const top = document.querySelector('#stage .card.top');
     if (top) flyOut(top, 1);
   };
@@ -2729,7 +2796,9 @@
     const meta = coopThemeMeta();
     $('deckTitle').textContent = '👥 ' + meta.name + (C.st.level ? ' · ' + T().level + ' ' + C.st.level : '');
     $('modeRow').style.display = 'none';
-    $('btnShuffle').style.display = 'none';
+    // Hidden, but holding its place: the title stays centred between it
+    // and the (Telegram-hidden) back button.
+    $('btnShuffle').style.visibility = 'hidden';
     $('btnPrev').style.display = 'none';
     show('deck');
     renderCoopStage(true);
@@ -2784,6 +2853,21 @@
     }
   }
 
+  // Not your turn: the card shakes where the eye already is, and the chip
+  // that names whose turn it is flashes. The toast this replaced came after
+  // the fact, in a corner, and said less than the chip already did.
+  function refuseTurn() {
+    haptic('light');
+    const top = document.querySelector('#stage .card.top');
+    const chip = $('turnChipText');
+    [[top, 'wobble'], [chip, 'pulse']].forEach(([el, cls]) => {
+      if (!el) return;
+      el.classList.remove(cls);
+      void el.offsetWidth;          // restart the animation on a second tap
+      el.classList.add(cls);
+    });
+  }
+
   function updateCoopHud() {
     if (!C.st) return;
     const total = C.st.total || 1;
@@ -2801,6 +2885,7 @@
       chip.textContent = fmt(T().partnerTurn, { name: C.st.turn_name || '…' });
       chip.className = 'chip';
     }
+    $('btnNext').setAttribute('aria-disabled', String(!(C.st.started && C.st.your_turn)));
   }
 
   // Not buildStage: couple mode has no under-card to draw. The room sends one
@@ -2843,7 +2928,8 @@
     COOP.creating = false;
     C.code = null; C.st = null;
     $('turnChip').style.display = 'none';
-    $('btnShuffle').style.display = '';
+    $('btnNext').removeAttribute('aria-disabled');
+    $('btnShuffle').style.visibility = '';
     $('btnPrev').style.display = '';
     show('home');
   }
@@ -3177,7 +3263,7 @@
   // `pending` is an answer POST in flight; `resultCode` is the test whose
   // result is currently on the result screen, which /mine may set to a
   // different code than the one being played.
-  const CT = { code: null, st: null, timer: null, questions: null, idx: 0, invite: null,
+  const CT = { code: null, st: null, timer: null, questions: null, idx: 0, invite: null, mine: {},
                pending: false, resultCode: null };
 
   function stopCompatPoll() { stopPoll(CT); }
@@ -3228,6 +3314,9 @@
   }
 
   function adoptCompatState(st) {
+    // The answers this phone gave, by question, for this test only: another
+    // test starts with none marked.
+    if (CT.code !== st.code) CT.mine = {};
     CT.code = st.code;
     CT.st = st;
     CT.invite = st.invite_url || null;
@@ -3294,19 +3383,35 @@
 
   function renderCompatQuestion() {
     const total = CT.questions.length;
+    // Back one question, while the test is still being answered: the server
+    // takes any index until both partners have finished (audit D-21).
+    $('compatPrev').style.visibility = CT.idx > 0 ? 'visible' : 'hidden';
     if (CT.idx >= total) {
       $('compatQuestion').innerHTML = '<p class="compat-q">' + escapeHTML(T().compatDone) + '</p>';
       $('compatScale').innerHTML = '';
+      setCompatScaleEnabled(!CT.pending);
       return;
     }
     const q = CT.questions[CT.idx];
+    // What this phone sent this session; after a reload only *that* it was
+    // answered is known (the server never sends values back, not even the
+    // caller's own).
+    const given = CT.mine[CT.idx];
+    const answered = given || (CT.st && (CT.st.answered_indices || []).indexOf(CT.idx) >= 0);
     $('compatSphereTitle').textContent = q.sphere;
     $('compatProgress').style.width = (CT.idx / total * 100) + '%';
     $('compatProgressNum').textContent = (CT.idx + 1) + ' / ' + total;
-    $('compatQuestion').innerHTML = '<p class="compat-q">' + escapeHTML(q.text) + '</p>';
-    $('compatScale').innerHTML = CT.scale.map((label, i) =>
-      `<button class="btn btn-second compat-opt" data-value="${i + 1}">${escapeHTML(label)}</button>`
-    ).join('');
+    $('compatQuestion').innerHTML = '<p class="compat-q">' + escapeHTML(q.text) + '</p>' +
+      (answered && !given ? '<p class="compat-hint">' + escapeHTML(T().compatAnswered) + '</p>' : '');
+    $('compatScale').innerHTML = '<div class="compat-scale" role="radiogroup">' +
+      CT.scale.map((label, i) => {
+        const value = i + 1;
+        const bars = [1, 2, 3, 4, 5].map(n => `<i${n <= value ? ' class="lit"' : ''}></i>`).join('');
+        return `<button class="compat-opt${given === value ? ' on' : ''}" role="radio" ` +
+          `aria-checked="${given === value}" data-value="${value}">` +
+          `<span class="compat-bars" aria-hidden="true">${bars}</span>` +
+          `<span>${escapeHTML(label)}</span></button>`;
+      }).join('') + '</div>';
     $('compatScale').querySelectorAll('.compat-opt').forEach(btn => {
       btn.onclick = () => submitCompatAnswer(parseInt(btn.dataset.value, 10));
     });
@@ -3315,7 +3420,15 @@
 
   function setCompatScaleEnabled(on) {
     $('compatScale').querySelectorAll('.compat-opt').forEach(btn => { btn.disabled = !on; });
+    $('compatPrev').disabled = !on;
   }
+
+  $('compatPrev').onclick = () => {
+    if (CT.pending || CT.idx <= 0) return;
+    haptic('light');
+    CT.idx -= 1;
+    renderCompatQuestion();
+  };
 
   async function submitCompatAnswer(value) {
     // One answer in flight at a time. Each POST is a read-modify-write of the
@@ -3324,6 +3437,8 @@
     if (CT.pending) return;
     haptic('light');
     const index = CT.idx;
+    const before = CT.mine[index];
+    CT.mine[index] = value;
     CT.pending = true;
     CT.idx += 1;
     renderCompatQuestion();  // next question up front; its buttons stay dead
@@ -3347,12 +3462,14 @@
           loadCompatResult(CT.code);
           return;
         }
+        CT.mine[index] = before;
         CT.idx = index;
         renderCompatQuestion();
         setCompatScaleEnabled(true);
         toast(T().compatNotStarted);
         return;
       }
+      CT.mine[index] = before;
       CT.idx = index;
       renderCompatQuestion();
       toast(statusMessage(e));
@@ -4200,7 +4317,7 @@
          <line class="art-cam" x1="66" y1="110" x2="100" y2="110" style="opacity:.7"/>
          <circle cx="72" cy="110" r="2.6" fill="#9FEFC4"/>
          <text class="art-note" x="24" y="114">цвет</text>
-         <text class="art-note" x="66" y="122">тени влево</text>`,
+         <text class="art-note" x="60" y="122">тени влево</text>`,
         'справа: ч/б, тени глубже, зерно 10-15%');
     }
     if (key === 'edit-privacy') {
