@@ -379,9 +379,9 @@ class TestErrorHandlingIntegration:
     """Test error handling integration."""
 
     @pytest.mark.asyncio
-    async def test_error_handling_in_callback_handler(self, mock_update, mock_context, hybrid_storage_with_memory):
+    async def test_error_handling_in_callback_handler(self, mock_update, mock_context, memory_session_store):
         """Test error handling in callback handler."""
-        with patch('vechnost_bot.storage.get_redis_storage', return_value=hybrid_storage_with_memory):
+        with patch('vechnost_bot.storage.session_store', return_value=memory_session_store):
             from vechnost_bot.handlers import handle_callback_query
 
             # Test with invalid callback data
@@ -395,11 +395,11 @@ class TestErrorHandlingIntegration:
             mock_update.callback_query.edit_message_text.assert_called()
 
     @pytest.mark.asyncio
-    async def test_error_handling_in_storage_operations(self, hybrid_storage_with_memory):
+    async def test_error_handling_in_storage_operations(self, memory_session_store):
         """Test error handling in storage operations."""
         # Test with invalid session data
         try:
-            await hybrid_storage_with_memory.save_session(12345, "invalid_session")
+            await memory_session_store.save_session(12345, "invalid_session")
         except Exception as e:
             # Should handle gracefully
             assert isinstance(e, (TypeError, AttributeError))
@@ -428,10 +428,10 @@ class TestErrorRecovery:
     """Test error recovery mechanisms."""
 
     @pytest.mark.asyncio
-    async def test_storage_error_recovery(self, hybrid_storage_with_memory, mock_redis_error):
+    async def test_storage_error_recovery(self, memory_session_store, mock_redis_error):
         """Test storage error recovery."""
         # Mock storage that fails initially but recovers
-        with patch.object(hybrid_storage_with_memory, 'get_session') as mock_get_session:
+        with patch.object(memory_session_store, 'get_session') as mock_get_session:
             mock_get_session.side_effect = [mock_redis_error, SessionState()]
 
             # First call should fail
@@ -441,10 +441,10 @@ class TestErrorRecovery:
             from redis.exceptions import ConnectionError as RedisConnectionError
 
             with pytest.raises(RedisConnectionError):
-                await hybrid_storage_with_memory.get_session(12345)
+                await memory_session_store.get_session(12345)
 
             # Second call should succeed
-            session = await hybrid_storage_with_memory.get_session(12345)
+            session = await memory_session_store.get_session(12345)
             assert session is not None
 
     @pytest.mark.asyncio

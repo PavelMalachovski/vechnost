@@ -26,7 +26,8 @@ class TestSettings:
             assert settings.telegram_bot_token == "test_token"
             assert settings.log_level == "INFO"
             assert settings.environment == "development"
-            assert str(settings.redis_url) == "redis://localhost:6379/0"
+            # No Redis unless one is named: sessions stay in memory.
+            assert settings.redis_url is None
             assert settings.redis_db == 0
             assert settings.chat_id is None
             assert settings.sentry_dsn is None
@@ -56,9 +57,9 @@ class TestSettings:
             assert settings.telegram_bot_token == "prod_token"
             assert settings.log_level == "DEBUG"
             assert settings.environment == "production"
-            # RedisDsn normalises the database onto the URL, the same way the
-            # default above comes back as .../0.
-            assert str(settings.redis_url) == "redis://prod-redis:6379/0"
+            # Kept as written. RedisDsn's normal form appends /0, which would
+            # have outranked REDIS_DB=1 below for a URL that names no database.
+            assert settings.redis_url == "redis://prod-redis:6379"
             assert settings.redis_db == 1
             assert settings.chat_id == "12345"
             assert settings.sentry_dsn == "https://sentry.io/project"

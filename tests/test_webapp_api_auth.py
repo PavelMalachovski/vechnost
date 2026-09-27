@@ -40,7 +40,7 @@ def test_free_slice_without_authorization_header():
     with (
         patch.object(settings, "enable_payment", True),
         patch(
-            "vechnost_bot.payments.web.get_products_for_purchase",
+            "vechnost_bot.payments.services.get_products_for_purchase",
             AsyncMock(return_value=[]),
         ),
         patch(
@@ -67,7 +67,7 @@ def test_forged_init_data_gets_free_slice_only():
         patch.object(settings, "enable_payment", True),
         patch.object(settings, "telegram_bot_token", BOT_TOKEN),
         patch(
-            "vechnost_bot.payments.web.get_products_for_purchase",
+            "vechnost_bot.payments.services.get_products_for_purchase",
             AsyncMock(return_value=[]),
         ),
         patch(
@@ -96,7 +96,7 @@ def test_unpaid_user_gets_free_slice():
             AsyncMock(return_value=False),
         ) as has_access,
         patch(
-            "vechnost_bot.payments.web.get_products_for_purchase",
+            "vechnost_bot.payments.services.get_products_for_purchase",
             AsyncMock(return_value=[]),
         ),
         patch(

@@ -39,5 +39,6 @@ exec python -m mypy --follow-imports=silent \
     vechnost_bot/retention.py \
     vechnost_bot/steps69.py \
     vechnost_bot/steps69_notify.py \
+    vechnost_bot/storage.py \
     vechnost_bot/payments/signature.py \
     vechnost_bot/payments/tribute_event.py

@@ -6,7 +6,7 @@ or stuck. A new table, so a deploy's `create_all` makes it with no startup
 step; this revision is for a database built by `alembic upgrade head`.
 
 Revision ID: c3d5e7f9a1b2
-Revises: b6d0e2f4a8c1
+Revises: d7f2b4c6e8a0
 Create Date: 2026-09-27
 """
 
@@ -17,7 +17,7 @@ import sqlalchemy as sa
 from alembic import op
 
 revision: str = "c3d5e7f9a1b2"
-down_revision: str | None = "b6d0e2f4a8c1"
+down_revision: str | None = "d7f2b4c6e8a0"
 branch_labels: str | Sequence[str] | None = None
 depends_on: str | Sequence[str] | None = None
 

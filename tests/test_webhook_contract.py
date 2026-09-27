@@ -214,14 +214,16 @@ def test_the_same_delivery_twice_is_processed_once(client):
 # F03: what an event does is a table, and a payment row is not access
 # ---------------------------------------------------------------------------
 
-def test_a_cancellation_revokes_access(client):
+def test_a_cancellation_keeps_the_paid_period(client):
+    """Renewal switched off, not money returned: the period paid for runs to
+    its end (backend audit B-09). tests/test_tribute_semantics.py has the rest."""
     assert deliver(client, event("new_subscription", subscription_id=77,
                                  expires_at="2099-01-01T00:00:00Z")).status_code == 200
     assert access() is True
 
     response = deliver(client, event("cancelled_subscription", subscription_id=77))
     assert response.status_code == 200
-    assert access() is False
+    assert access() is True
     [subscription] = rows(Subscription)
     assert subscription.status == "canceled"
 
@@ -280,7 +282,7 @@ def test_the_event_table():
     assert action_for("new_digital_product") == "grant"
     assert action_for("new_subscription") == "grant"
     assert action_for("renewed_subscription") == "grant"
-    assert action_for("cancelled_subscription") == "revoke"
+    assert action_for("cancelled_subscription") == "cancel"
     assert action_for("subscription_refunded") == "revoke"
     assert action_for("chargeback") == "revoke"
     assert action_for("new_donation") == "ignore"
@@ -393,9 +395,13 @@ def test_a_delivery_racing_its_own_duplicate_is_still_a_duplicate(client):
 
     body = event("new_digital_product", product_id=555)
     assert deliver(client, body).status_code == 200
+    # The other copy had not committed when this one looked, by body or by
+    # event key; it had by the time this one's insert failed.
     with (
         patch.object(services.WebhookEventRepository, "get_by_body_sha256",
                      side_effect=[None, object()]),
+        patch.object(services.WebhookEventRepository, "get_by_event_key",
+                     return_value=None),
         patch.object(services.UserRepository, "create_or_update",
                      side_effect=IntegrityError("INSERT", {}, Exception("dup"))),
     ):
