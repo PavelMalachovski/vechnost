@@ -734,6 +734,14 @@ python scripts/smoke_production.py $URL --deep  # ...and its database and bot he
   those, don't fork them.
 - Prefer adding tests next to the feature (`tests/test_<feature>.py`); the
   suite runs offline (no network, Tribute mocked).
+- **A script in `scripts/` answers `--help` and works through the app.**
+  `tests/test_scripts.py` runs every `scripts/*.py --help` in a fresh
+  interpreter and fails on a non-zero exit, on output that is not argparse's,
+  and on a file written: parse the arguments before touching anything. Read
+  and write through the repositories and `settings`, never raw SQL or a
+  second `.env` loader - `activate_simple.py`, which wrote subscriptions by
+  hand, could not see a lifetime purchase. To grant access by hand, mint one
+  certificate (`generate_certificates.py 1`) and send the code.
 - Brand: dark aubergine background, pink gradient accents, playing-card
   motifs (suits, "V" emblem). Keep card watermarks/share images on-brand.
 
