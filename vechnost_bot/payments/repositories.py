@@ -187,8 +187,11 @@ class UserRepository:
         are half theirs, and consent to keep them has to be unanimous, the
         same rule `DELETE /api/compat/{code}` follows. A certificate the
         user redeemed stays spent but forgets who spent it, so the code
-        cannot be redeemed again. Anyone this user invited keeps their
-        discount and loses the link to who invited them.
+        cannot be redeemed again. A gift certificate the user bought keeps
+        the Tribute purchase id it was issued for: that names a purchase,
+        not a person, and is what lets a later refund of the gift still
+        revoke it. Anyone this user invited keeps their discount and loses
+        the link to who invited them.
         """
         from sqlalchemy import update as _update
 
@@ -627,6 +630,8 @@ class CertificateRepository:
             update(Certificate)
             .where(Certificate.code == code)
             .where(Certificate.is_used == False)  # noqa: E712
+            # A refund landing between the caller's check and this UPDATE.
+            .where(Certificate.revoked_at.is_(None))
             .values(
                 is_used=True,
                 used_by_telegram_user_id=telegram_user_id,

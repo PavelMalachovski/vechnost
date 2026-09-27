@@ -278,9 +278,10 @@ def _ensure_payment_columns(sync_conn: Connection) -> None:
 
     `webhook_events.event_key` identifies an event across redeliveries,
     whose bodies differ in `sent_at`; `certificates.purchase_id` ties a gift
-    certificate to the purchase that paid for it. Both are unique where set,
-    and an index built by create_all on a fresh database is the same one
-    `IF NOT EXISTS` finds here, on SQLite and PostgreSQL alike.
+    certificate to the purchase that paid for it, and `revoked_at` records
+    that purchase's refund. The first two are unique where set, and an
+    index built by create_all on a fresh database is the same one `IF NOT
+    EXISTS` finds here, on SQLite and PostgreSQL alike.
     """
     from sqlalchemy import inspect, text
 
@@ -289,6 +290,9 @@ def _ensure_payment_columns(sync_conn: Connection) -> None:
     columns = (
         ("webhook_events", "event_key", "VARCHAR"),
         ("certificates", "purchase_id", "VARCHAR"),
+        # TIMESTAMP is `timestamp without time zone` on PostgreSQL, the
+        # type the model's naive datetimes are stored in.
+        ("certificates", "revoked_at", "TIMESTAMP"),
     )
     unique_indexes = (
         ("uq_webhook_events_event_key", "webhook_events", "event_key"),

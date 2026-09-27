@@ -190,6 +190,8 @@ async def apply_webhook_event(
                 outcome = await _grant(session, event, user.id, happened_at)
             elif action == "cancel":
                 outcome = await _cancel(session, event, user.id, happened_at)
+            elif action == "revoke" and await _refunds_a_gift(session, event):
+                outcome = await _revoke_gift(session, event, now)
             elif action == "revoke":
                 outcome = await _revoke(session, event, user.id, happened_at)
             else:
@@ -299,10 +301,63 @@ async def _issue_gift(session: AsyncSession, event: TributeEvent) -> _Outcome:
     purchase_id = event.purchase_id
     if purchase_id:
         issued = await CertificateRepository.get_by_purchase(session, purchase_id)
+        if issued is not None and issued.revoked_at is not None:
+            return _Outcome(note="gift purchase already refunded: no certificate issued")
         if issued is not None:
             return _Outcome(note=f"gift certificate #{issued.id} already issued for this purchase")
     code = await create_gift_certificate(session, purchase_id=purchase_id)
     return _Outcome(note="gift certificate issued", gift_code=code)
+
+
+async def _refunds_a_gift(session: AsyncSession, event: TributeEvent) -> bool:
+    """Whether a refund or chargeback is of a gift purchase: the gift
+    product, or a purchase a certificate was issued for, whatever product
+    the refund does or does not name."""
+    if is_gift_purchase(event.product_id):
+        return True
+    if not event.purchase_id:
+        return False
+    return await CertificateRepository.get_by_purchase(session, event.purchase_id) is not None
+
+
+async def _revoke_gift(session: AsyncSession, event: TributeEvent, now: datetime) -> _Outcome:
+    """A gift purchase refunded or charged back: its certificate stops working.
+
+    Never the buyer's own access. The refund used to be handed to the
+    subscription path, which found no row under the gift product and closed
+    every row the buyer had - their own purchase went, and the gift code
+    stayed good for life (backend audit B-06). The certificate is found by
+    the purchase id the refund carries and revoked, redeemed or not;
+    `user_has_access` stops counting it. A refund that arrives before its
+    purchase is recorded as an already revoked certificate for that
+    purchase, so the purchase, when it comes, mints nothing. Without a
+    purchase id there is no telling which certificate is meant: nothing
+    changes, and the delivery is recorded for someone to look at.
+    """
+    purchase_id = event.purchase_id
+    if not purchase_id:
+        logger.warning(
+            f"{event.name} of a gift purchase carries no purchase id: no "
+            "certificate can be matched to it, and none was revoked"
+        )
+        return _Outcome(note="gift refund not applied: the purchase could not be identified")
+    certificate = await CertificateRepository.get_by_purchase(
+        session, purchase_id, for_update=True
+    )
+    if certificate is None:
+        await create_gift_certificate(session, purchase_id=purchase_id)
+        certificate = await CertificateRepository.get_by_purchase(session, purchase_id)
+        if certificate is not None:
+            certificate.revoked_at = now
+            await session.flush()
+        return _Outcome(note="gift refunded before its purchase arrived: no certificate will be issued")
+    if certificate.revoked_at is not None:
+        return _Outcome(note=f"gift certificate #{certificate.id} already revoked")
+    certificate.revoked_at = now
+    await session.flush()
+    redeemed = ", which had been redeemed" if certificate.is_used else ""
+    logger.warning(f"Gift certificate #{certificate.id}{redeemed} revoked by {event.name}")
+    return _Outcome(note=f"gift certificate #{certificate.id}{redeemed} revoked")
 
 
 def _stale(row: Subscription | None, happened_at: datetime) -> _Outcome | None:
@@ -386,13 +441,15 @@ async def _cancel(
 async def _revoke(
     session: AsyncSession, event: TributeEvent, user_id: int, happened_at: datetime
 ) -> _Outcome:
-    """A refund or a chargeback: the access it paid for ends now.
+    """A refund or a chargeback of the user's own access: it ends now.
 
     The row the event names is the one closed. When the user has no such
     row, every row that still grants access is closed instead - a refund
     with no effect is worse than one with too much - and the refund is
     remembered under the name it gave, so the purchase it undoes, should
     its delivery come later, is older than the refund and grants nothing.
+    That fallback is an anomaly and is logged as one; a gift's refund never
+    reaches it (see `_revoke_gift`).
     """
     status = revoked_status(event.name)
     if event.access_key:
@@ -410,6 +467,11 @@ async def _revoke(
 
     revoked = await SubscriptionRepository.revoke_all_for_user(
         session, user_id, status=status, when=happened_at
+    )
+    logger.warning(
+        f"Anomaly: {event.name} for user #{user_id} names no row they hold "
+        f"(id {event.access_key or 'none'}); closed every row that granted "
+        f"access instead: {revoked}"
     )
     if event.access_key:
         await SubscriptionRepository.upsert(
@@ -444,8 +506,8 @@ async def user_has_access(telegram_user_id: int) -> bool:
 
     Access is an active, unexpired row in `subscriptions` (a lifetime
     purchase is one with no expiry; a cancelled subscription counts until
-    the end of the period paid for), or an activated certificate, or
-    payments being switched off altogether. A row in `payments` is a
+    the end of the period paid for), or an activated certificate that has
+    not been revoked, or payments being switched off altogether. A row in `payments` is a
     journal entry and counts for nothing on its own: it used to, and every
     event Tribute sent - a cancellation included - became lifetime access.
     """
@@ -470,9 +532,15 @@ async def user_has_access(telegram_user_id: int) -> bool:
                 )
                 return True
 
-            certificates = await CertificateRepository.get_by_user(
-                session, telegram_user_id
-            )
+            # A certificate whose purchase was refunded stops counting,
+            # redeemed or not (backend audit B-06).
+            certificates = [
+                certificate
+                for certificate in await CertificateRepository.get_by_user(
+                    session, telegram_user_id
+                )
+                if certificate.revoked_at is None
+            ]
             if certificates:
                 logger.debug(
                     f"User {telegram_user_id} has {len(certificates)} activated certificate(s)"
@@ -623,6 +691,17 @@ async def activate_certificate(
                     "code": 404,
                 }
 
+            # The gift it was issued for was refunded or charged back.
+            if certificate.revoked_at is not None:
+                logger.warning(
+                    f"Certificate #{certificate.id} is revoked: its purchase was refunded"
+                )
+                return {
+                    "status": "error",
+                    "message": "Certificate revoked",
+                    "code": 410,
+                }
+
             # Check if already used (one-time use enforcement)
             if certificate.is_used:
                 logger.warning(
@@ -650,6 +729,8 @@ async def activate_certificate(
                 session, code, telegram_user_id
             )
             if claimed is None:
+                # Someone else claimed it first - or, rarer, its refund landed
+                # in between; the claim refuses a revoked code either way.
                 logger.warning(
                     f"Certificate #{certificate.id} was claimed by someone else first"
                 )

@@ -238,6 +238,10 @@ class Certificate(Base):
     # certificate per purchase. NULL for a printed voucher, and for a gift
     # delivered without an id. It names a purchase, not a person.
     purchase_id: Mapped[str | None] = mapped_column(String, nullable=True)
+    # Set when that purchase was refunded or charged back. A revoked
+    # certificate cannot be redeemed and no longer grants access to whoever
+    # redeemed it already.
+    revoked_at: Mapped[datetime | None] = mapped_column(nullable=True)
 
     # Note: Relationship to User would require a proper foreign key
     # For now, we use telegram_user_id directly without relationship
@@ -250,11 +254,11 @@ class Certificate(Base):
 
     @property
     def is_valid(self) -> bool:
-        """Check if certificate is valid (not used)."""
-        return not self.is_used
+        """Whether the certificate can still be redeemed."""
+        return not self.is_used and self.revoked_at is None
 
     def __repr__(self) -> str:
-        status = "used" if self.is_used else "available"
+        status = "revoked" if self.revoked_at else "used" if self.is_used else "available"
         return f"<Certificate(id={self.id}, code='{self.code}', status='{status}')>"
 
 

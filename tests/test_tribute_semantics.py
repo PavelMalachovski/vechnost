@@ -12,6 +12,8 @@ signature. This file holds its meaning, finding by finding of the September
 * B-07 - an event is processed once however often it is delivered: a
   redelivery with a new `sent_at` is a duplicate, a gift purchase mints one
   certificate, and its code is sent only after the certificate is saved.
+* B-06 - a refunded gift revokes the certificate it paid for, redeemed or
+  not, and leaves the buyer's own access alone.
 
 Every delivery here is signed the way Tribute signs it, and access is read
 back through `user_has_access`, the one function that decides it.
@@ -38,7 +40,7 @@ from fastapi.testclient import TestClient
 import vechnost_bot.payments.database as database
 from vechnost_bot.config import settings
 from vechnost_bot.payments.models import Certificate, Payment, Subscription, WebhookEvent
-from vechnost_bot.payments.services import user_has_access
+from vechnost_bot.payments.services import activate_certificate, user_has_access
 from vechnost_bot.payments.tribute_event import TributeEvent, action_for
 from vechnost_bot.payments.web import app
 
@@ -473,7 +475,109 @@ def test_an_old_database_gets_the_event_key_and_the_purchase_link(tmp_path):
     with sqlite3.connect(path) as conn:
         columns = {row[1] for row in conn.execute("PRAGMA table_info(webhook_events)")}
         indexes = {row[1] for row in conn.execute("PRAGMA index_list(webhook_events)")}
+        certificate_columns = {row[1] for row in conn.execute("PRAGMA table_info(certificates)")}
     assert "event_key" in columns and "uq_webhook_events_event_key" in indexes
+    assert {"purchase_id", "revoked_at"} <= certificate_columns
+
+
+# ---------------------------------------------------------------------------
+# B-06: a gift's refund takes the gift back, not the buyer's access
+# ---------------------------------------------------------------------------
+
+FRIEND = 626262  # who the gift was for
+
+
+def redeem(tribute: Tribute, code: str, telegram_user_id: int = FRIEND) -> dict[str, Any]:
+    return tribute.client.portal.call(activate_certificate, code, telegram_user_id)
+
+
+def test_a_gift_refund_leaves_the_buyers_own_access_alone(tribute, gifts):
+    """The buyer's own purchase used to be closed, because the refund named
+    the gift product and the fallback closed every row that matched nothing."""
+    tribute.send("new_digital_product", created_at=T1, product_id=PRODUCT)
+    tribute.send("new_digital_product", created_at=T2, product_id=GIFT, purchase_id=900)
+    tribute.send("digital_product_refunded", created_at=T3, product_id=GIFT, purchase_id=900)
+    assert tribute.access() is True
+    assert tribute.subscriptions()[PRODUCT].status == "active"
+
+
+@pytest.mark.parametrize("refund", ["digital_product_refunded", "chargeback"])
+def test_a_gift_refund_revokes_the_certificate_even_once_redeemed(tribute, gifts, refund):
+    tribute.send("new_digital_product", created_at=T1, product_id=GIFT, purchase_id=900)
+    [certificate] = certificates(tribute)
+    assert redeem(tribute, certificate.code)["status"] == "success"
+    assert tribute.access(FRIEND) is True
+
+    answer = tribute.send(refund, created_at=T2, product_id=GIFT, purchase_id=900)
+    assert answer["action"] == "revoke"
+    assert tribute.access(FRIEND) is False, "the money went back, so did the gift"
+    [certificate] = certificates(tribute)
+    assert certificate.revoked_at is not None
+
+
+def test_a_revoked_certificate_cannot_be_redeemed(tribute, gifts):
+    tribute.send("new_digital_product", created_at=T1, product_id=GIFT, purchase_id=900)
+    tribute.send("digital_product_refunded", created_at=T2, product_id=GIFT, purchase_id=900)
+    [certificate] = certificates(tribute)
+    answer = redeem(tribute, certificate.code)
+    assert (answer["status"], answer["code"]) == ("error", 410)
+    assert tribute.access(FRIEND) is False
+
+
+def test_a_gift_refund_is_found_by_its_purchase_id_alone(tribute, gifts):
+    """A refund that does not repeat the product id is still the gift's."""
+    tribute.send("new_digital_product", created_at=T1, product_id=PRODUCT)
+    tribute.send("new_digital_product", created_at=T2, product_id=GIFT, purchase_id=900)
+    tribute.send("refund", created_at=T3, purchase_id=900)
+    assert tribute.access() is True
+    assert certificates(tribute)[0].revoked_at is not None
+
+
+def test_a_gift_refund_that_names_no_purchase_changes_nothing(tribute, gifts, caplog):
+    tribute.send("new_digital_product", created_at=T1, product_id=PRODUCT)
+    tribute.send("new_digital_product", created_at=T2, product_id=GIFT)
+    answer = tribute.send("digital_product_refunded", created_at=T3, product_id=GIFT)
+    assert answer["note"] == "gift refund not applied: the purchase could not be identified"
+    assert tribute.access() is True
+    assert certificates(tribute)[0].revoked_at is None
+    assert "no certificate can be matched" in caplog.text
+
+
+def test_a_gift_refunded_before_its_purchase_arrives_mints_nothing(tribute, gifts):
+    tribute.send("digital_product_refunded", created_at=T2, product_id=GIFT, purchase_id=900)
+    answer = tribute.send("new_digital_product", created_at=T1, product_id=GIFT, purchase_id=900)
+    assert answer["note"] == "gift purchase already refunded: no certificate issued"
+    gifts.assert_not_awaited()
+    [placeholder] = certificates(tribute)
+    assert placeholder.revoked_at is not None
+    assert redeem(tribute, placeholder.code)["code"] == 410
+
+
+def test_a_refund_of_access_the_buyer_does_not_hold_is_logged_as_an_anomaly(tribute, caplog):
+    """The fallback stays for the buyer's own purchases - a refund with no
+    effect is worse than one with too much - but it is not normal."""
+    tribute.send("new_subscription", created_at=T1, subscription_id=SUBSCRIPTION, expires_at=LATER)
+    tribute.send("digital_product_refunded", created_at=T2, product_id=PRODUCT)
+    assert tribute.access() is False
+    assert "Anomaly" in caplog.text
+
+
+def test_erasing_the_buyer_does_not_make_the_gift_irrevocable(tribute, gifts):
+    """/delete_me takes the buyer's journal; the certificate keeps the id of
+    the purchase that paid for it, so its refund still finds it."""
+    from vechnost_bot.payments.repositories import UserRepository
+
+    tribute.send("new_digital_product", created_at=T1, product_id=GIFT, purchase_id=900)
+    [certificate] = certificates(tribute)
+    redeem(tribute, certificate.code)
+
+    async def erase_buyer() -> None:
+        async with database.get_db() as session:
+            await UserRepository.erase(session, BUYER)
+
+    tribute.client.portal.call(erase_buyer)
+    tribute.send("digital_product_refunded", created_at=T2, product_id=GIFT, purchase_id=900)
+    assert tribute.access(FRIEND) is False
 
 
 # The two tables as the code before these columns created them.
