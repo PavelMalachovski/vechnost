@@ -4944,14 +4944,16 @@
       if (pieces) el.insertAdjacentHTML('beforeend', pieces);
     });
 
-    const here = s69MapCell(mineAt);
-    if (here && here.scrollIntoView) {
-      // Asked for by script, so the reduced-motion block's scroll-behavior
-      // never reaches it: the map travelled for half a second on a phone
-      // that asked for less motion (audit D-13).
-      const behavior = REDUCED_MOTION ? 'auto' : 'smooth';
-      try { here.scrollIntoView({ block: 'nearest', behavior }); } catch (e) {}
-    }
+    frameS69Cell(s69MapCell(mineAt));
+  }
+
+  // Asked for by script, so the reduced-motion block's scroll-behavior
+  // never reaches it: the map travelled for half a second on a phone that
+  // asked for less motion (audit D-13).
+  function frameS69Cell(cell) {
+    if (!cell || !cell.scrollIntoView) return;
+    const behavior = REDUCED_MOTION ? 'auto' : 'smooth';
+    try { cell.scrollIntoView({ block: 'nearest', behavior }); } catch (e) {}
   }
 
   // A portal fires with a visible flight and a system line, never as a piece
@@ -5160,6 +5162,14 @@
     const folded = $('s69Map').classList.toggle('folded');
     $('s69MapHint').style.display = folded ? 'none' : '';
   };
+  // The piece stays in frame when the map itself changes size - a phone
+  // turned, the map unfolded, a window resized - not only when the state
+  // moves it. The frame used to wait for the next poll, and the visual check
+  // caught the map on either side of that poll behind the finale.
+  if (typeof ResizeObserver === 'function') {
+    new ResizeObserver(() => frameS69Cell($('s69Map').querySelector('.s69-cell.here')))
+      .observe($('s69Map'));
+  }
   $('s69InfoClose').onclick = () => $('s69CellInfo').classList.remove('show');
   // A tap beside the card closes it too; a scroll inside it does not.
   $('s69CellInfo').onclick = (e) => {

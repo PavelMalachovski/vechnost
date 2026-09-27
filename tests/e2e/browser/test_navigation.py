@@ -166,3 +166,45 @@ def test_the_board_follows_the_piece_without_travel_when_asked(server: Server, p
     # jumps, once for each place it jumps to.
     assert seen, "the piece should be out of the first rows' frame"
     assert len(set(seen)) <= 2, f"the map travelled through {sorted(set(seen))}"
+
+
+# Whether the viewer's own piece sits whole inside the map's frame.
+PIECE_IN_FRAME = """() => {
+  const map = document.getElementById('s69Map');
+  const m = map.getBoundingClientRect();
+  const c = map.querySelector('.s69-cell.here').getBoundingClientRect();
+  return c.top >= m.top - 1 && c.bottom <= m.bottom + 1;
+}"""
+
+
+def test_the_board_keeps_the_piece_in_frame_when_the_map_changes_size(
+    server: Server, phones
+) -> None:
+    """The map scrolled to the piece only when the state moved it, so a
+    phone turned or a window resized left the piece out of frame until the
+    next poll - and the visual check caught the map on either side of that
+    poll behind the finale."""
+    alice, bob = server.player("Alice", paid=True), server.player("Bob")
+    game = alice.ok("POST", "/api/steps69?lang=ru", {"mode": "duo", "piece": "hearts"})
+    code = game["code"]
+    bob.ok("POST", f"/api/steps69/{code}/join", {})
+    for _ in range(200):
+        state = alice.ok("GET", f"/api/steps69/{code}")
+        if state["you"]["position"] >= 48:
+            break
+        (alice if state["your_turn"] else bob).ok("POST", f"/api/steps69/{code}/roll")
+
+    board = phones(
+        alice, start_param=f"s69_{code}", reduced_motion=True,
+        viewport={"width": 430, "height": 932},
+    )
+    board.page.wait_for_selector("#nsfw.show, #s69Board.active")
+    if board.page.is_visible("#nsfwYes"):
+        board.page.click("#nsfwYes")
+    board.screen("s69Board", timeout=POLL)
+    board.page.wait_for_selector("#s69Map .s69-cell.here .s69-piece")
+    assert board.page.evaluate(PIECE_IN_FRAME)
+    # Well inside one poll: the frame follows the map's size, not the state.
+    board.page.set_viewport_size({"width": 320, "height": 568})
+    board.page.wait_for_timeout(150)
+    assert board.page.evaluate(PIECE_IN_FRAME), "the piece left the frame on a resize"
