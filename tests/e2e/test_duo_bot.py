@@ -143,6 +143,58 @@ def test_the_invited_keep_their_discount_when_the_inviter_leaves(
         assert access["discount_percent"] == settings.referral_discount_percent
 
 
+def registered_long_ago(server: Server, player, days: int = 30) -> None:
+    """Move `player`'s registration back in time, as if they had been here."""
+    from datetime import datetime, timedelta
+
+    from sqlalchemy import update
+
+    from vechnost_bot.payments.database import get_db
+    from vechnost_bot.payments.models import User
+
+    async def backdate() -> None:
+        async with get_db() as session:
+            await session.execute(
+                update(User)
+                .where(User.telegram_user_id == player.id)
+                .values(created_at=datetime.utcnow() - timedelta(days=days))
+            )
+
+    server.portal.call(backdate)
+
+
+@pytest.mark.parametrize("already_here", ["long_registered", "customer"])
+def test_a_referral_link_changes_nothing_for_someone_already_here(
+    server: Server, bot, already_here: str
+) -> None:
+    """An invitation is for someone the link brings in. A user of a month's
+    standing, or one who has bought, used to get the referral price from any
+    published link and counted as the inviter's catch."""
+    alice = server.player("Alice")
+    carol = server.player("Carol", paid=already_here == "customer")
+    discounted = "https://tribute.invalid/discount"
+    with patch.object(settings, "referral_payment_url", discounted):
+        bot.send(carol, "/start")
+        if already_here == "long_registered":
+            registered_long_ago(server, carol)
+        param = referral_param(server, bot, alice)
+
+        before = len(server.telegram.to(carol.id))
+        bot.send(carol, f"/start {param}")
+        said = server.telegram.texts_to(carol.id)[before:]
+        assert said, "the welcome screen still answers"
+        assert get_text(
+            "referral.welcome", percent=settings.referral_discount_percent
+        ) not in said
+        assert get_text("referral.welcome_no_discount") not in said
+
+        access = carol.ok("GET", "/api/questions")["access"]
+        assert access.get("payment_url") != discounted
+        assert "discount_percent" not in access
+        bot.send(alice, "/invite")
+        assert "Уже пришли по ссылке: 0" in server.telegram.texts_to(alice.id)[-1]
+
+
 def test_a_gift_bought_by_one_user_unlocks_the_other(server: Server, bot) -> None:
     alice = server.player("Alice")
     bob = server.player("Bob")

@@ -141,18 +141,48 @@ class UserRepository:
         return None
 
     @staticmethod
+    async def has_history(session: AsyncSession, user: User) -> bool:
+        """Whether this user has ever bought or redeemed anything.
+
+        Any `payments` row (the journal: a purchase, a gift, a refund), any
+        `subscriptions` row whatever its status, or a certificate they
+        activated. Such a person is a customer already, whatever the age of
+        their row, and an invitation did not bring them in.
+        """
+        for statement in (
+            select(Payment.id).where(Payment.telegram_user_id == user.telegram_user_id),
+            select(Subscription.id).where(Subscription.user_id == user.id),
+            select(Certificate.id).where(
+                Certificate.used_by_telegram_user_id == user.telegram_user_id
+            ),
+        ):
+            if (await session.execute(statement.limit(1))).first() is not None:
+                return True
+        return False
+
+    @staticmethod
     async def record_referral(
         session: AsyncSession, telegram_user_id: int, code: str
     ) -> bool:
         """Credit an invitation. True when it counted, False when it did not.
 
-        Refused for a user who was already invited (the credit belongs to
-        whoever invited them first, and stays theirs after that person is
-        erased), for a code nobody owns, and for anyone following their own
-        link.
+        Only a newcomer can be invited: a user whose row is younger than
+        `referrals.NEW_USER_WINDOW` - in practice the one this same /start
+        just created - and who has bought or redeemed nothing. For anyone
+        who was already here the link changes nothing. Also refused for a
+        user who was already invited (the credit belongs to whoever invited
+        them first, and stays theirs after that person is erased), for a
+        code nobody owns, and for anyone following their own link.
         """
+        from ..referrals import joined_recently
+
         user = await UserRepository.get_by_telegram_id(session, telegram_user_id)
         if not user or user.referred_at is not None:
+            return False
+        now = datetime.utcnow()
+        if not joined_recently(user.created_at, now):
+            return False
+        if await UserRepository.has_history(session, user):
             return False
 
         referrer = await UserRepository.get_by_referral_code(session, code)
@@ -160,7 +190,7 @@ class UserRepository:
             return False
 
         user.referred_by = referrer.telegram_user_id
-        user.referred_at = datetime.utcnow()
+        user.referred_at = now
         await session.flush()
         logger.info(f"User {telegram_user_id} was referred by {referrer.telegram_user_id}")
         return True

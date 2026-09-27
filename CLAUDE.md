@@ -328,7 +328,11 @@ python scripts/smoke_production.py $URL  # read-only smoke of a deployed server
   that does not exist. Who counts as invited is `users.referred_at`, the
   invitee's own marker, never `referred_by`: that is a link to another
   person and goes when they are erased, and reading it took the discount
-  from everyone an erased user had invited.
+  from everyone an erased user had invited. Only a newcomer can be invited
+  (`UserRepository.record_referral`): a row younger than
+  `referrals.NEW_USER_WINDOW` - the one the same /start just created - with
+  nothing bought or redeemed. For anyone already here a ref link changes
+  nothing; it used to hand any old user the referral price.
 - **A broadcast has two doors and one delivery loop.** `broadcast.py` owns
   the loop — the pause between sends, the retry that honours Telegram's own
   `retry_after`, and the rule that a user who blocked the bot is opted out
