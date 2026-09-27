@@ -41,24 +41,28 @@ def test_deck_sizes_match_spec(filename):
     assert _sizes(filename) == EXPECTED_SIZES
 
 
-def test_russian_provocation_uses_partnersha():
+def test_russian_provocation_names_the_partner_neutrally():
+    """«Партнёр» agrees with the noun and assumes nothing about who the
+    partner is. The deck once said «партнёр(ка)», then «партнёрша» in nine
+    cards, which told every reader they had a woman for a partner."""
     data = yaml.safe_load((DATA / "questions.yaml").read_text(encoding="utf-8"))
     joined = " ".join(data["themes"]["Provocation"]["questions"])
     assert "партнёр(ка)" not in joined
-    assert "партнёрша" in joined
+    assert "партнёрш" not in joined.lower()
+    assert "партнёр" in joined
 
 
 # Any parenthetical suffix on "партнёр" — nominative or oblique, capitalised or
 # not: партнёр(ка), Партнер(ка), партнером(кой), партнера(ку), партнера(ки)...
 PARTNER_PARENTHETICAL = re.compile(r"[Пп]артн[её]р\w*\([а-яё]+\)")
 
-# The one allowed survivor: its parenthetical is singular-vs-plural
-# ("партнёру / партнёров"), not gender, so it is left as authored.
-ALLOWED_PARTNER_PARENTHETICALS = [("Provocation", "questions", 23, "партнеру(ев)")]
+# None left: the last one, «партнеру(ев)» (singular or plural), now reads
+# «партнёру».
+ALLOWED_PARTNER_PARENTHETICALS: list[tuple[str, str, int, str]] = []
 
 
 def test_russian_partner_tokens_are_gendered_not_parenthetical():
-    """Feminine agreement, not "партнёр(ка)"-style slashes, across the RU file."""
+    """No "партнёр(ка)"-style brackets anywhere in the RU file."""
     data = yaml.safe_load((DATA / "questions.yaml").read_text(encoding="utf-8"))
     found = []
     for theme, theme_data in data["themes"].items():
