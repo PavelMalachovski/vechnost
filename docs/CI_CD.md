@@ -48,9 +48,12 @@ The two-user harness is described in [`tests/e2e/README.md`](../tests/e2e/README
    rule* for `master`: require a pull request, and require these checks to
    pass. A check is named after its job's `name:` where it has one, so the
    list is `lint`, `test`, `Fresh install, the way Railway builds it`,
-   `docker`, `Two users on PostgreSQL`, `Three people doing anything` and
+   `Two users on PostgreSQL`, `Three people doing anything` and
    `Two phones in Chromium`. Then a red PR cannot be merged at all, and
-   "Wait for CI" is the second lock rather than the only one.
+   "Wait for CI" is the second lock rather than the only one. (`docker` is
+   left out on purpose: it builds an image production does not run, and a
+   required check that a later change renames or folds away blocks every
+   pull request until the rule is edited.)
 
 ## Why the smoke does not run on push
 
