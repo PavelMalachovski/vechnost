@@ -274,6 +274,8 @@ def test_alembic_and_create_all_build_the_same_schema(pg_url: str) -> None:
         command.upgrade(config, "head")
     by_alembic = _schema(_sync(pg_url))
 
+    indexes_by_alembic = _indexes(_sync(pg_url))
+
     other = f"vechnost_pg_{secrets.token_hex(4)}"
     admin = create_engine(_sync(ADMIN_URL), isolation_level="AUTOCOMMIT")
     with admin.connect() as conn:
@@ -282,9 +284,177 @@ def test_alembic_and_create_all_build_the_same_schema(pg_url: str) -> None:
         other_url = make_url(pg_url).set(database=other).render_as_string(hide_password=False)
         _run(other_url, database.create_tables)
         by_create_all = _schema(_sync(other_url))
+        indexes_by_create_all = _indexes(_sync(other_url))
     finally:
         with admin.connect() as conn:
             conn.execute(text(f'DROP DATABASE IF EXISTS "{other}" WITH (FORCE)'))
         admin.dispose()
 
     assert by_alembic == by_create_all
+    # And the same indexes, partial predicates included: an index only one
+    # build has is a query that scans on the other.
+    assert indexes_by_alembic == indexes_by_create_all
+
+
+def _indexes(sync_url: str) -> dict:
+    from sqlalchemy import create_engine
+
+    from tests.test_indexes import index_shape
+
+    engine = create_engine(sync_url)
+    try:
+        with engine.connect() as conn:
+            return index_shape(conn)
+    finally:
+        engine.dispose()
+
+
+def test_an_old_database_gets_the_models_indexes_on_postgres(pg_url: str) -> None:
+    """The index set before B-23 - eight doubles of unique constraints, none
+    of the indexes `/mine`, `erase` and the retention sweep need, and (as on
+    a table that got `referral_code` from ALTER TABLE) no unique constraint
+    on the code - is brought to exactly what a fresh database has."""
+    from sqlalchemy import text
+
+    from tests.test_indexes import ADDED
+
+    async def fresh() -> None:
+        await database.create_tables()
+
+    async def make_it_old() -> None:
+        async with database._engine().begin() as conn:
+            await conn.execute(text(
+                "ALTER TABLE users DROP CONSTRAINT users_referral_code_key"
+            ))
+            for name, (table, column) in database.REDUNDANT_INDEXES.items():
+                await conn.execute(text(f"CREATE INDEX {name} ON {table} ({column})"))
+            for names in ADDED.values():
+                for name in names:
+                    await conn.execute(text(f"DROP INDEX {name}"))
+
+    async def restart() -> None:
+        await database.create_tables()
+        await database.create_tables()
+
+    _run(pg_url, fresh)
+    expected = _indexes(_sync(pg_url))
+    _run(pg_url, make_it_old)
+    old = _indexes(_sync(pg_url))
+    assert ("referral_code",) not in old["users"]["unique"]
+    assert old != expected
+    _run(pg_url, restart)
+    assert _indexes(_sync(pg_url)) == expected
+
+
+def test_the_hot_queries_use_an_index_on_postgres(pg_url: str) -> None:
+    """EXPLAIN of the statements the repositories actually send.
+
+    Captured off the engine rather than retyped, so a query rewritten in a
+    shape no index serves fails here. Sequential scans are switched off for
+    the EXPLAIN: on a near-empty table a scan is the right plan, and the
+    question is whether an index *can* serve the query, not whether this
+    table is big enough yet to want one.
+    """
+    from sqlalchemy import event
+
+    from vechnost_bot.payments.repositories import (
+        CertificateRepository,
+        CompatTestRepository,
+        PaymentRepository,
+        RetentionRepository,
+        RoomRepository,
+        Steps69Repository,
+        UserRepository,
+        WebhookEventRepository,
+    )
+
+    now = datetime.utcnow()
+    code = "ABCDEFGHJKLMNPQR"
+    # (what, the call, the indexes its plan must use)
+    queries = [
+        ("steps69 /mine", lambda s: Steps69Repository.latest_unfinished_for(s, 1),
+         {"idx_steps69_creator", "idx_steps69_guest"}),
+        ("compat /mine", lambda s: CompatTestRepository.latest_completed_for(s, 1),
+         {"idx_compat_creator", "idx_compat_guest"}),
+        ("/invite count", lambda s: UserRepository.count_referrals(s, 1),
+         {"idx_users_referred_by"}),
+        ("resume nudge", lambda s: Steps69Repository.stalled(s, now, now),
+         {"idx_steps69_unfinished_updated"}),
+        ("sweep: games", lambda s: RetentionRepository.delete_abandoned_games(s, now),
+         {"idx_steps69_unfinished_updated"}),
+        ("sweep: tests", lambda s: RetentionRepository.delete_abandoned_compat_tests(s, now),
+         {"idx_compat_unfinished_updated"}),
+        # What the dropped doubles used to serve, served by the constraints.
+        ("user by id", lambda s: UserRepository.get_by_telegram_id(s, 1),
+         {"users_telegram_user_id_key"}),
+        ("referral code", lambda s: UserRepository.get_by_referral_code(s, "ABC234"),
+         {"users_referral_code_key"}),
+        ("room code", lambda s: RoomRepository.get_by_code(s, code),
+         {"rooms_code_key"}),
+        ("test code", lambda s: CompatTestRepository.get_by_code(s, code),
+         {"compat_tests_code_key"}),
+        ("game code", lambda s: Steps69Repository.get_by_code(s, code),
+         {"steps69_games_code_key"}),
+        ("certificate", lambda s: CertificateRepository.get_by_code(s, "VECH-XXXX-XXXX"),
+         {"certificates_code_key"}),
+        ("payment", lambda s: PaymentRepository.get_by_body_sha256(s, "x"),
+         {"payments_body_sha256_key"}),
+        ("webhook", lambda s: WebhookEventRepository.get_by_body_sha256(s, "x"),
+         {"webhook_events_body_sha256_key"}),
+    ]
+    # erase: every statement that finds a person's rows by participant.
+    erase_expects = {
+        "DELETE FROM compat_tests": {"idx_compat_creator", "idx_compat_guest"},
+        "DELETE FROM steps69_games": {"idx_steps69_creator", "idx_steps69_guest"},
+        "UPDATE users SET referred_by": {"idx_users_referred_by"},
+        "UPDATE certificates": {"idx_certificate_used_by"},
+    }
+
+    async def explain_all() -> dict[str, str]:
+        await database.create_tables()
+        database._tables_created = True  # or get_db runs them again, captured
+        engine = database._engine()
+        captured: list[tuple[str, object]] = []
+
+        def capture(conn, cursor, statement, parameters, context, executemany):
+            captured.append((statement, parameters))
+
+        plans: dict[str, str] = {}
+
+        async def plan_of(statement: str, parameters: object) -> str:
+            async with engine.connect() as conn:
+                await conn.exec_driver_sql("SET enable_seqscan = off")
+                rows = await conn.exec_driver_sql("EXPLAIN " + statement, parameters)
+                return "\n".join(row[0] for row in rows)
+
+        event.listen(engine.sync_engine, "before_cursor_execute", capture)
+        try:
+            for label, call, _ in queries:
+                captured.clear()
+                async with database.get_db() as session:
+                    await call(session)
+                [(statement, parameters)] = [
+                    c for c in captured if not c[0].lstrip().upper().startswith(
+                        ("BEGIN", "COMMIT", "ROLLBACK", "SAVEPOINT", "RELEASE")
+                    )
+                ]
+                plans[label] = await plan_of(statement, parameters)
+            captured.clear()
+            async with database.get_db() as session:
+                await UserRepository.erase(session, 1)
+            erase_statements = list(captured)
+        finally:
+            event.remove(engine.sync_engine, "before_cursor_execute", capture)
+        for prefix in erase_expects:
+            [(statement, parameters)] = [
+                c for c in erase_statements if c[0].startswith(prefix)
+            ]
+            plans[prefix] = await plan_of(statement, parameters)
+        return plans
+
+    plans = _run(pg_url, explain_all)
+    expectations = {label: names for label, _, names in queries} | erase_expects
+    for label, names in expectations.items():
+        for name in names:
+            assert name in plans[label], f"{label} does not use {name}:\n{plans[label]}"
+        assert "Seq Scan" not in plans[label], f"{label}:\n{plans[label]}"

@@ -2,7 +2,7 @@
 
 import json
 from datetime import datetime
-from typing import Optional
+from typing import Any, Optional
 
 from sqlalchemy import (
     BigInteger,
@@ -13,8 +13,10 @@ from sqlalchemy import (
     String,
     Text,
     UniqueConstraint,
+    column,
 )
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
+from sqlalchemy.sql.elements import ColumnElement
 from sqlalchemy.types import TypeDecorator
 
 
@@ -41,6 +43,16 @@ class Base(DeclarativeBase):
     """Base class for all models."""
 
     pass
+
+
+def _partial(where: ColumnElement[bool]) -> dict[str, Any]:
+    """The same WHERE for a partial index on both databases the app runs on.
+
+    Spelled as the repositories spell the query (`finished IS false`, not
+    `NOT finished`), so that neither planner has to prove one implies the
+    other before it will use the index.
+    """
+    return {"postgresql_where": where, "sqlite_where": where}
 
 
 class User(Base):
@@ -83,8 +95,12 @@ class User(Base):
     )
 
     __table_args__ = (
-        Index("idx_telegram_user_id", "telegram_user_id"),
-        Index("idx_referral_code", "referral_code"),
+        # Who a user invited, for `/invite`'s count and for `erase`. Partial:
+        # most people were invited by nobody and need no entry.
+        Index(
+            "idx_users_referred_by", "referred_by",
+            **_partial(column("referred_by").is_not(None)),
+        ),
     )
 
     def __repr__(self) -> str:
@@ -150,10 +166,7 @@ class Payment(Base):
         "Product", back_populates="payments"
     )
 
-    __table_args__ = (
-        Index("idx_telegram_user_id_payments", "telegram_user_id"),
-        Index("idx_body_sha256", "body_sha256"),
-    )
+    __table_args__ = (Index("idx_telegram_user_id_payments", "telegram_user_id"),)
 
     def __repr__(self) -> str:
         return f"<Payment(id={self.id}, event_name='{self.event_name}', amount={self.amount}, user_id={self.user_id})>"
@@ -210,8 +223,6 @@ class WebhookEvent(Base):
     processed_at: Mapped[datetime | None] = mapped_column(nullable=True)
     error: Mapped[str | None] = mapped_column(Text, nullable=True)
 
-    __table_args__ = (Index("idx_body_sha256_webhook", "body_sha256"),)
-
     def __repr__(self) -> str:
         return f"<WebhookEvent(id={self.id}, name='{self.name}', status_code={self.status_code})>"
 
@@ -235,10 +246,7 @@ class Certificate(Base):
     # Note: Relationship to User would require a proper foreign key
     # For now, we use telegram_user_id directly without relationship
 
-    __table_args__ = (
-        Index("idx_certificate_code", "code"),
-        Index("idx_certificate_used_by", "used_by_telegram_user_id"),
-    )
+    __table_args__ = (Index("idx_certificate_used_by", "used_by_telegram_user_id"),)
 
     @property
     def is_valid(self) -> bool:
@@ -273,7 +281,10 @@ class Room(Base):
         default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False
     )
 
-    __table_args__ = (Index("idx_room_code", "code"),)
+    # No index on the players or on `updated_at`: a room lives a day and the
+    # retention sweep removes it the next, so the table stays a few rows
+    # deep, and an index on `updated_at` would make every card turned an
+    # update that touches every index.
 
     def __repr__(self) -> str:
         return f"<Room(code='{self.code}', idx={self.idx}, turn={self.turn})>"
@@ -352,8 +363,17 @@ class Steps69Game(Base):
     )
 
     __table_args__ = (
-        Index("idx_steps69_code", "code"),
+        # `/mine` asks "creator or guest", and `erase` too: a BitmapOr over
+        # these two. The table has no TTL, so without the guest side both
+        # scanned every game ever played.
         Index("idx_steps69_creator", "creator_telegram_user_id"),
+        Index("idx_steps69_guest", "guest_telegram_user_id"),
+        # Games still on the board, by last move: the resume nudge and the
+        # retention sweep. Finished games are kept forever and never asked.
+        Index(
+            "idx_steps69_unfinished_updated", "updated_at",
+            **_partial(column("finished").is_(False)),
+        ),
     )
 
     def __repr__(self) -> str:
@@ -386,8 +406,16 @@ class CompatTest(Base):
     )
 
     __table_args__ = (
-        Index("idx_compat_code", "code"),
         Index("idx_compat_pair", "pair_key"),
+        # `/mine` and `erase` ask "creator or guest"; completed tests have
+        # no TTL, so this table only grows.
+        Index("idx_compat_creator", "creator_telegram_user_id"),
+        Index("idx_compat_guest", "guest_telegram_user_id"),
+        # Tests nobody finished, by last answer: the retention sweep.
+        Index(
+            "idx_compat_unfinished_updated", "updated_at",
+            **_partial(column("finished_at").is_(None)),
+        ),
     )
 
     def __repr__(self) -> str:

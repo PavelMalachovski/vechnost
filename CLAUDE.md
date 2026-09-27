@@ -497,7 +497,18 @@ python scripts/smoke_production.py $URL  # read-only smoke of a deployed server
   and a failing one no longer stops the rest; write SQL that PostgreSQL
   accepts (type your NULLs), because a step that only works on SQLite fails
   on every production start. `tests/test_postgres.py` checks that alembic
-  and `create_all` build the same schema.
+  and `create_all` build the same schema, indexes included.
+- **Indexes follow the model at startup too.** `create_all` indexes a table
+  only the day it creates it, so `_ensure_indexes` creates every index the
+  model declares that a deployed table lacks, and drops the plain indexes
+  that only doubled a unique constraint (`REDUNDANT_INDEXES`, and only
+  where the constraint is really there). An index goes in the model and an
+  alembic revision; the startup step picks it up by itself. A lookup by
+  person ("creator or guest") needs both sides indexed or PostgreSQL scans
+  the table; a filter on unfinished rows gets a partial index spelled as
+  the query spells it (`finished IS false`). Rooms are deliberately not
+  indexed beyond their code: they live a day. `tests/test_postgres.py`
+  EXPLAINs the statements the repositories actually send.
 
 ## Conventions
 
