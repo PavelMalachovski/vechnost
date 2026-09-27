@@ -123,7 +123,7 @@ def test_the_creator_reopening_their_own_link_stays_the_creator(server: Server) 
 
 
 def test_a_couple_on_one_home_wifi_can_play(server: Server) -> None:
-    """Two phones behind one router share one address, and one budget."""
+    """Two phones behind one router share one address, not one budget."""
     alice = server.player("Alice", paid=True, ip="198.18.7.7")
     bob = server.player("Bob", ip="198.18.7.7")
     code = open_room(alice)
@@ -133,6 +133,30 @@ def test_a_couple_on_one_home_wifi_can_play(server: Server) -> None:
         players[step % 2].ok("POST", f"/api/rooms/{code}/advance")
         players[(step + 1) % 2].ok("GET", f"/api/rooms/{code}")
     assert bob.ok("GET", f"/api/rooms/{code}")["finished"] is True
+
+
+def test_a_stranger_behind_the_same_carrier_nat_does_not_lock_the_partner_out(
+    server: Server,
+) -> None:
+    """A mobile carrier puts strangers behind one public address. Carol
+    spends her whole `join` budget guessing codes; Bob, on the same address,
+    still opens Alice's link, because the budget is Carol's, not the
+    address's."""
+    from vechnost_bot.payments import throttle
+
+    nat = "100.64.10.10"
+    alice = server.player("Alice", paid=True)
+    bob = server.player("Bob", ip=nat)
+    carol = server.player("Carol", ip=nat)
+    code = open_room(alice)
+
+    limit, _ = throttle.LIMITS["join"]
+    guesses = [carol.status("POST", f"/api/rooms/{invites.new_code()}/join")
+               for _ in range(limit + 1)]
+    assert guesses[:limit] == [404] * limit and guesses[-1] == 429
+
+    joined = bob.ok("POST", f"/api/rooms/{code}/join")
+    assert joined["started"] is True and joined["your_role"] == "guest"
 
 
 def test_stale_initdata_is_refused(server: Server) -> None:

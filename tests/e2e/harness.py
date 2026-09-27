@@ -237,9 +237,10 @@ class Player:
     def headers(self) -> dict[str, str]:
         return {
             "Authorization": f"tma {self.init_data}",
-            # The throttle keys on the proxy's entry; one address per player
-            # is two phones on two networks. Share `ip` to put a couple on
-            # one home Wi-Fi.
+            # The address the proxy saw: two phones on two networks, or share
+            # `ip` to put a couple on one home Wi-Fi. The throttle budgets a
+            # signed player by their Telegram id, so the address only keys
+            # what carries no valid initData.
             "X-Forwarded-For": self.ip,
         }
 

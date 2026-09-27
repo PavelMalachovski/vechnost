@@ -397,7 +397,13 @@ python scripts/smoke_production.py $URL  # read-only smoke of a deployed server
   in-process (every throttled endpoint lives in the single web process;
   the bot runs beside it as a second process), and the `join` bucket also
   has a **global** ceiling because `X-Forwarded-For` is client-settable and
-  a per-client budget alone would not bound a code sweep. `tests/conftest.py`
+  a per-client budget alone would not bound a code sweep. The per-client
+  budget is the **person** where the Mini App calls (`BY_PERSON`: create,
+  join, write, render) and the initData validates, keyed `tg:<id>`; the
+  address otherwise (anonymous requests, the webhook, admin). Keyed by
+  address, strangers behind one carrier NAT shared one `join` and `write`
+  budget, and initData that fails validation still counts against its
+  address, so nobody spends a budget by claiming an id. `tests/conftest.py`
   resets it between tests; without that a suite creating more rooms than the
   hourly budget starts 429ing halfway through.
 - **A Tribute webhook is signed with the API key, and checked first.**
