@@ -36,7 +36,8 @@ pytest --cov                             # ...with coverage, as CI measures it
 pytest -m "not slow"                     # ...without the fuzzer and the subprocess tests
 pytest tests/test_freemium.py -q         # run one suite
 ruff check .                             # lint (CI gates on this)
-./scripts/typecheck.sh                   # types (CI gates on this)
+./scripts/typecheck.sh                   # types, strict, on the domain layer (CI gates on this)
+python scripts/mypy_ratchet.py           # types, the rest, against .mypy-baseline (CI gates on this)
 pytest tests/e2e -n0                     # the two-user suite, in-process
 E2E_BROWSER=1 pytest tests/e2e/browser -n0   # two Chromium phones (needs .[e2e])
 python scripts/smoke_production.py $URL  # read-only smoke of a deployed server
@@ -61,10 +62,11 @@ python scripts/smoke_production.py $URL --deep  # ...and its database and bot he
   and nothing that waits for a deploy may run on `push`, or it deadlocks
   with "Wait for CI". `docs/CI_CD.md` explains the pipeline.
 
-- **The three CI gates are `pytest -q`, `ruff check .` and
-  `scripts/typecheck.sh`, and all three pass.** Keep them passing. CI runs on
-  pull requests, on `master`, and nightly; it used to name `main` and
-  `develop`, neither of which exists here, so it had never run at all.
+- **The CI gates are `pytest` (with a coverage floor), `ruff check .`,
+  `scripts/typecheck.sh` and `scripts/mypy_ratchet.py`, and all of them
+  pass.** Keep them passing. CI runs on pull requests, on `master`, and
+  nightly; it used to name `main` and `develop`, neither of which exists
+  here, so it had never run at all.
   `e2e.yml` gates on the two-user suite the same way.
 - **Coverage has a floor that only rises.** CI's `pytest` measures it
   (`[tool.coverage]` in `pyproject.toml`: branches, greenlets and threads,
@@ -83,13 +85,21 @@ python scripts/smoke_production.py $URL --deep  # ...and its database and bot he
   if you forget. The nightly `upstream` job runs the suite on today's PyPI,
   unpinned, to hear about a breaking release before a lock update does.
 - **`scripts/typecheck.sh` is mypy on a list, not on the repo.** The strict
-  settings in `[tool.mypy]` are real but the repo does not satisfy them yet
-  (`python -m mypy vechnost_bot` shows the backlog; CI prints it without
-  failing). The script names the modules that *do* — the domain layer plus
-  the loaders around it — and `--follow-imports=silent` keeps their
+  settings in `[tool.mypy]` are real but the repo does not satisfy them yet.
+  The script names the modules that *do* — the domain layer plus the
+  loaders around it — and `--follow-imports=silent` keeps their
   dependencies' errors out. Add a new domain module to that list.
   Note `python -m mypy`: a standalone mypy runs on its own interpreter and
   reports every third-party import as missing.
+- **The rest of the package is held to `.mypy-baseline`.** It lists the
+  errors `python -m mypy vechnost_bot` reported when the ratchet was set,
+  without line numbers; `scripts/mypy_ratchet.py` (a CI gate) fails on an
+  error that is not listed and on a listed one that is fixed. Fix a new
+  error rather than list it; after fixing old ones, run
+  `python scripts/mypy_ratchet.py --update` and commit the smaller file.
+- **`ruff format` has never been applied.** CI checks it, advisory, until a
+  one-time reformat lands at a moment with no branches in flight; until then
+  do not reformat files you are not otherwise changing.
 - Pytest config lives in `pyproject.toml` under `[tool.pytest.ini_options]`
   (`asyncio_mode = "auto"`). Do **not** re-add a `pytest.ini` — a
   `[tool:pytest]` header there silently disables the pyproject config.

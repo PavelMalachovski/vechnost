@@ -33,10 +33,10 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
-    - uses: actions/checkout@v4
+    - uses: actions/checkout@v5
 
     - name: Set up Python 3.11
-      uses: actions/setup-python@v5
+      uses: actions/setup-python@v6
       with:
         python-version: '3.11'
         cache: pip
@@ -55,6 +55,13 @@ jobs:
     - name: Run ruff
       run: ruff check .
 
+    # The repository has never been through `ruff format`, and a one-time
+    # reformat would collide with every branch in flight. Until it has been,
+    # this only says how far off it is.
+    - name: Formatting (advisory)
+      continue-on-error: true
+      run: ruff format --check .
+
     # Strict, and blocking, on the modules that can hold the line today: the
     # domain layer and the loaders around it. See scripts/typecheck.sh for
     # what is on the list and why. A wholly advisory mypy gates on nothing,
@@ -62,21 +69,25 @@ jobs:
     - name: Type-check the domain layer
       run: ./scripts/typecheck.sh
 
-    # The rest is not blocking yet: the codebase has a few hundred missing
-    # annotations, and fixing those is its own piece of work rather than
-    # something to smuggle into whatever PR happens to turn CI on. The output
-    # is here so the size of that job stays visible.
-    - name: Run mypy (advisory)
-      continue-on-error: true
-      run: python -m mypy vechnost_bot
+    # The rest of the package does not pass the strict settings yet, so it is
+    # held where it stands: every error mypy reports today is listed in
+    # .mypy-baseline, a new one fails, and so does a fixed one still listed
+    # (shrink the baseline with `python scripts/mypy_ratchet.py --update`).
+    - name: Type-check the rest against its baseline
+      run: python scripts/mypy_ratchet.py
 
-    # Advisory for the same reason: a new advisory against a dependency
-    # should be seen the day it is published, not block an unrelated PR.
-    - name: Audit dependencies for known vulnerabilities (advisory)
-      continue-on-error: true
+    # The locks, exactly as the image and this job install them. Advisory on
+    # pull requests and pushes: an advisory is published against a pinned
+    # version without any commit of ours, and failing here would hold every
+    # merge and every deploy (Railway waits for CI) until upstream ships a
+    # fix - the fix of our own included. At night it fails, so a new advisory
+    # becomes the ci-nightly issue within a day instead of a log line.
+    - name: Audit the locked dependencies for known vulnerabilities
+      continue-on-error: ${{ github.event_name != 'schedule' }}
       run: |
         pip install pip-audit
-        pip-audit --progress-spinner off
+        pip-audit --progress-spinner off --disable-pip --require-hashes -r requirements.lock
+        pip-audit --progress-spinner off --disable-pip --require-hashes -r requirements-dev.lock
 
     # Code nothing calls. [tool.vulture] in pyproject.toml lists what a
     # framework calls by name; anything else it prints is a question for the
@@ -114,14 +125,14 @@ jobs:
           --health-retries 5
 
     steps:
-    - uses: actions/checkout@v4
+    - uses: actions/checkout@v5
       with:
         # The whole history, so the diff coverage below can find where this
         # pull request branched off.
         fetch-depth: 0
 
     - name: Set up Python 3.11
-      uses: actions/setup-python@v5
+      uses: actions/setup-python@v6
       with:
         python-version: '3.11'
         cache: pip
@@ -164,7 +175,7 @@ jobs:
 
     - name: Keep the coverage report
       if: always()
-      uses: actions/upload-artifact@v4
+      uses: actions/upload-artifact@v5
       with:
         name: coverage
         path: coverage.xml
@@ -181,10 +192,10 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:
-    - uses: actions/checkout@v4
+    - uses: actions/checkout@v5
 
     - name: Set up Python 3.11
-      uses: actions/setup-python@v5
+      uses: actions/setup-python@v6
       with:
         python-version: '3.11'
 
@@ -223,7 +234,7 @@ jobs:
 
     - name: Keep the installed versions
       if: always()
-      uses: actions/upload-artifact@v4
+      uses: actions/upload-artifact@v5
       with:
         name: runtime-freeze
         path: runtime-freeze.txt
@@ -239,10 +250,10 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:
-    - uses: actions/checkout@v4
+    - uses: actions/checkout@v5
 
     - name: Set up Python 3.11
-      uses: actions/setup-python@v5
+      uses: actions/setup-python@v6
       with:
         python-version: '3.11'
 
@@ -257,7 +268,7 @@ jobs:
 
     - name: Keep the resolved versions
       if: always()
-      uses: actions/upload-artifact@v4
+      uses: actions/upload-artifact@v5
       with:
         name: upstream-freeze
         path: upstream-freeze.txt
@@ -273,7 +284,7 @@ jobs:
     permissions:
       issues: write
     steps:
-    - uses: actions/github-script@v7
+    - uses: actions/github-script@v8
       with:
         script: |
           const label = 'ci-nightly';
