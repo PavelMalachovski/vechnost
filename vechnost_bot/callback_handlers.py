@@ -138,10 +138,11 @@ async def _send_card_paywall(query: Any, language: Language) -> None:
     if price:
         text += f"\n\n{get_text('payment.unlock_price', language).format(price=price)}"
 
+    user_id = query.from_user.id if query.from_user else None
     await query.message.reply_text(
         text,
         parse_mode="HTML",
-        reply_markup=await get_payment_keyboard(language.value),
+        reply_markup=await get_payment_keyboard(language.value, telegram_user_id=user_id),
     )
 
 

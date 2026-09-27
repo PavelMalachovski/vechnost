@@ -326,15 +326,23 @@ class Server:
     ) -> httpx.Response:
         return self.deliver(self.webhook_body(name, player, **payload), key=key, label=f"{name} → {player.name}")
 
-    def webhook_body(self, name: str, player: Player, **payload: Any) -> bytes:
-        """One delivery's bytes, in Tribute's shape."""
-        now = datetime.now(UTC).isoformat()
+    def webhook_body(
+        self, name: str, player: Player, *, created_at: datetime | None = None, **payload: Any
+    ) -> bytes:
+        """One delivery's bytes, in Tribute's shape.
+
+        `created_at` is when the event happened: now, unless a scenario
+        plays one whose delivery comes late. It is what the server orders
+        events by and, with the name, the buyer and the product, what makes
+        two deliveries one event - so two events for one user happen at two
+        moments (to the microsecond), and the nonce keeps their bodies
+        apart as well.
+        """
+        now = datetime.now(UTC)
         return json.dumps({
             "name": name,
-            "created_at": now,
-            # A delivery is idempotent on its body hash, so two events for
-            # one user must never be byte-identical.
-            "sent_at": now,
+            "created_at": (created_at or now).isoformat(),
+            "sent_at": now.isoformat(),
             "nonce": secrets.token_hex(6),
             "payload": {
                 "telegram_user_id": player.id,
@@ -344,6 +352,14 @@ class Server:
                 **payload,
             },
         }).encode()
+
+    @staticmethod
+    def redelivery(body: bytes) -> bytes:
+        """The same event sent again, the way Tribute retries one: a new
+        `sent_at`, and every other byte as it was."""
+        delivery = json.loads(body)
+        delivery["sent_at"] = datetime.now(UTC).isoformat()
+        return json.dumps(delivery).encode()
 
     def deliver(
         self, body: bytes, *, key: str = E2E_TRIBUTE_KEY, label: str = "delivery",

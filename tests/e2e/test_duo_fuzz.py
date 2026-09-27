@@ -16,6 +16,14 @@ happen: the status code, whose turn it is, where each piece stands, what
 the result says, what `/mine` returns. The model also knows every secret
 and Joker task dealt, and fails the run if one reaches the wrong phone.
 
+Tribute plays too. Anyone may buy access or be refunded at any point, a
+delivery may be late (older than what the server last applied, which then
+changes nothing) and any of them may be delivered again with a new
+`sent_at` (which is the same event). Whether a person has paid is state in
+the model, not a constant, so everything that depends on it - the size of a
+room they open, whether they may start a test or a board - follows the
+money; what is already open stays as it was opened.
+
 When a check fails, Hypothesis shrinks the run to the shortest sequence of
 steps that still fails and prints it — that is the bug report.
 
@@ -35,6 +43,7 @@ import json
 import os
 from collections import Counter
 from dataclasses import dataclass, field
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from typing import Any
 from unittest.mock import patch
@@ -67,7 +76,7 @@ EXAMPLES = int(os.environ.get("E2E_FUZZ_EXAMPLES", "8"))
 STEPS = int(os.environ.get("E2E_FUZZ_STEPS", "30"))
 
 ACTORS = st.sampled_from(["alice", "bob", "carol"])
-PAID = {"alice": True, "bob": False, "carol": True}
+PAID = {"alice": True, "bob": False, "carol": True}  # at the start of a run
 DECKS = {
     ("Acquaintance", 1, "questions"): 30,
     ("For Couples", 2, "questions"): 30,
@@ -167,6 +176,15 @@ class TwoUsers(RuleBasedStateMachine):
         self.clock = 0
         self.completions = 0
         self.last: dict[str, str] = {}
+        # The money. `decided` is when the last event applied to a person's
+        # access happened; the purchases above happened just before
+        # `started`, and a person nobody has paid for has none on file.
+        self.started = datetime.now(UTC)
+        self.paid = dict(PAID)
+        self.decided: dict[str, datetime | None] = {
+            name: self.started if PAID[name] else None for name in PAID
+        }
+        self.sent: dict[str, list[bytes]] = {name: [] for name in PAID}
 
     # -- plumbing -----------------------------------------------------------
 
@@ -249,7 +267,7 @@ class TwoUsers(RuleBasedStateMachine):
         state = self.call(actor, "POST", "/api/rooms?lang=ru",
                           {"theme": theme, "level": level, "type": kind}, expect=200)
         size = DECKS[deck]
-        total = size if PAID[actor] else min(FREE_CARDS_PER_DECK, size)
+        total = size if self.paid[actor] else min(FREE_CARDS_PER_DECK, size)
         model = RoomModel(creator=actor, total=total)
         self.room_models[state["code"]] = model
         self.check_room(state, model, actor)
@@ -328,7 +346,7 @@ class TwoUsers(RuleBasedStateMachine):
 
     @rule(target=tests, actor=ACTORS)
     def create_test(self, actor: str) -> Any:
-        if not PAID[actor]:
+        if not self.paid[actor]:
             self.call(actor, "POST", "/api/compat", expect=402)
             return multiple()
         state = self.call(actor, "POST", "/api/compat", expect=200)
@@ -467,7 +485,7 @@ class TwoUsers(RuleBasedStateMachine):
           piece=st.sampled_from([*PIECES, "unicorn"]))
     def create_game(self, actor: str, mode: str, piece: str) -> Any:
         body = {"mode": mode, "piece": piece}
-        if not PAID[actor]:
+        if not self.paid[actor]:
             self.call(actor, "POST", "/api/steps69", body, expect=402)
             return multiple()
         if piece not in PIECES:
@@ -666,6 +684,61 @@ class TwoUsers(RuleBasedStateMachine):
         their_joker = model.jokers[1 - (seat or 0)]
         if their_joker and their_joker in text and their_joker != model.jokers[seat or 0]:
             raise LeakDetected(f"{actor} received the partner's Joker task")
+
+    # -- Tribute ------------------------------------------------------------
+
+    def moment(self, late: bool) -> datetime:
+        """When a delivered event happened. Each is later than the one
+        before, so no two are one event; a late one happened a day before
+        the run began - before anything the server has applied - and is
+        only now getting through."""
+        tick = timedelta(seconds=self.tick())
+        return self.started + tick - (timedelta(days=1) if late else timedelta(0))
+
+    def deliver(self, body: bytes) -> dict[str, Any]:
+        throttle.reset()
+        response = self.SERVER.deliver(body, label="fuzzer")
+        assert response.status_code == 200, f"a delivery -> {response.status_code}: {response.text}"
+        return response.json()
+
+    def check_access(self, actor: str) -> None:
+        """What the person's own phone is told, after Tribute's word."""
+        access = self.call(actor, "GET", "/api/questions?lang=ru", expect=200)["access"]
+        assert access["paid"] == self.paid[actor], (
+            f"{actor}: paid={access['paid']}, the rules say {self.paid[actor]}"
+        )
+
+    @rule(actor=ACTORS, refund=st.booleans(), late=st.booleans())
+    def tribute_delivers(self, actor: str, refund: bool, late: bool) -> None:
+        """A purchase or its refund, as it happens - or late, a first
+        attempt that failed and is only now getting through."""
+        name = "digital_product_refunded" if refund else "new_digital_product"
+        happened = self.moment(late)
+        body = self.SERVER.webhook_body(name, self.people[actor], created_at=happened)
+        self.sent[actor].append(body)
+        decided = self.decided[actor]
+        answer = self.deliver(body)
+        if decided is not None and decided > happened:
+            assert (answer["action"], answer["message"]) == ("ignore", "Stale event ignored")
+            event("payments: an event older than the last one applied, ignored")
+        else:
+            assert answer["action"] == ("revoke" if refund else "grant"), answer
+            self.paid[actor] = not refund
+            self.decided[actor] = happened
+            event("payments: a refund" if refund else "payments: a purchase")
+        self.check_access(actor)
+
+    @rule(actor=ACTORS, which=st.integers(0, 1000))
+    def tribute_delivers_again(self, actor: str, which: int) -> None:
+        """Any earlier delivery once more, with a new `sent_at`: the same
+        event, so nothing changes."""
+        sent = self.sent[actor]
+        if not sent:
+            return
+        answer = self.deliver(self.SERVER.redelivery(sent[which % len(sent)]))
+        assert "already processed" in answer["message"], answer
+        event("payments: a redelivery recognised")
+        self.check_access(actor)
 
     # -- both phones, after every step -------------------------------------
 

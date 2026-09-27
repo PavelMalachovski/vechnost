@@ -3,7 +3,7 @@
 import logging
 from datetime import datetime
 
-from sqlalchemy import delete, or_, select, update
+from sqlalchemy import and_, delete, or_, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..compat import TOTAL_QUESTIONS
@@ -225,9 +225,12 @@ class UserRepository:
         are half theirs, and consent to keep them has to be unanimous, the
         same rule `DELETE /api/compat/{code}` follows. A certificate the
         user redeemed stays spent but forgets who spent it, so the code
-        cannot be redeemed again. Anyone this user invited keeps their
-        discount and loses the link to who invited them: `referred_by` is
-        cleared, `referred_at` - the marker the discount reads - stays.
+        cannot be redeemed again. A gift certificate the user bought keeps
+        the Tribute purchase id it was issued for: that names a purchase,
+        not a person, and is what lets a later refund of the gift still
+        revoke it. Anyone this user invited keeps their discount and loses
+        the link to who invited them: `referred_by` is cleared,
+        `referred_at` - the marker the discount reads - stays.
         """
         from sqlalchemy import update as _update
 
@@ -410,19 +413,34 @@ class PaymentRepository:
         return list(result.scalars().all())
 
 
+# Statuses of a subscription row that grant access while unexpired, and the
+# one that grants it only until `expires_at`: renewal switched off, the
+# period paid for still running.
+GRANTING_STATUSES = ("active", "trialing")
+CANCELED = "canceled"
+
+
 class SubscriptionRepository:
     """Repository for Subscription operations."""
 
     @staticmethod
     async def get_by_user_and_subscription_id(
-        session: AsyncSession, user_id: int, subscription_id: int
+        session: AsyncSession, user_id: int, subscription_id: int, for_update: bool = False
     ) -> Subscription | None:
-        """Get subscription by user and subscription ID."""
-        result = await session.execute(
+        """Get subscription by user and subscription ID.
+
+        `for_update` locks the row: a webhook reads its `last_event_at` to
+        decide whether the event is newer, then writes it, and two
+        deliveries for one purchase can arrive together.
+        """
+        stmt = (
             select(Subscription)
             .where(Subscription.user_id == user_id)
             .where(Subscription.subscription_id == subscription_id)
         )
+        if for_update:
+            stmt = stmt.with_for_update()
+        result = await session.execute(stmt)
         return result.scalar_one_or_none()
 
     @staticmethod
@@ -432,10 +450,10 @@ class SubscriptionRepository:
         subscription_id: int,
         period: str,
         status: str,
-        expires_at: datetime,
+        expires_at: datetime | None,
         last_event_at: datetime | None = None,
     ) -> Subscription:
-        """Create or update subscription."""
+        """Create or update subscription. No expiry is a lifetime purchase."""
         subscription = await SubscriptionRepository.get_by_user_and_subscription_id(
             session, user_id, subscription_id
         )
@@ -471,36 +489,32 @@ class SubscriptionRepository:
         return subscription
 
     @staticmethod
-    async def revoke_for_user(
+    async def revoke_all_for_user(
         session: AsyncSession,
         user_id: int,
-        subscription_id: int | None = None,
-        status: str = "canceled",
+        status: str = "refunded",
         when: datetime | None = None,
     ) -> int:
-        """Withdraw a user's access. Returns how many rows changed.
+        """Close every row of this user that still grants access. Returns how many.
 
-        A cancellation or a refund names what it undoes; when a row with
-        that id exists it is the only one touched. When none does - an
-        older row filed under a different key, or a refund that names the
-        product rather than the purchase - every active row of the user is
-        closed, because a refund with no effect is worse than one with too
-        much: the money went back and the deck stayed open.
+        The fallback for a refund that names no row the user has - an older
+        row filed under a different key, or a refund that names the product
+        rather than the purchase: a refund with no effect is worse than one
+        with too much, since the money went back and the deck stayed open. A
+        cancelled subscription still inside its paid period is one of these
+        rows. `last_event_at` only ever moves forward here.
         """
         result = await session.execute(
             select(Subscription)
             .where(Subscription.user_id == user_id)
-            .where(Subscription.status.in_(["active", "trialing"]))
+            .where(Subscription.status.in_([*GRANTING_STATUSES, CANCELED]))
+            .with_for_update()
         )
         rows = list(result.scalars().all())
-        if subscription_id is not None:
-            named = [row for row in rows if row.subscription_id == subscription_id]
-            if named:
-                rows = named
         stamp = when or datetime.utcnow()
         for row in rows:
             row.status = status
-            row.last_event_at = stamp
+            row.last_event_at = max(row.last_event_at, stamp)
         await session.flush()
         if rows:
             logger.info(f"Revoked {len(rows)} subscription row(s) for user {user_id}")
@@ -510,15 +524,27 @@ class SubscriptionRepository:
     async def get_active_subscriptions_for_user(
         session: AsyncSession, user_id: int
     ) -> list[Subscription]:
-        """Get active subscriptions for user (including lifetime subscriptions)."""
+        """The rows that grant this user access now.
+
+        An active row until it expires (a lifetime purchase never does),
+        and a cancelled subscription until the end of the period already
+        paid for: a cancellation switches the renewal off, it does not take
+        back what was bought (backend audit B-09). A cancelled row with no
+        expiry is never access - the code that cancelled rows that way was
+        also recording chargebacks as cancellations.
+        """
         now = datetime.utcnow()
         result = await session.execute(
             select(Subscription)
             .where(Subscription.user_id == user_id)
-            .where(Subscription.status.in_(["active", "trialing"]))
             .where(
-                (Subscription.expires_at.is_(None)) |  # Lifetime subscription
-                (Subscription.expires_at > now)  # Or not expired yet
+                or_(
+                    and_(
+                        Subscription.status.in_(GRANTING_STATUSES),
+                        or_(Subscription.expires_at.is_(None), Subscription.expires_at > now),
+                    ),
+                    and_(Subscription.status == CANCELED, Subscription.expires_at > now),
+                )
             )
         )
         return list(result.scalars().all())
@@ -538,6 +564,16 @@ class WebhookEventRepository:
         return result.scalar_one_or_none()
 
     @staticmethod
+    async def get_by_event_key(
+        session: AsyncSession, event_key: str
+    ) -> WebhookEvent | None:
+        """The delivery on record for this event, whatever its body said."""
+        result = await session.execute(
+            select(WebhookEvent).where(WebhookEvent.event_key == event_key)
+        )
+        return result.scalar_one_or_none()
+
+    @staticmethod
     async def create(
         session: AsyncSession,
         name: str,
@@ -546,12 +582,14 @@ class WebhookEventRepository:
         status_code: int,
         processed_at: datetime | None = None,
         error: str | None = None,
+        event_key: str | None = None,
     ) -> WebhookEvent:
         """Create webhook event record."""
         webhook_event = WebhookEvent(
             name=name,
             sent_at=sent_at,
             body_sha256=body_sha256,
+            event_key=event_key,
             status_code=status_code,
             processed_at=processed_at,
             error=error,
@@ -589,12 +627,24 @@ class CertificateRepository:
         return result.scalar_one_or_none()
 
     @staticmethod
+    async def get_by_purchase(
+        session: AsyncSession, purchase_id: str, for_update: bool = False
+    ) -> Certificate | None:
+        """The certificate a Tribute purchase paid for, if one was issued."""
+        stmt = select(Certificate).where(Certificate.purchase_id == purchase_id)
+        if for_update:
+            stmt = stmt.with_for_update()
+        result = await session.execute(stmt)
+        return result.scalar_one_or_none()
+
+    @staticmethod
     async def create(
         session: AsyncSession,
         code: str,
+        purchase_id: str | None = None,
     ) -> Certificate:
-        """Create a new certificate."""
-        certificate = Certificate(code=code)
+        """Create a new certificate, for the purchase that paid for it if any."""
+        certificate = Certificate(code=code, purchase_id=purchase_id)
         session.add(certificate)
         await session.flush()
         # The id, never the code: a code in the log is lifetime access to
@@ -619,6 +669,8 @@ class CertificateRepository:
             update(Certificate)
             .where(Certificate.code == code)
             .where(Certificate.is_used == False)  # noqa: E712
+            # A refund landing between the caller's check and this UPDATE.
+            .where(Certificate.revoked_at.is_(None))
             .values(
                 is_used=True,
                 used_by_telegram_user_id=telegram_user_id,

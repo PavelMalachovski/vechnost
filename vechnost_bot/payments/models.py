@@ -219,9 +219,17 @@ class WebhookEvent(Base):
         default=datetime.utcnow, nullable=False
     )
     body_sha256: Mapped[str] = mapped_column(String, unique=True, nullable=False)
+    # A hash of what makes two deliveries one event: its name and Tribute's
+    # purchase id, or its name, when it happened, the buyer and what was
+    # bought (`TributeEvent.idempotency_key`). Tribute stamps each attempt
+    # with its own `sent_at`, so a redelivery has a body - and a body hash -
+    # of its own. NULL for a delivery with nothing stable to key on.
+    event_key: Mapped[str | None] = mapped_column(String, nullable=True)
     status_code: Mapped[int] = mapped_column(Integer, nullable=False)
     processed_at: Mapped[datetime | None] = mapped_column(nullable=True)
     error: Mapped[str | None] = mapped_column(Text, nullable=True)
+
+    __table_args__ = (Index("uq_webhook_events_event_key", "event_key", unique=True),)
 
     def __repr__(self) -> str:
         return f"<WebhookEvent(id={self.id}, name='{self.name}', status_code={self.status_code})>"
@@ -242,19 +250,31 @@ class Certificate(Base):
     created_at: Mapped[datetime] = mapped_column(
         default=datetime.utcnow, nullable=False
     )  # When certificate was created
+    # The Tribute purchase that paid for this certificate: a gift's
+    # `purchase_id`, which a refund of it carries as well. At most one
+    # certificate per purchase. NULL for a printed voucher, and for a gift
+    # delivered without an id. It names a purchase, not a person.
+    purchase_id: Mapped[str | None] = mapped_column(String, nullable=True)
+    # Set when that purchase was refunded or charged back. A revoked
+    # certificate cannot be redeemed and no longer grants access to whoever
+    # redeemed it already.
+    revoked_at: Mapped[datetime | None] = mapped_column(nullable=True)
 
     # Note: Relationship to User would require a proper foreign key
     # For now, we use telegram_user_id directly without relationship
 
-    __table_args__ = (Index("idx_certificate_used_by", "used_by_telegram_user_id"),)
+    __table_args__ = (
+        Index("idx_certificate_used_by", "used_by_telegram_user_id"),
+        Index("uq_certificates_purchase_id", "purchase_id", unique=True),
+    )
 
     @property
     def is_valid(self) -> bool:
-        """Check if certificate is valid (not used)."""
-        return not self.is_used
+        """Whether the certificate can still be redeemed."""
+        return not self.is_used and self.revoked_at is None
 
     def __repr__(self) -> str:
-        status = "used" if self.is_used else "available"
+        status = "revoked" if self.revoked_at else "used" if self.is_used else "available"
         return f"<Certificate(id={self.id}, code='{self.code}', status='{status}')>"
 
 

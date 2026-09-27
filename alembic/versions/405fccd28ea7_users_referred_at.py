@@ -10,7 +10,7 @@ Also applied at startup by `payments/database.py::_ensure_user_columns`,
 because deploys run `create_all` rather than alembic.
 
 Revision ID: 405fccd28ea7
-Revises: b6d0e2f4a8c1
+Revises: d7f2b4c6e8a0
 Create Date: 2026-09-27
 """
 
@@ -19,7 +19,7 @@ import sqlalchemy as sa
 from alembic import op
 
 revision: str = "405fccd28ea7"
-down_revision: str | None = "b6d0e2f4a8c1"
+down_revision: str | None = "d7f2b4c6e8a0"
 branch_labels = None
 depends_on = None
 
