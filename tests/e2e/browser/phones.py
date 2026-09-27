@@ -317,16 +317,21 @@ def open_phone(
     webapp_html: str | None = None,
     trace: bool = True,
     goto: bool = True,
+    reduced_motion: bool = False,
 ) -> Phone:
     """A phone of this model with the Mini App open, signed in as `player`.
 
     `webapp_html` serves that text as the page instead of the server's own:
     how a test shows it would catch a fault, by putting the fault back.
+    `reduced_motion` is the phone's own setting, so the app reads it at
+    launch the way it would on a phone that asks for less motion.
     """
     browser = engines.get(device.engine)
     options = device.context_options(engines.playwright)
     if viewport:
         options["viewport"] = viewport
+    if reduced_motion:
+        options["reduced_motion"] = "reduce"
     context = browser.new_context(**options)
     if trace:
         context.tracing.start(screenshots=True, snapshots=True)

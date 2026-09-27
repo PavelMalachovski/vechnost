@@ -48,8 +48,14 @@ SCREENS_DIR = REPORT_DIR / "screens"
 SHOT_STYLE = "#toast { visibility: hidden !important; }"
 # E2E_VISUAL=1: the pictures are for comparing with another tour's
 # (visual.py), so what is random by design is masked - an invite link
-# carries a fresh code, and a room deals its deck in a random order. Two
-# tours of the same code on one machine are otherwise pixel for pixel alike.
+# carries a fresh code, and a room deals its deck in a random order - and
+# the phones ask for less motion, which the app honours (audit D-13): no
+# floating fan, no confetti, no flight. Motion is random in time. Two tours
+# of master's own code differed on the home screen, the fan caught at two
+# heights although the screenshot disables animations, and the room's end
+# is thrown at the screen as sixty pieces of confetti from random places.
+# At rest, two tours of the same code on one machine are pixel for pixel
+# alike.
 VISUAL = os.environ.get("E2E_VISUAL") == "1"
 VISUAL_MASKS = {
     "room-waiting": ["#inviteCode"],
@@ -176,7 +182,7 @@ class Tour:
     def _phone(self, player: Player) -> Phone:
         phone = open_phone(
             self.engines, self.base_url, player, shots=self.out / "steps",
-            device=self.device, trace=False,
+            device=self.device, trace=False, reduced_motion=VISUAL,
         )
         self.phones.append(phone)
         wait_home(phone)
