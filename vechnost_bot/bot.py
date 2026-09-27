@@ -1,7 +1,7 @@
 """Main bot application setup."""
 
 import logging
-from datetime import UTC
+from datetime import time, timedelta
 
 from telegram.error import Conflict, NetworkError, TimedOut
 from telegram.ext import (
@@ -32,6 +32,7 @@ from .handlers import (
     reset_command,
     start_command,
 )
+from .jobs import DailyJob, schedule
 from .monitoring import initialize_monitoring, log_bot_event, track_performance
 from .privacy import CALLBACK_PATTERN as DELETE_ME_PATTERN
 from .privacy import delete_me_callback, delete_me_command
@@ -275,61 +276,45 @@ def create_application() -> Application:
     else:
         logger.info("- Admin broadcast disabled (ADMIN_IDS is unset)")
 
-    # Scheduled jobs. DAILY_CARD_ENABLED governs only the daily card itself:
-    # the retention sweep is the one thing that ever deletes rooms and
-    # abandoned tests, and the «69 ступеней» nudge belongs to that game, so
-    # both run whenever a JobQueue exists at all.
-    if application.job_queue is None:
-        logger.warning(
-            "JobQueue is unavailable — the daily card, the 69 steps nudge "
-            "and the retention sweep are all disabled; install "
-            "python-telegram-bot[job-queue]"
-        )
-    else:
-        from datetime import time
-
+    # Scheduled jobs. The heartbeat is its own every-minute job; the three
+    # daily ones run through `jobs.py`, which claims each day's run in the
+    # database so a restart resumes it and a second bot cannot repeat it.
+    if application.job_queue is not None:
         from .heartbeat import register_heartbeat
 
         register_heartbeat(application)  # the pulse /health/deep reads
-
-        # Deleting rows is not urgent and should not share a minute with
-        # anything that messages a user, so it runs in the small hours.
-        from .retention import retention_job
-
-        application.job_queue.run_daily(
-            retention_job,
-            time=time(hour=3, minute=30, tzinfo=UTC),
-            name="retention_sweep",
-        )
-        logger.info("- Retention sweep scheduled at 03:30 UTC")
-
-        # An hour after the daily card's slot, so a pair who are due both
-        # do not get them in the same second.
-        from .steps69_notify import steps69_nudge_job
-
-        application.job_queue.run_daily(
-            steps69_nudge_job,
-            time=time(
-                hour=(settings.daily_card_hour_utc + 1) % 24, tzinfo=UTC
-            ),
-            name="steps69_nudge",
-        )
-        logger.info(
-            f"- 69 steps nudge scheduled at "
-            f"{(settings.daily_card_hour_utc + 1) % 24}:00 UTC"
-        )
-
-        if settings.daily_card_enabled:
-            from .daily_card import daily_card_job
-
-            application.job_queue.run_daily(
-                daily_card_job,
-                time=time(hour=settings.daily_card_hour_utc, tzinfo=UTC),
-                name="daily_card",
-            )
-            logger.info(f"- Daily card scheduled at {settings.daily_card_hour_utc}:00 UTC")
+    schedule(application, daily_jobs())
 
     return application
+
+
+def daily_jobs() -> list[DailyJob]:
+    """What runs once a day, and when (UTC).
+
+    DAILY_CARD_ENABLED governs only the daily card itself: the retention
+    sweep is the one thing that ever deletes rooms and abandoned tests, and
+    the «69 ступеней» nudge belongs to that game, so both run regardless.
+    Each window is how late a missed or interrupted run may still go out.
+    """
+    from .daily_card import JOB_NAME as DAILY_CARD
+    from .daily_card import run_daily_card
+    from .retention import JOB_NAME as RETENTION
+    from .retention import run_retention
+    from .steps69_notify import JOB_NAME as NUDGE
+    from .steps69_notify import run_steps69_nudge
+
+    hour = settings.daily_card_hour_utc
+    jobs = [
+        # Deleting rows is not urgent and should not share a minute with
+        # anything that messages a user, so it runs in the small hours.
+        DailyJob(RETENTION, time(3, 30), timedelta(hours=12), run_retention),
+        # An hour after the daily card's slot, so a pair who are due both
+        # do not get them in the same second.
+        DailyJob(NUDGE, time((hour + 1) % 24), timedelta(hours=3), run_steps69_nudge),
+    ]
+    if settings.daily_card_enabled:
+        jobs.append(DailyJob(DAILY_CARD, time(hour), timedelta(hours=3), run_daily_card))
+    return jobs
 
 
 @track_performance("bot_startup")

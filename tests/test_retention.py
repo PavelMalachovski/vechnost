@@ -138,7 +138,9 @@ async def test_a_sweep_with_nothing_to_do_deletes_nothing(db):
     await _compat("LIVECMP1", timedelta(minutes=1))
     await _game("LIVEGAM1", timedelta(minutes=1))
     await _event(timedelta(days=30))
-    assert await sweep() == {"events": 0, "rooms": 0, "compat_tests": 0, "games": 0}
+    assert await sweep() == {
+        "events": 0, "rooms": 0, "compat_tests": 0, "games": 0, "job_runs": 0,
+    }
 
 
 async def test_one_sweep_clears_all_four_kinds(db):
@@ -150,7 +152,9 @@ async def test_one_sweep_clears_all_four_kinds(db):
     await _game("OLDGAME1", ABANDONED_KEEP * 2)
     await _event(KEEP + timedelta(days=1))
     await _event(KEEP - timedelta(days=1))
-    assert await sweep() == {"events": 1, "rooms": 1, "compat_tests": 1, "games": 1}
+    assert await sweep() == {
+        "events": 1, "rooms": 1, "compat_tests": 1, "games": 1, "job_runs": 0,
+    }
 
 
 async def test_the_room_window_is_wider_than_the_ttl(db):

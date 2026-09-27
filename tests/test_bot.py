@@ -42,18 +42,42 @@ class TestBotSetup:
         thing that ever deletes rooms and abandoned tests — and the stalled
         game nudge along with it.
         """
+        from vechnost_bot.bot import daily_jobs
+
         with patch.object(settings, "daily_card_enabled", False):
-            app = create_application()
-        names = {job.name for job in app.job_queue.jobs()}
-        assert "retention_sweep" in names
-        assert "steps69_nudge" in names
-        assert "daily_card" not in names
+            names = {job.name for job in daily_jobs()}
+        assert names == {"retention_sweep", "steps69_nudge"}
 
     def test_the_daily_card_is_scheduled_when_enabled(self):
+        from vechnost_bot.bot import daily_jobs
+
         with patch.object(settings, "daily_card_enabled", True):
-            app = create_application()
+            names = {job.name for job in daily_jobs()}
+        assert names == {"daily_card", "steps69_nudge", "retention_sweep"}
+
+    def test_the_daily_jobs_ride_one_tick_beside_the_heartbeat(self):
+        """The three daily jobs are not JobQueue jobs any more: one tick a
+        minute starts whichever is due, so a restart across a slot or in the
+        middle of a run is caught up (see tests/test_jobs.py)."""
+        app = create_application()
         names = {job.name for job in app.job_queue.jobs()}
-        assert {"daily_card", "steps69_nudge", "retention_sweep"} <= names
+        assert names == {"heartbeat", "scheduled_jobs"}
+
+    def test_the_slots_are_the_ones_the_settings_name(self):
+        from datetime import time
+
+        from vechnost_bot.bot import daily_jobs
+
+        with (
+            patch.object(settings, "daily_card_enabled", True),
+            patch.object(settings, "daily_card_hour_utc", 23),
+        ):
+            slots = {job.name: job.at for job in daily_jobs()}
+        assert slots == {
+            "daily_card": time(23),
+            "steps69_nudge": time(0),  # an hour after the card, across midnight
+            "retention_sweep": time(3, 30),
+        }
 
     def test_a_missing_token_is_refused_at_import_not_at_call(self):
         """There is no token check inside create_application, by design.
@@ -135,3 +159,4 @@ class TestConfig:
         """Test settings validation."""
         with pytest.raises(ValueError):
             Settings()
+
