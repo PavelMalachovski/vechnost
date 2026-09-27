@@ -34,6 +34,27 @@ WITH_A_GIFT = """(() => {
 })();""".replace("__GIFT__", json.dumps({"gift_url": GIFT, "gift_price": PRICE}))
 
 
+# The space above the home column's first child and below its last, inside
+# the padding: equal while #home centres a column that fits.
+GAPS = """() => {
+  const home = document.getElementById('home');
+  const box = home.getBoundingClientRect(), cs = getComputedStyle(home);
+  const kids = [...home.children].filter(el => el.getClientRects().length);
+  return [
+    kids[0].getBoundingClientRect().top - box.top - parseFloat(cs.paddingTop),
+    box.bottom - parseFloat(cs.paddingBottom) - kids[kids.length - 1].getBoundingClientRect().bottom,
+  ];
+}"""
+
+
+def assert_centred(phone) -> None:
+    """A hidden gift button at the end of #home once took the centring with
+    it, and the whole home screen sank to the bottom of a tall phone."""
+    phone.page.set_viewport_size({"width": 430, "height": 932})
+    top, bottom = phone.page.evaluate(GAPS)
+    assert top > 0 and abs(top - bottom) <= 2, (top, bottom)
+
+
 def calls(phone) -> list[list[str]]:
     return phone.page.evaluate("() => window.__tg.calls")
 
@@ -62,6 +83,8 @@ def test_a_buyer_the_bot_can_write_to_goes_straight_to_the_page(server: Server, 
     alice = server.player("Alice", paid=True)  # allows_write_to_pm: true
     phone = phones(alice, init_script=WITH_A_GIFT)
     phone.screen("home")
+    phone.page.wait_for_selector("#btnGift")
+    assert_centred(phone)
     phone.page.click("#btnGift")
     phone.page.wait_for_selector("#giftSheet.show")
     assert not phone.page.is_visible("#giftNote")
@@ -90,5 +113,6 @@ def test_the_paywall_sells_a_gift_too(server: Server, phones) -> None:
 def test_no_gift_on_offer_no_gift_button(server: Server, phones) -> None:
     phone = phones(server.player("Dan"))
     phone.screen("home")
-    phone.page.wait_for_timeout(500)
-    assert not phone.page.is_visible("#btnGift")
+    phone.page.wait_for_selector("#homeModules .home-mod")
+    assert phone.page.locator("#btnGift").count() == 0
+    assert_centred(phone)

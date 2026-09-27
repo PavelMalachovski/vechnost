@@ -1131,8 +1131,10 @@
          /api/library answers, so a module added on the server still lands
          in the right place without another button written by hand. -->
     <div id="homeModules"></div>
-    <!-- Shown once /api/questions names a gift link (setAccess). -->
-    <button class="btn btn-ghost" id="btnGift" data-i18n="giftBtn" style="display:none"></button>
+    <!-- The gift button follows here while a gift is on offer, added and
+         removed by setAccess rather than kept hidden: the column is centred
+         by margin-bottom:auto on its :last-child, and a hidden last child
+         took the centring with it. -->
   </section>
 
   <!-- COOP entry -->
@@ -1871,11 +1873,24 @@
   /* ---------------- data ---------------- */
   let ACCESS = { paid: true };
   // The one place the access payload lands, so what depends on it - the
-  // gift button, for one - follows every refresh.
+  // gift button, for one - follows every refresh. The button exists only
+  // while a gift is on offer: #home centres its column with
+  // margin-bottom:auto on :last-child, which counts a hidden element too,
+  // and a hidden button there sank the home screen to the bottom of every
+  // tall phone (the visual check, 393x852 and 430x932).
   function setAccess(access) {
     ACCESS = access;
-    const gift = $('btnGift');
-    if (gift) gift.style.display = ACCESS.gift_url ? '' : 'none';
+    let gift = $('btnGift');
+    if (ACCESS.gift_url && !gift) {
+      gift = document.createElement('button');
+      gift.className = 'btn btn-ghost';
+      gift.id = 'btnGift';
+      gift.textContent = T().giftBtn;
+      gift.onclick = () => showGift('home');
+      $('home').appendChild(gift);
+    } else if (!ACCESS.gift_url && gift) {
+      gift.remove();
+    }
   }
   let BOT_URL = null;
 
@@ -2791,7 +2806,6 @@
     $('giftNote').style.display = writeAccessMissing() ? '' : 'none';
     $('giftSheet').classList.add('show');
   }
-  $('btnGift').onclick = () => showGift('home');
   $('giftClose').onclick = () => $('giftSheet').classList.remove('show');
   $('giftBuy').onclick = () => {
     const url = ACCESS.gift_url;

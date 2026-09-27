@@ -6,6 +6,7 @@ every card in the Mini App silently loses its art and keeps its text.
 """
 
 import re
+from html.parser import HTMLParser
 from pathlib import Path
 
 import pytest
@@ -695,6 +696,51 @@ def test_a_scroll_asked_for_by_script_asks_about_motion_too():
     for value in values:
         if "smooth" in value:
             assert "REDUCED_MOTION" in value, value
+
+
+class _LastChild(HTMLParser):
+    """The last element child of the element with this id, as (tag, attrs)."""
+
+    VOID = {"area", "base", "br", "col", "embed", "hr", "img", "input", "link",
+            "meta", "source", "track", "wbr"}
+
+    def __init__(self, container: str) -> None:
+        super().__init__()
+        self.container = container
+        self.depth = 0  # 0 outside the container, 1 among its children
+        self.last: tuple[str, dict[str, str | None]] | None = None
+
+    def handle_starttag(self, tag: str, attrs: list[tuple[str, str | None]]) -> None:
+        if self.depth == 0:
+            if dict(attrs).get("id") == self.container:
+                self.depth = 1
+            return
+        if self.depth == 1:
+            self.last = (tag, dict(attrs))
+        if tag not in self.VOID:
+            self.depth += 1
+
+    def handle_endtag(self, tag: str) -> None:
+        if self.depth and tag not in self.VOID:
+            self.depth -= 1
+
+
+def test_a_centred_column_ends_on_something_visible():
+    """#home, #themeList and #levelList centre their column with
+    margin-bottom:auto on :last-child, and :last-child counts a hidden
+    element too. The gift button, kept at the end of #home with
+    display:none, took the centring with it: the home screen sank to the
+    bottom of every tall phone. What may be hidden is added and removed."""
+    html = INDEX.read_text(encoding="utf-8")
+    assert "#home > :last-child" in html
+    for container in ("home", "themeList", "levelList"):
+        parser = _LastChild(container)
+        parser.feed(html)
+        if parser.last is None:
+            continue  # filled from script
+        tag, attrs = parser.last
+        style = (attrs.get("style") or "").replace(" ", "")
+        assert "display:none" not in style and "hidden" not in attrs, (container, tag, attrs)
 
 
 def test_the_launch_preload_is_quiet():
