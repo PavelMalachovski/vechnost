@@ -5,7 +5,14 @@ from unittest.mock import patch
 
 import pytest
 
-from vechnost_bot.config import Settings, create_bot, get_chat_id, get_log_level
+from vechnost_bot.config import (
+    ProductionConfigError,
+    Settings,
+    create_bot,
+    get_chat_id,
+    get_log_level,
+    production_problems,
+)
 
 
 class TestSettings:
@@ -32,6 +39,9 @@ class TestSettings:
             "TELEGRAM_BOT_TOKEN": "prod_token",
             "LOG_LEVEL": "DEBUG",
             "ENVIRONMENT": "production",
+            # What production has to say for itself; see TestProductionSettings.
+            "DATABASE_URL": "postgresql+asyncpg://vechnost@db.internal:5432/vechnost",
+            "ENABLE_PAYMENT": "false",
             "REDIS_URL": "redis://prod-redis:6379",
             "REDIS_DB": "1",
             "CHAT_ID": "12345",
@@ -119,6 +129,107 @@ class TestConfigFunctions:
         chat_id = get_chat_id()
 
         assert chat_id is None
+
+
+class TestProductionSettings:
+    """ENVIRONMENT=production refuses to start on development defaults.
+
+    Every default in Settings suits a laptop and fails open in production:
+    no ENABLE_PAYMENT is a free paywall, no DATABASE_URL a SQLite file inside
+    the container. Each of these starts and serves without complaint, which
+    is the problem; production must say what it means or not start at all.
+    """
+
+    # A complete production configuration. The password is made up, and
+    # "example" keeps tests/test_no_secrets.py from reading it as a leak.
+    GOOD = {
+        "TELEGRAM_BOT_TOKEN": "123:example-token-secret",
+        "ENVIRONMENT": "production",
+        "DATABASE_URL": "postgresql+asyncpg://vechnost:example-pw-hunter2@db.internal:5432/vechnost",
+        "ENABLE_PAYMENT": "true",
+        "TRIBUTE_API_KEY": "example-tribute-key",
+        "WEBAPP_URL": "https://vechnost.example/app/",
+    }
+
+    def _settings(self, **overrides):
+        env = {**self.GOOD, **overrides}
+        env = {name: value for name, value in env.items() if value is not None}
+        with patch.dict(os.environ, env, clear=True):
+            return Settings(_env_file=None)
+
+    def _refusal(self, **overrides) -> str:
+        with pytest.raises(ProductionConfigError) as refused:
+            self._settings(**overrides)
+        return str(refused.value)
+
+    def test_a_complete_production_configuration_starts(self):
+        settings = self._settings()
+        assert settings.is_production
+        assert settings.enable_payment is True
+
+    def test_payments_may_be_off_if_that_is_said_out_loud(self):
+        settings = self._settings(ENABLE_PAYMENT="false", TRIBUTE_API_KEY=None)
+        assert settings.enable_payment is False
+
+    def test_development_defaults_are_refused_all_at_once(self):
+        """Every missing variable in one message, not one per deploy."""
+        message = self._refusal(DATABASE_URL=None, ENABLE_PAYMENT=None)
+        assert "DATABASE_URL is not set" in message
+        assert "ENABLE_PAYMENT is not set" in message
+
+    def test_the_sync_driver_is_refused(self):
+        """Railway's own variable is postgresql://, which the async engine cannot use."""
+        message = self._refusal(DATABASE_URL="postgresql://u:p@db.internal:5432/x")
+        assert "postgresql+asyncpg" in message
+        assert "not postgresql" in message
+
+    def test_sqlite_is_refused_even_when_set_explicitly(self):
+        message = self._refusal(DATABASE_URL="sqlite+aiosqlite:///./vechnost.db")
+        assert "DATABASE_URL must be PostgreSQL" in message
+
+    def test_a_paywall_without_the_tribute_key_is_refused(self):
+        message = self._refusal(TRIBUTE_API_KEY=None)
+        assert "TRIBUTE_API_KEY" in message
+
+    @pytest.mark.parametrize("url", ["http://vechnost.example/app/", "vechnost.example/app", "https://"])
+    def test_a_mini_app_url_that_is_not_https_is_refused(self, url):
+        assert "WEBAPP_URL must be an https:// address" in self._refusal(WEBAPP_URL=url)
+
+    def test_no_mini_app_at_all_is_allowed(self):
+        assert self._settings(WEBAPP_URL=None).webapp_url is None
+
+    def test_the_refusal_never_repeats_a_secret(self):
+        """A failed start is printed to the deploy log, so it must not echo values.
+
+        A ValueError from a pydantic validator would: its ValidationError
+        repeats the whole input, bot token and database password included.
+        """
+        message = self._refusal(
+            ENABLE_PAYMENT=None, DATABASE_URL="postgresql://u:example-pw-hunter2@db/x"
+        )
+        assert "hunter2" not in message
+        assert "example-token-secret" not in message
+        assert "example-tribute-key" not in message
+
+    def test_the_environment_name_is_read_loosely(self):
+        with pytest.raises(ProductionConfigError):
+            self._settings(ENVIRONMENT=" Production ", ENABLE_PAYMENT=None)
+
+    def test_development_keeps_every_default(self):
+        """Nothing changes for a laptop or for the test suite."""
+        with patch.dict(os.environ, {"TELEGRAM_BOT_TOKEN": "t"}, clear=True):
+            settings = Settings(_env_file=None)
+        assert not settings.is_production
+        assert settings.database_url.startswith("sqlite")
+        assert settings.enable_payment is False
+
+    def test_the_problems_are_listed_without_raising(self):
+        """`production_problems` is the list the validator reads, usable on its own."""
+        with patch.dict(os.environ, {"TELEGRAM_BOT_TOKEN": "t"}, clear=True):
+            settings = Settings(_env_file=None)
+        problems = production_problems(settings)
+        assert any("DATABASE_URL" in p for p in problems)
+        assert any("ENABLE_PAYMENT" in p for p in problems)
 
 
 class TestSettingsIntegration:

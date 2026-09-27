@@ -147,6 +147,7 @@ All settings are read from environment variables (or `.env`). See
 | Variable | Purpose |
 |----------|---------|
 | `TELEGRAM_BOT_TOKEN` | Bot token from @BotFather (**required**) |
+| `ENVIRONMENT` | `production` on the production service: it then refuses to start on a development default (SQLite, an unset `ENABLE_PAYMENT`, no Tribute key with payments on, a Mini App URL that is not `https://`) and lists what to set. Default `development` |
 | `BOT_USERNAME` | Bot handle without `@`, used in card watermark & share links |
 | `WEBAPP_URL` | HTTPS URL of the Mini App (`…/app/`); enables the "Play in app" button |
 | `WEBAPP_MAIN_APP` | `true` when the bot has a **Main** Mini App (BotFather → Bot Settings → Configure Mini App). Invites become one-tap links: `t.me/<bot>?startapp=…` |

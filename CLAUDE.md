@@ -559,6 +559,14 @@ python scripts/smoke_production.py $URL  # read-only smoke of a deployed server
 - `ENABLE_PAYMENT=false` unlocks everything and skips initData checks — great
   for local dev, but means auth/paywall paths aren't exercised unless you
   flip it on.
+- **`ENVIRONMENT=production` refuses development defaults.**
+  `config.production_problems` lists what a production start needs – a
+  `postgresql+asyncpg` `DATABASE_URL`, an explicit `ENABLE_PAYMENT`,
+  `TRIBUTE_API_KEY` when payments are on, an `https://` `WEBAPP_URL` – and
+  `Settings` raises `ProductionConfigError` naming every one. Not a
+  `ValueError`: pydantic would repeat every setting, the token and the
+  database password included, into the crash log. Development and the test
+  suite are unaffected; the production service has to set the variable.
 - There is a large legacy `docs/` folder with historical setup notes; the
   root `README.md` is the current source of truth.
 

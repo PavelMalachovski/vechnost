@@ -38,9 +38,10 @@ needs:
 
 | Variable | What it is |
 |---|---|
+| `ENVIRONMENT` | `production`. With it the service refuses to start on a development default and says which variables to fix: a PostgreSQL `DATABASE_URL` with `+asyncpg`, an explicit `ENABLE_PAYMENT`, `TRIBUTE_API_KEY` when payments are on, an `https://` `WEBAPP_URL` when one is set. It also names the environment in Sentry. Unset, it is `development`, which checks nothing. |
 | `TELEGRAM_BOT_TOKEN` | The bot's token from @BotFather. Required. |
-| `DATABASE_URL` | PostgreSQL with the async driver: `postgresql+asyncpg://…`. Railway's own variable is spelled `postgresql://`; add `+asyncpg`. Without this variable the app falls back to a SQLite file inside the container, which is lost on every deploy. |
-| `ENABLE_PAYMENT` | `true` to enforce the paywall. |
+| `DATABASE_URL` | PostgreSQL with the async driver: `postgresql+asyncpg://…`. Railway's own variable is spelled `postgresql://`; add `+asyncpg`. Without this variable the app falls back to a SQLite file inside the container, which is lost on every deploy; with `ENVIRONMENT=production` it refuses to start instead. |
+| `ENABLE_PAYMENT` | `true` to enforce the paywall. Unset means `false`, everything free, so production has to say which. |
 | `TRIBUTE_API_KEY` | Signs Tribute's webhooks; required when payments are on. |
 | `TRIBUTE_PAYMENT_URL` | The payment page the paywall opens. |
 | `ADMIN_TOKEN` | Bearer token for `/admin/*`. |
@@ -83,6 +84,8 @@ break something.
   the locks as above.
 - **The healthcheck never passes.** The deploy log shows why the web
   process did not start; the previous deploy keeps serving meanwhile.
+  `ENVIRONMENT=production, but the configuration is not one to start with`
+  is followed by the list of variables to set.
   `Database ready, but these startup steps failed` names a startup step
   that needs attention.
 - **The bot is silent but the Mini App works.** The service stops when
