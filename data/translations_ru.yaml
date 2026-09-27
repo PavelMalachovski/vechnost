@@ -184,7 +184,10 @@ about:
   # Приватность закрывает список: это обещание, а не возможность, и читается
   # оно последним.
   feature_privacy: "🔒 Приватность"
-  feature_privacy_desc: "Все данные хранятся только в вашем сеансе"
+  # Honest, not reassuring: the server does keep tests, boards and rooms.
+  # What is true is that a partner never sees the other's answers, and
+  # that /delete_me erases everything.
+  feature_privacy_desc: "Партнёр видит только общий результат теста, а не ваши ответы. Удалить всё о себе можно командой /delete_me"
 
   how_it_works: "🎮 Как это работает:"
   step1: "1️⃣ Выберите раздел"

@@ -47,6 +47,27 @@ SLASHED = re.compile(
 )
 
 
+# The same verb before its pronoun, which is how a question is usually
+# asked: «Испытывал ли ты…», «Мастурбировала ли ты…». The pattern above only
+# looked the other way round, and both of these shipped.
+INVERTED_PAST = re.compile(
+    r"(?<![А-Яа-яЁё])[А-Яа-яЁё]+(?:л|ла|лся|лась)\s+ли\s+(?:ты|я)(?![А-Яа-яЁё])",
+    re.IGNORECASE,
+)
+
+# A whole word in brackets after its twin, «лишним(лишней)», which the
+# suffix list in BRACKETED does not cover.
+BRACKETED_WORD = re.compile(r"[А-Яа-яЁё]{3,}\([А-Яа-яЁё]{3,}\)")
+
+# Past tenses that do not end in -л, so PERSONAL_PAST cannot see their
+# masculine form: «ты ошибся», «я смог», «ты пришёл».
+IRREGULAR_PAST = re.compile(
+    r"(?<![А-Яа-яЁё])(?:ты|я)\s+(?:не\s+)?(?:ошибся|смог|мог|помог|пришёл|пришел|ушёл|ушел|"
+    r"нашёл|нашел|вошёл|вошел|привык|лёг|лег|вырос|испёкся)(?![А-Яа-яЁё])",
+    re.IGNORECASE,
+)
+
+
 def _lines(path):
     """Content lines, minus the YAML comments, with 1-based numbers."""
     for number, line in enumerate(path.read_text(encoding="utf-8").splitlines(), 1):
@@ -61,7 +82,8 @@ def test_content_never_picks_a_gender_for_the_reader(path):
         f"{path.name}:{number}: {line.strip()[:120]}"
         for number, line in _lines(path)
         if (BRACKETED.search(line) or PERSONAL_PAST.search(line)
-            or SLASHED.search(line))
+            or SLASHED.search(line) or INVERTED_PAST.search(line)
+            or BRACKETED_WORD.search(line) or IRREGULAR_PAST.search(line))
     ]
     assert not offenders, "gendered form in user-facing text:\n" + "\n".join(offenders)
 
