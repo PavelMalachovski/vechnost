@@ -64,44 +64,37 @@ def get_calendar_keyboard(
     start_idx = page * items_per_page
     end_idx = min(start_idx + items_per_page, len(items))
 
-    # Create calendar grid (7x4 = 28 items)
-    for row in range(4):
-        keyboard_row = []
-        for col in range(7):
-            item_idx = start_idx + row * 7 + col
-            if item_idx < end_idx:
-                day_num = item_idx + 1
-                # The category rides in the callback: sessions expire, and a
-                # card recovered from a fresh default session used to serve
-                # a question where a task was tapped.
-                keyboard_row.append(InlineKeyboardButton(
-                    str(day_num),
-                    callback_data=f"q:{topic_code}:{level_or_0}:{item_idx}:{category}"
-                ))
-            else:
-                keyboard_row.append(InlineKeyboardButton(" ", callback_data="noop"))
-        keyboard.append(keyboard_row)
+    # The cards on this page, seven to a row. Only the cards: the grid used
+    # to be padded out to 7x4 with blank buttons that did nothing, sixteen of
+    # them on a short last page (audit D-33).
+    for row_start in range(start_idx, end_idx, 7):
+        # The category rides in the callback: sessions expire, and a card
+        # recovered from a fresh default session used to serve a question
+        # where a task was tapped.
+        keyboard.append([
+            InlineKeyboardButton(
+                str(item_idx + 1),
+                callback_data=f"q:{topic_code}:{level_or_0}:{item_idx}:{category}"
+            )
+            for item_idx in range(row_start, min(row_start + 7, end_idx))
+        ])
 
-    # Navigation row
+    # Between pages. Which page this is lives in the message text
+    # (`callback_handlers._calendar_text`), not in a button that does
+    # nothing; and the label already carries its arrow, so none is added.
     nav_row = []
     if page > 0:
         nav_row.append(InlineKeyboardButton(
-            f"← {get_text('navigation.previous', language)}",
+            get_text('navigation.previous', language),
             callback_data=f"cal:{topic_code}:{level_or_0}:{category}:{page-1}"
         ))
-
-    nav_row.append(InlineKeyboardButton(
-        f"{get_text('navigation.page', language).format(current=page+1, total=total_pages)}",
-        callback_data="noop"
-    ))
-
     if page < total_pages - 1:
         nav_row.append(InlineKeyboardButton(
             get_text('navigation.next', language),
             callback_data=f"cal:{topic_code}:{level_or_0}:{category}:{page+1}"
         ))
-
-    keyboard.append(nav_row)
+    if nav_row:
+        keyboard.append(nav_row)
 
     # Toggle row (only for Sex theme)
     if show_toggle:
@@ -152,14 +145,13 @@ def get_question_keyboard(
             callback_data=f"nav:{topic_code}:{level_or_0}:{question_idx+1}:{category}"
         ))
 
-    keyboard.append(nav_row)
+    if nav_row:
+        keyboard.append(nav_row)
 
-    # Question number and back button row
+    # Back to the deck. The card's number used to sit beside it as a button
+    # that did nothing (audit D-33); it is printed on the card itself
+    # («Провокация · 4/30»), and heads the text when the image cannot be.
     keyboard.append([
-        InlineKeyboardButton(
-            f"{get_text('question.header', language).format(current=question_idx+1, total=total_questions)}",
-            callback_data="noop"
-        ),
         InlineKeyboardButton(
             get_text('navigation.back', language),
             callback_data="back:calendar"

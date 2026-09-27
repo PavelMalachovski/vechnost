@@ -1,16 +1,21 @@
 """Tests for the daily self-reflection push."""
 
-import asyncio
 import os
-from datetime import date
+from datetime import UTC, date, datetime
 from pathlib import Path
 from unittest.mock import AsyncMock, MagicMock, patch
 
+import pytest
+
 os.environ.setdefault("TELEGRAM_BOT_TOKEN", "1234567890:TEST_TOKEN_FOR_UNIT_TESTS")
 
+import vechnost_bot.payments.database as database
+from vechnost_bot.config import settings
 from vechnost_bot.daily_card import render_daily_card, send_daily_cards
 from vechnost_bot.i18n import Language
 from vechnost_bot.library import question_of_the_day
+from vechnost_bot.payments.database import get_db
+from vechnost_bot.payments.repositories import UserRepository
 
 
 def test_caption_carries_the_day_number():
@@ -48,67 +53,118 @@ def test_renders_in_russian():
     assert caption.strip()
 
 
-# `send_daily_cards` imports `get_db` and `UserRepository` inside the function,
-# so both are patched where they are defined, not on `daily_card`.
-#
-# These two run the coroutine themselves instead of relying on pytest-asyncio:
-# the repo's session-scoped `event_loop` fixture in tests/conftest.py makes every
-# `async def` test error out with ScopeMismatch, and that fixture is out of scope
-# here. Driving the loop directly keeps the send path genuinely covered.
+# The sends run against a real (throwaway SQLite) database: the recipients
+# are read a page at a time, in id order after the run's cursor, and a mock
+# repository that answers every page with the same list never lets the loop
+# end.
 
 
-def _run_send(bot, recipients, repo_extra=None):
-    """Run send_daily_cards against a mocked DB and repository."""
-    with patch("vechnost_bot.payments.repositories.UserRepository") as repo:
-        repo.get_daily_card_recipients = AsyncMock(return_value=recipients)
-        repo.set_daily_card_opt_out = AsyncMock()
-        if repo_extra is not None:
-            repo_extra.append(repo)
-        with patch("vechnost_bot.payments.database.get_db"):
-            return asyncio.run(send_daily_cards(bot))
+@pytest.fixture
+def db(tmp_path):
+    with (
+        patch.object(settings, "database_url", f"sqlite:///{tmp_path / 'daily.db'}"),
+        patch.object(database, "engine", None),
+        patch.object(database, "async_session_maker", None),
+        patch.object(database, "_tables_created", False),
+        patch("vechnost_bot.broadcast.SECONDS_BETWEEN_SENDS", 0),
+    ):
+        yield
 
 
-def test_a_render_failure_does_not_kill_the_push():
+async def _people(*ids: int, opted_out: bool = False) -> None:
+    async with get_db() as session:
+        for user_id in ids:
+            await UserRepository.create_or_update(session, telegram_user_id=user_id, language="ru")
+    if opted_out:
+        async with get_db() as session:
+            for user_id in ids:
+                await UserRepository.set_daily_card_opt_out(session, user_id, True)
+
+
+def _bot(**send_photo):
+    bot = MagicMock()
+    bot.send_photo = AsyncMock(**send_photo)
+    return bot
+
+
+async def test_a_render_failure_does_not_kill_the_push(db):
     """The render sits inside the per-user loop's own try.
 
     It used to run before it, so a broken font or a bad day index killed the
     whole job before the first send.
     """
-    users = [
-        MagicMock(telegram_user_id=1, language="ru"),
-        MagicMock(telegram_user_id=2, language="ru"),
-    ]
-    bot = MagicMock()
-    bot.send_photo = AsyncMock()
+    await _people(1, 2)
+    bot = _bot()
 
     with patch(
         "vechnost_bot.daily_card.render_daily_card",
         side_effect=RuntimeError("font gone"),
     ):
-        sent = _run_send(bot, users)
+        sent = await send_daily_cards(bot)
 
     assert sent == 0
     bot.send_photo.assert_not_awaited()
 
 
-def test_healthy_recipient_gets_the_card():
-    user = MagicMock(telegram_user_id=42, language="ru")
-    bot = MagicMock()
-    bot.send_photo = AsyncMock()
+async def test_healthy_recipient_gets_the_card(db):
+    await _people(42)
+    bot = _bot()
 
-    sent = _run_send(bot, [user])
+    sent = await send_daily_cards(bot)
 
     assert sent == 1
     bot.send_photo.assert_awaited_once()
     kwargs = bot.send_photo.await_args.kwargs
     assert kwargs["chat_id"] == 42
 
-    image, caption = render_daily_card(date.today(), Language.RUSSIAN)
+    image, caption = render_daily_card(datetime.now(UTC).date(), Language.RUSSIAN)
     assert kwargs["photo"] == image.getvalue()
     assert kwargs["caption"] == caption
 
     labels = [b.callback_data for row in kwargs["reply_markup"].inline_keyboard for b in row]
     assert "daily_off" in labels
+
+
+async def test_everyone_is_reached_across_pages_and_nobody_twice(db):
+    """The list is read a page at a time; the pages must meet exactly."""
+    await _people(*range(1, 12))
+    await _people(12, opted_out=True)
+    bot = _bot()
+
+    with patch("vechnost_bot.daily_card.RECIPIENTS_PER_PAGE", 4):
+        sent = await send_daily_cards(bot)
+
+    assert sent == 11
+    assert [c.kwargs["chat_id"] for c in bot.send_photo.await_args_list] == list(range(1, 12))
+
+
+async def test_a_resumed_run_starts_after_the_last_person_reached(db):
+    """The cursor is the last Telegram id done: a run taken over after a
+    restart carries on from there instead of starting the list again."""
+    from vechnost_bot.jobs import Run
+
+    await _people(10, 20, 30, 40)
+    bot = _bot()
+    run = Run.detached_for("daily_card")
+    run.cursor = 20
+
+    assert await send_daily_cards(bot, run) == 2
+    assert [c.kwargs["chat_id"] for c in bot.send_photo.await_args_list] == [30, 40]
+    assert run.cursor == 40 and run.sent == 2
+
+
+async def test_the_card_of_the_run_s_own_day_is_sent(db):
+    """A run resumed after midnight still sends the day it belongs to."""
+    from vechnost_bot.jobs import Run
+
+    await _people(7)
+    bot = _bot()
+    day = date(2026, 2, 16)
+
+    await send_daily_cards(bot, Run.detached_for("daily_card", day))
+
+    _, caption = render_daily_card(day, Language.RUSSIAN)
+    assert bot.send_photo.await_args.kwargs["caption"] == caption
 
 
 def test_one_door_into_the_app_and_one_way_out():
@@ -142,21 +198,21 @@ def test_one_door_into_the_app_and_one_way_out():
         settings.webapp_url = original
 
 
-def test_blocked_user_is_opted_out():
+async def test_blocked_user_is_opted_out(db):
     from telegram.error import Forbidden
 
-    user = MagicMock(telegram_user_id=42, language="ru")
-    bot = MagicMock()
-    bot.send_photo = AsyncMock(side_effect=Forbidden("blocked"))
-    captured = []
+    await _people(42)
+    bot = _bot(side_effect=Forbidden("blocked"))
 
-    sent = _run_send(bot, [user], repo_extra=captured)
+    sent = await send_daily_cards(bot)
 
     assert sent == 0
-    captured[0].set_daily_card_opt_out.assert_awaited_once()
+    async with get_db() as session:
+        user = await UserRepository.get_by_telegram_id(session, 42)
+        assert user.daily_card_opt_out is True
 
 
-def test_flood_control_is_waited_out_not_dropped():
+async def test_flood_control_is_waited_out_not_dropped(db):
     """The push rides the broadcast loop, so Telegram's retry_after is
     honoured and the recipient gets a second try. The old loop caught
     RetryAfter as a generic failure and moved on, which at a few thousand
@@ -164,30 +220,25 @@ def test_flood_control_is_waited_out_not_dropped():
     silently skipped."""
     from telegram.error import RetryAfter
 
-    user = MagicMock(telegram_user_id=42, language="ru")
-    bot = MagicMock()
-    bot.send_photo = AsyncMock(side_effect=[RetryAfter(1), MagicMock()])
+    await _people(42)
+    bot = _bot(side_effect=[RetryAfter(1), MagicMock()])
 
     with patch("vechnost_bot.broadcast.asyncio.sleep", AsyncMock()):
-        sent = _run_send(bot, [user])
+        sent = await send_daily_cards(bot)
 
     assert sent == 1
     assert bot.send_photo.await_count == 2
 
 
-def test_the_image_is_uploaded_once_and_reused_by_file_id():
+async def test_the_image_is_uploaded_once_and_reused_by_file_id(db):
     """Telegram hands back a file_id on the first upload; the second
     recipient gets that instead of the same hundred kilobytes again."""
-    users = [
-        MagicMock(telegram_user_id=1, language="ru"),
-        MagicMock(telegram_user_id=2, language="ru"),
-    ]
+    await _people(1, 2)
     reply = MagicMock()
     reply.photo = [MagicMock(file_id="AgACAgIAAxkDAAI")]
-    bot = MagicMock()
-    bot.send_photo = AsyncMock(return_value=reply)
+    bot = _bot(return_value=reply)
 
-    sent = _run_send(bot, users)
+    sent = await send_daily_cards(bot)
 
     assert sent == 2
     first, second = bot.send_photo.await_args_list

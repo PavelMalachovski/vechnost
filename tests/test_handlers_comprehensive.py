@@ -238,14 +238,16 @@ class TestStartCommandLogo:
     async def test_the_greeting_is_a_message_of_its_own(
         self, mock_update, mock_context
     ):
-        """Telegram caps a photo caption at 1024 characters.
+        """The logo, then the greeting as a message of its own.
 
-        The greeting is longer than that, so it cannot ride along with the
-        logo as a caption - it has to be its own message.
+        The greeting once ran past Telegram's 1024-character caption limit,
+        which is how the two came apart. It is short now (audit D-34), but
+        it stays a text message: every «Назад» returns to it by editing a
+        text message, which a caption under a photo would not be.
         """
         await start_command(mock_update, mock_context)
 
         mock_update.message.reply_photo.assert_called_once()
         assert "caption" not in mock_update.message.reply_photo.call_args.kwargs
         text = mock_update.message.reply_text.call_args.args[0]
-        assert len(text) > 1024
+        assert text.startswith("<b>💎 VECHNOST</b>")

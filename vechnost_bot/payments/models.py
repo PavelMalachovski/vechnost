@@ -1,12 +1,13 @@
 """Database models for payment system."""
 
 import json
-from datetime import datetime
+from datetime import date, datetime
 from typing import Any, Optional
 
 from sqlalchemy import (
     BigInteger,
     Boolean,
+    Date,
     ForeignKey,
     Index,
     Integer,
@@ -420,6 +421,42 @@ class Heartbeat(Base):
 
     def __repr__(self) -> str:
         return f"<Heartbeat(name='{self.name}', beat_at={self.beat_at})>"
+
+
+class JobRun(Base):
+    """One day's run of a scheduled job: who holds it, and how far it got.
+
+    `jobs.py` claims the row before a job sends or deletes anything - an
+    INSERT, or taking over a row whose `lease_until` has passed - and moves
+    `cursor` forward after every recipient, so a bot that dies mid-list is
+    resumed after the last person it reached and a second bot running at
+    the same time finds the row taken. `cursor` is the last key done (a
+    Telegram id for the daily card, a game id for the nudge) and is cleared
+    when the run finishes. `attempts` counts claims, so a run that keeps
+    failing stops being retried. Nothing here is about a person once the run
+    is over, and the retention sweep drops rows after `jobs.KEEP`.
+    """
+
+    __tablename__ = "job_runs"
+
+    job: Mapped[str] = mapped_column(String(32), primary_key=True)
+    day: Mapped[date] = mapped_column(Date, primary_key=True)
+    owner: Mapped[str] = mapped_column(String(64), nullable=False)
+    # Naive UTC, like every other timestamp in this schema.
+    lease_until: Mapped[datetime] = mapped_column(nullable=False)
+    cursor: Mapped[int | None] = mapped_column(BigInteger, nullable=True)
+    attempts: Mapped[int] = mapped_column(Integer, nullable=False, default=1)
+    sent: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    blocked: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    failed: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    started_at: Mapped[datetime] = mapped_column(nullable=False)
+    finished_at: Mapped[datetime | None] = mapped_column(nullable=True)
+    # The Sentry Crons check-in this run reports under, kept here so a run
+    # taken over after a restart closes the check-in its first owner opened.
+    check_in_id: Mapped[str | None] = mapped_column(String(64), nullable=True)
+
+    def __repr__(self) -> str:
+        return f"<JobRun(job='{self.job}', day={self.day}, finished_at={self.finished_at})>"
 
 
 class AnalyticsEvent(Base):
