@@ -243,6 +243,14 @@ async def apply_webhook_event(
                 "action": "ignore" if outcome.stale else action,
                 "note": outcome.note,
                 "payment_id": payment_id,
+                # Who, and what kind of grant: the endpoint tells a buyer
+                # their own access is open - not for a present (a gift is not
+                # that), not for a renewal (nothing new opened), and in words
+                # that say "for good" only when it is.
+                "telegram_user_id": telegram_user_id,
+                "gift": action == "grant" and is_gift_purchase(event.product_id),
+                "renewal": event.name.lower() == "renewed_subscription",
+                "lifetime": event.expires_at is None,
             }
 
     except IntegrityError as e:

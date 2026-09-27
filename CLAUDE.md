@@ -174,6 +174,21 @@ python scripts/smoke_production.py $URL --deep  # ...and its database and bot he
   Mini App's button and price, and the bot's purchase button); without it,
   the cheapest synced product that is neither the gift nor the referral
   discount (`services.access_product`).
+- **The paywall is one overlay, and access follows the payment.**
+  `showPaywall(ctx)` in `webapp/index.html` serves every door - the end of
+  the free cards, a room's last free card, the compatibility test, «69
+  ступеней», the Library and the masterclass - with a lead line per door
+  and one list of what a payment opens (`payItems`, `payPromise`), the same
+  lines the bot's `payment.unlock_message` sends: `tests/test_paywall_copy.py`
+  compares the two, so change both. Access is not read only at launch any
+  more: after «Открыть всё» the app asks again (`refreshAccess`) when it
+  comes back into view, a few times while the webhook may still be on its
+  way, and on «Уже оплатили? Обновить доступ»; once paid it carries on
+  from where the paywall stopped it, and a deck saved on the free preview
+  grows to the whole deck instead of starting over (`growOrder`). The bot
+  tells a buyer «всё открыто» itself: `payments/grant_notify.py`, sent by
+  the webhook after Tribute has its answer, never for a gift, a renewal, a
+  duplicate or a refund, and «навсегда» only for a purchase that is.
 - **Mini App auth.** `/api/*` endpoints authenticate the caller with
   Telegram `initData` via `payments/webapp_auth.py::validate_init_data`
   (`Authorization: tma <initData>`). The server never ships paid content to
@@ -210,6 +225,18 @@ python scripts/smoke_production.py $URL --deep  # ...and its database and bot he
   database. `payments/library_api.py` was
   deliberately modelled on this pattern — extend it for the next two-partner
   feature rather than inventing a second one.
+- **A free room opens for both the moment either partner pays.** A room
+  whose creator had no access holds the five free cards (`trimmed` in its
+  state, beside `full_total`). The first poll, join or tap that finds a
+  participant with access - creator or guest, bought before joining or in
+  the middle of the game - deals the rest of the deck in under the row lock
+  (`rooms._deal_the_rest`): the cards already dealt keep their places, the
+  rest follow shuffled, and a room that finished on its last free card
+  carries on from the next one. It used to be decided once, by the creator,
+  at creation (audit B-20). An 18+ room also keeps its seat empty until the
+  person opening the link sends `nsfw=1` (403 until then), so a partner who
+  says no is never seated. `/api/card?room=` lets the partner who did not
+  pay share a card the room has dealt them, and only such a card.
 - **The compatibility test** is the second two-partner feature and follows a
   similar shape: `compat.py` is the domain layer (content, scoring, result
   assembly — no FastAPI or python-telegram-bot imports, exactly like
@@ -271,9 +298,11 @@ python scripts/smoke_production.py $URL --deep  # ...and its database and bot he
   `compat.py`), `payments/steps69_api.py` serves it at `/api/steps69`, and
   `steps69_games` stores it. Three things differ from `rooms.py` and are
   deliberate:
-  - **Paid outright.** No free prefix, so `create` and `board` refuse an
-    unpaid caller rather than trimming a payload. A guest joining a paid
-    creator's game plays free, exactly as in a room.
+  - **Paid outright.** No free prefix, so `create` refuses an unpaid
+    caller (402) rather than trimming a payload. Everything after it -
+    `join`, `board`, the state, the dice - only asks whether the caller sits
+    in the game: a guest joining a paid creator's game plays free, exactly
+    as in a room, and refusing them the board would lock them out of it.
   - **No TTL.** A pair who stop at cell 45 come back to cell 45.
     `steps69_notify.py` nudges them about it once, ~20 hours later, and
     gives up after a week; rolling again clears the flag.
@@ -679,8 +708,10 @@ python scripts/smoke_production.py $URL --deep  # ...and its database and bot he
   exclude-list file to keep in sync anymore.
 - «69 ступеней» is 18+ and paid, and its age gate is the same client-asserted
   one the Library uses: it prevents accidental display, not deliberate
-  access. The paywall behind it is not client-asserted and is enforced in
-  `steps69_api.py`.
+  access. The app asks before the board's first screen however it is
+  entered - the home button, an invite, the nudge - and seats nobody before
+  the answer (`nsfwGate`). The paywall behind it is not client-asserted and
+  is enforced in `steps69_api.py`.
 - The Library's 18+ gate (`nsfw=1` on `GET /api/library` and
   `GET /api/library/{module_id}`) is client-asserted: the client sends the
   flag, the server keeps no record that anyone confirmed their age. It

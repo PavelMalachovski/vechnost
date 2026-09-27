@@ -123,6 +123,9 @@ def test_two_phones_climb_the_board(server: Server, phones) -> None:
     a = phones(alice)
     a.screen("home")
     a.page.click("#btnS69")
+    # «69 ступеней» is 18+: the question comes before its first screen.
+    a.page.wait_for_selector("#nsfw.show")
+    a.page.click("#nsfwYes")
     a.screen("s69")
     a.page.locator("#s69Suits button").first.click()
     a.page.click("#btnS69Duo")
@@ -132,6 +135,9 @@ def test_two_phones_climb_the_board(server: Server, phones) -> None:
     a.shot("invite")
 
     b = phones(bob, start_param=f"s69_{code}")
+    # By invite too: nobody is seated before the answer.
+    b.page.wait_for_selector("#nsfw.show")
+    b.page.click("#nsfwYes")
     b.screen("s69Board")
     a.screen("s69Board", timeout=POLL)
     a.shot("board")
@@ -187,6 +193,10 @@ def test_a_link_to_a_seat_that_is_taken_says_so(server: Server, phones, kind: st
     bob.ok("POST", f"{path}/{code}/join", {} if kind == "s69" else None)
 
     c = phones(carol, start_param=f"{kind}_{code}")
+    if kind == "s69":
+        # The board is 18+: the question comes before the door is tried.
+        c.page.wait_for_selector("#nsfw.show")
+        c.page.click("#nsfwYes")
     c.page.wait_for_selector("#toast.show", timeout=POLL)
     c.shot("refused")
     assert c.text("#toast"), "the refusal is said, not silent"

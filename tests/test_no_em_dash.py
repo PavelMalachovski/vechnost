@@ -95,7 +95,7 @@ def test_the_mini_app_slices_are_the_ones_we_think_they_are():
     surfaces = _user_facing_html()
     assert "Vechnost" in surfaces["<title>"]
     i18n = surfaces["I18N"]
-    assert "paywallText:" in i18n and "compatIntro:" in i18n
+    assert "payPromise:" in i18n and "compatIntro:" in i18n
     # The last key in the literal, and the line count that goes with it.
     assert "levelDesc:" in i18n
     assert len(i18n.splitlines()) >= 60, "I18N slice truncated"

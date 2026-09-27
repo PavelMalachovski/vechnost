@@ -10,7 +10,7 @@ from contextlib import asynccontextmanager
 from pathlib import Path
 from typing import Any
 
-from fastapi import Depends, FastAPI, Header, HTTPException, Request
+from fastapi import BackgroundTasks, Depends, FastAPI, Header, HTTPException, Request
 from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.middleware.gzip import GZipMiddleware
@@ -29,7 +29,9 @@ from ..models import ContentType, Theme
 from ..renderer import get_background_path, render_card_bytes
 from .compat_api import router as compat_router
 from .database import close_db, init_db
+from .grant_notify import notify_access_granted
 from .library_api import router as library_router
+from .rooms import room_dealt_card
 from .rooms import router as rooms_router
 from .services import (
     apply_webhook_event,
@@ -381,13 +383,16 @@ async def get_card_image(
     level: int = 0,
     type: str = "questions",
     lang: str = "ru",
+    room: str | None = None,
     authorization: str | None = Header(default=None),
 ) -> Response:
     """
     One card rendered as a branded share image (JPEG).
 
     Free-preview cards are public; cards past the free prefix require the
-    same paid initData as the full question list.
+    same paid initData as the full question list - or, with `room`, a seat
+    in a room that has dealt the caller this card: the partner who did not
+    pay plays a paid room's whole deck and may share it like the one who did.
     """
     try:
         theme_enum = Theme(theme)
@@ -403,7 +408,11 @@ async def get_card_image(
     if not items or idx < 0 or idx >= len(items):
         raise HTTPException(status_code=404, detail="card not found")
 
-    if not is_index_free(idx) and not await _request_is_paid(authorization):
+    if not is_index_free(idx) and not await _request_is_paid(authorization) and not (
+        room and await room_dealt_card(
+            room, authorization, theme_enum, level or None, content_type, idx
+        )
+    ):
         raise HTTPException(status_code=403, detail="payment_required")
 
     bg_path = get_background_path(
@@ -439,14 +448,15 @@ MAX_WEBHOOK_BODY = 64 * 1024
 
 
 @app.post("/webhooks/tribute", dependencies=[Depends(throttle("webhook"))])
-async def tribute_webhook(request: Request) -> JSONResponse:
+async def tribute_webhook(request: Request, background: BackgroundTasks) -> JSONResponse:
     """
     Handle incoming Tribute webhook events.
 
     The service verifies the signature before it touches the database and
     records only deliveries it actually processed, so a rejected one can be
     retried; see `services.apply_webhook_event`. This layer bounds the body,
-    parses it, and translates the result into a status code.
+    parses it, and translates the result into a status code - and, for a
+    purchase of the buyer's own, tells the buyer in the chat.
     """
     try:
         declared = request.headers.get("content-length", "")
@@ -512,6 +522,21 @@ async def tribute_webhook(request: Request) -> JSONResponse:
                     status_code=status_code if status_code == 503 else 500,
                     detail=result["message"],
                 )
+
+        # «Всё открыто», in the chat, for a grant of the buyer's own: never
+        # for a gift (the buyer holds a certificate to hand on), a renewal
+        # (nothing new opened), a duplicate (no action), a revoke or an event
+        # nobody knows. After the answer, not before it: the message is a
+        # getMe and a sendMessage, and Tribute should not wait on Telegram to
+        # hear that we have the money.
+        buyer = result.get("telegram_user_id")
+        if (
+            result.get("action") == "grant" and buyer
+            and not result.get("gift") and not result.get("renewal")
+        ):
+            background.add_task(
+                notify_access_granted, int(buyer), bool(result.get("lifetime", True))
+            )
 
         # What was done, in the reply Tribute's delivery log keeps: an
         # operator reading "ignore" there learns more than "success", and

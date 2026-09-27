@@ -2,9 +2,10 @@
 
 A couple taps at the same moment all the time: both open the invite link as
 soon as it arrives, one double-taps the card, both send their fortieth
-answer while the other is still reading. Each of those is a read followed by
-a write on one shared row, and the only thing between it and a lost move or
-two seated guests is a row lock or a conditional UPDATE.
+answer while the other is still reading, both phones poll the moment one of
+them has paid. Each of those is a read followed by a write on one shared
+row, and the only thing between it and a lost move or two seated guests is
+a row lock or a conditional UPDATE.
 
 In-process, one client sends one request after another, so these can only
 be tested against a live server — and they mean something only on the
@@ -21,12 +22,15 @@ from typing import Any
 import pytest
 
 from vechnost_bot.compat import TOTAL_QUESTIONS
+from vechnost_bot.freemium import FREE_CARDS_PER_DECK
 
 from .harness import Player, Server
 
 pytestmark = pytest.mark.live_only
 
 CROWD = 12
+DECK = {"theme": "Acquaintance", "level": 1, "type": "questions"}
+DECK_SIZE = 30
 
 
 def statuses(responses: list[Any]) -> Counter[int]:
@@ -66,6 +70,53 @@ def test_a_double_tap_turns_one_card(server: Server) -> None:
     assert statuses(responses) == Counter({200: 1, 403: 5}), "one tap moved the card, the rest waited"
     after = bob.ok("GET", f"/api/rooms/{code}")
     assert after["idx"] == 1 and after["your_turn"] is True
+
+
+def test_a_payment_opens_a_finished_room_once_however_many_polls_find_it(
+    server: Server,
+) -> None:
+    """Both phones poll, so the first poll after a purchase is several at
+    once, and each finds the room short and a payer in it. One of them deals
+    the rest of the deck and carries the pair on to card 6; every other must
+    find it dealt. Without the row lock each dealt its own shuffle, the last
+    one written won, and the phones were shown different sixth cards.
+
+    Three couples, and each pair polls a while before paying: that is what
+    the phones do at the offer screen, and it warms the connection pool - on
+    a cold server the first burst queues for connections and never overlaps,
+    and a race that does not happen proves nothing.
+    """
+    for trial in range(3):
+        alice = server.player(f"Alice{trial}")
+        bob = server.player(f"Bob{trial}")
+        code = alice.ok("POST", "/api/rooms", DECK)["code"]
+        bob.ok("POST", f"/api/rooms/{code}/join")
+        for _ in range(FREE_CARDS_PER_DECK):
+            state = alice.ok("GET", f"/api/rooms/{code}")
+            (alice if state["your_turn"] else bob).ok("POST", f"/api/rooms/{code}/advance")
+        polls = [(player, "GET", f"/api/rooms/{code}", None) for player in (alice, bob)] * (CROWD // 2)
+        waiting = [r.json() for r in server.all_at_once(polls)]
+        assert all(s["finished"] and s["trimmed"] for s in waiting), "nobody has paid yet"
+
+        server.grant(bob)
+        responses = server.all_at_once(polls)
+        assert statuses(responses) == Counter({200: CROWD})
+        states = [r.json() for r in responses]
+        assert {s["idx"] for s in states} == {FREE_CARDS_PER_DECK}, "opened once, on card 6"
+        assert {s["finished"] for s in states} == {False}
+        assert {s["total"] for s in states} == {DECK_SIZE}
+        assert len({s["card_index"] for s in states}) == 1, (
+            f"trial {trial}: one deal of the rest, not one per poll"
+        )
+        sixth = states[0]["card_index"]
+        assert alice.ok("GET", f"/api/rooms/{code}")["card_index"] == sixth, "and it is the one that stuck"
+
+    shown = []
+    for _ in range(DECK_SIZE - FREE_CARDS_PER_DECK):
+        state = alice.ok("GET", f"/api/rooms/{code}")
+        shown.append(state["card_index"])
+        (alice if state["your_turn"] else bob).ok("POST", f"/api/rooms/{code}/advance")
+    assert sorted(shown) == list(range(FREE_CARDS_PER_DECK, DECK_SIZE))
 
 
 def test_a_double_tap_rolls_the_dice_once(server: Server) -> None:
