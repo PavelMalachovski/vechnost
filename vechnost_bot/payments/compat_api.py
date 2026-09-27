@@ -12,7 +12,7 @@ import logging
 from datetime import datetime
 from typing import Any
 
-from fastapi import APIRouter, Depends, Header, HTTPException
+from fastapi import APIRouter, BackgroundTasks, Depends, Header, HTTPException
 from pydantic import BaseModel, Field
 
 from .. import invites
@@ -221,6 +221,7 @@ async def state(
 async def answer(
     code: str,
     body: AnswerRequest,
+    background: BackgroundTasks,
     lang: str = "ru",
     authorization: str | None = Header(default=None),
     x_guest_id: str | None = Header(default=None),
@@ -271,7 +272,11 @@ async def answer(
         )
 
     if recipients:
-        await notify_result_ready(recipients, code=state["code"])
+        # After the response, not before it: the push is a getMe and two
+        # sendMessage calls with five-second timeouts, and the client gives
+        # a request ten. With Telegram slow, the fortieth answer "failed" on
+        # screen although the test was complete.
+        background.add_task(notify_result_ready, recipients, code=state["code"])
     return state
 
 

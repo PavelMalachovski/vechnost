@@ -108,6 +108,7 @@ class RoomModel:
 @dataclass
 class CompatModel:
     creator: str
+    created: int = 0  # creation order: a completed test supersedes older ones only
     guest: str | None = None
     answers: dict[str, list[int | None]] = field(default_factory=lambda: {
         "creator": [None] * TOTAL_QUESTIONS, "guest": [None] * TOTAL_QUESTIONS,
@@ -331,7 +332,7 @@ class TwoUsers(RuleBasedStateMachine):
             self.call(actor, "POST", "/api/compat", expect=402)
             return multiple()
         state = self.call(actor, "POST", "/api/compat", expect=200)
-        model = CompatModel(creator=actor)
+        model = CompatModel(creator=actor, created=self.tick())
         self.test_models[state["code"]] = model
         self.check_test(state, model, actor)
         self.last["test"] = state["code"]
@@ -386,10 +387,12 @@ class TwoUsers(RuleBasedStateMachine):
             self.completions += 1
             model.finished = self.completions
             event("compat: a test completed by both")
-            # A completed retake supersedes the pair's other tests outright.
+            # A completed test supersedes the pair's *older* tests outright;
+            # a newer one still being answered is left alone.
             pair = {model.creator, model.guest}
             for other_code, other in list(self.test_models.items()):
-                if other is not model and other.guest and {other.creator, other.guest} == pair:
+                if (other is not model and other.guest and other.created < model.created
+                        and {other.creator, other.guest} == pair):
                     del self.test_models[other_code]
                     event("compat: a retake superseded another test")
         self.check_test(self.call(actor, "POST", path, body, expect=200), model, actor)

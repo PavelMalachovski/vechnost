@@ -835,14 +835,19 @@ class Steps69Repository:
 
         Called after the sends, not before: a game flagged before anyone
         was reached is a game whose pair never hears about it.
+
+        One UPDATE that sets `updated_at` to itself. Assigning the flag
+        through the ORM fired the column's `onupdate`, so a nudge counted as
+        activity: the retention clock for an abandoned board restarted, and
+        `/mine` could offer an old nudged game over a newer one.
         """
         if not game_ids:
             return
-        result = await session.execute(
-            select(Steps69Game).where(Steps69Game.id.in_(game_ids))
+        await session.execute(
+            update(Steps69Game)
+            .where(Steps69Game.id.in_(game_ids))
+            .values(resume_notified_at=when, updated_at=Steps69Game.updated_at)
         )
-        for game in result.scalars().all():
-            game.resume_notified_at = when
         await session.flush()
 
 
@@ -999,11 +1004,14 @@ class CompatTestRepository:
         session: AsyncSession, pair_key: str, keep_id: int
     ) -> int:
         """
-        Delete this pair's other sessions.
+        Delete this pair's older sessions.
 
         Retaking replaces the previous result rather than adding to a history,
         so the answers behind a superseded result do not linger in the
-        database.
+        database. Older only: a pair with two tests open - a second invite
+        sent by mistake, or the old one finished while a retake was under
+        way - used to lose the *newer* one, answers and all, the moment the
+        older one completed, and the partner answering it got a 404.
         """
         if pair_key is None:
             # SQLAlchemy compiles `Column == None` to `IS NULL`, not to a
@@ -1014,7 +1022,7 @@ class CompatTestRepository:
             return 0
         result = await session.execute(
             delete(CompatTest).where(
-                CompatTest.pair_key == pair_key, CompatTest.id != keep_id
+                CompatTest.pair_key == pair_key, CompatTest.id < keep_id
             )
         )
         await session.flush()

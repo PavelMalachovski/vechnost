@@ -127,6 +127,33 @@ def test_delete_superseded_removes_other_rows_for_the_same_pair():
     asyncio.run(scenario())
 
 
+def test_delete_superseded_leaves_a_newer_session_alone():
+    """Completing the older of two open tests used to delete the newer one."""
+    async def scenario():
+        engine, session = await _make_session()
+        try:
+            older = await CompatTestRepository.create(
+                session, code="OLDER1", creator_telegram_user_id=1, creator_name="A"
+            )
+            newer = await CompatTestRepository.create(
+                session, code="NEWER1", creator_telegram_user_id=2, creator_name="B"
+            )
+            for test in (older, newer):
+                test.pair_key = "1:2"
+            await session.flush()
+
+            removed = await CompatTestRepository.delete_superseded(
+                session, "1:2", keep_id=older.id
+            )
+            assert removed == 0
+            assert await CompatTestRepository.get_by_code(session, "NEWER1") is not None
+        finally:
+            await session.close()
+            await engine.dispose()
+
+    asyncio.run(scenario())
+
+
 def test_delete_superseded_with_null_pair_key_is_a_no_op():
     """
     A null pair_key must never become a delete-everything-unpaired footgun.

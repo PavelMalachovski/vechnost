@@ -207,6 +207,37 @@ def test_a_retake_replaces_the_previous_result(server: Server) -> None:
         assert player.status("GET", f"/api/compat/{first}") == 404, "the old answers are gone"
 
 
+def test_finishing_an_older_test_does_not_delete_a_retake_in_progress(server: Server) -> None:
+    """Two tests open for one pair - a second invite sent by mistake, say.
+    Completing the older one used to delete the newer one outright, and the
+    partner halfway through it got a 404 on their next answer."""
+    alice = server.player("Alice", paid=True)
+    bob = server.player("Bob", paid=True)
+    older = open_test(alice)
+    bob.ok("POST", f"/api/compat/{older}/join")
+    for index in range(TOTAL_QUESTIONS - 1):
+        alice.ok("POST", f"/api/compat/{older}/answer", {"index": index, "value": 4})
+        bob.ok("POST", f"/api/compat/{older}/answer", {"index": index, "value": 4})
+    newer = open_test(bob)
+    alice.ok("POST", f"/api/compat/{newer}/join")
+    for index in range(10):
+        bob.ok("POST", f"/api/compat/{newer}/answer", {"index": index, "value": 2})
+
+    last = TOTAL_QUESTIONS - 1
+    alice.ok("POST", f"/api/compat/{older}/answer", {"index": last, "value": 4})
+    bob.ok("POST", f"/api/compat/{older}/answer", {"index": last, "value": 4})
+    assert bob.ok("GET", f"/api/compat/{newer}")["answered"] == 10, "the retake survived"
+    bob.ok("POST", f"/api/compat/{newer}/answer", {"index": 10, "value": 2})
+
+    # Finishing the retake supersedes the older one.
+    for index in range(TOTAL_QUESTIONS):
+        alice.ok("POST", f"/api/compat/{newer}/answer", {"index": index, "value": 3})
+    for index in range(11, TOTAL_QUESTIONS):
+        bob.ok("POST", f"/api/compat/{newer}/answer", {"index": index, "value": 2})
+    assert alice.status("GET", f"/api/compat/{older}") == 404
+    assert alice.ok("GET", "/api/compat/mine")["code"] == newer
+
+
 def test_an_unpaid_creator_is_asked_to_pay(server: Server) -> None:
     alice = server.player("Alice")
     assert alice.status("POST", "/api/compat") == 402

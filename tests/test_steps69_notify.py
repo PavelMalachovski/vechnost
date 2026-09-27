@@ -177,3 +177,19 @@ async def test_rolling_again_makes_a_game_eligible_for_a_later_nudge(db):
         game.updated_at = datetime.utcnow() - IDLE_BEFORE_NUDGE * 2
 
     assert await nudge_stalled_games(bot) == 1
+
+
+async def test_a_nudge_is_not_activity(db):
+    """Flagging a game as nudged used to fire `updated_at`'s onupdate, so the
+    push counted as play: an abandoned board's retention clock restarted, and
+    `/mine` could offer the nudged old game over a newer one."""
+    await _game("HHHHHH", position=45, idle=IDLE_BEFORE_NUDGE * 2)
+    async with get_db() as session:
+        before = (await Steps69Repository.get_by_code(session, "HHHHHH")).updated_at
+
+    assert await nudge_stalled_games(_bot()) == 1
+
+    async with get_db() as session:
+        game = await Steps69Repository.get_by_code(session, "HHHHHH")
+        assert game.resume_notified_at is not None
+        assert game.updated_at == before
