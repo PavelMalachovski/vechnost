@@ -402,6 +402,7 @@ async def me(authorization: str | None = Header(default=None)) -> dict[str, Any]
     user = _signed_user(authorization)
     if user is None:
         raise HTTPException(status_code=401, detail="unauthorized")
+    can_write = bool(user.get("allows_write_to_pm"))
     async with get_db() as session:
         await UserRepository.ensure(
             session,
@@ -411,10 +412,14 @@ async def me(authorization: str | None = Header(default=None)) -> dict[str, Any]
             last_name=user.get("last_name"),
             language=user.get("language_code"),
         )
+        # Telegram's yes is a yes (`User.can_message`). Its no is left to a
+        # real send to find out: only "can't initiate conversation" says so.
+        if can_write:
+            await UserRepository.set_can_message(session, int(user["id"]), True)
         partner = await UserRepository.partner_of(session, int(user["id"]))
         partner_name = partner.first_name if partner else None
     return {
-        "can_write": bool(user.get("allows_write_to_pm")),
+        "can_write": can_write,
         "partner": {"name": partner_name} if partner_name else None,
     }
 

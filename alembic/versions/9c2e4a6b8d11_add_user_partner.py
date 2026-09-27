@@ -8,7 +8,7 @@ the partial index; this revision is for a database built by `alembic
 upgrade head`.
 
 Revision ID: 9c2e4a6b8d11
-Revises: 7a1c3e5b9d20
+Revises: 5e8c1a3f7b24
 Create Date: 2026-09-27
 """
 
@@ -19,7 +19,7 @@ import sqlalchemy as sa
 from alembic import op
 
 revision: str = "9c2e4a6b8d11"
-down_revision: str | None = "7a1c3e5b9d20"
+down_revision: str | None = "5e8c1a3f7b24"
 branch_labels: str | Sequence[str] | None = None
 depends_on: str | Sequence[str] | None = None
 

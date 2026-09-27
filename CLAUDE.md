@@ -283,7 +283,9 @@ python scripts/smoke_production.py $URL --deep  # ...and its database and bot he
   button back into that very game; it never raises, and never logs the
   code. `POST /api/me` gives a person who only ever opens the app a row at
   boot and tells the app whether the bot may write to them
-  (`allows_write_to_pm`). When it may not, the app asks with Telegram's
+  (`allows_write_to_pm`; a yes also sets `users.can_message`, a no is left
+  for a real send to find out, see the broadcast bullet). When it may not,
+  the app asks with Telegram's
   `requestWriteAccess` - on a game with a partner, at most once in
   `WRITE_ASK_EVERY`, and only once that game's screen is up: `show()`
   closes every overlay, and an ask closed that way counted as asked.

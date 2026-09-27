@@ -103,6 +103,25 @@ def test_the_app_is_told_whether_the_bot_may_write(client):
         assert client.post("/api/me", headers=allowed).json()["can_write"] is True
 
 
+def test_a_boot_that_may_be_written_to_makes_the_person_reachable(client):
+    """`allows_write_to_pm` is Telegram saying the bot may write: someone the
+    daily card could not reach before is reached from now on. A boot without
+    it changes nothing - a real send is what finds out."""
+    async def unreachable(session):
+        await UserRepository.ensure(session, ALICE, first_name="Alice")
+        await UserRepository.ensure(session, BOB, first_name="Bob")
+        await UserRepository.set_can_message(session, ALICE, False)
+        await UserRepository.set_can_message(session, BOB, False)
+
+    with client:
+        read(client, unreachable)
+        client.post("/api/me", headers=person(ALICE, "Alice", allows_write_to_pm=True))
+        client.post("/api/me", headers=person(BOB, "Bob"))
+        alice = read(client, lambda s: UserRepository.get_by_telegram_id(s, ALICE))
+        bob = read(client, lambda s: UserRepository.get_by_telegram_id(s, BOB))
+    assert (alice.can_message, bob.can_message) == (True, False)
+
+
 def test_an_unsigned_boot_is_refused(client):
     with client:
         assert client.post("/api/me").status_code == 401
