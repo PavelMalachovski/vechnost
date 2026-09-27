@@ -648,9 +648,14 @@ class RoomRepository:
     """Repository for couple-mode Room operations."""
 
     @staticmethod
-    async def get_by_code(session: AsyncSession, code: str) -> Room | None:
-        """Get room by its invite code."""
-        result = await session.execute(select(Room).where(Room.code == code))
+    async def get_by_code(
+        session: AsyncSession, code: str, for_update: bool = False
+    ) -> Room | None:
+        """Get room by its invite code; `for_update` locks the row (see /advance)."""
+        stmt = select(Room).where(Room.code == code)
+        if for_update:
+            stmt = stmt.with_for_update()
+        result = await session.execute(stmt)
         return result.scalar_one_or_none()
 
     @staticmethod
