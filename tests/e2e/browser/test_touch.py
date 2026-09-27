@@ -12,8 +12,9 @@ and "A fade must never be a mask on a scroller").
 So the input here is as real as each engine allows (touch.py): on the
 Android phone every gesture is CDP touch, which Chromium's compositor
 hit-tests and scrolls like a finger; on the iPhone a tap is WebKit's own
-touchscreen, a swipe a real mouse drag and a scroll a real wheel, each
-hit-tested by WebKit itself - Playwright has no touch drag for WebKit.
+touchscreen, a swipe a real mouse drag, and a scroll a real press where the
+finger rests followed by the arrow keys, each hit-tested by WebKit itself -
+Playwright has no touch drag for WebKit and no wheel on a mobile page.
 
 The last test turns the suite on itself: it breaks each rule on purpose and
 checks that the probes here notice. On the Android phone the back face
@@ -97,7 +98,7 @@ def scroll_probe(phone: Phone, band: dict[str, float]) -> None:
 def test_a_finger_scrolls_a_long_card_from_its_middle(server: Server, phones, device: Device) -> None:
     """Android: a CDP touch drag, scrolled by Chromium's compositor - the test
     that fails when the card's back face takes the touch again. iPhone: a
-    wheel at the same point, scrolled by WebKit's own hit test."""
+    press at the same point, hit-tested by WebKit, then the arrow keys."""
     phone, band = on_a_long_card(server, phones, device)
     before = progress(phone)
     scroll_probe(phone, band)
@@ -253,6 +254,7 @@ def test_the_probes_notice_each_rule_broken(
             seen[name] = "missed"
         except AssertionError as e:
             seen[name] = "noticed: " + str(e).splitlines()[0]
+        # Anything else is the probe breaking, not noticing: it propagates.
     record = REPORT_DIR / f"touch-canary-{device.name}.json"
     record.parent.mkdir(parents=True, exist_ok=True)
     try:

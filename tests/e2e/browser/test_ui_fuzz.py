@@ -142,16 +142,27 @@ CANDIDATES = """() => {
   };
 }"""
 
-# Scroll the chosen target into reach and say where its middle is.
+# Where to put the finger: the middle of a control, brought into reach; for
+# a scroll, a point of the scroller that is not a control, because on WebKit
+# a scroll starts with a press (touch.py) and a press on a button is a tap.
 AIM = """([kind, i]) => {
   const el = ((kind === 'scroll' ? window.__fuzzScrollers : window.__fuzzTargets) || [])[i];
   if (!el || !el.isConnected) return null;
   if (kind !== 'scroll') el.scrollIntoView({block: 'center', inline: 'center'});
   const r = el.getBoundingClientRect();
   const top = Math.max(r.top, 0), bottom = Math.min(r.bottom, innerHeight);
-  const x = r.left + r.width / 2, y = (top + bottom) / 2;
-  if (x < 0 || y < 0 || x > innerWidth || y > innerHeight) return null;
-  return [x, y, bottom - top];
+  const left = Math.max(r.left, 0), right = Math.min(r.right, innerWidth);
+  if (right <= left || bottom <= top) return null;
+  if (kind !== 'scroll') return [(left + right) / 2, (top + bottom) / 2, bottom - top];
+  const controls = 'button, a, summary, input, select, textarea, [role=button], .s69-cell';
+  for (const fy of [0.5, 0.3, 0.7, 0.15, 0.85]) {
+    for (const fx of [0.5, 0.15, 0.85]) {
+      const x = left + (right - left) * fx, y = top + (bottom - top) * fy;
+      const hit = document.elementFromPoint(x, y);
+      if (hit && el.contains(hit) && !hit.closest(controls)) return [x, y, bottom - top];
+    }
+  }
+  return null;
 }"""
 
 CARD_BOX = """() => {

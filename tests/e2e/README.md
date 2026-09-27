@@ -66,12 +66,13 @@ iPhone job must not go green by testing nothing.
   rules in `CLAUDE.md` are about, and what `elementFromPoint` gets wrong.
 * **iPhone (WebKit): real input, but not all of it touch.** A tap is
   Playwright's `touchscreen.tap`, WebKit's own touch path. Playwright has no
-  touch drag for WebKit, so a swipe is a real mouse drag (the swipe engine
-  listens to both) and a scroll a real mouse wheel, each hit-tested by
-  WebKit itself. Not covered, and not coverable with Playwright: a touch
-  drag in WebKit, and everything iOS adds on top of it - UIKit's scroll
-  views and gesture recognisers, momentum. Playwright's WebKit is the Linux
-  build, not an iPhone.
+  touch drag for WebKit and refuses the mouse wheel on a mobile page, so a
+  swipe is a real mouse drag (the swipe engine listens to both) and a
+  scroll a real press where the finger rests followed by the arrow keys,
+  each hit-tested by WebKit itself. Not covered, and not coverable with
+  Playwright: a touch drag in WebKit, and everything iOS adds on top of it -
+  UIKit's scroll views and gesture recognisers, momentum. Playwright's
+  WebKit is the Linux build, not an iPhone.
 
 `test_touch.py` ends by breaking each rule on purpose (a touchable back
 face, a mask on the scroller) and recording which probe notices, in

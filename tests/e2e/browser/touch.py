@@ -15,21 +15,20 @@ touch").
 **WebKit (the iPhone): real input, but not all of it is touch.** Playwright
 drives WebKit's touchscreen with taps only (`page.touchscreen.tap`: WebKit's
 own touch events and hit test, then the click a tap makes). It has no touch
-drag for WebKit, so:
+drag for WebKit, and refuses the mouse wheel on a mobile page, so:
 
 * a swipe is a real *mouse* drag - WebKit hit-tests the press and delivers
   mouse events, which the app's swipe engine handles exactly as it handles
   touches (it listens to both);
-* a scroll is a real mouse *wheel* over the point a finger would rest on -
-  WebKit's own scroll hit test decides what scrolls, which is the question
-  the two hit-testing rules are about.
+* a scroll is a real mouse *press* where a finger would rest, then real
+  arrow keys: WebKit hit-tests the press and scrolls whatever encloses the
+  node it hit, which is the question the two hit-testing rules are about.
 
 What is not real on WebKit, and cannot be with Playwright: a touch drag, the
 touchmove events it would send, and everything iOS adds on top of WebKit -
 UIKit's scroll views, its gesture recognisers, momentum and rubber-banding.
 Playwright's WebKit is the Linux build; the iPhone's own compositor is not
-in it. A test that needs a native touch scroll says so on WebKit rather
-than pretending.
+in it.
 """
 
 from __future__ import annotations
@@ -105,10 +104,13 @@ class CdpFinger(Finger):
 
 
 class WebKitFinger(Finger):
-    """WebKit: touchscreen taps; a mouse drag for a swipe, a wheel for a scroll."""
+    """WebKit: touchscreen taps; a mouse drag for a swipe; a press and the
+    arrow keys for a scroll."""
 
-    kind = "WebKit touchscreen tap, mouse drag, mouse wheel"
+    kind = "WebKit touchscreen tap, mouse drag, mouse press + arrow keys"
     touch_drag = False
+    #: What one arrow key scrolls in WebKit, in CSS pixels.
+    LINE = 40
 
     def tap(self, x: float, y: float) -> None:
         self.page.touchscreen.tap(x, y)
@@ -124,8 +126,16 @@ class WebKitFinger(Finger):
         mouse.up()
 
     def scroll(self, x: float, y: float, dy: float) -> None:
-        self.page.mouse.move(x, y)
-        self.page.mouse.wheel(0, dy)
+        # The press is where WebKit decides what the gesture belongs to: its
+        # keyboard scrolling starts from the node the last press hit.
+        mouse = self.page.mouse
+        mouse.move(x, y)
+        mouse.down()
+        mouse.up()
+        key = "ArrowDown" if dy > 0 else "ArrowUp"
+        for _ in range(max(1, round(abs(dy) / self.LINE))):
+            self.page.keyboard.press(key)
+            self.page.wait_for_timeout(30)
 
 
 def finger_for(page: Any, context: Any, engine: str) -> Finger:
