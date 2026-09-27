@@ -1392,7 +1392,7 @@
       libDayOf: 'День {day} из 365',
       libLoadError: 'Не удалось загрузить практики. Проверьте соединение.',
       compatBtn: '💞 Тест совместимости', compatTitle: 'Тест совместимости',
-      compatIntro: '40 вопросов о восьми сферах вашей жизни. Отвечаете порознь – результат видите вместе. Партнёр никогда не увидит ваши ответы, только то, в чём вы разошлись.',
+      compatIntro: '40 вопросов о восьми сферах вашей жизни. Отвечаете порознь – результат видите вместе. Партнёр не увидит ваших ответов: только общий процент, зону каждой сферы и вопросы, где вы ответили по-разному.',
       compatCreateHint: 'После старта отправьте партнёру ссылку: он нажмёт на неё и попадёт прямо в тест.',
       compatCreate: 'Начать тест', compatMine: 'Прошлый результат',
       compatInviteHint: 'Отправьте эту ссылку партнёру. Отвечать можно, как только он по ней перейдёт.',
@@ -3111,10 +3111,10 @@
          </div>`
       : '';
 
-    // The two lowest-scoring non-strength spheres carry a framing line that
-    // says *why* the sphere needs the talk. It used to head its own
-    // «Требуют разговора» block; now that every zone is a section of its
-    // own, the framing rides on the sphere's card instead of repeating it.
+    // A sphere outside the strength zone may carry a framing line that
+    // says *why* it needs the talk. It used to head its own «Требуют
+    // разговора» block; now that every zone is a section of its own, the
+    // framing rides on the sphere's card instead of repeating it.
     const framingOf = {};
     r.attention.forEach(a => { if (a.framing) framingOf[a.sphere.id] = a.framing; });
     const zoneCard = s => sphereCard(s, framingOf[s.id]

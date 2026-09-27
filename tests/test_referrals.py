@@ -114,6 +114,37 @@ async def test_following_a_link_credits_the_inviter(db):
     async with get_db() as session:
         assert await UserRepository.is_referred(session, 2) is True
         assert await UserRepository.count_referrals(session, 1) == 1
+        invitee = await UserRepository.get_by_telegram_id(session, 2)
+        assert invitee.referred_by == 1
+        assert invitee.referred_at is not None, "the invitee's own marker"
+
+
+async def test_invitations_made_before_the_marker_keep_their_discount(db):
+    """A database from before `referred_at` gets the column at startup, and
+    everyone already invited is marked in the same step. Without that, the
+    deploy that added the marker would have taken the discount from every
+    invitee at once."""
+    from sqlalchemy import text
+
+    await _user(1, "Inviter")
+    await _user(2, "Invitee")
+    await _user(3, "Nobody")
+    async with get_db() as session:
+        code = await UserRepository.ensure_referral_code(session, 1)
+        await UserRepository.record_referral(session, 2, code)
+
+    # Back to the schema before the marker: the column gone, the link kept.
+    engine = database._engine()
+    async with engine.begin() as conn:
+        await conn.execute(text("ALTER TABLE users DROP COLUMN referred_at"))
+    await database.create_tables()
+
+    async with get_db() as session:
+        assert await UserRepository.is_referred(session, 2) is True
+        assert await UserRepository.is_referred(session, 3) is False
+        invitee = await UserRepository.get_by_telegram_id(session, 2)
+        assert invitee.referred_at == invitee.created_at
+    await database.close_db()
 
 
 async def test_nobody_can_follow_their_own_link(db):
@@ -140,6 +171,80 @@ async def test_the_first_invitation_keeps_the_credit(db):
     async with get_db() as session:
         assert await UserRepository.count_referrals(session, 1) == 1
         assert await UserRepository.count_referrals(session, 2) == 0
+
+
+async def _age(telegram_user_id, minutes):
+    """Pretend this user registered `minutes` ago."""
+    from datetime import datetime, timedelta
+
+    async with get_db() as session:
+        user = await UserRepository.get_by_telegram_id(session, telegram_user_id)
+        user.created_at = datetime.utcnow() - timedelta(minutes=minutes)
+
+
+async def _inviters_code():
+    await _user(1, "Inviter")
+    async with get_db() as session:
+        return await UserRepository.ensure_referral_code(session, 1)
+
+
+async def test_an_account_that_was_already_here_is_not_credited(db):
+    """Any published link used to hand the referral price to anyone who had
+    been using the bot for months, and count them as the inviter's catch."""
+    code = await _inviters_code()
+    await _user(2, "Regular")
+    await _age(2, minutes=60 * 24 * 30)
+    async with get_db() as session:
+        assert await UserRepository.record_referral(session, 2, code) is False
+    async with get_db() as session:
+        assert await UserRepository.is_referred(session, 2) is False
+        assert await UserRepository.count_referrals(session, 1) == 0
+
+
+@pytest.mark.parametrize("past_the_window, credited", [(-1, True), (1, False)])
+async def test_the_newcomer_window_is_a_few_minutes(db, past_the_window, credited):
+    """The /start that carries the code registers the user a moment before
+    crediting them; the window is slack for that, not a grace period."""
+    window = int(referrals.NEW_USER_WINDOW.total_seconds() // 60)
+    assert 0 < window <= 15, "a few minutes, not a trial period"
+    code = await _inviters_code()
+    await _user(2, "Newcomer")
+    await _age(2, minutes=window + past_the_window)
+    async with get_db() as session:
+        assert await UserRepository.record_referral(session, 2, code) is credited
+
+
+@pytest.mark.parametrize("history", ["payment", "subscription", "certificate"])
+async def test_someone_who_already_bought_is_not_credited(db, history):
+    """A customer is not somebody the link brought in, however new the row:
+    the webhook creates it on the purchase, a certificate on activation."""
+    from vechnost_bot.payments.repositories import (
+        CertificateRepository,
+        PaymentRepository,
+        SubscriptionRepository,
+    )
+
+    code = await _inviters_code()
+    await _user(2, "Customer")
+    async with get_db() as session:
+        user = await UserRepository.get_by_telegram_id(session, 2)
+        if history == "payment":
+            await PaymentRepository.create(
+                session, provider="tribute", event_name="new_digital_product",
+                user_id=user.id, telegram_user_id=2, amount=49900, currency="rub",
+                raw_body={}, signature="", body_sha256="ref-history",
+            )
+        elif history == "subscription":
+            await SubscriptionRepository.upsert(
+                session, user_id=user.id, subscription_id=0, period="lifetime",
+                status="canceled", expires_at=None,
+            )
+        else:
+            certificate = await CertificateRepository.create(session, code="REF-HISTORY-TEST")
+            await CertificateRepository.mark_as_used(session, certificate, 2)
+    async with get_db() as session:
+        assert await UserRepository.record_referral(session, 2, code) is False
+        assert await UserRepository.is_referred(session, 2) is False
 
 
 async def test_a_code_nobody_owns_credits_nobody(db):

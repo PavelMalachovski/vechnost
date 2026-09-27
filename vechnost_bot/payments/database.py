@@ -227,14 +227,30 @@ def _ensure_user_columns(sync_conn) -> None:
         # No UNIQUE here: SQLite cannot add a unique column to a populated
         # table, and the code is minted from a uniqueness check in the
         # repository anyway. The model and the migration both declare it, so
-        # a database built from either gets the constraint.
+        # a database built from either gets the constraint, and
+        # `_ensure_indexes` gives a table that got the column here a unique
+        # index instead.
         "referral_code": "ALTER TABLE users ADD COLUMN referral_code VARCHAR",
         "referred_by": "ALTER TABLE users ADD COLUMN referred_by BIGINT",
+        "referred_at": "ALTER TABLE users ADD COLUMN referred_at TIMESTAMP",
     }
     for column, ddl in additions.items():
         if column not in existing:
             sync_conn.execute(text(ddl))
             logger.info(f"Added users.{column} column")
+
+    if "referred_at" not in existing:
+        # The marker arrives after the invitations it marks: everyone
+        # already invited gets it now, in the same transaction as the
+        # column, so there is no start on which the column exists and an
+        # invited user reads as uninvited. Their join date stands in for
+        # the moment of the invitation, which was never recorded.
+        result = sync_conn.execute(text(
+            "UPDATE users SET referred_at = created_at "
+            "WHERE referred_by IS NOT NULL AND referred_at IS NULL"
+        ))
+        if result.rowcount:
+            logger.info(f"Marked {result.rowcount} invited user(s) as referred")
 
 
 def _ensure_steps69_columns(sync_conn) -> None:
@@ -395,14 +411,95 @@ def _match_model_nullability(sync_conn: Connection) -> None:
                 logger.warning(f"Dropped NOT NULL on {table}.{name} to match the model")
 
 
+# Plain indexes the model used to declare on a column that a unique
+# constraint already indexes. Each doubled the writes to its column and
+# served no read the constraint's own index does not.
+REDUNDANT_INDEXES: dict[str, tuple[str, str]] = {
+    "idx_telegram_user_id": ("users", "telegram_user_id"),
+    "idx_referral_code": ("users", "referral_code"),
+    "idx_body_sha256": ("payments", "body_sha256"),
+    "idx_body_sha256_webhook": ("webhook_events", "body_sha256"),
+    "idx_certificate_code": ("certificates", "code"),
+    "idx_room_code": ("rooms", "code"),
+    "idx_compat_code": ("compat_tests", "code"),
+    "idx_steps69_code": ("steps69_games", "code"),
+}
+
+
+def _unique_on(sync_conn: Connection, table: str, column: str) -> bool:
+    """Whether a unique constraint or unique index covers exactly `column`."""
+    from sqlalchemy import inspect
+
+    inspector = inspect(sync_conn)
+    if any(uc["column_names"] == [column] for uc in inspector.get_unique_constraints(table)):
+        return True
+    return any(
+        ix.get("unique") and ix["column_names"] == [column]
+        for ix in inspector.get_indexes(table)
+    )
+
+
+def _ensure_indexes(sync_conn: Connection) -> None:
+    """Give an existing database the model's indexes, and only those.
+
+    `create_all` indexes a table only on the day it creates it, so an index
+    added to the model never reached a deployed database - which is how
+    `/mine`, `erase` and the retention sweep came to scan whole tables.
+    Every index the model declares is created here when missing, and the
+    redundant ones are dropped, but only where the unique constraint that
+    makes them redundant is actually there to take over.
+
+    `users.referral_code` is the one place it may not be: a table that got
+    the column from `_ensure_user_columns` got it without its UNIQUE, and
+    with no index at all. It gets a unique index - the model says unique -
+    unless the column already holds a duplicate, in which case a plain one
+    keeps the lookups off a scan and the log says why.
+    """
+    from sqlalchemy import inspect, text
+    from sqlalchemy.schema import CreateIndex
+
+    tables = set(inspect(sync_conn).get_table_names())
+
+    if "users" in tables and not _unique_on(sync_conn, "users", "referral_code"):
+        duplicate = sync_conn.execute(text(
+            "SELECT referral_code FROM users WHERE referral_code IS NOT NULL "
+            "GROUP BY referral_code HAVING COUNT(*) > 1"
+        )).first()
+        if duplicate is None:
+            sync_conn.execute(text(
+                "CREATE UNIQUE INDEX IF NOT EXISTS uq_users_referral_code "
+                "ON users (referral_code)"
+            ))
+            logger.info("Made users.referral_code unique")
+        else:
+            sync_conn.execute(text(
+                "CREATE INDEX IF NOT EXISTS idx_referral_code ON users (referral_code)"
+            ))
+            logger.warning(
+                "users.referral_code holds duplicate codes, so it cannot be made "
+                "unique; keeping a plain index on it"
+            )
+
+    for name, (table, column) in REDUNDANT_INDEXES.items():
+        if table in tables and _unique_on(sync_conn, table, column):
+            sync_conn.execute(text(f"DROP INDEX IF EXISTS {name}"))
+
+    for model_table in Base.metadata.sorted_tables:
+        if model_table.name in tables:
+            for index in model_table.indexes:
+                sync_conn.execute(CreateIndex(index, if_not_exists=True))
+
+
 # Run in this order by `create_tables`, each in its own transaction. The
-# column steps come first so the data steps see the schema they expect.
+# column steps come first so the index and data steps see the schema they
+# expect.
 _STARTUP_STEPS = (
     _ensure_user_columns,
     _ensure_steps69_columns,
     _ensure_payment_columns,
     _release_dropped_columns,
     _match_model_nullability,
+    _ensure_indexes,
     _backfill_access_from_payments,
     _release_stuck_webhooks,
 )
