@@ -435,6 +435,14 @@ python scripts/smoke_production.py $URL  # read-only smoke of a deployed server
   trusted hosts are configured only when `CORS_ALLOW_ORIGINS` /
   `ALLOWED_HOSTS` are set, so a default deployment is not locked out of
   itself.
+- **The web app compresses and caches what it serves.** `GZipMiddleware`
+  sits *inside* `security_headers` (it is added first): that middleware
+  passes responses on as a stream, and gzip outside it compressed even a
+  30-byte `/health`. The static mounts are `CachedStaticFiles`: the page is
+  `no-cache` (always revalidated, so a deploy reaches the next launch), the
+  fonts keep for a month and the card art for a day with
+  `stale-while-revalidate`. None of the file names carry a hash, which is
+  why nothing is `immutable`.
 - **A module nothing imports is a trap, not an asset.** `security.py`,
   `rate_limiter.py`, `logo_generator.py`, `optimized_renderer.py`,
   `connection_pool.py` and `async_file_ops.py` were all deleted: each was

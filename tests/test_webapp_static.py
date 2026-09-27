@@ -54,6 +54,62 @@ def test_the_mount_does_not_escape_via_percent_encoded_traversal(client):
     assert res.status_code != 200
 
 
+def _max_age(cache_control: str) -> int:
+    match = re.search(r"max-age=(\d+)", cache_control)
+    return int(match.group(1)) if match else 0
+
+
+def test_the_page_goes_out_compressed_and_is_always_revalidated(client):
+    """index.html is 211 KB of text and went out as it was, with no
+    Cache-Control at all. Compressed it is about 60 KB; and it must be
+    revalidated on every launch, or a deploy would not reach the phones
+    that already have it."""
+    with client.stream("GET", "/app/", headers={"Accept-Encoding": "gzip"}) as res:
+        raw = b"".join(res.iter_raw())
+        headers = res.headers
+    assert res.status_code == 200
+    assert headers["content-encoding"] == "gzip"
+    assert len(raw) < 100_000, f"{len(raw)} bytes on the wire"
+    assert "accept-encoding" in headers["vary"].lower()
+    assert headers["cache-control"] == "no-cache"
+    # The security headers are set inside the compression, not lost to it.
+    assert headers["x-content-type-options"] == "nosniff"
+    assert "frame-ancestors" in headers["content-security-policy"]
+    assert headers["referrer-policy"] == "strict-origin-when-cross-origin"
+    # A revalidation that comes back 304 says the same about caching.
+    again = client.get("/app/", headers={"If-None-Match": headers["etag"]})
+    assert again.status_code == 304
+    assert again.headers["cache-control"] == "no-cache"
+
+
+def test_fonts_and_card_art_are_kept_by_the_browser(client):
+    """Twenty requests for the same fonts and PNGs on every launch, each
+    answered only by an ETag, stood between a tap and the home screen."""
+    font = client.get("/app/fonts/inter-400.woff2", headers={"Accept-Encoding": "gzip"})
+    assert font.status_code == 200
+    assert "public" in font.headers["cache-control"]
+    assert _max_age(font.headers["cache-control"]) >= 30 * 86400
+    # woff2 and PNG are compressed already; gzip would only cost CPU.
+    assert "content-encoding" not in font.headers
+    art = client.get("/assets/backgrounds/library.png", headers={"Accept-Encoding": "gzip"})
+    assert art.status_code == 200
+    assert "public" in art.headers["cache-control"]
+    assert _max_age(art.headers["cache-control"]) >= 86400
+    assert "content-encoding" not in art.headers
+    again = client.get("/assets/backgrounds/library.png",
+                       headers={"If-None-Match": art.headers["etag"]})
+    assert again.status_code == 304
+    assert again.headers["cache-control"] == art.headers["cache-control"]
+
+
+def test_the_api_is_compressed_and_a_tiny_answer_is_not(client):
+    questions = client.get("/api/questions", headers={"Accept-Encoding": "gzip"})
+    assert questions.status_code == 200
+    assert questions.headers.get("content-encoding") == "gzip"
+    health = client.get("/health", headers={"Accept-Encoding": "gzip"})
+    assert "content-encoding" not in health.headers
+
+
 def test_the_mini_app_points_at_the_real_card_art():
     html = INDEX.read_text(encoding="utf-8")
     assert "/assets/backgrounds/" in html
