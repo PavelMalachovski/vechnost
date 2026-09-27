@@ -9,10 +9,14 @@ name: Two-user E2E
 #   fuzz      three people doing anything in any order, checked against a
 #             model of the rules; long enough on a schedule to reach every
 #             finale, completed test and superseded retake many times
-#   browser   two Chromium phones driving the Mini App UI end to end
+#   browser   two phones driving the Mini App UI end to end, one job per
+#             phone: two Androids in Chromium, two iPhones in WebKit
 #
 # It runs on push to master too, so Railway's "Wait for CI" waits for it:
-# a merge that breaks what a couple does together does not deploy.
+# a merge that breaks what a couple does together does not deploy. The push
+# path is kept to what is deterministic and quick; the browser job's screen
+# tour and UI fuzzer run on pull requests, at night and by hand, never on
+# push, because a gate on deploys must not be random.
 on:
   push:
     branches: [ master ]
@@ -26,6 +30,12 @@ on:
         default: "400"
       fuzz_steps:
         description: "Fuzzer: steps per run"
+        default: "100"
+      ui_fuzz_runs:
+        description: "UI fuzzer: runs per arena and phone"
+        default: "3"
+      ui_fuzz_steps:
+        description: "UI fuzzer: steps per run"
         default: "100"
 
 permissions:
@@ -177,9 +187,19 @@ jobs:
         if-no-files-found: ignore
 
   browser:
-    name: Two phones in Chromium
+    name: "Two phones: ${{ matrix.title }}"
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    timeout-minutes: 60
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - phone: android
+            engine: chromium
+            title: Android in Chromium
+          - phone: iphone
+            engine: webkit
+            title: iPhone in WebKit
     services:
       postgres:
         image: postgres:16
@@ -193,6 +213,12 @@ jobs:
           --health-interval 5s
           --health-timeout 5s
           --health-retries 20
+    env:
+      E2E_BROWSER: "1"
+      E2E_BASE_URL: http://127.0.0.1:8000
+      # Named, so a phone whose engine failed to install fails its tests
+      # instead of skipping them (tests/e2e/browser/phones.py).
+      E2E_PHONES: ${{ matrix.phone }}
     steps:
     - uses: actions/checkout@v5
 
@@ -202,13 +228,13 @@ jobs:
         cache: pip
         cache-dependency-path: requirements-dev.lock
 
-    - name: Install dependencies and Chromium
+    - name: Install dependencies and ${{ matrix.engine }}
       run: |
         python -m pip install --upgrade pip
         pip install --require-hashes --no-deps -r requirements-dev.lock
         pip install --no-deps .
         pip check
-        python -m playwright install --with-deps chromium
+        python -m playwright install --with-deps ${{ matrix.engine }}
         mkdir -p "$E2E_REPORT_DIR"
 
     - name: Start a live server on PostgreSQL
@@ -220,19 +246,51 @@ jobs:
           > "$E2E_REPORT_DIR/live-server.log" 2>&1 &
         for i in $(seq 1 60); do curl -sf http://127.0.0.1:8000/health && break; sleep 1; done
 
+    # The scenarios, the paywall, navigation, the design checks and the
+    # touch tests: deterministic, and the part that gates a deploy.
     - name: Two phones play a room, the test and the board
-      env:
-        E2E_BROWSER: "1"
-        E2E_BASE_URL: http://127.0.0.1:8000
-      run: pytest tests/e2e/browser -n0 -q
+      run: pytest tests/e2e/browser -n0 -q -rs -m "not screens and not ui_fuzz"
 
-    # Numbered screenshots of both phones at every step, and a Playwright
-    # trace of each phone when a test fails (`playwright show-trace`).
+    # Pull requests, nights and manual runs only (see the top of this file),
+    # and after a failed scenario too: the pictures help read the failure.
+    - name: Every screen at four sizes
+      if: ${{ !cancelled() && github.event_name != 'push' }}
+      env:
+        E2E_ARTIFACT_NAME: e2e-browser-${{ matrix.phone }}
+      run: pytest tests/e2e/browser -n0 -q -rs -m screens
+
+    # A few minutes on a pull request; about twenty at night, or whatever a
+    # manual run asks for. A failure prints the seed, the command that
+    # replays it and every step both phones took.
+    - name: Two phones tapping at random
+      if: ${{ !cancelled() && github.event_name != 'push' }}
+      env:
+        E2E_UI_FUZZ_RUNS: ${{ github.event_name == 'schedule' && '3' || inputs.ui_fuzz_runs || '1' }}
+        E2E_UI_FUZZ_STEPS: ${{ github.event_name == 'schedule' && '100' || inputs.ui_fuzz_steps || '25' }}
+      run: pytest tests/e2e/browser -n0 -q -rs -s -m ui_fuzz
+
+    - name: Summary
+      if: always()
+      run: |
+        if [ -f "$E2E_REPORT_DIR/browser/screens/summary.md" ]; then
+          cat "$E2E_REPORT_DIR/browser/screens/summary.md" >> "$GITHUB_STEP_SUMMARY"
+        fi
+        for f in "$E2E_REPORT_DIR"/browser/touch-canary-*.json; do
+          [ -f "$f" ] || continue
+          { echo "### What the touch probes notice ($(basename "$f" .json))"; echo '```json';
+            cat "$f"; echo '```'; } >> "$GITHUB_STEP_SUMMARY"
+          cat "$f"
+        done
+
+    # Numbered screenshots of both phones at every step, every screen at
+    # four sizes (browser/screens/index.html), the fuzzer's runs, and a
+    # Playwright trace of each phone when a test fails (`playwright
+    # show-trace`).
     - name: Keep screenshots and traces
       if: always()
       uses: actions/upload-artifact@v6
       with:
-        name: e2e-browser
+        name: e2e-browser-${{ matrix.phone }}
         path: e2e-report
         if-no-files-found: ignore
 
