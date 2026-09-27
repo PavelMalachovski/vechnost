@@ -43,6 +43,7 @@ from ..harness import (
     Server,
     ServerError,
 )
+from . import design
 from .phones import (
     DEVICES,
     PHONES,
@@ -55,6 +56,7 @@ from .phones import (
     close_phones,
     open_phone,
 )
+from .screens import Atlas, Tour, save_atlas
 
 pytestmark = pytest.mark.browser
 
@@ -151,6 +153,22 @@ def device(request: pytest.FixtureRequest, engines: Engines) -> Device:
     chosen = DEVICES[request.param]
     engines.get(chosen.engine)  # skip, or fail, before the first phone opens
     return chosen
+
+
+@pytest.fixture(scope="session", params=[device.name for device in PHONES])
+def atlas(request: pytest.FixtureRequest, engines: Engines, live_url: str) -> Iterator[Atlas]:
+    """One tour of every screen per phone model (screens.py), with the design
+    lint looking at each stop, shared by whatever inspects it."""
+    device = DEVICES[request.param]
+    engines.get(device.engine)
+    with httpx.Client(base_url=live_url, timeout=30) as http:
+        tour = Tour(
+            engines, live_url, Server(http, live=True, bot_token=bot_token()), device,
+            visitors=[design.visitor],
+        )
+        found = tour.run()
+    save_atlas(found)
+    yield found
 
 
 @pytest.fixture
