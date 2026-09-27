@@ -72,7 +72,7 @@ from vechnost_bot.payments import throttle
 
 from .harness import LeakDetected, Player, Server
 
-pytestmark = [pytest.mark.fuzz, pytest.mark.inprocess_only]
+pytestmark = [pytest.mark.fuzz, pytest.mark.inprocess_only, pytest.mark.slow]
 
 EXAMPLES = int(os.environ.get("E2E_FUZZ_EXAMPLES", "8"))
 STEPS = int(os.environ.get("E2E_FUZZ_STEPS", "30"))

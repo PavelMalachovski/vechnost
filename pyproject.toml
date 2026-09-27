@@ -136,12 +136,9 @@ python_files = ["test_*.py"]
 python_classes = ["Test*"]
 python_functions = ["test_*"]
 markers = [
-    "unit: Unit tests",
-    "integration: Integration tests",
-    "performance: Performance tests",
-    "slow: Slow running tests",
+    "integration: A flow through the real handlers, several steps long",
+    "slow: Takes seconds by design (real subprocesses, the fuzzer); -m 'not slow' skips them",
     "redis: Tests requiring Redis",
-    "telegram: Tests requiring Telegram API",
     "e2e: Two-user scenarios in tests/e2e (in-process by default, live with E2E_BASE_URL)",
     "inprocess_only: Needs the in-process server (fake Telegram, the bot); skipped against a live one",
     "live_only: Needs a live server over real HTTP (E2E_BASE_URL); skipped in-process",
@@ -150,7 +147,19 @@ markers = [
     "postgres: Needs a PostgreSQL server (POSTGRES_TEST_URL); skipped with a reason without one",
 ]
 filterwarnings = [
+    # A dependency's deprecations are its own to fix, and the nightly
+    # "Today's PyPI, unpinned" run is where they turn into breakage first.
     "ignore::DeprecationWarning",
     "ignore::PendingDeprecationWarning",
     "ignore::UserWarning:pydantic.*",
+    # A deprecation raised in our own code is ours, and an error: it names
+    # a call that stops working on the next upgrade (Result.tuples() did).
+    "error::DeprecationWarning:vechnost_bot",
+    "error::PendingDeprecationWarning:vechnost_bot",
+    # A coroutine nobody awaited, or a thread that died with an exception
+    # (an aiosqlite connection outliving its event loop), is a bug.
+    "error::RuntimeWarning",
+    "error::pytest.PytestUnhandledThreadExceptionWarning",
+    "error::pytest.PytestUnraisableExceptionWarning",
 ]
+

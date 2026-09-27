@@ -236,6 +236,8 @@ async def test_save_get_delete_round_trip():
 
     await delete_session(5)
     assert await get_session(5) == SessionState()
+    # Removed, not tombstoned: nothing is left holding the chat.
+    assert len(storage.session_store()) == 0
 
 
 async def test_a_session_read_does_not_hold_the_event_loop():

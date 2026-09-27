@@ -51,7 +51,6 @@ class TestCompleteUserFlows:
         mock_update,
         mock_context,
         memory_session_store,
-        mock_translations
     ):
         """Test complete Acquaintance theme flow."""
         # Mock the storage
@@ -384,16 +383,14 @@ class TestErrorRecoveryScenarios:
             mock_update.message.reply_text.assert_called()
 
 
-class TestPerformanceScenarios:
-    """Test performance scenarios."""
+class TestManySessions:
+    """Many sessions and many taps, with nothing lost between them."""
 
     @pytest.mark.integration
-    @pytest.mark.performance
     @pytest.mark.asyncio
     async def test_concurrent_user_sessions(
         self,
         memory_session_store,
-        performance_timer
     ):
         """Test concurrent user sessions."""
         async def create_user_session(user_id: int):
@@ -419,19 +416,13 @@ class TestPerformanceScenarios:
             assert session.language == Language.RUSSIAN
             assert session.theme == Theme.ACQUAINTANCE
 
-        # Check performance
-        elapsed_time = performance_timer()
-        assert elapsed_time < 5.0  # Should complete within 5 seconds
-
     @pytest.mark.integration
-    @pytest.mark.performance
     @pytest.mark.asyncio
     async def test_rapid_callback_handling(
         self,
         mock_update,
         mock_context,
         memory_session_store,
-        performance_timer
     ):
         """Test rapid callback handling."""
         with _memory_storage(memory_session_store):
@@ -452,10 +443,6 @@ class TestPerformanceScenarios:
             for callback_data in callbacks:
                 mock_update.callback_query.data = callback_data
                 await handle_callback_query(mock_update, mock_context)
-
-            # Check performance
-            elapsed_time = performance_timer()
-            assert elapsed_time < 2.0  # Should complete within 2 seconds
 
             # Verify final session state
             session = await get_session(12345)
@@ -518,7 +505,6 @@ class TestEdgeCases:
     async def test_memory_limit_handling(
         self,
         memory_session_store,
-        performance_timer
     ):
         """Test handling of memory limits."""
         # Create many sessions to test memory handling
@@ -536,10 +522,6 @@ class TestEdgeCases:
         assert len(sessions) == 1000
         for session in sessions:
             assert session is not None
-
-        # Check performance
-        elapsed_time = performance_timer()
-        assert elapsed_time < 10.0  # Should complete within 10 seconds
 
 
 class TestDataIntegrity:

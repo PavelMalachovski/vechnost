@@ -175,17 +175,24 @@ class TestLoggingFunctions:
 
             mock_metrics.increment_counter.assert_called_with("bot_events_test_event")
 
-    def test_log_callback_event(self):
-        """Test logging callback event."""
+    @pytest.mark.parametrize("data, counter", [
+        ("theme_Acquaintance", "callback_events_theme"),
+        ("level_1", "callback_events_level"),
+        ("cal:acq:1:q:0", "callback_events_calendar"),
+        ("q:acq:1:0", "callback_events_question"),
+        ("nav:acq:1:1:q", "callback_events_navigation"),
+        ("toggle:sex:0:t", "callback_events_toggle"),
+        ("back:themes", "callback_events_back"),
+        ("reset_game", "callback_events_other"),
+        (None, "callback_events_other"),
+    ])
+    def test_log_callback_event(self, data, counter):
+        """Every tap counts once in the total and once under its kind."""
         with patch('vechnost_bot.monitoring.metrics') as mock_metrics:
-            log_callback_event("theme_Acquaintance", 123, action="test")
+            log_callback_event(data, 123, action="test")
 
-            # Check that both calls were made
-            assert mock_metrics.increment_counter.call_count >= 2
-            calls = mock_metrics.increment_counter.call_args_list
-            call_args = [call[0][0] for call in calls]
-            assert "callback_events_total" in call_args
-            assert "callback_events_theme" in call_args
+        calls = [call.args[0] for call in mock_metrics.increment_counter.call_args_list]
+        assert calls == ["callback_events_total", counter]
 
     def test_log_image_rendering_event_success(self):
         """Test logging successful image rendering event."""

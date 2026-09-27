@@ -1,13 +1,11 @@
-"""Comprehensive test fixtures for Vechnost bot."""
+"""What every test gets, and the Telegram doubles the bot tests share."""
 
 import asyncio
 import os
 import tempfile
-from pathlib import Path
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
-import pytest_asyncio
 
 # Settings are constructed when vechnost_bot.config is imported, and the token
 # has no default — so without this the whole suite fails to collect on a
@@ -28,8 +26,7 @@ os.environ["DATABASE_URL"] = f"sqlite:///{_TEST_DB_DIR}/tests.db"
 from telegram import CallbackQuery, Chat, Message, Update, User
 from telegram.ext import ContextTypes
 
-from vechnost_bot.exceptions import ErrorCodes
-from vechnost_bot.models import ContentType, Language, SessionState, Theme
+from vechnost_bot.payments import database as _database
 from vechnost_bot.payments import throttle as _throttle
 
 # ============================================================================
@@ -90,89 +87,50 @@ def _storage_stays_in_memory(request):
         yield
 
 
-# ============================================================================
-# Session-scoped fixtures
-# ============================================================================
+@pytest.fixture(autouse=True)
+def _database_engines_are_disposed():
+    """Every engine the app builds during a test is closed at its end.
 
-@pytest_asyncio.fixture(scope="session")
-async def event_loop():
-    """Create an instance of the default event loop for the test session."""
-    loop = asyncio.get_event_loop_policy().new_event_loop()
-    yield loop
-    loop.close()
+    Tests point the app at a database of their own by patching the
+    `database.engine` global back to None, so `init_db()` builds a fresh
+    engine, and the patch then drops it on the floor. An in-memory SQLite
+    engine holds its one aiosqlite connection open, on a worker thread, until
+    the garbage collector gets to it - by then the event loop it answered to
+    was closed, and the thread died with "Event loop is closed" somewhere
+    later in the run. Disposing each engine here closes its connections
+    while that can still be done cleanly.
+    """
+    built = []
+    create = _database.create_async_engine
 
+    def recorded(*args, **kwargs):
+        engine = create(*args, **kwargs)
+        built.append(engine)
+        return engine
 
-@pytest_asyncio.fixture(scope="session")
-async def test_data_dir():
-    """Create temporary directory for test data."""
-    with tempfile.TemporaryDirectory() as temp_dir:
-        yield Path(temp_dir)
-
-
-# ============================================================================
-# Application fixtures
-# ============================================================================
-
-@pytest_asyncio.fixture
-async def mock_telegram_bot():
-    """Mock Telegram bot instance."""
-    bot = MagicMock()
-    bot.get_me = AsyncMock()
-    bot.send_message = AsyncMock()
-    bot.send_photo = AsyncMock()
-    bot.edit_message_text = AsyncMock()
-    bot.delete_message = AsyncMock()
-    bot.answer_callback_query = AsyncMock()
-    return bot
-
-
-@pytest_asyncio.fixture
-async def mock_application(mock_telegram_bot):
-    """Mock Telegram application."""
-    app = MagicMock()
-    app.bot = mock_telegram_bot
-    app.run_polling = AsyncMock()
-    return app
+    with patch.object(_database, "create_async_engine", recorded):
+        yield
+    for engine in built:
+        asyncio.run(engine.dispose())
 
 
 # ============================================================================
-# Storage fixtures
+# Sessions
 # ============================================================================
 
-@pytest_asyncio.fixture
-async def memory_session_store():
+@pytest.fixture
+def memory_session_store():
     """A session store of the test's own, in memory, as production runs."""
     from vechnost_bot.storage import MemorySessionStore
 
     return MemorySessionStore(ttl=3600)
 
 
-@pytest_asyncio.fixture
-async def mock_redis_storage():
-    """Mock Redis storage."""
-    storage = AsyncMock()
-    storage.connect = AsyncMock()
-    storage.disconnect = AsyncMock()
-    storage.get_session = AsyncMock()
-    storage.save_session = AsyncMock()
-    storage.delete_session = AsyncMock()
-    storage.cache_image = AsyncMock()
-    storage.get_cached_image = AsyncMock()
-    storage.increment_counter = AsyncMock()
-    storage.get_counter = AsyncMock()
-    storage.set_rate_limit = AsyncMock()
-    storage.get_rate_limit_info = AsyncMock()
-    storage.record_user_activity = AsyncMock()
-    storage.get_last_user_activity = AsyncMock()
-    storage.health_check = AsyncMock(return_value=True)
-    return storage
-
-
 # ============================================================================
-# Telegram API fixtures
+# Telegram doubles
 # ============================================================================
 
-@pytest_asyncio.fixture
+@pytest.fixture
 def mock_user():
     """Mock Telegram user."""
     user = MagicMock(spec=User)
@@ -184,7 +142,7 @@ def mock_user():
     return user
 
 
-@pytest_asyncio.fixture
+@pytest.fixture
 def mock_chat():
     """Mock Telegram chat."""
     chat = MagicMock(spec=Chat)
@@ -193,7 +151,7 @@ def mock_chat():
     return chat
 
 
-@pytest_asyncio.fixture
+@pytest.fixture
 def mock_message(mock_user, mock_chat):
     """Mock Telegram message."""
     message = MagicMock(spec=Message)
@@ -209,7 +167,7 @@ def mock_message(mock_user, mock_chat):
     return message
 
 
-@pytest_asyncio.fixture
+@pytest.fixture
 def mock_callback_query(mock_user, mock_chat, mock_message):
     """Mock Telegram callback query."""
     callback_query = MagicMock(spec=CallbackQuery)
@@ -223,7 +181,7 @@ def mock_callback_query(mock_user, mock_chat, mock_message):
     return callback_query
 
 
-@pytest_asyncio.fixture
+@pytest.fixture
 def mock_update(mock_message, mock_callback_query):
     """Mock Telegram update."""
     update = MagicMock(spec=Update)
@@ -235,7 +193,7 @@ def mock_update(mock_message, mock_callback_query):
     return update
 
 
-@pytest_asyncio.fixture
+@pytest.fixture
 def mock_context():
     """Mock Telegram context."""
     context = MagicMock(spec=ContextTypes.DEFAULT_TYPE)
@@ -247,384 +205,26 @@ def mock_context():
 
 
 # ============================================================================
-# Session state fixtures
+# Failures to inject
 # ============================================================================
 
-@pytest_asyncio.fixture
-def empty_session():
-    """Empty session state."""
-    return SessionState()
-
-
-@pytest_asyncio.fixture
-def russian_session():
-    """Session with Russian language."""
-    return SessionState(language=Language.RUSSIAN)
-
-
-@pytest_asyncio.fixture
-def acquaintance_session():
-    """Session with Acquaintance theme."""
-    return SessionState(
-        language=Language.RUSSIAN,
-        theme=Theme.ACQUAINTANCE,
-        level=1,
-        content_type=ContentType.QUESTIONS
-    )
-
-
-@pytest_asyncio.fixture
-def couples_session():
-    """Session with For Couples theme."""
-    return SessionState(
-        language=Language.RUSSIAN,
-        theme=Theme.FOR_COUPLES,
-        level=2,
-        content_type=ContentType.QUESTIONS
-    )
-
-
-@pytest_asyncio.fixture
-def sex_session():
-    """Session with Sex theme."""
-    return SessionState(
-        language=Language.RUSSIAN,
-        theme=Theme.SEX,
-        level=None,
-        content_type=ContentType.QUESTIONS,
-        is_nsfw_confirmed=True
-    )
-
-
-@pytest_asyncio.fixture
-def provocation_session():
-    """Session with Provocation theme."""
-    return SessionState(
-        language=Language.RUSSIAN,
-        theme=Theme.PROVOCATION,
-        level=None,
-        content_type=ContentType.QUESTIONS
-    )
-
-
-# ============================================================================
-# Game data fixtures
-# ============================================================================
-
-@pytest_asyncio.fixture
-def mock_game_data():
-    """Mock game data."""
-    return {
-        "themes": {
-            "acquaintance": {
-                "levels": {
-                    "1": ["Question 1", "Question 2", "Question 3"],
-                    "2": ["Question 4", "Question 5", "Question 6"],
-                    "3": ["Question 7", "Question 8", "Question 9"]
-                }
-            },
-            "for_couples": {
-                "levels": {
-                    "1": ["Couple Question 1", "Couple Question 2"],
-                    "2": ["Couple Question 3", "Couple Question 4"],
-                    "3": ["Couple Question 5", "Couple Question 6"]
-                }
-            },
-            "sex": {
-                "questions": ["Sex Question 1", "Sex Question 2"],
-                "tasks": ["Sex Task 1", "Sex Task 2"]
-            },
-            "provocation": {
-                "questions": ["Provocation Question 1", "Provocation Question 2"]
-            }
-        }
-    }
-
-
-@pytest_asyncio.fixture
-def mock_translations():
-    """Mock translations data."""
-    return {
-        "ru": {
-            "themes": {
-                "acquaintance": "Знакомства",
-                "for_couples": "Для пар",
-                "sex": "Секс",
-                "provocation": "Провокация"
-            },
-            "levels": {
-                "1": "Уровень 1",
-                "2": "Уровень 2",
-                "3": "Уровень 3"
-            },
-            "errors": {
-                "unknown_callback": "❌ Неизвестная команда",
-                "no_theme": "❌ Тема не выбрана",
-                "content_unavailable": "❌ Контент недоступен"
-            }
-        },
-        "en": {
-            "themes": {
-                "acquaintance": "Acquaintance",
-                "for_couples": "For Couples",
-                "sex": "Sex",
-                "provocation": "Provocation"
-            },
-            "levels": {
-                "1": "Level 1",
-                "2": "Level 2",
-                "3": "Level 3"
-            },
-            "errors": {
-                "unknown_callback": "❌ Unknown command",
-                "no_theme": "❌ Theme not selected",
-                "content_unavailable": "❌ Content not available"
-            }
-        },
-        "cs": {
-            "themes": {
-                "acquaintance": "Seznámení",
-                "for_couples": "Pro páry",
-                "sex": "Sex",
-                "provocation": "Provokace"
-            },
-            "levels": {
-                "1": "Úroveň 1",
-                "2": "Úroveň 2",
-                "3": "Úroveň 3"
-            },
-            "errors": {
-                "unknown_callback": "❌ Neznámý příkaz",
-                "no_theme": "❌ Téma není vybráno",
-                "content_unavailable": "❌ Obsah není k dispozici"
-            }
-        }
-    }
-
-
-# ============================================================================
-# File system fixtures
-# ============================================================================
-
-@pytest_asyncio.fixture
-def mock_environment():
-    """Mock environment variables."""
-    env_vars = {
-        "TELEGRAM_BOT_TOKEN": "test_token_12345",
-        "LOG_LEVEL": "DEBUG",
-        "ENVIRONMENT": "test",
-        "REDIS_URL": "redis://localhost:6379",
-        "REDIS_DB": "0",
-        "REDIS_AUTO_START": "false",
-        "SESSION_TTL": "3600",
-        "MAX_CONNECTIONS": "10"
-    }
-
-    with patch.dict(os.environ, env_vars):
-        yield env_vars
-
-
-# ============================================================================
-# Error scenario fixtures
-# ============================================================================
-
-@pytest_asyncio.fixture
-def mock_network_error():
-    """Mock network error."""
-    return ConnectionError("Connection refused")
-
-
-@pytest_asyncio.fixture
+@pytest.fixture
 def mock_redis_error():
-    """Mock Redis error."""
+    """What redis-py raises when the server is not there."""
     from redis.exceptions import ConnectionError as RedisConnectionError
     return RedisConnectionError("Error 22 connecting to localhost:6379")
 
 
-@pytest_asyncio.fixture
+@pytest.fixture
 def mock_telegram_error():
-    """Mock Telegram API error."""
+    """What python-telegram-bot raises when the Bot API refuses a call."""
     from telegram.error import TelegramError
     return TelegramError("Telegram API error")
 
 
-@pytest_asyncio.fixture
-def mock_validation_error():
-    """Mock validation error."""
-    from vechnost_bot.exceptions import ValidationError
-    return ValidationError(
-        "Invalid theme",
-        error_code=ErrorCodes.INVALID_THEME,
-        field="theme",
-        value="invalid_theme"
-    )
-
-
 # ============================================================================
-# Performance testing fixtures
+# Collection
 # ============================================================================
-
-@pytest_asyncio.fixture
-def performance_timer():
-    """Timer for performance testing."""
-    import time
-    start_time = time.time()
-    yield lambda: time.time() - start_time
-
-
-@pytest_asyncio.fixture
-def mock_high_load():
-    """Mock high load scenario."""
-    return {
-        "concurrent_users": 100,
-        "requests_per_second": 50,
-        "session_duration": 300  # 5 minutes
-    }
-
-
-# ============================================================================
-# Utility fixtures
-# ============================================================================
-
-@pytest_asyncio.fixture
-def mock_logger():
-    """Mock logger."""
-    logger = MagicMock()
-    logger.info = MagicMock()
-    logger.error = MagicMock()
-    logger.warning = MagicMock()
-    logger.debug = MagicMock()
-    return logger
-
-
-@pytest_asyncio.fixture
-def mock_metrics():
-    """The metrics collector `vechnost_bot.monitoring` actually calls.
-
-    Patched into the module rather than merely returned: a free-standing
-    MagicMock records nothing, so `assert_called()` on it can only ever fail,
-    which is exactly what it did.
-    """
-    metrics = MagicMock()
-    metrics.increment_counter = MagicMock()
-    metrics.record_timer = MagicMock()
-    metrics.record_gauge = MagicMock()
-    with patch('vechnost_bot.monitoring.metrics', metrics):
-        yield metrics
-
-
-@pytest_asyncio.fixture
-def mock_sentry():
-    """The Sentry entry points `monitoring` imported by name.
-
-    `monitoring.py` does `from sentry_sdk import capture_exception, set_tag,
-    ...`, so each one is a separate name in that module's namespace and there
-    is no client object to stand in for them - hence a dict of patches rather
-    than one mock with attributes.
-    """
-    with patch('vechnost_bot.monitoring.capture_exception') as capture, \
-         patch('vechnost_bot.monitoring.set_tag') as set_tag, \
-         patch('vechnost_bot.monitoring.set_context') as set_context, \
-         patch('vechnost_bot.monitoring.set_user') as set_user:
-        yield {
-            "capture_exception": capture,
-            "set_tag": set_tag,
-            "set_context": set_context,
-            "set_user": set_user,
-        }
-
-
-# ============================================================================
-# Test data fixtures
-# ============================================================================
-
-@pytest_asyncio.fixture
-def sample_questions():
-    """Sample questions for testing."""
-    return [
-        "What is your favorite color?",
-        "What is your biggest fear?",
-        "What is your dream job?",
-        "What is your favorite memory?",
-        "What is your biggest regret?"
-    ]
-
-
-@pytest_asyncio.fixture
-def sample_tasks():
-    """Sample tasks for testing."""
-    return [
-        "Give each other a 5-minute massage",
-        "Share your most embarrassing moment",
-        "Plan a surprise date for next week",
-        "Write each other a love letter",
-        "Try a new activity together"
-    ]
-
-
-@pytest_asyncio.fixture
-def sample_callback_data():
-    """Sample callback data for testing."""
-    return {
-        "theme_Acquaintance": "theme_Acquaintance",
-        "level_1": "level_1",
-        "level_2": "level_2",
-        "level_3": "level_3",
-        "lang_en": "lang_en",
-        "lang_ru": "lang_ru",
-        "lang_cs": "lang_cs",
-        "q:acq:1:0": "q:acq:1:0",
-        "q:couples:2:1": "q:couples:2:1",
-        "t:sex:0:0": "t:sex:0:0",
-        "back:themes": "back:themes",
-        "back:levels": "back:levels",
-        "back:calendar": "back:calendar"
-    }
-
-
-# ============================================================================
-# Integration test fixtures
-# ============================================================================
-
-@pytest_asyncio.fixture
-async def complete_test_session():
-    """Complete test session with all components."""
-    session = {
-        "storage": await memory_session_store(),
-        "bot": await mock_telegram_bot(),
-        "app": await mock_application(await mock_telegram_bot()),
-        "user": mock_user(),
-        "chat": mock_chat(),
-        "message": mock_message(mock_user(), mock_chat()),
-        "callback_query": mock_callback_query(mock_user(), mock_chat(), mock_message(mock_user(), mock_chat())),
-        "update": mock_update(mock_message(mock_user(), mock_chat()), mock_callback_query(mock_user(), mock_chat(), mock_message(mock_user(), mock_chat()))),
-        "context": mock_context(),
-        "session_state": empty_session(),
-        "game_data": mock_game_data(),
-        "translations": mock_translations()
-    }
-    return session
-
-
-# ============================================================================
-# Test configuration
-# ============================================================================
-
-def pytest_configure(config):
-    """Configure pytest."""
-    config.addinivalue_line(
-        "markers", "integration: mark test as integration test"
-    )
-    config.addinivalue_line(
-        "markers", "unit: mark test as unit test"
-    )
-    config.addinivalue_line(
-        "markers", "performance: mark test as performance test"
-    )
-    config.addinivalue_line(
-        "markers", "slow: mark test as slow running"
-    )
-
 
 def _redis_is_reachable() -> bool:
     import socket
@@ -637,33 +237,23 @@ def _redis_is_reachable() -> bool:
 
 
 def pytest_collection_modifyitems(config, items):
-    """Modify test collection.
+    """Skip the Redis suite, with a reason, when there is no server.
 
-    Also skips the Redis suite when there is no server to talk to. Those are
-    real integration tests against localhost:6379 — worth keeping real, and
-    they do run in CI, where the workflow starts a Redis service. On a machine
-    without one they would fail for a reason that has nothing to do with the
-    change under test, so the reason is said out loud instead.
+    Those are real integration tests against localhost:6379 — worth keeping
+    real, and they do run in CI, where the workflow starts a Redis service.
+    On a machine without one they would fail for a reason that has nothing to
+    do with the change under test, so the reason is said out loud instead.
+
+    Nothing is marked by name here any more. `slow` used to be added to any
+    test whose id contained "load" or "performance", which took nineteen
+    ordinary tests (every `*_loads_*`, every `payload`) out of a quick run;
+    a slow test now says so itself.
     """
-    skip_redis = None
-    if any(item.get_closest_marker("redis") for item in items) and not _redis_is_reachable():
-        skip_redis = pytest.mark.skip(
-            reason="no Redis on localhost:6379 (start one to run these)"
-        )
-
+    if not any(item.get_closest_marker("redis") for item in items):
+        return
+    if _redis_is_reachable():
+        return
+    skip_redis = pytest.mark.skip(reason="no Redis on localhost:6379 (start one to run these)")
     for item in items:
-        if skip_redis is not None and item.get_closest_marker("redis"):
+        if item.get_closest_marker("redis"):
             item.add_marker(skip_redis)
-
-    for item in items:
-        # Add integration marker to tests in integration_flows.py
-        if "integration_flows" in item.nodeid:
-            item.add_marker(pytest.mark.integration)
-
-        # Add unit marker to other tests
-        else:
-            item.add_marker(pytest.mark.unit)
-
-        # Add slow marker to tests that take longer
-        if "performance" in item.nodeid or "load" in item.nodeid:
-            item.add_marker(pytest.mark.slow)

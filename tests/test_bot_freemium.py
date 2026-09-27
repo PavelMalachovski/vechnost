@@ -3,8 +3,6 @@
 import os
 from unittest.mock import AsyncMock, MagicMock, patch
 
-import pytest
-
 os.environ.setdefault("TELEGRAM_BOT_TOKEN", "1234567890:TEST_TOKEN_FOR_UNIT_TESTS")
 
 from vechnost_bot.callback_handlers import (
@@ -15,8 +13,6 @@ from vechnost_bot.callback_handlers import (
 from vechnost_bot.config import settings
 from vechnost_bot.freemium import FREE_CARDS_PER_DECK
 from vechnost_bot.i18n import Language
-
-pytestmark = pytest.mark.asyncio
 
 
 def make_query():
