@@ -549,7 +549,10 @@
   .overlay > :last-child { margin-bottom: auto; }
   .overlay.show { display: flex; }
   .overlay h2 { font-size: 24px; margin-bottom: 10px; }
-  .overlay p { font-size: 15px; color: var(--muted-on-dark); line-height: 1.5; max-width: 300px; margin-bottom: 24px; }
+  /* pre-line: a text built from two sentences with a blank line between
+     them (the paywall's referral line, the «69» finale) used to arrive as
+     one run-on paragraph, because HTML collapses the line breaks. */
+  .overlay p { font-size: 15px; color: var(--muted-on-dark); line-height: 1.5; max-width: 300px; margin-bottom: 24px; white-space: pre-line; }
   .overlay .btn-play { margin-top: 0; padding: 15px 44px; font-size: 16px; }
   /* Everywhere, not only in overlays: «Начать заново» on the «69 ступеней»
      entry is a .btn-ghost outside one, and rendered as the browser's grey
@@ -853,6 +856,20 @@
      and where a portal throws you. Deals (secrets, Joker tasks) are not in
      the board payload, so nothing here can spoil them. The selectors carry
      the overlay id because `.overlay p` would otherwise out-rank them. */
+  /* The paywall says what the payment opens, as a list, so it reads the same
+     at every door: the end of the free cards, a room, the test, the board,
+     the Library and the masterclass. */
+  #paywall .pay-lead { margin-bottom: 14px; }
+  #paywall .pay-includes { margin-bottom: 8px; color: var(--text-on-dark); font-weight: 600; }
+  #paywall .pay-list {
+    list-style: none; padding: 0; margin: 0 0 14px; max-width: 300px; width: 100%;
+    text-align: left; font-size: 15px; line-height: 1.45; color: var(--text-on-dark);
+  }
+  #paywall .pay-list li { position: relative; padding: 3px 0 3px 22px; }
+  #paywall .pay-list li::before { content: '♥'; position: absolute; left: 2px; color: #E86BB5; }
+  #paywall .pay-promise { margin-bottom: 14px; }
+  #paywall .pay-referral { margin-bottom: 18px; color: var(--text-on-dark); }
+
   #s69CellInfo .s69-info-meta {
     font-size: 12px; letter-spacing: .06em; text-transform: uppercase;
     margin-bottom: 8px;
@@ -1174,11 +1191,16 @@
     <button class="btn btn-ghost" id="s69InfoClose"></button>
   </div>
 
-  <div class="overlay" id="paywall">
+  <div class="overlay" id="paywall" role="dialog" aria-labelledby="paywallTitle">
     <div class="big-emoji">🔒</div>
-    <h2 data-i18n="paywallTitle"></h2>
-    <p id="paywallText"></p>
+    <h2 id="paywallTitle"></h2>
+    <p class="pay-lead" id="paywallLead"></p>
+    <p class="pay-includes" data-i18n="payIncludes"></p>
+    <ul class="pay-list" id="paywallList"></ul>
+    <p class="pay-promise" data-i18n="payPromise"></p>
+    <p class="pay-referral" id="paywallReferral"></p>
     <button class="btn btn-play" id="paywallBuy" data-i18n="paywallBuy"></button>
+    <button class="btn btn-ghost" id="paywallRefresh" data-i18n="paywallRefresh"></button>
     <button class="btn btn-ghost" id="paywallClose" data-i18n="paywallClose"></button>
   </div>
 
@@ -1225,6 +1247,7 @@
       nsfwTitle: 'Контент 18+',
       nsfwText: 'В этой теме откровенные вопросы и задания для взрослых. Продолжая, вы подтверждаете, что вам есть 18 лет.',
       nsfwLibText: 'В этой категории откровенные идеи для взрослых. Продолжая, вы подтверждаете, что вам есть 18 лет.',
+      nsfwS69Text: '«69 ступеней» – откровенная игра для взрослых. Продолжая, вы подтверждаете, что вам есть 18 лет.',
       nsfwYes: 'Мне есть 18', nsfwNo: 'Назад',
       doneTitle: 'Колода пройдена!', doneText: 'Вы разобрали все карты этой колоды. Это только начало разговора.',
       again: 'Начать заново', toThemes: 'К темам',
@@ -1235,10 +1258,32 @@
       inviteBroken: 'Ссылка-приглашение не сработала. Попросите партнёра прислать её ещё раз.',
       practicesBtn: '🌿 Практики',
       inviteNoLink: 'Ссылку не удалось собрать. Обновите приложение.',
+      // One paywall for every door. Its list is the bot's too: keep payItems
+      // and payPromise in step with payment.unlock_message in
+      // data/translations_ru.yaml (tests/test_paywall_copy.py compares them).
       paywallTitle: 'Бесплатные карты закончились',
-      paywallText: 'Вы прошли {free} бесплатных карт из {total}. Полный доступ откроет все колоды целиком: сотни вопросов, все уровни, навсегда.',
+      paywallTitleFull: 'Полный доступ',
+      paywallLeadDeck: 'Вы прошли {free} бесплатных карт из {total}.',
+      paywallLeadRoom: 'Это были {free} бесплатных карт из {total}. Откройте всю колоду для вас обоих: платит один, играете вдвоём.',
+      paywallLeadCompat: 'Тест совместимости входит в полный доступ.',
+      paywallLeadS69: '«69 ступеней» входят в полный доступ.',
+      paywallLeadLibrary: 'Здесь только начало. Остальное входит в полный доступ.',
+      paywallLeadGuide: 'Мастер-класс целиком входит в полный доступ.',
+      payIncludes: 'Полный доступ открывает:',
+      payItems: [
+        'все 4 колоды целиком, все уровни',
+        'тест совместимости для пар',
+        'интерактивную игру «69 ступеней» 18+',
+        'мастер-класс по нюдсам',
+        'идеи для свиданий и практики для пар',
+      ],
+      payPromise: 'Оплата один раз – доступ навсегда. В играх вдвоём партнёру платить не нужно.',
       paywallBuy: '💳 Открыть всё', paywallClose: 'Закрыть',
+      paywallRefresh: 'Уже оплатили? Обновить доступ',
       paywallReferral: 'Вас пригласили, поэтому цена со скидкой {percent}%.',
+      payOpened: 'Доступ открыт. Спасибо!',
+      payNotYet: 'Оплата ещё не пришла. Попробуйте через минуту.',
+      roomOpened: 'Колода открыта целиком для вас обоих',
       freeCount: 'бесплатно {free} из {total}',
       shareText: 'Вопрос из VECHNOST, игры для пар',
       shareError: 'Не получилось поделиться',
@@ -1277,7 +1322,6 @@
       compatZoneStrength: 'Сфера силы',
       compatZoneGrowth: 'Зона роста', compatZoneCrisis: 'Критическая зона',
       compatNoResult: 'У вас пока нет пройденного теста',
-      compatPaywall: 'Тест совместимости входит в полный доступ',
       compatInviteMsg: 'Пройдём тест совместимости в VECHNOST? 💞 Нажми на ссылку, и тест откроется:',
       compatResume: 'Продолжаем с вопроса {n}',
       compatResumeBtn: 'Продолжить тест',
@@ -1339,7 +1383,6 @@
       s69NotPlayer: 'Эта ссылка от чужой игры',
       s69NoPartner: 'Партнёр ещё не присоединился',
       s69Over: 'Игра уже завершена',
-      s69Paywall: '«69 ступеней» входят в полный доступ',
       s69Seat: { creator: 'Партнёр 1', guest: 'Партнёр 2' },
       themes: {
         'Acquaintance': { name: 'Знакомство', desc: 'Узнать друг друга по-настоящему', emoji: '✨', grad: 'g-acq' },
@@ -1563,25 +1606,153 @@
 
   const fmt = (tpl, vars) => tpl.replace(/\{(\w+)\}/g, (_, k) => vars[k] != null ? vars[k] : '');
 
-  function showPaywall(freeCount, totalCount) {
-    $('paywallText').textContent = fmt(T().paywallText, { free: freeCount, total: totalCount }) +
-      (ACCESS.discount_percent ? '\n\n' + fmt(T().paywallReferral, { percent: ACCESS.discount_percent }) : '');
-    $('paywallBuy').textContent = T().paywallBuy + (ACCESS.price ? ' – ' + ACCESS.price : '');
+  // One paywall for every door a payment opens: the end of the free cards,
+  // a couple room's last free card, the test, the board, the Library and the
+  // masterclass. It says what the payment opens - the same list the bot's
+  // paywall sends - rather than only what was just refused, and the Library
+  // and the masterclass no longer jump straight to the payment page past it.
+  const PAYWALL_LEAD = {
+    deck: 'paywallLeadDeck', room: 'paywallLeadRoom', compat: 'paywallLeadCompat',
+    s69: 'paywallLeadS69', library: 'paywallLeadLibrary', guide: 'paywallLeadGuide',
+  };
+  let PAYWALL_CTX = null;     // which door the open paywall stands in
+  let PAY_PENDING = false;    // «Открыть всё» was pressed: look for the payment
+
+  function showPaywall(ctx, vars) {
+    const t = T();
+    PAYWALL_CTX = ctx;
+    $('paywallTitle').textContent = (ctx === 'deck' || ctx === 'room') ? t.paywallTitle : t.paywallTitleFull;
+    $('paywallLead').textContent = fmt(t[PAYWALL_LEAD[ctx]] || '', vars || {});
+    $('paywallList').innerHTML = t.payItems.map(item => '<li>' + escapeHTML(item) + '</li>').join('');
+    const referral = ACCESS.discount_percent ? fmt(t.paywallReferral, { percent: ACCESS.discount_percent }) : '';
+    $('paywallReferral').textContent = referral;
+    $('paywallReferral').style.display = referral ? '' : 'none';
+    $('paywallBuy').textContent = t.paywallBuy + (ACCESS.price ? ' – ' + ACCESS.price : '');
+    // No payment link, no button that does nothing - and nothing to refresh.
     $('paywallBuy').style.display = ACCESS.payment_url ? '' : 'none';
+    $('paywallRefresh').style.display = ACCESS.payment_url ? '' : 'none';
     $('paywall').classList.add('show');
+  }
+
+  function closePaywall() {
+    $('paywall').classList.remove('show');
+    PAYWALL_CTX = null;
   }
 
   $('paywallBuy').onclick = () => {
     const url = ACCESS.payment_url;
     if (!url) return;
     haptic('light');
+    PAY_PENDING = true;
     try {
       if (tg && url.startsWith('https://t.me')) tg.openTelegramLink(url);
       else if (tg) tg.openLink(url);
       else window.open(url, '_blank');
     } catch (e) { window.open(url, '_blank'); }
   };
-  $('paywallClose').onclick = () => { $('paywall').classList.remove('show'); };
+  $('paywallClose').onclick = closePaywall;
+  $('paywallRefresh').onclick = () => { haptic('light'); refreshAccess(true); };
+
+  // Access used to be read once, at launch: someone who paid and came back
+  // stood at the same paywall until they closed the app and opened it again,
+  // and a solo deck they reopened started over at card 1. Now the app asks
+  // again - when it comes back into view after «Открыть всё», a few times,
+  // because Tribute's webhook can land seconds after the person does, and
+  // whenever «Уже оплатили?» is pressed - and carries on from where the
+  // paywall stopped them.
+  let REFRESHING = false;
+
+  async function refreshAccess(manual) {
+    if (REFRESHING) return ACCESS.paid;
+    REFRESHING = true;
+    if (manual) $('loader').classList.add('show');
+    try {
+      const headers = {};
+      if (tg && tg.initData) headers['Authorization'] = 'tma ' + tg.initData;
+      const res = await timedFetch('/api/questions?lang=' + lang, { cache: 'no-store', headers });
+      if (!res.ok) throw await httpError(res, '/api/questions');
+      const json = await res.json();
+      const access = json.access || { paid: true };
+      if (!access.paid) {
+        ACCESS = access;
+        if (manual) toast(T().payNotYet);
+        return false;
+      }
+      DATA = json.themes;
+      ACCESS = access;
+      BOT_URL = json.bot_url || null;
+      PAY_PENDING = false;
+      const ctx = PAYWALL_CTX;
+      closePaywall();
+      haptic('ok');
+      toast(T().payOpened);
+      afterAccessOpened(ctx);
+      return true;
+    } catch (e) {
+      if (manual) toast(e.status ? statusMessage(e) : T().loadError);
+      return false;
+    } finally {
+      REFRESHING = false;
+      if (manual) $('loader').classList.remove('show');
+    }
+  }
+
+  // Back from the payment page: ask now, then again while the webhook may
+  // still be on its way. Stops at the first answer that says paid.
+  const PAY_RECHECK_MS = [0, 3000, 8000, 15000];
+  let payRecheck = null;
+
+  function recheckAfterPayment() {
+    if (!PAY_PENDING || ACCESS.paid) return;
+    if (payRecheck) clearTimeout(payRecheck);
+    let step = 0;
+    const next = async () => {
+      payRecheck = null;
+      if (!PAY_PENDING || ACCESS.paid) return;
+      if (await refreshAccess(false)) return;
+      step += 1;
+      if (step < PAY_RECHECK_MS.length) payRecheck = setTimeout(next, PAY_RECHECK_MS[step] - PAY_RECHECK_MS[step - 1]);
+    };
+    payRecheck = setTimeout(next, PAY_RECHECK_MS[0]);
+  }
+  document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'visible') recheckAfterPayment();
+  });
+  try { if (tg && tg.onEvent) tg.onEvent('activated', recheckAfterPayment); } catch (e) {}
+
+  // Carry on from the paywall that stopped them.
+  function afterAccessOpened(ctx) {
+    if (COOP.active && C.code) {
+      // The room hears of it on its next poll anyway; this is that poll, now.
+      coopFetch('/api/rooms/' + C.code).then(onCoopState).catch(() => {});
+      return;
+    }
+    if ($('deck').classList.contains('active') && S.theme && DATA && DATA[S.theme]) {
+      const grown = growOrder(deckItems().length);
+      if (grown && ctx === 'deck' && S.idx < S.order.length - 1) S.idx += 1;
+      persistDeck();
+      renderStage(true);
+      return;
+    }
+    if (ctx === 'library' || ctx === 'guide') reopenLibModule();
+  }
+
+  // A deck saved on the free preview, reopened whole: the cards already dealt
+  // keep their places and the rest follow - shuffled if the deck was.
+  function growOrder(size) {
+    if (!(S.order.length < size)) return false;
+    const have = new Set(S.order);
+    const rest = [];
+    for (let i = 0; i < size; i++) if (!have.has(i)) rest.push(i);
+    if (S.shuffled) {
+      for (let i = rest.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [rest[i], rest[j]] = [rest[j], rest[i]];
+      }
+    }
+    S.order = S.order.concat(rest);
+    return true;
+  }
 
   async function loadData() {
     $('loader').classList.add('show');
@@ -1635,11 +1806,24 @@
     });
   }
 
-  // One overlay, two callers: the Sex deck and a spicy Library category.
-  // The copy is swapped per caller so it always describes what it is gating.
+  // One overlay, three callers: the Sex deck, a spicy Library category and
+  // «69 ступеней». The copy is swapped per caller so it always describes what
+  // it is gating.
+  const NSFW_TEXT = { deck: 'nsfwText', library: 'nsfwLibText', s69: 'nsfwS69Text' };
   function showNsfw(kind) {
-    $('nsfwText').textContent = kind === 'library' ? T().nsfwLibText : T().nsfwText;
+    $('nsfwText').textContent = T()[NSFW_TEXT[kind] || 'nsfwText'];
     $('nsfw').classList.add('show');
+  }
+
+  // What happens after the answer, when the question was asked on the way
+  // somewhere other than a deck or the Library: into «69 ступеней», or into
+  // a partner's 18+ room by their link. «Назад» there goes home - nobody is
+  // seated anywhere until the answer is yes.
+  let NSFW_NEXT = null;          // {yes, no}
+  function nsfwGate(kind, next) {
+    if (store.get('nsfwOk', false)) { next(); return; }
+    NSFW_NEXT = { yes: next, no: () => show('home') };
+    showNsfw(kind);
   }
 
   function pickTheme(key) {
@@ -1670,6 +1854,12 @@
     store.set('nsfwOk', true);
     $('nsfw').classList.remove('show');
     haptic('ok');
+    if (NSFW_NEXT) {
+      const next = NSFW_NEXT.yes;
+      NSFW_NEXT = null;
+      next();
+      return;
+    }
     if (LIB_NSFW_PENDING) {
       const pending = LIB_NSFW_PENDING;
       LIB_NSFW_PENDING = null;
@@ -1681,6 +1871,11 @@
   $('nsfwNo').onclick = () => {
     LIB_NSFW_PENDING = null;
     $('nsfw').classList.remove('show');
+    if (NSFW_NEXT) {
+      const back = NSFW_NEXT.no;
+      NSFW_NEXT = null;
+      back();
+    }
   };
 
   /* ---------------- levels screen ---------------- */
@@ -1726,8 +1921,16 @@
   function initOrder(forceReset) {
     const items = deckItems();
     const saved = store.get('deck.' + deckKey(), null);
-    if (!forceReset && saved && Array.isArray(saved.order) && saved.order.length === items.length) {
-      S.order = saved.order; S.idx = Math.min(saved.idx, items.length - 1); S.shuffled = !!saved.shuffled;
+    // A saved order no longer than the deck and naming only its cards is
+    // resumed. A shorter one was saved on the free preview: after a payment
+    // it grows to the whole deck rather than starting over at card 1.
+    const valid = saved && Array.isArray(saved.order) && saved.order.length > 0 &&
+      saved.order.length <= items.length &&
+      saved.order.every(i => Number.isInteger(i) && i >= 0 && i < items.length);
+    if (!forceReset && valid) {
+      S.order = saved.order.slice(); S.shuffled = !!saved.shuffled;
+      S.idx = Math.min(saved.idx, S.order.length - 1);
+      growOrder(items.length);
       if (S.idx > 0) toast(T().resumed);
     } else {
       S.order = items.map((_, i) => i);
@@ -2064,6 +2267,10 @@
     const params = new URLSearchParams({
       theme: theme, idx: idx, level: level, type: type, lang: lang
     });
+    // In a room, the card on the table is the room's to share: the partner
+    // who did not pay plays a paid room's whole deck, and /api/card lets
+    // them render the card the room dealt them.
+    if (COOP.active && C.code) params.set('room', C.code);
     $('loader').classList.add('show');
     try {
       const headers = {};
@@ -2115,7 +2322,7 @@
       // on a frozen deck where nothing responded until the user left the
       // screen. Now the last free card comes back and stays swipeable.
       renderStage(false);
-      showPaywall(freeN, full);
+      showPaywall('deck', { free: freeN, total: full });
       return;
     }
     document.querySelector('#done p').textContent = T().doneText;
@@ -2267,10 +2474,18 @@
     haptic('light');
     $('loader').classList.add('show');
     try {
-      const st = await coopFetch('/api/rooms/' + code + '/join', { method: 'POST' });
+      // `nsfw=1` once the 18+ question has been answered: an 18+ room keeps
+      // its seat empty until then (403), so a partner who says no is never
+      // seated, and the creator never plays on alone.
+      const adult = store.get('nsfwOk', false) ? '?nsfw=1' : '';
+      const st = await coopFetch('/api/rooms/' + code + '/join' + adult, { method: 'POST' });
       C.code = st.code; C.st = st;
       enterCoopDeck();
     } catch (e) {
+      if (e.status === 403 && !store.get('nsfwOk', false)) {
+        nsfwGate('deck', () => joinCoopRoom(code));
+        return;
+      }
       coopError(e);
     } finally {
       $('loader').classList.remove('show');
@@ -2299,21 +2514,30 @@
     $('btnPrev').style.display = 'none';
     show('deck');
     renderCoopStage(true);
-    startCoopPoll(st => {
-      const prevIdx = C.st ? C.st.idx : -1;
-      const wasFinished = C.st ? C.st.finished : false;
-      // A poll that left before our own /advance and lands after it
-      // carries the deck as it was. Never step backwards: the fresh card
-      // used to fly away to show the old one, then fly again a tick later.
-      if (C.st && !st.finished && st.idx < prevIdx) return;
-      C.st = st;
-      if (st.finished && !wasFinished) { coopFinish(); return; }
-      if (st.idx !== prevIdx) {
-        coopFlyTop(() => renderCoopStage(true));
-      } else {
-        updateCoopHud();
-      }
-    });
+    startCoopPoll(onCoopState);
+  }
+
+  function onCoopState(st) {
+    if (!COOP.active || !st || st.code !== C.code) return;
+    const prevIdx = C.st ? C.st.idx : -1;
+    const wasFinished = C.st ? C.st.finished : false;
+    // A poll that left before our own /advance and lands after it
+    // carries the deck as it was. Never step backwards: the fresh card
+    // used to fly away to show the old one, then fly again a tick later.
+    if (C.st && !st.finished && st.idx < prevIdx) return;
+    C.st = st;
+    if (st.finished && !wasFinished) { coopFinish(); return; }
+    if (wasFinished && !st.finished) {
+      // A payment - either partner's - dealt the rest of the deck in.
+      if (PAYWALL_CTX === 'room') closePaywall();
+      haptic('ok');
+      toast(T().roomOpened);
+    }
+    if (st.idx !== prevIdx) {
+      coopFlyTop(() => renderCoopStage(true));
+    } else {
+      updateCoopHud();
+    }
   }
 
   function coopFlyTop(cb) {
@@ -2379,6 +2603,14 @@
   }
 
   function coopFinish() {
+    if (C.st && C.st.trimmed) {
+      // The end of the free cards, not of the deck. The poll keeps going:
+      // whichever partner pays, the next poll deals the rest in for both,
+      // and the pair carries on from the next card.
+      haptic('light');
+      showPaywall('room', { free: C.st.total, total: C.st.full_total });
+      return;
+    }
     stopCoopPoll();
     haptic('ok');
     document.querySelector('#done p').textContent = T().coopDoneText;
@@ -2413,6 +2645,14 @@
 
   /* ---------------- library ---------------- */
   let LIB_NSFW_PENDING = null;   // {module, category} to open after the 18+ overlay
+  let LIB_OPEN = null;           // {module, category} on screen, to reopen after a payment
+
+  // After a payment the module on screen is asked for again: the server
+  // sends the whole of it now.
+  function reopenLibModule() {
+    const onScreen = ['libraryDetail', 'libDeck', 'guide'].some(id => $(id).classList.contains('active'));
+    if (LIB_OPEN && onScreen) openLibModule(LIB_OPEN.module, LIB_OPEN.category);
+  }
   // Where a module's back button goes. The modules are listed on the home
   // screen now, but the Library screen still exists and is still where the
   // daily push's deep link (?screen=library) lands, so a module can be
@@ -2503,6 +2743,7 @@
   }
 
   async function openLibModule(id, openCategory) {
+    LIB_OPEN = { module: id, category: openCategory || null };
     $('loader').classList.add('show');
     try {
       const data = await libFetch(`/api/library/${id}?lang=${lang}${libNsfwParam()}`);
@@ -2531,7 +2772,7 @@
       $('libDetailTitle').textContent = title;
       $('libDetailBody').innerHTML = renderLibCategories(data);
       const buy = $('libBuy');
-      if (buy) buy.onclick = () => { haptic('light'); $('paywallBuy').click(); };
+      if (buy) buy.onclick = () => { haptic('light'); showPaywall('library'); };
       $('libDetailBody').querySelectorAll('[data-cat]').forEach(row => {
         row.onclick = () => { haptic('light'); openLibCategory(data, id, row.dataset.cat); };
       });
@@ -2575,6 +2816,7 @@
   // fast path passes openLibrary, because returning to openLibModule would
   // re-run the fast path and trap the user in the deck.
   function openLibCategory(data, id, catId, back) {
+    LIB_OPEN = { module: id, category: catId };
     const cat = (data.categories || []).find(c => c.id === catId);
     if (!cat || !cat.items.length) return;
     const items = cat.items.map((t, i) => ({
@@ -2666,7 +2908,7 @@
     // Only the top card's button: the under card carries a copy of the same
     // markup, and .card.under is pointer-events:none so it cannot be tapped.
     top.querySelectorAll('.q-lock').forEach(b => {
-      b.onclick = () => { haptic('light'); $('paywallBuy').click(); };
+      b.onclick = () => { haptic('light'); showPaywall('library'); };
     });
     // The lock card is not content: the progress counts what there is to read.
     const cur = Math.min(LS.idx + 1, LS.count);
@@ -2787,7 +3029,7 @@
       show('compatInvite');
       startCompatPoll();
     } catch (e) {
-      if (e.status === 402) toast(T().compatPaywall); else toast(T().loadError);
+      if (e.status === 402) showPaywall('compat'); else toast(T().loadError);
     } finally { $('loader').classList.remove('show'); }
   }
 
@@ -3126,11 +3368,11 @@
     $('guideBody').querySelectorAll('[data-nsfw]').forEach(btn => {
       btn.onclick = () => {
         LIB_NSFW_PENDING = { module: moduleId, category: null };
-        showNsfw('lib');
+        showNsfw('library');
       };
     });
     const buy = $('guideBuy');
-    if (buy) buy.onclick = () => $('paywallBuy').click();
+    if (buy) buy.onclick = () => { haptic('light'); showPaywall('guide'); };
     show('guide');
   }
 
@@ -3825,7 +4067,7 @@
   const S69_COLS = 6;
 
   function s69Error(e) {
-    if (e.status === 402) { showS69Paywall(); return; }
+    if (e.status === 402) { showPaywall('s69'); return; }
     // coopFetch keeps the server's `detail`, and one status covers several
     // different situations: a 409 on join can mean "full" or "this game is
     // played on one phone", a 403 can mean "not your turn" or "not a player
@@ -3844,14 +4086,6 @@
       return;
     }
     toast(statusMessage(e));
-  }
-
-  function showS69Paywall() {
-    $('paywallText').textContent = T().s69Paywall +
-      (ACCESS.discount_percent ? '\n\n' + fmt(T().paywallReferral, { percent: ACCESS.discount_percent }) : '');
-    $('paywallBuy').textContent = T().paywallBuy + (ACCESS.price ? ' – ' + ACCESS.price : '');
-    $('paywallBuy').style.display = ACCESS.payment_url ? '' : 'none';
-    $('paywall').classList.add('show');
   }
 
   // A happy buzz on a ladder, a sad double one on a snake, and a buzz when a
@@ -4363,7 +4597,9 @@
 
   /* ---- wiring ---- */
 
-  $('btnS69').onclick = openS69;
+  // 18+ before the first screen of the board, from the home button and from
+  // an invite or a nudge link alike; «Назад» goes home without joining.
+  $('btnS69').onclick = () => nsfwGate('s69', openS69);
   $('s69Back').onclick = () => show('home');
   $('s69InviteBack').onclick = () => { stopS69Poll(); G.code = null; show('s69'); };
   $('s69BoardBack').onclick = leaveS69;
@@ -4448,9 +4684,8 @@
     if (target.screen === 'library') { openLibrary(); return; }
 
     if (target.screen === 'steps69') {
-      if (!target.code) { openS69(); return; }
-      show('s69');
-      await s69Join(target.code);
+      if (!target.code) { nsfwGate('s69', openS69); return; }
+      nsfwGate('s69', () => { show('s69'); s69Join(target.code); });
       return;
     }
     if (target.screen === 'compat') {
