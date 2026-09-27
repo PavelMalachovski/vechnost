@@ -137,6 +137,18 @@ def check(bucket: str, key: str) -> None:
         _calls_since_sweep = 0
         _sweep(now)
 
+    # The client's own budget first, and an attempt is counted only once it
+    # is let through. This used to stamp the global window before looking at
+    # the client's, so requests the per-client limit had already refused
+    # still spent everyone's ceiling: one address that never rotated its
+    # X-Forwarded-For, at ~2 requests a second, locked every couple out of
+    # joining, and at ~10 a second out of paying (backend audit B-03).
+    stamps = _hits[bucket][key]
+    _prune(stamps, now, window)
+    if len(stamps) >= limit:
+        logger.warning(f"Throttle: '{bucket}' budget spent by {key}")
+        raise HTTPException(status_code=429, detail="too many requests")
+
     global_limit = GLOBAL_LIMITS.get(bucket)
     if global_limit:
         gmax, gwindow = global_limit
@@ -146,12 +158,6 @@ def check(bucket: str, key: str) -> None:
             logger.warning(f"Throttle: global ceiling hit on '{bucket}'")
             raise HTTPException(status_code=429, detail="too many requests")
         gstamps.append(now)
-
-    stamps = _hits[bucket][key]
-    _prune(stamps, now, window)
-    if len(stamps) >= limit:
-        logger.warning(f"Throttle: '{bucket}' budget spent by {key}")
-        raise HTTPException(status_code=429, detail="too many requests")
     stamps.append(now)
 
 

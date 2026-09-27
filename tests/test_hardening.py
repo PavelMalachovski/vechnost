@@ -129,6 +129,23 @@ def test_a_client_rotating_its_forwarded_address_still_hits_the_global_ceiling()
     assert excinfo.value.status_code == 429
 
 
+def test_a_client_that_never_rotates_cannot_spend_everyones_ceiling():
+    """Refused requests used to be stamped into the global window anyway, so
+    one address hammering past its own budget - no rotation, nothing clever
+    - ran the global ceiling out for every couple: ~2 req/s closed join for
+    everyone, ~10 req/s the Tribute webhook (backend audit B-03)."""
+    throttle.reset()
+    ceiling, _ = throttle.GLOBAL_LIMITS["join"]
+    refused = 0
+    for _ in range(ceiling * 2):
+        try:
+            throttle.check("join", "6.6.6.6")
+        except Exception:
+            refused += 1
+    assert refused == ceiling * 2 - throttle.LIMITS["join"][0]
+    throttle.check("join", "2.2.2.2")  # a partner opening an invite: let in
+
+
 def test_guessing_room_codes_is_throttled(client):
     throttle.reset()
     limit, _ = throttle.LIMITS["join"]
