@@ -112,6 +112,35 @@ class TestCallbackHandlerRegistry:
 
             mock_query.edit_message_text.assert_called_once()
 
+    @pytest.mark.asyncio
+    async def test_a_storage_outage_still_answers_the_player(self, registry, mock_query):
+        """The apology does not read the session: storage is what failed.
+
+        It used to re-read the session only to pick a language, so it failed
+        the same way and every button went silently dead.
+        """
+        with patch('vechnost_bot.callback_handlers.get_session') as mock_get_session:
+            mock_get_session.side_effect = Exception("storage is down")
+
+            await registry.handle_callback(mock_query, "theme_Acquaintance")
+
+        mock_query.edit_message_text.assert_called_once()
+
+    @pytest.mark.asyncio
+    async def test_a_message_telegram_cannot_reach_does_not_raise(self, registry, mock_query):
+        """Neither the handler nor the apology can reach Telegram: the edit
+        fails, and so does the new message sent in its place."""
+        mock_query.edit_message_text.side_effect = Exception("message is gone")
+        mock_query.message.reply_text = AsyncMock(side_effect=Exception("chat is gone"))
+
+        with patch('vechnost_bot.callback_handlers.get_session') as mock_get_session:
+            mock_get_session.side_effect = Exception("storage is down")
+
+            await registry.handle_callback(mock_query, "theme_Acquaintance")
+
+        mock_query.edit_message_text.assert_called_once()
+        mock_query.message.reply_text.assert_awaited_once()
+
 
 def _make_query():
     """A callback query that records what the handler sent it.
@@ -362,6 +391,29 @@ class TestQuestionHandler:
         mock_query.edit_message_media.assert_not_called()
         mock_query.edit_message_text.assert_called_once()
 
+    @pytest.mark.asyncio
+    async def test_an_unknown_deck_is_refused(self, handler, mock_query, session):
+        callback_data = QuestionCallbackData.parse("q:nope:1:0")
+
+        await handler.handle(mock_query, callback_data, session)
+
+        assert session.theme is None
+        mock_query.edit_message_media.assert_not_called()
+        mock_query.edit_message_text.assert_called_once()
+
+    @pytest.mark.asyncio
+    async def test_the_last_card_offers_no_next(self, handler, mock_query, session):
+        from vechnost_bot.logic import localized_game_data
+
+        last = len(localized_game_data.get_content(Theme.ACQUAINTANCE, 1, ContentType.QUESTIONS)) - 1
+        callback_data = QuestionCallbackData.parse(f"q:acq:1:{last}")
+
+        await handler.handle(mock_query, callback_data, session)
+
+        targets = _callback_targets(_keyboard_of(mock_query.edit_message_media))
+        assert f"nav:acq:1:{last - 1}:q" in targets
+        assert f"nav:acq:1:{last + 1}:q" not in targets
+
 
 class TestNavigationHandler:
     """Test navigation handler."""
@@ -532,6 +584,21 @@ class TestLanguageHandler:
 
         assert session.language == Language.RUSSIAN
         mock_query.edit_message_text.assert_called_once()
+
+    @pytest.mark.asyncio
+    async def test_a_message_that_cannot_be_edited_is_replaced(self, handler, mock_query):
+        """An old `lang_*` button sits on a message Telegram may no longer let
+        the bot edit; the welcome screen then arrives as a new message."""
+        from telegram.error import TelegramError
+
+        mock_query.edit_message_text.side_effect = TelegramError("message can't be edited")
+        callback_data = LanguageCallbackData.parse("lang_en")
+
+        await handler.handle(mock_query, callback_data, SessionState())
+
+        mock_query.message.delete.assert_awaited_once()
+        mock_query.message.reply_text.assert_awaited_once()
+        assert mock_query.message.reply_text.call_args.kwargs["parse_mode"] == "HTML"
 
 
 class TestWelcomeScreen:

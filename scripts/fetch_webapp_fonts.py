@@ -5,6 +5,7 @@ cyrillic and latin blocks of each family and nothing else, which keeps the
 whole typographic payload under ~120 KB.
 """
 
+import argparse
 import re
 import urllib.request
 from pathlib import Path
@@ -34,6 +35,10 @@ def _get(url: str) -> bytes:
 
 
 def main() -> None:
+    argparse.ArgumentParser(
+        description=__doc__.split("\n\n")[0],
+        epilog=f"Writes the woff2 files to {OUT.relative_to(OUT.parent.parent)}/.",
+    ).parse_args()
     OUT.mkdir(parents=True, exist_ok=True)
     for family, stem in WANTED.items():
         css = _get(f"https://fonts.googleapis.com/css2?family={family}").decode()

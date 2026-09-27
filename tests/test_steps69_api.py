@@ -209,6 +209,20 @@ def test_a_solo_game_takes_no_guest(client):
     assert response.status_code == 409
 
 
+def test_the_creator_opening_their_own_link_is_not_seated_twice(client):
+    """Creators tap the invite they are about to send; that is a look at
+    their own game, and the partner's seat stays free."""
+    game = create(client, piece="hearts")
+    again = client.post(f"/api/steps69/{game['code']}/join", json={}, headers=ALICE)
+    assert again.status_code == 200
+    assert again.json()["your_role"] == "creator"
+    assert again.json()["started"] is False
+
+    joined = client.post(f"/api/steps69/{game['code']}/join", json={}, headers=BOB)
+    assert joined.status_code == 200
+    assert joined.json()["your_role"] == "guest"
+
+
 # ---------------------------------------------------------------------------
 # Turns and two pieces
 # ---------------------------------------------------------------------------

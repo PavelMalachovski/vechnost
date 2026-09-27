@@ -1,0 +1,15 @@
+# Keeps the GitHub Actions the workflows use on current releases: the Node 20
+# majors ran for months after the runner started warning about them. One
+# grouped pull request a week. Python dependencies are not here on purpose:
+# requirements.lock and requirements-dev.lock are generated together by uv
+# (docs/RAILWAY_DEPLOYMENT.md), and the nightly "Today's PyPI, unpinned" job
+# is what says when to regenerate them.
+version: 2
+updates:
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+    groups:
+      github-actions:
+        patterns: ["*"]

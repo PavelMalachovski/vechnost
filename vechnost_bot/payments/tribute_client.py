@@ -2,7 +2,6 @@
 
 import logging
 from dataclasses import dataclass
-from typing import Any
 
 import httpx
 
@@ -100,49 +99,3 @@ class TributeClient:
         except Exception as e:
             logger.error(f"Unexpected error fetching products: {e}")
             raise TributeAPIError(f"Failed to fetch products: {e}") from e
-
-    async def get_subscription_status(
-        self, user_ref: str
-    ) -> dict[str, Any] | None:
-        """
-        Get subscription status for a user.
-
-        Args:
-            user_ref: User reference ID (e.g., telegram_user_id)
-
-        Returns:
-            Subscription data or None if not found
-        """
-        if not self.api_key:
-            raise TributeAPIError("Tribute API key not configured")
-
-        url = f"{self.base_url}/v1/subscriptions/{user_ref}"
-
-        try:
-            async with httpx.AsyncClient(timeout=30.0) as client:
-                response = await client.get(url, headers=self.headers)
-
-                if response.status_code == 404:
-                    return None
-
-                response.raise_for_status()
-                return response.json()
-
-        except httpx.HTTPStatusError as e:
-            if e.response.status_code == 404:
-                return None
-            logger.error(
-                f"HTTP error fetching subscription: {e.response.status_code} - {e.response.text}"
-            )
-            raise TributeAPIError(
-                f"Failed to fetch subscription: {e.response.status_code}"
-            ) from e
-        except httpx.RequestError as e:
-            logger.error(f"Request error fetching subscription: {e}")
-            raise TributeAPIError(
-                "Failed to fetch subscription: network error"
-            ) from e
-        except Exception as e:
-            logger.error(f"Unexpected error fetching subscription: {e}")
-            raise TributeAPIError(f"Failed to fetch subscription: {e}") from e
-

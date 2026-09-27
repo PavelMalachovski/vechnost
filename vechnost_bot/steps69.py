@@ -116,10 +116,6 @@ class Move(BaseModel):
     event: Literal["ladder", "snake"] | None = None
     message: str | None = None
 
-    @property
-    def moved_by_portal(self) -> bool:
-        return self.event is not None
-
 
 @cache
 def _content(language: Language) -> dict:

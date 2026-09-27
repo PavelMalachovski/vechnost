@@ -3,24 +3,25 @@
 import logging
 from collections.abc import AsyncGenerator
 from contextlib import asynccontextmanager
+from typing import Any
 from urllib.parse import urlsplit, urlunsplit
 
-from sqlalchemy.engine import Connection
+from sqlalchemy import event
+from sqlalchemy.engine import Connection, make_url
 from sqlalchemy.ext.asyncio import (
     AsyncEngine,
     AsyncSession,
     async_sessionmaker,
     create_async_engine,
 )
-from sqlalchemy.pool import StaticPool
+from sqlalchemy.pool import NullPool, StaticPool
 
 from ..config import settings
 from .models import Base
 
 logger = logging.getLogger(__name__)
 
-# Create async engine
-# For SQLite, we need to use aiosqlite and ensure thread-safe access
+# Built by init_db() on first use (see _engine()).
 engine = None
 async_session_maker = None
 
@@ -51,6 +52,44 @@ def masked_url(url: str) -> str:
     return urlunsplit(parts._replace(netloc=netloc))
 
 
+def _sqlite_in_memory(db_url: str) -> bool:
+    """Whether a SQLite URL names a database that lives in its connection."""
+    url = make_url(db_url)
+    return url.database in (None, "", ":memory:") or url.query.get("mode") == "memory"
+
+
+def _sqlite_file_engine(db_url: str) -> AsyncEngine:
+    """A SQLite file with a connection per session and writers in turn.
+
+    One connection per checkout (`NullPool`), so two requests are two
+    transactions rather than one: the `StaticPool` this replaced shared a
+    single connection between every request, which interleaved their
+    statements in one transaction - under concurrent taps a crowd opening one
+    invite seated nobody and six taps turned six cards. NullPool also closes
+    each connection in the event loop that opened it, so none outlives its
+    loop (a test's, or TestClient's per request).
+
+    Separate connections are not enough on their own. SQLite ignores `FOR
+    UPDATE`, and the driver begins a transaction only at the first write, so
+    a read-modify-write would read outside any transaction and two of them
+    would both write. Every transaction therefore begins IMMEDIATE, taking
+    the write lock up front: the next one waits for it (the driver's busy
+    timeout), then reads what the first committed. That is the whole file
+    rather than one row, which a development database can afford.
+    """
+    engine = create_async_engine(db_url, echo=False, poolclass=NullPool)
+
+    @event.listens_for(engine.sync_engine, "connect")
+    def _driver_does_not_begin(dbapi_connection: Any, _record: Any) -> None:
+        dbapi_connection.isolation_level = None
+
+    @event.listens_for(engine.sync_engine, "begin")
+    def _begin_immediate(conn: Connection) -> None:
+        conn.exec_driver_sql("BEGIN IMMEDIATE")
+
+    return engine
+
+
 def init_db() -> None:
     """Initialize database engine and session maker."""
     global engine, async_session_maker
@@ -58,14 +97,18 @@ def init_db() -> None:
     db_url = get_database_url()
     logger.info(f"Initializing database with URL: {masked_url(db_url)}")
 
-    # For SQLite, use StaticPool to ensure thread-safe access
-    if "sqlite" in db_url:
+    if db_url.startswith("sqlite") and _sqlite_in_memory(db_url):
+        # An in-memory database exists only inside its connection, so every
+        # session has to share that one: the tests that use one never run
+        # two requests at once.
         engine = create_async_engine(
             db_url,
             echo=False,
             connect_args={"check_same_thread": False},
             poolclass=StaticPool,
         )
+    elif db_url.startswith("sqlite"):
+        engine = _sqlite_file_engine(db_url)
     else:
         engine = create_async_engine(db_url, echo=False)
 

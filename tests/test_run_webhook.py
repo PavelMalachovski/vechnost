@@ -14,7 +14,12 @@ import sys
 import time
 from pathlib import Path
 
+import pytest
+
 import vechnost_bot.run_webhook as run_webhook
+
+# Real processes and a real stop timeout: seconds, by design.
+pytestmark = pytest.mark.slow
 
 REPO = Path(__file__).parent.parent
 

@@ -52,11 +52,9 @@ every browser test runs once per phone model (`browser/phones.py`):
 Both partners of a scenario hold the same model, so a CI job per phone runs
 every scenario on one engine, against a live server on PostgreSQL. Locally
 the browsers' server runs on a SQLite file unless `E2E_DATABASE_URL` names
-another database, and SQLite's single shared connection (audit B-13, H-03)
-now and then refuses a partner's first join with «test is full» while the
-seat stays empty: a two-phone test that fails that way locally is B-13, not
-the test. PostgreSQL does not do it. `E2E_PHONES=android` (or `iphone`) picks the
-phones; unset, both run, and a phone whose engine is not installed skips
+another database. (It used to refuse a partner's first join now and then,
+audit H-03: SQLite's one shared connection, B-13, fixed since.)
+`E2E_PHONES=android` (or `iphone`) picks the phones; unset, both run, and a phone whose engine is not installed skips
 with the reason. Named in `E2E_PHONES`, a missing engine fails instead: the
 iPhone job must not go green by testing nothing.
 

@@ -1,6 +1,6 @@
 """Tests for YAML data integrity."""
 
-from vechnost_bot.logic import load_game_data
+from vechnost_bot.logic import localized_game_data
 from vechnost_bot.models import Theme
 
 
@@ -9,13 +9,13 @@ class TestYAMLIntegrity:
 
     def test_yaml_loads_successfully(self):
         """Test that YAML file loads without errors."""
-        game_data = load_game_data()
+        game_data = localized_game_data.get_game_data()
         assert game_data is not None
         assert len(game_data.themes) > 0
 
     def test_all_themes_present(self):
         """Test that all expected themes are present."""
-        game_data = load_game_data()
+        game_data = localized_game_data.get_game_data()
         expected_themes = [Theme.ACQUAINTANCE, Theme.FOR_COUPLES, Theme.SEX, Theme.PROVOCATION]
 
         for theme in expected_themes:
@@ -23,7 +23,7 @@ class TestYAMLIntegrity:
 
     def test_acquaintance_theme_structure(self):
         """Test Acquaintance theme structure."""
-        game_data = load_game_data()
+        game_data = localized_game_data.get_game_data()
         theme = Theme.ACQUAINTANCE
 
         assert theme in game_data.themes
@@ -46,7 +46,7 @@ class TestYAMLIntegrity:
 
     def test_for_couples_theme_structure(self):
         """Test For Couples theme structure."""
-        game_data = load_game_data()
+        game_data = localized_game_data.get_game_data()
         theme = Theme.FOR_COUPLES
 
         assert theme in game_data.themes
@@ -69,7 +69,7 @@ class TestYAMLIntegrity:
 
     def test_sex_theme_structure(self):
         """Test Sex theme structure."""
-        game_data = load_game_data()
+        game_data = localized_game_data.get_game_data()
         theme = Theme.SEX
 
         assert theme in game_data.themes
@@ -89,7 +89,7 @@ class TestYAMLIntegrity:
 
     def test_provocation_theme_structure(self):
         """Test Provocation theme structure."""
-        game_data = load_game_data()
+        game_data = localized_game_data.get_game_data()
         theme = Theme.PROVOCATION
 
         assert theme in game_data.themes
@@ -105,7 +105,7 @@ class TestYAMLIntegrity:
 
     def test_no_empty_strings_in_content(self):
         """Test that no content contains empty strings."""
-        game_data = load_game_data()
+        game_data = localized_game_data.get_game_data()
 
         for theme, theme_data in game_data.themes.items():
             if "levels" in theme_data:
@@ -118,7 +118,7 @@ class TestYAMLIntegrity:
 
     def test_tasks_only_in_sex_theme(self):
         """Test that tasks are only present in Sex theme."""
-        game_data = load_game_data()
+        game_data = localized_game_data.get_game_data()
 
         for theme, theme_data in game_data.themes.items():
             if "levels" in theme_data:
@@ -128,7 +128,7 @@ class TestYAMLIntegrity:
 
     def test_content_types_consistency(self):
         """Test that content types are consistent across levels."""
-        game_data = load_game_data()
+        game_data = localized_game_data.get_game_data()
 
         for theme, theme_data in game_data.themes.items():
             if "levels" in theme_data:
@@ -144,7 +144,7 @@ class TestYAMLIntegrity:
 
     def test_questions_have_content(self):
         """Test that all question lists have actual content."""
-        game_data = load_game_data()
+        game_data = localized_game_data.get_game_data()
 
         for theme, theme_data in game_data.themes.items():
             if "levels" in theme_data:
@@ -161,7 +161,7 @@ class TestYAMLIntegrity:
 
     def test_tasks_have_content(self):
         """Test that all task lists have actual content."""
-        game_data = load_game_data()
+        game_data = localized_game_data.get_game_data()
 
         for theme, theme_data in game_data.themes.items():
             if "levels" in theme_data:
