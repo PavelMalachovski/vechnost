@@ -29,6 +29,15 @@ document.addEventListener('DOMContentLoaded', () => {
 """
 
 
+# Every scroll position the board's map reports, from the page's first moment.
+WATCH_MAP = """
+window.__mapScrolls = [];
+document.addEventListener('scroll', e => {
+  if (e.target && e.target.id === 's69Map') window.__mapScrolls.push(e.target.scrollTop);
+}, true);
+"""
+
+
 def press_back(phone) -> None:
     """What Telegram does on the Back button or the Android back gesture."""
     phone.page.evaluate("() => window.Telegram.WebApp.BackButton._cb()")
@@ -118,3 +127,36 @@ def test_a_phone_that_asked_for_less_motion_gets_it(server: Server, phones) -> N
         "return [s.animationIterationCount, parseFloat(s.animationDuration)]; }"
     )
     assert style[0] == "1" and style[1] < 0.01, style
+
+
+def test_the_board_follows_the_piece_without_travel_when_asked(server: Server, phones) -> None:
+    """D-13, the map: it keeps the piece in frame with scrollIntoView, and a
+    smooth scroll asked for by script is not the CSS scroll-behavior that the
+    reduced-motion block turns off. The map travelled for half a second on a
+    phone that asked for less motion."""
+    alice, bob = server.player("Alice", paid=True), server.player("Bob")
+    game = alice.ok("POST", "/api/steps69?lang=ru", {"mode": "duo", "piece": "hearts"})
+    code = game["code"]
+    bob.ok("POST", f"/api/steps69/{code}/join", {})
+    # Far enough down that the capped map has to scroll to show the piece.
+    for _ in range(200):
+        state = alice.ok("GET", f"/api/steps69/{code}")
+        if state["you"]["position"] >= 30:
+            break
+        (alice if state["your_turn"] else bob).ok("POST", f"/api/steps69/{code}/roll")
+
+    board = phones(
+        alice, start_param=f"s69_{code}", reduced_motion=True,
+        viewport={"width": 320, "height": 568}, init_script=WATCH_MAP,
+    )
+    board.page.wait_for_selector("#nsfw.show, #s69Board.active")
+    if board.page.is_visible("#nsfwYes"):
+        board.page.click("#nsfwYes")
+    board.screen("s69Board", timeout=POLL)
+    board.page.wait_for_selector("#s69Map .s69-cell.here .s69-piece")
+    board.page.wait_for_timeout(1_000)
+    seen = board.page.evaluate("() => window.__mapScrolls")
+    # A map that travels reports its scroll a frame at a time; one that
+    # jumps, once for each place it jumps to.
+    assert seen, "the piece should be out of the first rows' frame"
+    assert len(set(seen)) <= 2, f"the map travelled through {sorted(set(seen))}"
