@@ -17,8 +17,9 @@ strict:
   twelve - or its size changed, or it exists on one side only. Two tours of
   the same code in one job come out identical to the pixel, so there is no
   noise for a larger allowance to absorb;
-* content that is random by design - invite codes, the order of a room's
-  deck, the dice - is masked in both tours (`screens.VISUAL_MASKS`), and
+* content that is random by design is masked or pinned in both tours -
+  invite codes by `screens.VISUAL_MASKS`, the card a room deals by one
+  fixed question - and
   motion, which is random in time, is asked away: the tours' phones want
   reduced motion, which the app honours;
 * a changed screen says where on it the pixels moved, in the job's log as
