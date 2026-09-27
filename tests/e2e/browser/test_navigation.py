@@ -127,6 +127,12 @@ def test_a_phone_that_asked_for_less_motion_gets_it(server: Server, phones) -> N
         "return [s.animationIterationCount, parseFloat(s.animationDuration)]; }"
     )
     assert style[0] == "1" and style[1] < 0.01, style
+    # Not floated even once: a float still pending after its delay drew the
+    # card differently, and the screen tour's first picture with it.
+    pending = phone.page.evaluate(
+        "() => [...document.querySelectorAll('.deck-fan i')].map(i => i.getAnimations().length)"
+    )
+    assert pending == [0, 0, 0, 0], pending
 
 
 def test_the_board_follows_the_piece_without_travel_when_asked(server: Server, phones) -> None:
