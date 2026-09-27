@@ -160,3 +160,6 @@ scripts/__pycache__/
 
 # Two-user E2E: screenshots, traces and fuzz reports (E2E_REPORT_DIR)
 e2e-report/
+
+# Worktrees Claude Code creates for background agents
+.claude/worktrees/
