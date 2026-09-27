@@ -417,13 +417,16 @@ async def roll(
             if game.guest_telegram_user_id is None:
                 raise HTTPException(status_code=409, detail="partner has not joined yet")
             mover = _seat(game, user_id)
-            if game.turn != mover:
-                raise HTTPException(status_code=403, detail="not your turn")
 
+        # Home is asked before whose turn it is. A player already on 69 while
+        # the partner is still climbing used to hear "not your turn", which
+        # promises a turn that never comes; for them the dice are done.
         if _home(game, mover):
             # Cell 69 blocks that piece for the rest of the game; the pair
             # leave the board by choosing a finale, not by rolling past it.
             raise HTTPException(status_code=409, detail="the dice are done")
+        if not solo and game.turn != mover:
+            raise HTTPException(status_code=403, detail="not your turn")
 
         move = steps69.resolve_move(
             _position(game, mover), steps69.roll_dice(), language
