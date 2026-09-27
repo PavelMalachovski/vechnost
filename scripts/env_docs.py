@@ -27,10 +27,8 @@ sys.path.insert(0, str(ROOT))
 
 
 def _default(field: Any) -> str:
-    from pydantic_core import PydanticUndefined
-
     value = field.default
-    if value is PydanticUndefined:
+    if field.is_required():
         text = "**required**"
     elif value is None:
         text = "unset"

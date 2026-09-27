@@ -139,6 +139,8 @@ ignore_names = [
     "impl", "cache_ok",                     # SQLAlchemy TypeDecorator
     "process_bind_param", "process_result_value",
     "authorized",                           # a FastAPI dependency's result
+    # python-telegram-bot's BaseUpdateProcessor calls these (bot.py).
+    "do_process_update", "initialize", "shutdown",
     # Content models, filled from YAML and serialised into the API's JSON:
     "raw_data", "framing", "strengths_fallback", "recommendation",
     "critical_blocks", "why", "art", "tips", "lead", "intro", "outro",

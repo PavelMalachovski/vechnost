@@ -607,8 +607,9 @@ python scripts/smoke_production.py $URL --deep  # ...and its database and bot he
   same check-in. The cursor is a person's id for the daily card and is
   cleared when the run finishes. A new bulk send takes a `Run` the same way
   and sends through `broadcast.deliver`; the race tests are in
-  `tests/test_postgres.py`, because SQLite here shares one connection
-  between sessions.
+  `tests/test_postgres.py`, because a SQLite file takes one writer at a
+  time (every transaction begins IMMEDIATE), so two bots at once never
+  meet there.
 - **Chats are handled side by side, one chat in order.**
   `bot.py::PerChatUpdateProcessor` runs up to `CONCURRENT_UPDATES` updates
   at once, but each chat's in the order they came: every handler reads,

@@ -157,9 +157,9 @@ jobs:
     # branches, greenlets and threads, subprocesses) and may not fall below
     # the floor. The floor is the total this job measured, rounded down: a
     # ratchet. Raise it when the total rises; never lower it to get a pull
-    # request through - add the test instead. 87.6 % on 2026-09-27.
+    # request through - add the test instead. 88.6 % on 2026-09-27.
     - name: Run tests
-      run: pytest -q --cov --cov-report=term-missing:skip-covered --cov-report=xml --cov-fail-under=87
+      run: pytest -q --cov --cov-report=term-missing:skip-covered --cov-report=xml --cov-fail-under=88
 
     # How much of what this pull request changes the tests reach. Advisory:
     # the floor above is the gate, this is where to look first.
