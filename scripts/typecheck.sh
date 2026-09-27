@@ -22,6 +22,7 @@ cd "$(dirname "$0")/.."
 # on its own interpreter and cannot see the project's dependencies, so it
 # reports every third-party import as missing.
 exec python -m mypy --follow-imports=silent \
+    vechnost_bot/analytics.py \
     vechnost_bot/broadcast.py \
     vechnost_bot/callback_models.py \
     vechnost_bot/compat.py \
@@ -38,6 +39,7 @@ exec python -m mypy --follow-imports=silent \
     vechnost_bot/referrals.py \
     vechnost_bot/retention.py \
     vechnost_bot/steps69.py \
+    vechnost_bot/stats.py \
     vechnost_bot/steps69_notify.py \
     vechnost_bot/storage.py \
     vechnost_bot/payments/signature.py \

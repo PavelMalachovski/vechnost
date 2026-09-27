@@ -76,13 +76,17 @@ LIMITS: dict[str, tuple[int, int]] = {
     # with backoff, so this is far above anything legitimate. What it caps
     # is a stranger making the box hash and HMAC 64 KB bodies all day.
     "webhook": (60, 60),
+    # What the Mini App counts: a few dozen in an evening of play, an
+    # arrival once a day. A cap on filling the events table, not a budget
+    # anyone playing will meet.
+    "events": (300, 600),
 }
 
 # Buckets whose endpoints authenticate the caller by Telegram initData, and
 # so may budget the person rather than the address. Not "admin" or
 # "webhook": neither is a Mini App request, and a budget there must not be
 # something a caller can pick by attaching initData of their own.
-BY_PERSON = frozenset({"create", "join", "write", "render"})
+BY_PERSON = frozenset({"create", "join", "write", "render", "events"})
 
 # Ceilings applied across every client at once. Only the buckets where a
 # single success is worth a lot to a stranger need one; ordinary gameplay
@@ -98,6 +102,9 @@ GLOBAL_LIMITS: dict[str, tuple[int, int]] = {
     # Thirty rooms, tests or boards a minute across all couples, which is
     # far above an evening's worth and far below what fills a table.
     "create": (1800, 3600),
+    # Every phone's counts together: far above what couples produce, far
+    # below what fills a disk.
+    "events": (60000, 600),
     # Fifty in-game writes a second across everyone.
     "write": (3000, 60),
 }

@@ -98,6 +98,16 @@ async def start_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
 
     await check_and_register_user(update, context)
 
+    # Counted for /stats: an arrival, and the channel it came by - a
+    # `src_<tag>` link, a referral, an invite, a gift - never the parameter
+    # itself, which can be a certificate code.
+    from .analytics import arrival_source, track
+
+    await track(
+        "bot_start", user_id,
+        source=arrival_source(context.args[0] if context.args else None),
+    )
+
     # Check for certificate activation parameter
     if context.args and len(context.args) > 0:
         param = context.args[0]

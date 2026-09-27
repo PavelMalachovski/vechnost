@@ -8,6 +8,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..compat import TOTAL_QUESTIONS
 from .models import (
+    AnalyticsEvent,
     Certificate,
     CompatTest,
     Payment,
@@ -230,7 +231,9 @@ class UserRepository:
         not a person, and is what lets a later refund of the gift still
         revoke it. Anyone this user invited keeps their discount and loses
         the link to who invited them: `referred_by` is cleared,
-        `referred_at` - the marker the discount reads - stays.
+        `referred_at` - the marker the discount reads - stays. Every
+        analytics event of the user goes as well: counted, it is still a
+        record of what they did.
         """
         from sqlalchemy import update as _update
 
@@ -250,6 +253,11 @@ class UserRepository:
                 )
             )
             removed[name] = result.rowcount or 0
+
+        result = await session.execute(
+            delete(AnalyticsEvent).where(AnalyticsEvent.telegram_user_id == telegram_user_id)
+        )
+        removed["events"] = result.rowcount or 0
 
         result = await session.execute(
             _update(Certificate)
@@ -952,6 +960,14 @@ class RetentionRepository:
     alone deliberately: those are meant to be re-read months later, and that
     is the whole reason they have no TTL.
     """
+
+    @staticmethod
+    async def delete_old_events(session: AsyncSession, before: datetime) -> int:
+        """Analytics events that happened before `before` (`analytics.KEEP`)."""
+        result = await session.execute(
+            delete(AnalyticsEvent).where(AnalyticsEvent.created_at < before)
+        )
+        return result.rowcount or 0
 
     @staticmethod
     async def delete_expired_rooms(session: AsyncSession, before: datetime) -> int:

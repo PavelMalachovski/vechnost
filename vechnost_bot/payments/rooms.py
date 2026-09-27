@@ -21,7 +21,7 @@ from typing import Any
 from fastapi import APIRouter, Depends, Header, HTTPException
 from pydantic import BaseModel, Field
 
-from .. import invites
+from .. import analytics, invites
 from ..config import settings
 from ..freemium import FREE_CARDS_PER_DECK
 from ..i18n import Language
@@ -332,6 +332,7 @@ async def create_room(
             content_type=content_type.value,
             card_order=order,
         )
+        analytics.record(session, "room_create", user_id)
         return _room_state(room, user_id, language)
 
 
@@ -364,6 +365,7 @@ async def join_room(
             await RoomRepository.seat_guest(session, room, user_id, name)
             if room.guest_telegram_user_id != user_id:
                 raise HTTPException(status_code=409, detail="room is full")
+            analytics.record(session, "room_join", user_id)
         elif room.guest_telegram_user_id != user_id:
             raise HTTPException(status_code=409, detail="room is full")
         state = _room_state(room, user_id, language)
