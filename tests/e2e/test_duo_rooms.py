@@ -4,6 +4,10 @@ Each scenario is what a couple actually does — one opens a room and sends
 the link, the other taps it — and checks the thing only two players can
 break: that both screens show the same card, that exactly one of them may
 turn it, and that a third person holding the link learns nothing.
+
+And what a payment does to a room: a room nobody in it has paid for holds
+the free preview, and the moment either of them has access - before the
+game or at its last free card - the rest of the deck is dealt in for both.
 """
 
 from __future__ import annotations
@@ -34,8 +38,9 @@ def open_room(creator: Player, deck: dict[str, Any] = DECK) -> str:
 
 def assert_same_table(a: dict[str, Any], b: dict[str, Any]) -> None:
     """Two phones looking at one room must agree on everything but whose they are."""
-    for key in ("code", "idx", "total", "card_index", "card_text", "finished",
-                "started", "turn_name", "players", "theme", "level", "type"):
+    for key in ("code", "idx", "total", "full_total", "trimmed", "card_index",
+                "card_text", "finished", "started", "turn_name", "players",
+                "theme", "level", "type"):
         assert a[key] == b[key], f"the partners disagree on {key!r}: {a[key]!r} vs {b[key]!r}"
     assert {a["your_role"], b["your_role"]} == {"creator", "guest"}
     if a["started"] and not a["finished"]:
@@ -79,19 +84,174 @@ def test_paid_creator_and_unpaid_guest_play_the_whole_deck(server: Server) -> No
         assert player.status("POST", f"/api/rooms/{code}/advance") == 409
 
 
-def test_an_unpaid_creator_shares_the_free_preview_only(server: Server) -> None:
-    """The room inherits the creator's access at creation, and only that.
+def play_to(server: Server, code: str, players: tuple[Player, Player], stop: int) -> None:
+    """Turn cards, whoever is on turn, until `stop` cards have been turned."""
+    creator, guest = players
+    for _ in range(stop):
+        state = creator.ok("GET", f"/api/rooms/{code}")
+        mover = creator if state["your_turn"] else guest
+        mover.ok("POST", f"/api/rooms/{code}/advance")
 
-    Documented rule (CLAUDE.md, rooms.py): a paying guest in an unpaid
-    creator's room still gets the preview. Pinned here so a change to it is
-    a decision, not an accident.
-    """
+
+def test_an_unpaid_couple_plays_the_free_preview_and_is_told_it_is_one(server: Server) -> None:
+    alice = server.player("Alice")
+    bob = server.player("Bob")
+    code = open_room(alice)
+    joined = bob.ok("POST", f"/api/rooms/{code}/join")
+    assert joined["total"] == FREE_CARDS_PER_DECK
+    assert joined["full_total"] == DECK_SIZE
+    assert joined["trimmed"] is True, "the app must know to offer the rest, not congratulate"
+
+    play_to(server, code, (alice, bob), FREE_CARDS_PER_DECK)
+    a, b = alice.ok("GET", f"/api/rooms/{code}"), bob.ok("GET", f"/api/rooms/{code}")
+    assert_same_table(a, b)
+    assert a["finished"] is True and a["trimmed"] is True
+    assert a["idx"] == FREE_CARDS_PER_DECK - 1
+
+
+def test_a_paying_guest_opens_an_unpaid_creators_room_for_both(server: Server) -> None:
+    """Backend audit B-20: the room used to keep the creator's five cards
+    for good, whoever joined it. Either player's access is the room's now."""
     alice = server.player("Alice")
     bob = server.player("Bob", paid=True)
     code = open_room(alice)
     joined = bob.ok("POST", f"/api/rooms/{code}/join")
-    assert joined["total"] == FREE_CARDS_PER_DECK
-    assert alice.ok("GET", f"/api/rooms/{code}")["total"] == FREE_CARDS_PER_DECK
+    assert joined["total"] == DECK_SIZE and joined["trimmed"] is False
+    a = alice.ok("GET", f"/api/rooms/{code}")
+    assert_same_table(a, joined)
+
+    shown = []
+    for _ in range(DECK_SIZE):
+        state = alice.ok("GET", f"/api/rooms/{code}")
+        shown.append(state["card_index"])
+        (alice if state["your_turn"] else bob).ok("POST", f"/api/rooms/{code}/advance")
+    assert sorted(shown) == list(range(DECK_SIZE)), "every card of the deck, once"
+    assert alice.ok("GET", f"/api/rooms/{code}")["finished"] is True
+
+
+@pytest.mark.parametrize("payer", ["creator", "guest"])
+def test_a_payment_at_the_last_free_card_deals_the_rest_to_both(server: Server, payer: str) -> None:
+    alice = server.player("Alice")
+    bob = server.player("Bob")
+    code = open_room(alice)
+    bob.ok("POST", f"/api/rooms/{code}/join")
+    play_to(server, code, (alice, bob), FREE_CARDS_PER_DECK)
+    before = alice.ok("GET", f"/api/rooms/{code}")
+    assert before["finished"] is True and before["trimmed"] is True
+
+    server.grant(alice if payer == "creator" else bob)
+
+    # The unpaid partner's poll finds it just as the payer's does.
+    watcher = bob if payer == "creator" else alice
+    b = watcher.ok("GET", f"/api/rooms/{code}")
+    a = (alice if watcher is bob else bob).ok("GET", f"/api/rooms/{code}")
+    assert_same_table(a, b)
+    assert b["finished"] is False, "the room carries on"
+    assert b["trimmed"] is False and b["total"] == DECK_SIZE
+    assert b["idx"] == FREE_CARDS_PER_DECK, "card 6, not card 1"
+    assert b["card_index"] >= FREE_CARDS_PER_DECK, "a card they have not had"
+    # The tap that finished the free cards was the creator's (they turn
+    # first, and five is odd), so card 6 is the guest's to turn.
+    assert b["your_turn"] is (watcher is bob)
+
+    shown = []
+    for _ in range(DECK_SIZE - FREE_CARDS_PER_DECK):
+        state = alice.ok("GET", f"/api/rooms/{code}")
+        shown.append(state["card_index"])
+        (alice if state["your_turn"] else bob).ok("POST", f"/api/rooms/{code}/advance")
+    assert sorted(shown) == list(range(FREE_CARDS_PER_DECK, DECK_SIZE)), (
+        "the rest of the deck, each card once, none of the free ones again"
+    )
+    assert alice.ok("GET", f"/api/rooms/{code}")["finished"] is True
+
+
+def test_a_payment_in_the_middle_of_the_free_cards_keeps_the_card_on_the_table(
+    server: Server,
+) -> None:
+    alice = server.player("Alice")
+    bob = server.player("Bob")
+    code = open_room(alice)
+    bob.ok("POST", f"/api/rooms/{code}/join")
+    play_to(server, code, (alice, bob), 2)
+    before = bob.ok("GET", f"/api/rooms/{code}")
+    server.grant(bob)
+    after = alice.ok("GET", f"/api/rooms/{code}")
+    assert after["total"] == DECK_SIZE and after["trimmed"] is False
+    for key in ("idx", "card_index", "card_text", "turn_name"):
+        assert after[key] == before[key], f"a payment moved {key}"
+    # The free cards still to come keep their places; the rest follow them.
+    play_to(server, code, (alice, bob), FREE_CARDS_PER_DECK - 2)
+    sixth = alice.ok("GET", f"/api/rooms/{code}")
+    assert sixth["idx"] == FREE_CARDS_PER_DECK and sixth["card_index"] >= FREE_CARDS_PER_DECK
+
+
+def test_somebody_elses_payment_does_not_open_the_room(server: Server) -> None:
+    """A third person's access is not the room's: only its two players count,
+    and a stranger who is refused the seat changes nothing by asking."""
+    alice = server.player("Alice")
+    bob = server.player("Bob")
+    carol = server.player("Carol", paid=True)
+    code = open_room(alice)
+    bob.ok("POST", f"/api/rooms/{code}/join")
+    assert carol.status("POST", f"/api/rooms/{code}/join") == 409
+    for player in (alice, bob):
+        state = player.ok("GET", f"/api/rooms/{code}")
+        assert state["total"] == FREE_CARDS_PER_DECK and state["trimmed"] is True
+
+
+def test_the_partner_who_did_not_pay_can_share_the_card_on_the_table(server: Server) -> None:
+    """The share button renders the card as an image, and a card past the
+    free prefix is paid. In a paid room the partner who did not pay is dealt
+    those cards all the same, so their share goes through the room."""
+    alice = server.player("Alice", paid=True)
+    bob = server.player("Bob")
+    carol = server.player("Carol")
+    code = open_room(alice)
+    bob.ok("POST", f"/api/rooms/{code}/join")
+    dealt: list[int] = []
+    for _ in range(DECK_SIZE):
+        state = bob.ok("GET", f"/api/rooms/{code}")
+        dealt.append(state["card_index"])
+        if state["card_index"] >= FREE_CARDS_PER_DECK:
+            break
+        (alice if not state["your_turn"] else bob).ok("POST", f"/api/rooms/{code}/advance")
+    card = f"/api/card?theme=Acquaintance&level=1&type=questions&idx={dealt[-1]}"
+
+    assert bob.status("GET", card) == 403, "on its own a paid card is still paid"
+    shared = bob.call("GET", f"{card}&room={code}", expect=200)
+    assert shared.headers["content-type"] == "image/jpeg"
+
+    # Only what the room has dealt, only to who sits in it, only that deck.
+    undealt = next(i for i in range(FREE_CARDS_PER_DECK, DECK_SIZE) if i not in dealt)
+    assert bob.status(
+        "GET", f"/api/card?theme=Acquaintance&level=1&type=questions&idx={undealt}&room={code}"
+    ) == 403
+    assert carol.status("GET", f"{card}&room={code}") == 403
+    assert bob.status(
+        "GET", f"/api/card?theme=Acquaintance&level=2&type=questions&idx={dealt[-1]}&room={code}"
+    ) == 403
+    assert bob.status("GET", f"{card}&room={invites.new_code()}") == 403
+
+
+def test_an_18_plus_room_seats_nobody_who_has_not_said_they_are_18(server: Server) -> None:
+    """The app asks before the guest's first card of the Sex deck. The seat
+    stays empty until they say yes (`nsfw=1`), so a partner who says no is
+    not left sitting in a room the creator then plays alone."""
+    alice = server.player("Alice", paid=True)
+    bob = server.player("Bob")
+    code = open_room(alice, {"theme": "Sex", "level": None, "type": "tasks"})
+    assert alice.ok("GET", f"/api/rooms/{code}")["nsfw"] is True
+    assert bob.status("POST", f"/api/rooms/{code}/join") == 403
+    assert alice.ok("GET", f"/api/rooms/{code}")["started"] is False, "the seat is still free"
+    joined = bob.ok("POST", f"/api/rooms/{code}/join?nsfw=1")
+    assert joined["started"] is True and joined["your_role"] == "guest"
+    # Once seated, opening the link again is not asked twice.
+    assert bob.ok("POST", f"/api/rooms/{code}/join")["your_role"] == "guest"
+    # Nor is the creator, who chose the deck; nor anyone at a deck that is not 18+.
+    assert alice.ok("POST", f"/api/rooms/{code}/join")["your_role"] == "creator"
+    plain = open_room(alice)
+    assert alice.ok("GET", f"/api/rooms/{plain}")["nsfw"] is False
+    assert server.player("Carol").ok("POST", f"/api/rooms/{plain}/join")["started"] is True
 
 
 def test_a_third_person_with_the_link_learns_nothing(server: Server) -> None:
@@ -174,7 +334,7 @@ def test_every_deck_opens_for_two(server: Server, deck: dict[str, Any]) -> None:
     alice = server.player("Alice", paid=True)
     bob = server.player("Bob")
     code = open_room(alice, {"level": None, **deck})
-    b = bob.ok("POST", f"/api/rooms/{code}/join")
+    b = bob.ok("POST", f"/api/rooms/{code}/join?nsfw=1")
     a = alice.ok("GET", f"/api/rooms/{code}")
     assert_same_table(a, b)
     assert a["total"] > FREE_CARDS_PER_DECK and a["card_text"]

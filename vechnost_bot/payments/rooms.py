@@ -1,9 +1,15 @@
 """Couple mode: two phones, one deck, taking turns.
 
-Rooms live in the database and clients poll for state. The room's deck is
-capped by the creator's access at creation time, and card texts are served
-from here (localized per requester) — so one payment covers both partners,
-and an unpaid guest still sees every card of a paid creator's room.
+Rooms live in the database and clients poll for state, and card texts are
+served from here (localized per requester), so one payment covers both
+partners: an unpaid guest sees every card of a paid creator's room.
+
+A room nobody in it has paid for holds the free preview. It stays that way
+only while that is true: the moment either player has access - bought before
+joining or in the middle of the game - the rest of the deck is dealt in after
+the cards already there, for both of them. It used to be decided once, by the
+creator, at creation, so a paying guest sat through an unpaid creator's five
+cards and a payment made mid-game changed nothing (backend audit B-20).
 """
 
 import hashlib
@@ -87,6 +93,62 @@ def _room_items(room, language: Language) -> list:
     ) or []
 
 
+def _is_adult(room) -> bool:
+    """Whether the room's deck is 18+ (the Sex deck), as the Mini App marks it."""
+    try:
+        return localized_game_data.has_nsfw_content(Theme(room.theme))
+    except ValueError:
+        return False
+
+
+def _seats(room) -> tuple[int, ...]:
+    """Who sits in the room: the creator, and the guest once there is one."""
+    return tuple(
+        user_id
+        for user_id in (room.creator_telegram_user_id, room.guest_telegram_user_id)
+        if user_id is not None
+    )
+
+
+async def _anyone_paid(seats: tuple[int, ...]) -> bool:
+    """Whether either player may see the whole deck.
+
+    Asked only about a room that holds less than its deck, so a paid room's
+    poll costs nothing extra. Each player's access is `user_has_access`,
+    the one rule, asked outside any session the caller holds open.
+    """
+    if not settings.enable_payment:
+        return True
+    for user_id in seats:
+        if await user_has_access(user_id):
+            return True
+    return False
+
+
+def _deal_the_rest(room, deck_size: int) -> bool:
+    """Grow a room holding part of its deck to all of it. True if it grew.
+
+    Every card already in the room keeps its place - the ones shown, the
+    one on the table, the free ones still to come - and the rest of the deck
+    is shuffled in after them, so nothing either phone has seen moves. A
+    room that finished on its last free card carries on from the next one:
+    the tap that finished it was spent, so the turn it passed stays passed,
+    exactly as if the deck had been whole when it was made.
+    """
+    order = list(room.card_order or [])
+    if len(order) >= deck_size:
+        return False
+    dealt = set(order)
+    rest = [index for index in range(deck_size) if index not in dealt]
+    random.shuffle(rest)
+    room.card_order = order + rest
+    if room.finished:
+        room.finished = False
+        room.idx += 1
+    room.updated_at = datetime.utcnow()
+    return True
+
+
 def _room_state(room, user_id: int, language: Language) -> dict[str, Any]:
     """Serialize room state for one player, card text in their language."""
     items = _room_items(room, language)
@@ -107,6 +169,13 @@ def _room_state(room, user_id: int, language: Language) -> dict[str, Any]:
         "type": room.content_type,
         "idx": idx,
         "total": total,
+        # The deck in full, and whether this room holds less of it - the free
+        # preview, nobody in the room having paid. At its last card the app
+        # offers the rest instead of congratulating the pair on a finished
+        # deck, and says how much there is.
+        "full_total": len(items),
+        "trimmed": total < len(items),
+        "nsfw": _is_adult(room),
         "card_index": card_index,
         "card_text": card_text,
         "finished": room.finished,
@@ -139,6 +208,8 @@ async def _load_room(
 
     `for_update` takes a row lock, which /advance needs: it reads idx and
     turn and writes both back, and a double tap is two of those at once.
+    Opening a room up after a payment needs it for the same reason: both
+    phones poll, and each would deal its own shuffle of the rest.
     """
     code = code.strip().upper()
     # A code that could never have been minted is the same 404 as an unknown
@@ -163,6 +234,60 @@ def _language(lang: str) -> Language:
     return Language.coerce(lang)
 
 
+async def _opened(code: str, user_id: int, language: Language) -> dict[str, Any]:
+    """Deal the rest of the deck into the room, under the row lock.
+
+    Called once a poll, a join or a tap has found the room holding part of
+    its deck and a player in it with access. Both phones poll, so both find
+    that; the lock makes the second wait for the first, and the second then
+    finds the deck whole and changes nothing. Without it each dealt its own
+    shuffle of the rest and the two phones were shown different cards.
+    """
+    async with get_db() as session:
+        room = await _load_room(session, code, member=user_id, for_update=True)
+        if _deal_the_rest(room, len(_room_items(room, language))):
+            await session.flush()
+            logger.info(f"Room #{room.id}: a player has access, the whole deck is in")
+        return _room_state(room, user_id, language)
+
+
+async def room_dealt_card(
+    code: str,
+    authorization: str | None,
+    theme: Theme,
+    level: int | None,
+    content_type: ContentType,
+    index: int,
+) -> bool:
+    """Whether the caller sits in this room and it has dealt them this card.
+
+    What `/api/card` asks before refusing a card past the free prefix to an
+    unpaid caller: in a room the creator paid for (or one a payment opened),
+    the partner who did not pay is shown every card, and must be able to
+    share the one on the table the same as the partner who did. Only a card
+    already dealt, never one still in the deck, and any doubt is a no.
+    """
+    try:
+        user_id, _ = _identity(authorization, None)
+    except HTTPException:
+        return False
+    code = code.strip().upper()
+    if not invites.valid_code(code):
+        return False
+    async with get_db() as session:
+        room = await RoomRepository.get_by_code(session, code)
+        if room is None or user_id not in _seats(room):
+            return False
+        if datetime.utcnow() - room.updated_at > ROOM_TTL:
+            return False
+        if (room.theme, room.level or None, room.content_type) != (
+            theme.value, level or None, content_type.value
+        ):
+            return False
+        dealt = list(room.card_order or [])[: room.idx + 1]
+        return index in dealt
+
+
 @router.post("", dependencies=[Depends(throttle("create"))])
 async def create_room(
     body: CreateRoomRequest,
@@ -185,8 +310,9 @@ async def create_room(
     if not items:
         raise HTTPException(status_code=404, detail="unknown deck")
 
-    # The room inherits the creator's access: paid creators share the full
-    # deck with their partner, unpaid ones share the free preview.
+    # The creator's access decides the deck the room starts with: paid
+    # creators share the full deck with their partner, unpaid ones the free
+    # preview - until either of them has access, when the rest is dealt in.
     paid = not settings.enable_payment or await user_has_access(user_id)
     size = len(items) if paid else min(FREE_CARDS_PER_DECK, len(items))
     order = list(range(size))
@@ -213,6 +339,7 @@ async def create_room(
 async def join_room(
     code: str,
     lang: str = "ru",
+    nsfw: int = 0,
     authorization: str | None = Header(default=None),
     x_guest_id: str | None = Header(default=None),
 ) -> dict[str, Any]:
@@ -224,6 +351,13 @@ async def join_room(
         if room.creator_telegram_user_id == user_id:
             pass  # creator re-opening their own room
         elif room.guest_telegram_user_id is None:
+            if nsfw != 1 and _is_adult(room):
+                # The seat stays empty until whoever opened the link has said
+                # they are 18: the app asks, and sends `nsfw=1` - the same
+                # client-asserted gate as the Library's. Seating them first
+                # and asking after meant a partner who said no still sat in
+                # the room, and the creator played on alone.
+                raise HTTPException(status_code=403, detail="18+ deck: confirm age first")
             # One conditional UPDATE, not a read followed by a write: two
             # people opening the link at once must not both be seated with
             # the last writer silently displacing the first.
@@ -232,7 +366,14 @@ async def join_room(
                 raise HTTPException(status_code=409, detail="room is full")
         elif room.guest_telegram_user_id != user_id:
             raise HTTPException(status_code=409, detail="room is full")
-        return _room_state(room, user_id, language)
+        state = _room_state(room, user_id, language)
+        seats = _seats(room)
+
+    # A paying guest in an unpaid creator's room: the rest of the deck is
+    # theirs to share, from the first card.
+    if state["trimmed"] and await _anyone_paid(seats):
+        return await _opened(code, user_id, language)
+    return state
 
 
 @router.get("/{code}")
@@ -248,7 +389,14 @@ async def get_room(
     async with get_db() as session:
         # A stranger gets 404, not 403: they must not learn the code is live.
         room = await _load_room(session, code, member=user_id)
-        return _room_state(room, user_id, language)
+        state = _room_state(room, user_id, language)
+        seats = _seats(room)
+
+    # The poll is how a payment reaches the room: whoever paid, and whenever,
+    # the next poll from either phone finds it and opens the deck for both.
+    if state["trimmed"] and await _anyone_paid(seats):
+        return await _opened(code, user_id, language)
+    return state
 
 
 @router.post("/{code}/advance", dependencies=[Depends(throttle("write"))])
@@ -261,11 +409,24 @@ async def advance_room(
     user_id, _ = _identity(authorization, x_guest_id)
     language = _language(lang)
 
+    # Whether a payment has opened the rest of the deck is settled before the
+    # row is locked: access lives in other tables, behind a session of its
+    # own, and nothing should hold the partner's poll up while it is asked.
+    async with get_db() as session:
+        room = await _load_room(session, code, member=user_id)
+        trimmed = len(room.card_order or []) < len(_room_items(room, language))
+        seats = _seats(room)
+    opened = trimmed and await _anyone_paid(seats)
+
     async with get_db() as session:
         # Locked: a double tap is two read-modify-writes of idx and turn at
         # once, and without the lock both were accepted - five 200s for one
         # card on PostgreSQL, and a straggling tap could undo the partner's.
         room = await _load_room(session, code, member=user_id, for_update=True)
+        if opened:
+            # Before the move, so the tap on the last free card turns up the
+            # next one instead of finishing a deck that is no longer short.
+            _deal_the_rest(room, len(_room_items(room, language)))
         if room.guest_telegram_user_id is None:
             raise HTTPException(status_code=409, detail="partner has not joined yet")
         if room.finished:

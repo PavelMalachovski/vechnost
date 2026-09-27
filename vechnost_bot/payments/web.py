@@ -26,6 +26,7 @@ from ..renderer import get_background_path, render_card_bytes
 from .compat_api import router as compat_router
 from .database import close_db, init_db
 from .library_api import router as library_router
+from .rooms import room_dealt_card
 from .rooms import router as rooms_router
 from .services import (
     apply_webhook_event,
@@ -300,13 +301,16 @@ async def get_card_image(
     level: int = 0,
     type: str = "questions",
     lang: str = "ru",
+    room: str | None = None,
     authorization: str | None = Header(default=None),
 ) -> Response:
     """
     One card rendered as a branded share image (JPEG).
 
     Free-preview cards are public; cards past the free prefix require the
-    same paid initData as the full question list.
+    same paid initData as the full question list - or, with `room`, a seat
+    in a room that has dealt the caller this card: the partner who did not
+    pay plays a paid room's whole deck and may share it like the one who did.
     """
     try:
         theme_enum = Theme(theme)
@@ -322,7 +326,11 @@ async def get_card_image(
     if not items or idx < 0 or idx >= len(items):
         raise HTTPException(status_code=404, detail="card not found")
 
-    if not is_index_free(idx) and not await _request_is_paid(authorization):
+    if not is_index_free(idx) and not await _request_is_paid(authorization) and not (
+        room and await room_dealt_card(
+            room, authorization, theme_enum, level or None, content_type, idx
+        )
+    ):
         raise HTTPException(status_code=403, detail="payment_required")
 
     bg_path = get_background_path(

@@ -5,7 +5,8 @@ the ones nobody did. Hypothesis drives three Telegram users through random
 interleavings of every two-partner action the Mini App can send:
 
 * Alice, who paid;
-* Bob, who did not (and plays on whatever Alice opens);
+* Bob, who did not (and plays on whatever Alice opens) - until, perhaps,
+  the middle of a game in a room of his own, when he buys access;
 * Carol, who paid too, and who may get hold of anybody's link.
 
 They create, join, poll, answer, roll, choose finales and delete — rooms,
@@ -59,6 +60,7 @@ from hypothesis.stateful import (
     initialize,
     invariant,
     multiple,
+    precondition,
     rule,
     run_state_machine_as_test,
 )
@@ -105,6 +107,8 @@ def event(name: str) -> None:
 class RoomModel:
     creator: str
     total: int
+    full: int
+    adult: bool = False
     guest: str | None = None
     idx: int = 0
     turn: int = 0
@@ -112,6 +116,20 @@ class RoomModel:
 
     def seats(self) -> tuple[str, str | None]:
         return self.creator, self.guest
+
+    def open_if_paid(self, paid: dict[str, bool]) -> None:
+        """A room holding the free preview gets the rest of its deck the
+        moment either player has access. A room that had finished on its
+        last free card carries on from the next one; the turn stays where
+        the finishing tap passed it. Whatever a player sends, this happens
+        first (the server may do it at the next request that succeeds; no
+        one can tell the difference)."""
+        if self.total < self.full and any(paid[p] for p in self.seats() if p):
+            self.total = self.full
+            if self.finished:
+                self.finished = False
+                self.idx += 1
+            event("room: a payment opened the rest of the deck")
 
 
 @dataclass
@@ -170,6 +188,8 @@ class TwoUsers(RuleBasedStateMachine):
         self.people: dict[str, Player] = {
             name: server.player(name.capitalize(), paid=PAID[name]) for name in PAID
         }
+        # Who has access now: Bob may buy it in the middle of a run.
+        self.paid = dict(PAID)
         self.room_models: dict[str, RoomModel] = {}
         self.test_models: dict[str, CompatModel] = {}
         self.game_models: dict[str, GameModel] = {}
@@ -268,25 +288,46 @@ class TwoUsers(RuleBasedStateMachine):
                           {"theme": theme, "level": level, "type": kind}, expect=200)
         size = DECKS[deck]
         total = size if self.paid[actor] else min(FREE_CARDS_PER_DECK, size)
-        model = RoomModel(creator=actor, total=total)
+        model = RoomModel(creator=actor, total=total, full=size, adult=theme == "Sex")
         self.room_models[state["code"]] = model
         self.check_room(state, model, actor)
         self.last["room"] = state["code"]
         return state["code"]
 
-    @rule(actor=ACTORS, code=rooms)
-    def join_room(self, actor: str, code: str) -> None:
+    @rule(actor=ACTORS, code=rooms, adult=st.booleans())
+    def join_room(self, actor: str, code: str, adult: bool = True) -> None:
+        """`adult` is the app's 18+ answer, sent as `nsfw=1`: the seat at an
+        18+ deck waits for it, and nothing else asks."""
         model = self.room_models.get(code)
+        path = f"/api/rooms/{code}/join" + ("?nsfw=1" if adult else "")
         if model is None:
-            self.call(actor, "POST", f"/api/rooms/{code}/join", expect=404)
+            self.call(actor, "POST", path, expect=404)
             return
         if actor != model.creator and model.guest is None:
+            if model.adult and not adult:
+                self.call(actor, "POST", path, expect=403)
+                event("room: an 18+ seat waited for a yes")
+                return
             model.guest = actor
         expect = 200 if actor in model.seats() else 409
-        state = self.call(actor, "POST", f"/api/rooms/{code}/join", expect=expect)
+        if expect == 200:
+            model.open_if_paid(self.paid)
+        state = self.call(actor, "POST", path, expect=expect)
         if state:
             self.check_room(state, model, actor)
         self.last["room"] = code
+
+    @precondition(lambda self: not self.paid["bob"] and any(
+        m.total < m.full and "bob" in m.seats() for m in self.room_models.values()
+    ))
+    @rule()
+    def bob_buys_access(self) -> None:
+        """The one who had not paid, paying in the middle of a game: every
+        room he sits in holds the whole deck from the next request on, for
+        both players, and what he creates from now on is paid."""
+        self.SERVER.grant(self.people["bob"])
+        self.paid["bob"] = True
+        event("bob bought access in the middle of a game")
 
     @rule(actor=ACTORS, code=rooms)
     def poll_room(self, actor: str, code: str) -> None:
@@ -294,6 +335,7 @@ class TwoUsers(RuleBasedStateMachine):
         if model is None or actor not in model.seats():
             self.call(actor, "GET", f"/api/rooms/{code}", expect=404)
             return
+        model.open_if_paid(self.paid)
         self.check_room(self.call(actor, "GET", f"/api/rooms/{code}", expect=200), model, actor)
 
     @rule(actor=ACTORS, code=rooms)
@@ -315,6 +357,7 @@ class TwoUsers(RuleBasedStateMachine):
         if model is None or actor not in model.seats():
             self.call(actor, "POST", path, expect=404)
             return
+        model.open_if_paid(self.paid)
         if model.guest is None or model.finished:
             self.call(actor, "POST", path, expect=409)
             return
@@ -334,6 +377,9 @@ class TwoUsers(RuleBasedStateMachine):
         seat = self.seat_of(model, actor)
         assert state["your_role"] == ("creator" if seat == 0 else "guest")
         assert state["total"] == model.total
+        assert state["full_total"] == model.full
+        assert state["trimmed"] == (model.total < model.full)
+        assert state["nsfw"] == model.adult
         assert state["idx"] == model.idx
         assert state["finished"] == model.finished
         assert state["started"] == (model.guest is not None)
