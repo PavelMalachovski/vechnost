@@ -51,6 +51,24 @@ def _reset_request_throttle():
 
 
 @pytest.fixture(autouse=True)
+def _purchases_message_nobody():
+    """No test tells a real Telegram that a purchase went through.
+
+    Every signed grant a test delivers to /webhooks/tribute schedules the
+    buyer's «всё открыто» message (`payments/grant_notify.py`). With the
+    fake token that was a real Bot dialling api.telegram.org after every
+    purchase: offline it is a connect timeout per grant, and the two-user
+    suite, which buys access for most of its players, took minutes instead
+    of seconds. The tests that are about the message patch `_bot` again,
+    inside this, and the two-user suite points it at its fake Telegram.
+    """
+    from vechnost_bot.payments import grant_notify
+
+    with patch.object(grant_notify, "_bot", lambda: None):
+        yield
+
+
+@pytest.fixture(autouse=True)
 def _storage_stays_in_memory(request):
     """Every test gets a session store of its own, in memory.
 

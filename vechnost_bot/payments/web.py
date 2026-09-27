@@ -9,7 +9,7 @@ from contextlib import asynccontextmanager
 from pathlib import Path
 from typing import Any
 
-from fastapi import Depends, FastAPI, Header, HTTPException, Request
+from fastapi import BackgroundTasks, Depends, FastAPI, Header, HTTPException, Request
 from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.middleware.trustedhost import TrustedHostMiddleware
@@ -25,6 +25,7 @@ from ..models import ContentType, Theme
 from ..renderer import get_background_path, render_card_bytes
 from .compat_api import router as compat_router
 from .database import close_db, init_db
+from .grant_notify import notify_access_granted
 from .library_api import router as library_router
 from .rooms import room_dealt_card
 from .rooms import router as rooms_router
@@ -366,14 +367,15 @@ MAX_WEBHOOK_BODY = 64 * 1024
 
 
 @app.post("/webhooks/tribute", dependencies=[Depends(throttle("webhook"))])
-async def tribute_webhook(request: Request) -> JSONResponse:
+async def tribute_webhook(request: Request, background: BackgroundTasks) -> JSONResponse:
     """
     Handle incoming Tribute webhook events.
 
     The service verifies the signature before it touches the database and
     records only deliveries it actually processed, so a rejected one can be
     retried; see `services.apply_webhook_event`. This layer bounds the body,
-    parses it, and translates the result into a status code.
+    parses it, and translates the result into a status code - and, for a
+    purchase of the buyer's own, tells the buyer in the chat.
     """
     try:
         declared = request.headers.get("content-length", "")
@@ -439,6 +441,21 @@ async def tribute_webhook(request: Request) -> JSONResponse:
                     status_code=status_code if status_code == 503 else 500,
                     detail=result["message"],
                 )
+
+        # «Всё открыто», in the chat, for a grant of the buyer's own: never
+        # for a gift (the buyer holds a certificate to hand on), a renewal
+        # (nothing new opened), a duplicate (no action), a revoke or an event
+        # nobody knows. After the answer, not before it: the message is a
+        # getMe and a sendMessage, and Tribute should not wait on Telegram to
+        # hear that we have the money.
+        buyer = result.get("telegram_user_id")
+        if (
+            result.get("action") == "grant" and buyer
+            and not result.get("gift") and not result.get("renewal")
+        ):
+            background.add_task(
+                notify_access_granted, int(buyer), bool(result.get("lifetime", True))
+            )
 
         # What was done, in the reply Tribute's delivery log keeps: an
         # operator reading "ignore" there learns more than "success", and
