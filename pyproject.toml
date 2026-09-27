@@ -58,6 +58,13 @@ dev = [
     "ruff>=0.1.0",
     "mypy>=1.0.0",
     "types-PyYAML>=6.0.0",
+    # The two-user fuzzer in tests/e2e/test_duo_fuzz.py runs in every pytest.
+    "hypothesis>=6.100",
+]
+# Two real browsers driving the Mini App (tests/e2e/browser, opt-in with
+# E2E_BROWSER=1). Chromium itself: `python -m playwright install chromium`.
+e2e = [
+    "playwright>=1.49",
 ]
 
 [project.scripts]
@@ -136,6 +143,11 @@ markers = [
     "slow: Slow running tests",
     "redis: Tests requiring Redis",
     "telegram: Tests requiring Telegram API",
+    "e2e: Two-user scenarios in tests/e2e (in-process by default, live with E2E_BASE_URL)",
+    "inprocess_only: Needs the in-process server (fake Telegram, the bot); skipped against a live one",
+    "live_only: Needs a live server over real HTTP (E2E_BASE_URL); skipped in-process",
+    "fuzz: Randomised two-user state-machine runs (budget: E2E_FUZZ_EXAMPLES)",
+    "browser: Two real browsers driving the Mini App (needs Playwright + Chromium)",
 ]
 filterwarnings = [
     "ignore::DeprecationWarning",

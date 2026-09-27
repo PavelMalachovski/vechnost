@@ -157,3 +157,6 @@ alembic.ini.bak
 scripts/*.log
 scripts/__pycache__/
 
+
+# Two-user E2E: screenshots, traces and fuzz reports (E2E_REPORT_DIR)
+e2e-report/
