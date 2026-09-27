@@ -48,7 +48,16 @@ ASSETS_DIR = Path(__file__).parent.parent.parent / "assets"
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """Lifespan context manager for FastAPI app."""
-    # Startup
+    # Startup. Logging and Sentry first: this is the process that takes the
+    # payments, and it never set either up - its INFO lines were dropped,
+    # its warnings printed without level or time, and an exception here
+    # never reached Sentry. Monitoring failing must not stop the server.
+    try:
+        from ..monitoring import initialize_monitoring
+
+        initialize_monitoring()
+    except Exception as e:
+        logger.warning(f"Monitoring could not be initialised: {e}")
     logger.info("Starting payment webhook server...")
     init_db()
     logger.info("Database initialized")

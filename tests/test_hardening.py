@@ -362,3 +362,23 @@ def test_health_says_which_commit_is_answering(client, monkeypatch):
     assert client.get("/health").json()["commit"] == "0123456789abcdef"
     monkeypatch.delenv("RAILWAY_GIT_COMMIT_SHA")
     assert client.get("/health").json()["commit"] is None
+
+
+def test_the_web_process_sets_up_logging_and_sentry(tmp_path):
+    """The bot initialised monitoring; the web process - payments, webhooks,
+    the Mini App API - never did, so its INFO lines were dropped and its
+    errors never reached Sentry."""
+    from unittest.mock import MagicMock
+
+    import vechnost_bot.monitoring as monitoring
+
+    init = MagicMock()
+    with (
+        patch.object(monitoring, "initialize_monitoring", init),
+        patch.object(settings, "database_url", f"sqlite:///{tmp_path / 'm.db'}"),
+        patch.object(database, "engine", None),
+        patch.object(database, "async_session_maker", None),
+        TestClient(app) as client,
+    ):
+        assert client.get("/health").status_code == 200
+    init.assert_called_once()
