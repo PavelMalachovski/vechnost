@@ -33,7 +33,7 @@ from fastapi import APIRouter, Depends, Header, HTTPException
 from pydantic import BaseModel, Field
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from .. import invites, steps69
+from .. import analytics, invites, steps69
 from ..config import settings
 from ..i18n import Language
 from .database import get_db
@@ -318,6 +318,7 @@ async def create(
             game.guest_piece = next(p for p in PIECES if p != piece)
             game.guest_name = game.guest_name or None
             await session.flush()
+        analytics.record(session, "s69_create", user_id, body.mode)
         return _state(game, user_id, language)
 
 
@@ -366,6 +367,7 @@ async def join(
             )
             if game.guest_telegram_user_id != user_id:
                 raise HTTPException(status_code=409, detail="game is full")
+            analytics.record(session, "s69_join", user_id)
         elif game.guest_telegram_user_id != user_id:
             raise HTTPException(status_code=409, detail="game is full")
         return _state(game, user_id, language)

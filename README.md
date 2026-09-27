@@ -163,7 +163,7 @@ All settings are read from environment variables (or `.env`). See
 | `ENABLE_PAYMENT` | `TRUE`/`FALSE` — gate paid content behind Tribute |
 | `TRIBUTE_API_KEY`, `TRIBUTE_PAYMENT_URL` | Tribute payment integration. The API key is also what Tribute signs webhooks with |
 | `WEBHOOK_SECRET` | Optional second webhook signing key (a relay or test harness in front of the endpoint). Accepted alongside the API key, never instead of it |
-| `ADMIN_IDS` | Comma-separated Telegram user ids allowed to run `/broadcast` in the bot. Unset: the command is not registered at all |
+| `ADMIN_IDS` | Comma-separated Telegram user ids allowed to run `/broadcast` and `/stats` in the bot. Unset: neither command is registered at all |
 | `ADMIN_TOKEN` | Bearer token for `/admin/*`. Falls back to `TRIBUTE_API_KEY`; set it separately so an outbound credential is not also an inbound password |
 | `ACCESS_PRODUCT_ID` | Tribute product id of the access itself: the Mini App's buy button, its price and the bot's purchase button use exactly this product. Unset: the cheapest synced product that is neither the gift nor the referral discount |
 | `GIFT_PRODUCT_ID`, `GIFT_PAYMENT_URL` | Gift-certificate product (optional) |
@@ -185,6 +185,27 @@ for both, on the same unanimous-consent rule as deleting one test. A gift
 certificate they redeemed stays spent but forgets who spent it; anyone they
 invited keeps their discount and loses the link. Access does not come back:
 a new purchase or certificate is needed.
+
+## Where people come from, and what they do
+
+`/stats` in the bot (for `ADMIN_IDS` only) reads the funnel off the
+`events` table: new and active people, activation on day one, where people
+came from, sessions for two and partners who joined, the paywall, the
+«Открыть всё» tap and the purchase, gifts and refunds, and who came back on
+day 1 and day 7. Every line is people over the last 7 and 30 days.
+
+**Tag every link you publish.** Add `src_<tag>` to the bot link or to the
+Mini App link, one tag per channel: `https://t.me/<bot>?start=src_tiktok`,
+`https://t.me/<bot>/<app>?startapp=src_blogger_anna`. A tag is up to 32
+lowercase letters, digits, `_` or `-`. A person counts for the channel of
+their first arrival; referrals, invites and gift certificates count as
+`ref`, `invite` and `gift` by themselves, and a link without a tag as «без
+метки».
+
+What is kept is a name and one token from a fixed list (a deck, a Library
+module, the paywall's door): never an answer, a card, a name or a room
+code. `/delete_me` erases a person's events, and the daily sweep drops
+everything older than 400 days.
 
 ## Broadcasts
 

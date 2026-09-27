@@ -10,6 +10,9 @@ What is *not* deleted matters as much: a finished compatibility test and a
 finished game are kept, because both are meant to be re-read months later and
 that is exactly why neither has a TTL.
 
+Analytics events go after `analytics.KEEP`: long enough to compare a month
+with the same month a year before, and not forever.
+
 Imports neither FastAPI nor python-telegram-bot beyond the job entry point,
 so the sweep can be run from a script as easily as from the scheduler.
 """
@@ -32,12 +35,16 @@ ABANDONED_KEEP = timedelta(days=90)
 
 async def sweep(now: datetime | None = None) -> dict[str, int]:
     """Delete what is past keeping. Returns what went, by kind."""
+    from .analytics import KEEP as EVENTS_KEEP
     from .payments.database import get_db
     from .payments.repositories import RetentionRepository
 
     now = now or datetime.utcnow()
     async with get_db() as session:
         removed = {
+            "events": await RetentionRepository.delete_old_events(
+                session, now - EVENTS_KEEP
+            ),
             "rooms": await RetentionRepository.delete_expired_rooms(
                 session, now - ROOM_KEEP
             ),

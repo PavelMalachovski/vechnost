@@ -17,9 +17,10 @@ from fastapi.middleware.gzip import GZipMiddleware
 from fastapi.middleware.trustedhost import TrustedHostMiddleware
 from fastapi.responses import JSONResponse, Response
 from fastapi.staticfiles import StaticFiles
+from pydantic import BaseModel, Field
 from starlette.types import Scope
 
-from .. import referrals
+from .. import analytics, referrals
 from ..config import settings
 from ..freemium import FREE_CARDS_PER_DECK, free_slice, is_index_free
 from ..heartbeat import deep_status
@@ -319,6 +320,58 @@ def _deck_payload(deck: dict[str, Any], paid: bool) -> dict[str, Any]:
     return payload
 
 
+class ClientEvent(BaseModel):
+    """One thing the Mini App saw a person do: a name from
+    `analytics.CLIENT_EVENTS`, one allow-listed token, and for an arrival
+    the channel it came by. Anything else in them is dropped, not stored."""
+
+    name: str = Field(max_length=32)
+    detail: str | None = Field(default=None, max_length=64)
+    source: str | None = Field(default=None, max_length=40)
+
+
+def _telegram_id(authorization: str | None) -> int | None:
+    """The person a Mini App request is signed for, or None.
+
+    Checked whether or not payments are on: a count is only worth keeping
+    for somebody Telegram vouches for.
+    """
+    scheme, _, init_data = (authorization or "").partition(" ")
+    if scheme.lower() != "tma" or not init_data:
+        return None
+    try:
+        parsed = validate_init_data(init_data, settings.telegram_bot_token)
+        return int(parsed["user"]["id"])
+    except (InitDataError, KeyError, TypeError, ValueError):
+        return None
+
+
+@app.post("/api/events", status_code=204, dependencies=[Depends(throttle("events"))])
+async def client_event(
+    body: ClientEvent, authorization: str | None = Header(default=None)
+) -> Response:
+    """Count one thing the Mini App saw: an arrival, an opened deck or
+    module, a shared invite, a paywall and a tap on its button.
+
+    Only what the client can honestly know is taken from it
+    (`analytics.CLIENT_EVENTS`); joins, finished tests and payments are
+    counted on the server, where they cannot be claimed. 204 whether or not
+    it was kept: an unsigned request is simply not counted, and an arrival
+    is counted once a day per person.
+    """
+    if body.name not in analytics.CLIENT_EVENTS:
+        raise HTTPException(status_code=422, detail="not an event the app reports")
+    user_id = _telegram_id(authorization)
+    if user_id is None:
+        return Response(status_code=204)
+    source = body.source if body.name == "app_open" else None
+    if body.name == "app_open":
+        await analytics.track_arrival(user_id, source)
+    else:
+        await analytics.track(body.name, user_id, body.detail)
+    return Response(status_code=204)
+
+
 @app.get("/api/questions")
 async def get_questions(
     lang: str = "ru",
@@ -537,6 +590,18 @@ async def tribute_webhook(request: Request, background: BackgroundTasks) -> JSON
             background.add_task(
                 notify_access_granted, int(buyer), bool(result.get("lifetime", True))
             )
+
+        # Counted for /stats after the answer, like the message: a gift, a
+        # purchase of one's own (a renewal is not a new one), or a refund.
+        if buyer and result.get("action") == "grant" and result.get("gift"):
+            background.add_task(analytics.track, "gift_purchase", int(buyer))
+        elif buyer and result.get("action") == "grant" and not result.get("renewal"):
+            background.add_task(
+                analytics.track, "purchase", int(buyer),
+                "lifetime" if result.get("lifetime", True) else "period",
+            )
+        elif buyer and result.get("action") == "revoke":
+            background.add_task(analytics.track, "refund", int(buyer))
 
         # What was done, in the reply Tribute's delivery log keeps: an
         # operator reading "ignore" there learns more than "success", and

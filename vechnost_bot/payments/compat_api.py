@@ -16,7 +16,7 @@ from fastapi import APIRouter, BackgroundTasks, Depends, Header, HTTPException
 from pydantic import BaseModel, Field
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from .. import invites
+from .. import analytics, invites
 from ..compat import TOTAL_QUESTIONS, build_result, load_spheres, scale_labels
 from ..compat_notify import notify_result_ready
 from ..config import settings
@@ -163,6 +163,7 @@ async def create(
             creator_telegram_user_id=user_id,
             creator_name=name,
         )
+        analytics.record(session, "compat_create", user_id)
         return _state(test, user_id)
 
 
@@ -186,6 +187,7 @@ async def join(
             await CompatTestRepository.seat_guest(session, test, user_id, name)
             if test.guest_telegram_user_id != user_id:
                 raise HTTPException(status_code=409, detail="test is full")
+            analytics.record(session, "compat_join", user_id)
         elif test.guest_telegram_user_id != user_id:
             raise HTTPException(status_code=409, detail="test is full")
         return _state(test, user_id)
@@ -257,6 +259,7 @@ async def answer(
         if both_done and test.finished_at is None:
             test.finished_at = datetime.utcnow()
             just_finished = True
+            analytics.record(session, "compat_done", user_id)
             if test.pair_key:
                 await CompatTestRepository.delete_superseded(
                     session, test.pair_key, keep_id=test.id
