@@ -521,6 +521,17 @@ def test_every_board_cell_opens_its_action():
     assert "c.to" in info  # a portal says where it throws the piece
 
 
+def test_the_fade_follows_the_text_s_size_not_only_its_events():
+    """A late font or a stage that settles after the scroll re-flows a card's
+    text with no scroll, mutation or resize event; the flags now follow the
+    zone's and the text's size (tests/e2e/browser/test_touch.py shows it)."""
+    html = INDEX.read_text(encoding="utf-8")
+    refresh = html.split("function refreshZoneEdges() {")[1].split("\n  }\n")[0]
+    assert "zoneWatch.observe(z)" in refresh
+    assert "zoneWatch.unobserve(z)" in refresh  # a thrown-away card is let go
+    assert "new ResizeObserver(" in html
+
+
 def test_the_back_of_the_card_never_takes_a_touch():
     """The back face was eating the scroll gesture.
 
