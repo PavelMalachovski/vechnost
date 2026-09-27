@@ -91,3 +91,28 @@ async def test_read_modify_writes_on_a_sqlite_file_take_turns(db_at, tmp_path):
     async with get_db() as session:
         room = await RoomRepository.get_by_code(session, CODE)
         assert room.idx == 5
+
+
+async def test_the_first_requests_build_the_schema_once(db_at, tmp_path):
+    """A fresh process takes several requests at once; one builds the tables
+    and the rest wait for it, rather than each running every step beside the
+    others and meeting "table already exists" (or a half-built schema)."""
+    db_at(f"sqlite:///{tmp_path / 'fresh.db'}")
+    real = database.create_tables
+    runs = 0
+
+    async def counted() -> None:
+        nonlocal runs
+        runs += 1
+        await asyncio.sleep(0.05)  # the other requests arrive in here
+        await real()
+
+    async def request() -> None:
+        async with get_db() as session:
+            # Reads a table: a request let through before the schema is
+            # there fails with "no such table".
+            assert await RoomRepository.get_by_code(session, CODE) is None
+
+    with patch.object(database, "create_tables", counted):
+        await asyncio.gather(*(request() for _ in range(5)))
+    assert runs == 1

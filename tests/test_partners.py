@@ -20,13 +20,13 @@ from fastapi.testclient import TestClient
 from telegram.error import Forbidden
 
 import vechnost_bot.payments.database as database
+from tests.test_webapp_auth import make_init_data
 from vechnost_bot.config import settings
 from vechnost_bot.payments import partner_notify
 from vechnost_bot.payments.database import get_db
 from vechnost_bot.payments.partners import Seated
 from vechnost_bot.payments.repositories import UserRepository
 from vechnost_bot.payments.web import app
-from tests.test_webapp_auth import make_init_data
 
 TOKEN = "1234567890:TEST_TOKEN_FOR_UNIT_TESTS"
 
@@ -259,3 +259,29 @@ async def test_a_creator_with_no_chat_is_simply_not_told():
         patch.object(partner_notify, "_language", AsyncMock(return_value=partner_notify.Language.RUSSIAN)),
     ):
         await partner_notify.notify_partner_joined(seated)  # does not raise
+
+
+async def test_nothing_on_the_way_raises_or_logs_the_code(caplog):
+    """It runs after the join has answered: a dead database or network costs
+    the creator one message, never the partner their seat, and the code - a
+    seat in somebody's game - stays out of the log."""
+    bot = AsyncMock()
+    bot.__aenter__.return_value = bot
+    bot.send_message.side_effect = RuntimeError("network down")
+    seated = Seated(screen="coop", code="ABCDEFGHJKLMNPQR", creator_id=ALICE, guest_name="Bob")
+    with (
+        patch.object(partner_notify, "_bot", return_value=bot),
+        patch.object(database, "get_db", side_effect=RuntimeError("database down")),
+    ):
+        await partner_notify.notify_partner_joined(seated)
+    # The language could not be read: Russian, the only one there is.
+    assert bot.send_message.await_args.kwargs["text"] == "Bob в игре. Ваш ход!"
+    assert "network down" in caplog.text
+    assert "ABCDEFGHJKLMNPQR" not in caplog.text
+
+
+async def test_without_a_token_nobody_is_told():
+    seated = Seated(screen="coop", code="ABCDEFGHJKLMNPQR", creator_id=ALICE, guest_name="Bob")
+    with patch.object(settings, "telegram_bot_token", ""):
+        assert partner_notify._bot() is None
+        await partner_notify.notify_partner_joined(seated)

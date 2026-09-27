@@ -2,8 +2,10 @@
 
 import logging
 from datetime import datetime
+from typing import Any, cast
 
 from sqlalchemy import and_, delete, or_, select, update
+from sqlalchemy.engine import CursorResult
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..compat import TOTAL_QUESTIONS
@@ -22,6 +24,19 @@ from .models import (
 )
 
 logger = logging.getLogger(__name__)
+
+
+def _insert(session: AsyncSession) -> Any:
+    """The session's dialect's INSERT, the one that can do nothing on a conflict."""
+    bind = session.bind
+    assert bind is not None, "get_db() always binds its sessions"
+    if bind.dialect.name == "postgresql":
+        from sqlalchemy.dialects import postgresql
+
+        return postgresql.insert
+    from sqlalchemy.dialects import sqlite
+
+    return sqlite.insert
 
 
 class UserRepository:
@@ -100,27 +115,29 @@ class UserRepository:
         the first to see a new person, and at once. `create_or_update` read
         first, so the second of two lost the race to the unique constraint.
         """
-        bind = session.bind
-        assert bind is not None, "get_db() always binds its sessions"
-        if bind.dialect.name == "postgresql":
-            from sqlalchemy.dialects.postgresql import insert
-        else:
-            from sqlalchemy.dialects.sqlite import insert
-        await session.execute(
-            insert(User)
-            .values(
-                telegram_user_id=telegram_user_id,
-                first_name=first_name,
-                username=username,
-                last_name=last_name,
-                language=language,
-                daily_card_opt_out=False,
-                created_at=datetime.utcnow(),
+        insert = _insert(session)
+        # Twice at most: the row the INSERT found can be erased (/delete_me)
+        # before the read, and the second INSERT then makes it.
+        user = None
+        for _ in range(2):
+            await session.execute(
+                insert(User)
+                .values(
+                    telegram_user_id=telegram_user_id,
+                    first_name=first_name,
+                    username=username,
+                    last_name=last_name,
+                    language=language,
+                    daily_card_opt_out=False,
+                    created_at=datetime.utcnow(),
+                )
+                .on_conflict_do_nothing(index_elements=["telegram_user_id"])
             )
-            .on_conflict_do_nothing(index_elements=["telegram_user_id"])
-        )
-        user = await UserRepository.get_by_telegram_id(session, telegram_user_id)
-        assert user is not None
+            user = await UserRepository.get_by_telegram_id(session, telegram_user_id)
+            if user is not None:
+                break
+        if user is None:
+            raise RuntimeError(f"User {telegram_user_id} could not be made")
         for field, value in (
             ("first_name", first_name), ("username", username),
             ("last_name", last_name), ("language", language),
@@ -414,12 +431,12 @@ class UserRepository:
 
         # Whoever played with them forgets them too: their partner link is
         # a record of this person.
-        result = await session.execute(
+        unlinked = cast("CursorResult[Any]", await session.execute(
             _update(User)
             .where(User.partner_telegram_user_id == telegram_user_id)
             .values(partner_telegram_user_id=None, partner_since=None)
-        )
-        removed["partners_unlinked"] = result.rowcount or 0
+        ))
+        removed["partners_unlinked"] = unlinked.rowcount or 0
 
         user = await UserRepository.get_by_telegram_id(session, telegram_user_id)
         if user is None:

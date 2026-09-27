@@ -1,5 +1,6 @@
 """Database connection and session management."""
 
+import asyncio
 import logging
 from collections.abc import AsyncGenerator
 from contextlib import asynccontextmanager
@@ -564,6 +565,18 @@ async def drop_tables() -> None:
 
 
 _tables_created = False
+_tables_lock: tuple[asyncio.AbstractEventLoop, asyncio.Lock] | None = None
+
+
+def _creation_lock() -> asyncio.Lock:
+    """One lock per event loop: a lock that once waited in a loop is bound to
+    it, and the tests run a loop each."""
+    global _tables_lock
+    loop = asyncio.get_running_loop()
+    if _tables_lock is None or _tables_lock[0] is not loop:
+        _tables_lock = (loop, asyncio.Lock())
+    return _tables_lock[1]
+
 
 @asynccontextmanager
 async def get_db() -> AsyncGenerator[AsyncSession, None]:
@@ -576,12 +589,18 @@ async def get_db() -> AsyncGenerator[AsyncSession, None]:
     # Automatically create tables on first access. The steps after
     # create_all report their own failures (see create_tables); what lands
     # here is create_all itself failing, which is never benign.
+    # Under a lock: a fresh web process takes several requests at once (the
+    # Mini App's boot alone sends three), and each used to run every step
+    # beside the others ("table users already exists" on the loser). The
+    # others wait for the schema rather than run on half of it.
     if not _tables_created:
-        try:
-            await create_tables()
-        except Exception as e:
-            logger.error(f"Could not create the database tables: {e}", exc_info=True)
-        _tables_created = True  # once per process either way
+        async with _creation_lock():
+            if not _tables_created:
+                try:
+                    await create_tables()
+                except Exception as e:
+                    logger.error(f"Could not create the database tables: {e}", exc_info=True)
+                _tables_created = True  # once per process either way
 
     async with async_session_maker() as session:
         try:

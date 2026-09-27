@@ -379,7 +379,7 @@ def _signed_user(authorization: str | None) -> dict[str, Any] | None:
     if scheme.lower() != "tma" or not init_data:
         return None
     try:
-        user = validate_init_data(init_data, settings.telegram_bot_token)["user"]
+        user: dict[str, Any] = validate_init_data(init_data, settings.telegram_bot_token)["user"]
         int(user["id"])
         return user
     except (InitDataError, KeyError, TypeError, ValueError):
