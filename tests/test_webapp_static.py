@@ -644,3 +644,28 @@ def test_every_custom_property_the_page_reads_is_declared():
     # Telegram sets its own --tg-* on the document from telegram-web-app.js.
     missing = {name for name in used - declared if not name.startswith("--tg-")}
     assert not missing, missing
+
+
+def test_a_phone_that_asks_for_less_motion_gets_no_confetti():
+    """D-13: the CSS block stops the looping and travelling animations; the
+    confetti is spawned from script, so the script asks too."""
+    html = INDEX.read_text(encoding="utf-8")
+    assert "@media (prefers-reduced-motion: reduce)" in html
+    body = html.split("function confetti() {", 1)[1]
+    assert body.lstrip().startswith("if (REDUCED_MOTION) return;")
+
+
+def test_the_launch_preload_is_quiet():
+    """D-16: the preload at launch shows no loader and says nothing; «Играть»
+    waits for the same request with the loader up."""
+    html = INDEX.read_text(encoding="utf-8")
+    assert "loadData(true);" in html
+    assert "\n  loadData();" not in html
+
+
+def test_every_overlay_with_a_way_out_names_it_for_the_back_button():
+    """D-06: Back closes the top overlay the way its own button would."""
+    html = INDEX.read_text(encoding="utf-8")
+    for button in ("nsfwNo", "s69DoneHome", "s69InfoClose", "paywallClose", "btnToThemes"):
+        tag = html.split(f'id="{button}"', 1)[1].split(">", 1)[0]
+        assert "data-dismiss" in tag, button
