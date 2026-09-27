@@ -787,8 +787,15 @@ python scripts/smoke_production.py $URL --deep  # ...and its database and bot he
   `ValueError`: pydantic would repeat every setting, the token and the
   database password included, into the crash log. Development and the test
   suite are unaffected; the production service has to set the variable.
-- There is a large legacy `docs/` folder with historical setup notes; the
-  root `README.md` is the current source of truth.
+- **`docs/` holds only what is kept true**: `AUDIT_2026-09.md`, `CI_CD.md`,
+  `RAILWAY_DEPLOYMENT.md`, `PAYMENT_SETUP_GUIDE.md` and
+  `ENVIRONMENT_VARIABLES.md`, whose table of settings is generated from
+  `Settings` - after adding, renaming or re-describing a setting, run
+  `python scripts/env_docs.py --write` (`tests/test_env_docs.py` fails
+  until you do; it also wants every variable read outside `Settings`
+  listed). Older notes, plans and reviews are in `docs/archive/` under a
+  one-line banner and are not maintained; the root `README.md` is the
+  current source of truth.
 
 ## Workflow
 

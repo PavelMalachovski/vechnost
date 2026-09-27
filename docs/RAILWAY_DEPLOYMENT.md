@@ -36,8 +36,10 @@ One service, built from the repository's [`Dockerfile`](../Dockerfile)
 
 ## Variables
 
-Set them in the service's *Variables* tab. [`env.example`](../env.example)
-lists every setting with an explanation; these are the ones production
+Set them in the service's *Variables* tab.
+[`ENVIRONMENT_VARIABLES.md`](ENVIRONMENT_VARIABLES.md) lists every setting
+the app reads, generated from the code, and [`env.example`](../env.example)
+is a starting `.env` for a local checkout; these are the ones production
 needs:
 
 | Variable | What it is |
@@ -48,10 +50,11 @@ needs:
 | `ENABLE_PAYMENT` | `true` to enforce the paywall. Unset means `false`, everything free, so production has to say which. |
 | `TRIBUTE_API_KEY` | Signs Tribute's webhooks; required when payments are on. |
 | `TRIBUTE_PAYMENT_URL` | The payment page the paywall opens. |
+| `ACCESS_PRODUCT_ID` | The Tribute product the paywall sells; without it, the cheapest synced product that is neither the gift nor the referral discount. See [`PAYMENT_SETUP_GUIDE.md`](PAYMENT_SETUP_GUIDE.md). |
 | `ADMIN_TOKEN` | Bearer token for `/admin/*`. |
 | `WEBAPP_URL` | The public HTTPS address of the Mini App, e.g. `https://<service>.up.railway.app/app/`. |
 | `BOT_USERNAME` | The bot's username, for invite links. |
-| `WEBAPP_MAIN_APP` / `WEBAPP_SHORT_NAME` | How invite links are spelled; see `env.example`. |
+| `WEBAPP_MAIN_APP` / `WEBAPP_SHORT_NAME` | How invite links are spelled; see [`ENVIRONMENT_VARIABLES.md`](ENVIRONMENT_VARIABLES.md). |
 | `SENTRY_DSN` | Optional error reporting. |
 
 `PORT`, `RAILWAY_GIT_COMMIT_SHA` and the rest of Railway's own variables are

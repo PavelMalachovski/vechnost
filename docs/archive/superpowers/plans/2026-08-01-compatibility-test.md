@@ -1,3 +1,5 @@
+> **Archived.** A historical note, kept for the record and no longer maintained: the code has moved on since. The root README.md and CLAUDE.md describe the project as it is.
+
 # Compatibility Test Implementation Plan
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.

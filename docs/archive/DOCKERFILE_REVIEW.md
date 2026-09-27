@@ -1,3 +1,5 @@
+> **Archived.** A historical note, kept for the record and no longer maintained: the code has moved on since. The root README.md and CLAUDE.md describe the project as it is.
+
 # Dockerfile Review and Optimization
 
 ## Overview

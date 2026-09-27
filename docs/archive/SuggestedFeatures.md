@@ -1,3 +1,5 @@
+> **Archived.** A historical note, kept for the record and no longer maintained: the code has moved on since. The root README.md and CLAUDE.md describe the project as it is.
+
 # Vechnost Bot - Анализ кодовой базы и предложение новых функций
 
 **Дата анализа:** 6 декабря 2025

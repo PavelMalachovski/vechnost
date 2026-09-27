@@ -1,3 +1,5 @@
+> **Archived.** A historical note, kept for the record and no longer maintained: the code has moved on since. The root README.md and CLAUDE.md describe the project as it is.
+
 # Vechnost Bot - Code Improvements
 
 This document outlines the comprehensive improvements made to the Vechnost Telegram bot codebase.
