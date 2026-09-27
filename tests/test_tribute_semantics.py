@@ -6,6 +6,9 @@ signature. This file holds its meaning, finding by finding of the September
 
 * B-09 - a cancellation switches the renewal off; the period already paid
   for runs to its end. Refunds and chargebacks still revoke at once.
+* B-08 - events are applied in the order they happened, not the order
+  they arrived: one older than the last event applied to that access is
+  acknowledged, recorded, and changes nothing.
 
 Every delivery here is signed the way Tribute signs it, and access is read
 back through `user_has_access`, the one function that decides it.
@@ -29,7 +32,7 @@ from fastapi.testclient import TestClient
 
 import vechnost_bot.payments.database as database
 from vechnost_bot.config import settings
-from vechnost_bot.payments.models import Subscription
+from vechnost_bot.payments.models import Payment, Subscription, WebhookEvent
 from vechnost_bot.payments.services import user_has_access
 from vechnost_bot.payments.tribute_event import action_for
 from vechnost_bot.payments.web import app
@@ -205,3 +208,95 @@ def test_a_chargeback_filed_as_a_cancellation_by_the_old_code_stays_revoked(trib
 
     tribute.client.portal.call(as_the_old_code_left_it)
     assert tribute.access() is False
+
+
+# ---------------------------------------------------------------------------
+# B-08: the order events happened in, not the order they arrived in
+# ---------------------------------------------------------------------------
+
+T1 = "2026-09-01T10:00:00.000000Z"
+T2 = "2026-09-02T10:00:00.000000Z"
+T3 = "2026-09-03T10:00:00.000000Z"
+
+
+def notes(tribute: Tribute) -> list[str]:
+    async def read() -> list[str]:
+        async with database.get_db() as session:
+            found = (await session.execute(select(WebhookEvent))).scalars().all()
+            return [row.error or "" for row in found]
+
+    return tribute.client.portal.call(read)
+
+
+def test_the_row_keeps_when_its_event_happened_not_when_it_arrived(tribute):
+    tribute.send("new_digital_product", created_at=T1, sent_at=T3, product_id=PRODUCT)
+    assert tribute.subscriptions()[PRODUCT].last_event_at == datetime(2026, 9, 1, 10, 0)
+
+
+def test_an_unreadable_sent_at_does_not_lose_when_the_event_happened(tribute):
+    body = tribute.body("new_digital_product", created_at=T1, product_id=PRODUCT)
+    tribute.post(body.replace(b'"sent_at": "' + T1.encode(), b'"sent_at": "yesterday'))
+    assert tribute.subscriptions()[PRODUCT].last_event_at == datetime(2026, 9, 1, 10, 0)
+
+
+def test_a_purchase_retried_after_its_refund_grants_nothing(tribute):
+    """Tribute retries for about a day, and a customer can be refunded
+    within it: the retry must not buy the access back."""
+    tribute.send("new_digital_product", created_at=T1, product_id=PRODUCT)
+    tribute.send("digital_product_refunded", created_at=T2, product_id=PRODUCT)
+    assert tribute.access() is False
+
+    tribute.send("new_digital_product", created_at=T1, sent_at=T3, product_id=PRODUCT)
+    assert tribute.access() is False
+    assert tribute.subscriptions()[PRODUCT].status == "refunded"
+
+
+def test_a_purchase_first_delivered_after_its_refund_grants_nothing(tribute):
+    """The refund came first (the purchase's first attempt failed): it is
+    remembered under the product it names, and the purchase is older."""
+    tribute.send("digital_product_refunded", created_at=T2, product_id=PRODUCT)
+    answer = tribute.send("new_digital_product", created_at=T1, sent_at=T3, product_id=PRODUCT)
+    assert answer["message"] == "Stale event ignored"
+    assert answer["action"] == "ignore"
+    assert tribute.access() is False
+    assert any(note.startswith("stale event ignored") for note in notes(tribute))
+
+
+def test_an_older_chargeback_does_not_undo_a_newer_purchase(tribute):
+    """Bought, refunded, bought again - and then a chargeback of the first
+    purchase arrives. The second purchase stands."""
+    tribute.send("new_digital_product", created_at=T1, product_id=PRODUCT)
+    tribute.send("digital_product_refunded", created_at="2026-09-01T12:00:00.000000Z",
+                 product_id=PRODUCT)
+    tribute.send("new_digital_product", created_at=T3, product_id=PRODUCT)
+    assert tribute.access() is True
+
+    answer = tribute.send("chargeback", created_at=T2, product_id=PRODUCT)
+    assert answer["action"] == "ignore"
+    assert tribute.access() is True
+
+
+def test_an_older_cancellation_does_not_end_a_newer_renewal(tribute):
+    first_period_end = iso(datetime.utcnow() - timedelta(days=1))
+    tribute.send("new_subscription", created_at=T1, subscription_id=SUBSCRIPTION,
+                 expires_at=first_period_end)
+    tribute.send("renewed_subscription", created_at=T3, subscription_id=SUBSCRIPTION,
+                 expires_at=LATER)
+    tribute.send("cancelled_subscription", created_at=T2, subscription_id=SUBSCRIPTION,
+                 expires_at=first_period_end)
+    assert tribute.access() is True
+    row = tribute.subscriptions()[SUBSCRIPTION]
+    assert row.status == "active" and row.last_event_at == datetime(2026, 9, 3, 10, 0)
+
+
+def test_a_stale_event_is_recorded_once_and_not_journaled(tribute):
+    tribute.send("digital_product_refunded", created_at=T2, product_id=PRODUCT)
+    tribute.send("new_digital_product", created_at=T1, product_id=PRODUCT)
+
+    async def journal() -> list[str]:
+        async with database.get_db() as session:
+            found = (await session.execute(select(Payment))).scalars().all()
+            return [row.event_name for row in found]
+
+    assert tribute.client.portal.call(journal) == ["digital_product_refunded"]
+    assert len(notes(tribute)) == 2, "both deliveries are on record"

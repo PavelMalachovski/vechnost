@@ -433,10 +433,13 @@ async def tribute_webhook(request: Request) -> JSONResponse:
                 )
 
         # What was done, in the reply Tribute's delivery log keeps: an
-        # operator reading "ignore" there learns more than "success".
+        # operator reading "ignore" there learns more than "success", and
+        # the note says why (a stale event, nothing to cancel).
         content = {"status": result["status"], "message": result["message"]}
         if "action" in result:
             content["action"] = result["action"]
+        if result.get("note"):
+            content["note"] = result["note"]
         return JSONResponse(status_code=status_code, content=content)
 
     except HTTPException:

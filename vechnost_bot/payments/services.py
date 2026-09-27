@@ -2,6 +2,7 @@
 
 import logging
 from collections.abc import Iterable, Mapping
+from dataclasses import dataclass
 from datetime import datetime
 from typing import Any
 
@@ -17,7 +18,7 @@ from .gifts import (
     gift_language,
     is_gift_purchase,
 )
-from .models import Product
+from .models import Product, Subscription
 from .repositories import (
     CANCELED,
     CertificateRepository,
@@ -150,6 +151,11 @@ async def apply_webhook_event(
     body_sha256 = compute_body_sha256(raw_body)
     action = event.action
     now = datetime.utcnow()
+    # When it happened, by Tribute's clock: what orders this event against
+    # the ones already applied. Deliveries arrive late and out of order - a
+    # retry of a purchase can land after its own refund - so the order they
+    # arrive in decides nothing (backend audit B-08).
+    happened_at = event.created_at or now
 
     try:
         async with get_db() as session:
@@ -172,8 +178,37 @@ async def apply_webhook_event(
                 last_name=event.last_name,
             )
 
+            if action == "grant" and is_gift_purchase(event.product_id):
+                # A present: the buyer gets a certificate to hand on, not
+                # access of their own.
+                gift_code = await create_gift_certificate(session)
+                outcome = _Outcome(note="gift certificate issued")
+                logger.info(f"Gift purchase by {telegram_user_id}: certificate issued")
+                try:
+                    await deliver_gift_certificate(
+                        telegram_user_id, gift_code, gift_language(user.language)
+                    )
+                except Exception as e:
+                    # The certificate exists either way; support can recover
+                    # the code from the certificates table.
+                    logger.error(f"Failed to deliver gift certificate: {e}")
+            elif action == "grant":
+                outcome = await _grant(session, event, user.id, happened_at)
+            elif action == "cancel":
+                outcome = await _cancel(session, event, user.id, happened_at)
+            elif action == "revoke":
+                outcome = await _revoke(session, event, user.id, happened_at)
+            else:
+                outcome = _Outcome(note="ignored: unknown event")
+                logger.warning(
+                    f"Webhook {event.name!r} is not an event this code knows; "
+                    "acknowledged and left without effect"
+                )
+            if outcome.note:
+                logger.info(f"{event.name} for {telegram_user_id}: {outcome.note}")
+
             payment_id: int | None = None
-            if action != "ignore":
+            if action != "ignore" and not outcome.stale:
                 payment = await PaymentRepository.get_by_body_sha256(session, body_sha256)
                 if payment is None:
                     payment = await PaymentRepository.create(
@@ -192,58 +227,6 @@ async def apply_webhook_event(
                     )
                 payment_id = payment.id
 
-            note: str | None = None
-            if action == "grant" and is_gift_purchase(event.product_id):
-                # A present: the buyer gets a certificate to hand on, not
-                # access of their own.
-                gift_code = await create_gift_certificate(session)
-                note = "gift certificate issued"
-                logger.info(f"Gift purchase by {telegram_user_id}: certificate issued")
-                try:
-                    await deliver_gift_certificate(
-                        telegram_user_id, gift_code, gift_language(user.language)
-                    )
-                except Exception as e:
-                    # The certificate exists either way; support can recover
-                    # the code from the certificates table.
-                    logger.error(f"Failed to deliver gift certificate: {e}")
-            elif action == "grant":
-                await SubscriptionRepository.upsert(
-                    session,
-                    user_id=user.id,
-                    subscription_id=event.access_key,
-                    period=event.period,
-                    status="active",
-                    expires_at=event.expires_at,
-                    last_event_at=now,
-                )
-                logger.info(
-                    f"Access granted to {telegram_user_id} by {event.name}: "
-                    f"period={event.period}, expires_at={event.expires_at}"
-                )
-            elif action == "cancel":
-                note = await _cancel(session, event, user.id, now)
-                logger.info(f"{event.name} for {telegram_user_id}: {note}")
-            elif action == "revoke":
-                revoked = await SubscriptionRepository.revoke_for_user(
-                    session,
-                    user.id,
-                    subscription_id=event.access_key or None,
-                    status=revoked_status(event.name),
-                    when=now,
-                )
-                note = f"revoked {revoked}"
-                logger.info(
-                    f"Access revoked for {telegram_user_id} by {event.name}: "
-                    f"{revoked} row(s)"
-                )
-            else:
-                note = "ignored: unknown event"
-                logger.warning(
-                    f"Webhook {event.name!r} is not an event this code knows; "
-                    "acknowledged and left without effect"
-                )
-
             await WebhookEventRepository.create(
                 session,
                 name=event.name,
@@ -251,13 +234,17 @@ async def apply_webhook_event(
                 body_sha256=body_sha256,
                 status_code=200,
                 processed_at=now,
-                error=note,
+                error=outcome.note,
             )
 
             return {
                 "status": "success",
-                "message": "Webhook processed successfully",
-                "action": action,
+                "message": (
+                    "Stale event ignored" if outcome.stale
+                    else "Webhook processed successfully"
+                ),
+                "action": "ignore" if outcome.stale else action,
+                "note": outcome.note,
                 "payment_id": payment_id,
             }
 
@@ -282,10 +269,66 @@ async def apply_webhook_event(
         return _error("internal error", 500)
 
 
+@dataclass
+class _Outcome:
+    """What one delivery did: the note it is recorded with, and whether it
+    was older than what it would have changed and so changed nothing."""
+
+    note: str | None = None
+    stale: bool = False
+
+
+def _stale(row: Subscription | None, happened_at: datetime) -> _Outcome | None:
+    """The outcome for an event older than the last one applied to `row`.
+
+    `last_event_at` holds the time of that event by Tribute's clock, so a
+    purchase delivered after its own refund - a retry, a redelivery from
+    the dashboard, a first attempt that failed - is older than the refund
+    and changes nothing (backend audit B-08). It used to hold the time of
+    processing, and whichever delivery arrived last won.
+    """
+    if row is None or row.last_event_at <= happened_at:
+        return None
+    return _Outcome(
+        note=(
+            f"stale event ignored: it happened at {happened_at:%Y-%m-%d %H:%M:%S}, "
+            f"and an event of {row.last_event_at:%Y-%m-%d %H:%M:%S} already "
+            "decided this access"
+        ),
+        stale=True,
+    )
+
+
+async def _grant(
+    session: AsyncSession, event: TributeEvent, user_id: int, happened_at: datetime
+) -> _Outcome:
+    """A purchase or a renewal: the row it is filed under becomes active."""
+    row = await SubscriptionRepository.get_by_user_and_subscription_id(
+        session, user_id, event.access_key, for_update=True
+    )
+    stale = _stale(row, happened_at)
+    if stale:
+        return stale
+    await SubscriptionRepository.upsert(
+        session,
+        user_id=user_id,
+        subscription_id=event.access_key,
+        period=event.period,
+        status="active",
+        expires_at=event.expires_at,
+        last_event_at=happened_at,
+    )
+    logger.info(
+        f"Access granted to user #{user_id} by {event.name}: "
+        f"period={event.period}, expires_at={event.expires_at}"
+    )
+    return _Outcome()
+
+
 async def _cancel(
-    session: AsyncSession, event: TributeEvent, user_id: int, when: datetime
-) -> str:
-    """A subscription's renewal switched off. Returns the note to record.
+    session: AsyncSession, event: TributeEvent, user_id: int, happened_at: datetime
+) -> _Outcome:
+    """A subscription's renewal switched off.
 
     The customer has paid up to `expires_at` and keeps access until then;
     this used to revoke at once (backend audit B-09). Refunds and
@@ -297,17 +340,61 @@ async def _cancel(
     row = None
     if event.access_key:
         row = await SubscriptionRepository.get_by_user_and_subscription_id(
-            session, user_id, event.access_key
+            session, user_id, event.access_key, for_update=True
         )
     if row is None:
-        return "nothing to cancel: no subscription under that id"
+        return _Outcome(note="nothing to cancel: no subscription under that id")
+    stale = _stale(row, happened_at)
+    if stale:
+        return stale
     if row.expires_at is None:
-        return "cancellation of a purchase without an end date: unchanged"
+        return _Outcome(note="cancellation of a purchase without an end date: unchanged")
     row.status = CANCELED
     row.expires_at = event.stated_expires_at or row.expires_at
-    row.last_event_at = when
+    row.last_event_at = happened_at
     await session.flush()
-    return f"canceled, access until {row.expires_at:%Y-%m-%d %H:%M} UTC"
+    return _Outcome(note=f"canceled, access until {row.expires_at:%Y-%m-%d %H:%M} UTC")
+
+
+async def _revoke(
+    session: AsyncSession, event: TributeEvent, user_id: int, happened_at: datetime
+) -> _Outcome:
+    """A refund or a chargeback: the access it paid for ends now.
+
+    The row the event names is the one closed. When the user has no such
+    row, every row that still grants access is closed instead - a refund
+    with no effect is worse than one with too much - and the refund is
+    remembered under the name it gave, so the purchase it undoes, should
+    its delivery come later, is older than the refund and grants nothing.
+    """
+    status = revoked_status(event.name)
+    if event.access_key:
+        row = await SubscriptionRepository.get_by_user_and_subscription_id(
+            session, user_id, event.access_key, for_update=True
+        )
+        if row is not None:
+            stale = _stale(row, happened_at)
+            if stale:
+                return stale
+            row.status = status
+            row.last_event_at = happened_at
+            await session.flush()
+            return _Outcome(note=f"revoked 1 ({status})")
+
+    revoked = await SubscriptionRepository.revoke_all_for_user(
+        session, user_id, status=status, when=happened_at
+    )
+    if event.access_key:
+        await SubscriptionRepository.upsert(
+            session,
+            user_id=user_id,
+            subscription_id=event.access_key,
+            period=event.period,
+            status=status,
+            expires_at=None,
+            last_event_at=happened_at,
+        )
+    return _Outcome(note=f"revoked {revoked} ({status}): no row under the id it names")
 
 
 async def _delivery_recorded(body_sha256: str) -> bool:

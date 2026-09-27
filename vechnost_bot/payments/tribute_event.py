@@ -110,6 +110,13 @@ def parse_timestamp(value: Any) -> datetime | None:
     return parsed
 
 
+def _timestamp_or_none(value: Any) -> datetime | None:
+    try:
+        return parse_timestamp(value)
+    except (TypeError, ValueError):
+        return None
+
+
 class TributeEvent(BaseModel):
     """One delivery, read once, with every field the handler needs."""
 
@@ -136,14 +143,13 @@ class TributeEvent(BaseModel):
             if isinstance(body.get(key), dict):
                 payload = body[key]
                 break
-        try:
-            sent_at = parse_timestamp(body.get("sent_at"))
-            created_at = parse_timestamp(body.get("created_at"))
-        except ValueError:
-            sent_at = created_at = None
         return cls(
             name=str(name).strip(), payload=payload, raw=body,
-            sent_at=sent_at, created_at=created_at,
+            # Each on its own: `created_at` orders the event against the ones
+            # already applied, and an unreadable `sent_at` used to take it
+            # down with it.
+            sent_at=_timestamp_or_none(body.get("sent_at")),
+            created_at=_timestamp_or_none(body.get("created_at")),
         )
 
     @property

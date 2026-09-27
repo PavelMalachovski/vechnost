@@ -383,14 +383,22 @@ class SubscriptionRepository:
 
     @staticmethod
     async def get_by_user_and_subscription_id(
-        session: AsyncSession, user_id: int, subscription_id: int
+        session: AsyncSession, user_id: int, subscription_id: int, for_update: bool = False
     ) -> Subscription | None:
-        """Get subscription by user and subscription ID."""
-        result = await session.execute(
+        """Get subscription by user and subscription ID.
+
+        `for_update` locks the row: a webhook reads its `last_event_at` to
+        decide whether the event is newer, then writes it, and two
+        deliveries for one purchase can arrive together.
+        """
+        stmt = (
             select(Subscription)
             .where(Subscription.user_id == user_id)
             .where(Subscription.subscription_id == subscription_id)
         )
+        if for_update:
+            stmt = stmt.with_for_update()
+        result = await session.execute(stmt)
         return result.scalar_one_or_none()
 
     @staticmethod
@@ -400,10 +408,10 @@ class SubscriptionRepository:
         subscription_id: int,
         period: str,
         status: str,
-        expires_at: datetime,
+        expires_at: datetime | None,
         last_event_at: datetime | None = None,
     ) -> Subscription:
-        """Create or update subscription."""
+        """Create or update subscription. No expiry is a lifetime purchase."""
         subscription = await SubscriptionRepository.get_by_user_and_subscription_id(
             session, user_id, subscription_id
         )
@@ -439,37 +447,32 @@ class SubscriptionRepository:
         return subscription
 
     @staticmethod
-    async def revoke_for_user(
+    async def revoke_all_for_user(
         session: AsyncSession,
         user_id: int,
-        subscription_id: int | None = None,
         status: str = "refunded",
         when: datetime | None = None,
     ) -> int:
-        """Withdraw a user's access. Returns how many rows changed.
+        """Close every row of this user that still grants access. Returns how many.
 
-        A refund names what it undoes; when a row with that id exists it is
-        the only one touched. When none does - an older row filed under a
-        different key, or a refund that names the product rather than the
-        purchase - every row that still grants access is closed, because a
-        refund with no effect is worse than one with too much: the money
-        went back and the deck stayed open. A cancelled subscription still
-        inside its paid period is one of those rows.
+        The fallback for a refund that names no row the user has - an older
+        row filed under a different key, or a refund that names the product
+        rather than the purchase: a refund with no effect is worse than one
+        with too much, since the money went back and the deck stayed open. A
+        cancelled subscription still inside its paid period is one of these
+        rows. `last_event_at` only ever moves forward here.
         """
         result = await session.execute(
             select(Subscription)
             .where(Subscription.user_id == user_id)
             .where(Subscription.status.in_([*GRANTING_STATUSES, CANCELED]))
+            .with_for_update()
         )
         rows = list(result.scalars().all())
-        if subscription_id is not None:
-            named = [row for row in rows if row.subscription_id == subscription_id]
-            if named:
-                rows = named
         stamp = when or datetime.utcnow()
         for row in rows:
             row.status = status
-            row.last_event_at = stamp
+            row.last_event_at = max(row.last_event_at, stamp)
         await session.flush()
         if rows:
             logger.info(f"Revoked {len(rows)} subscription row(s) for user {user_id}")
