@@ -21,6 +21,21 @@ from ..harness import Server, code_from_invite
 
 YOUR_TURN = "✨ Твой ход"
 POLL = 12_000  # the app polls every ~2.5 s and backs off on errors
+
+# What a refused tap does to the waiting phone, recorded as it happens: the
+# card's `wobble` and the chip's `pulse` going on, and the animations that
+# ran to their end (a cancelled one never fires `animationend`).
+WATCH_THE_REFUSAL = """() => {
+  const seen = window.__refusal = { marked: [], ended: [] };
+  const card = document.querySelector('#stage .card.top');
+  const chip = document.getElementById('turnChipText');
+  for (const [el, cls] of [[card, 'wobble'], [chip, 'pulse']]) {
+    new MutationObserver(() => {
+      if (el.classList.contains(cls) && !seen.marked.includes(cls)) seen.marked.push(cls);
+    }).observe(el, { attributes: true, attributeFilter: ['class'] });
+  }
+  chip.addEventListener('animationend', e => seen.ended.push(e.animationName));
+}"""
 SECRETS = {c.id: c.secret for c in steps69.load_cells() if c.kind == "secret"}
 
 
@@ -65,9 +80,17 @@ def test_two_phones_share_one_deck(server: Server, phones) -> None:
         # without asking the server - the card shakes, the chip flashes.
         assert waiter.page.get_attribute("#btnNext", "aria-disabled") == "true"
         assert mover.page.get_attribute("#btnNext", "aria-disabled") == "false"
+        waiter.page.evaluate(WATCH_THE_REFUSAL)
         waiter.page.click("#btnNext", force=True)
-        waiter.page.wait_for_selector("#stage .card.top.wobble")
-        waiter.page.wait_for_selector("#turnChipText.pulse")
+        # Both marks go on, and the chip's flash runs to its end. Watched
+        # from before the tap rather than caught in the act: each lasts well
+        # under a second, and a poll every 2.5 s used to rewrite the chip's
+        # classes and cut the flash off - WebKit on CI sometimes missed it.
+        waiter.page.wait_for_function(
+            "() => window.__refusal.marked.length === 2"
+            " && window.__refusal.ended.includes('chip-pulse')",
+            timeout=POLL,
+        )
         assert card_text(waiter) == before
 
         mover.page.click("#btnNext")

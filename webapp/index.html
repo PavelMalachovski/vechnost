@@ -2865,6 +2865,8 @@
       el.classList.remove(cls);
       void el.offsetWidth;          // restart the animation on a second tap
       el.classList.add(cls);
+      // The class means "flashing now", so it goes when the flash is over.
+      el.addEventListener('animationend', () => el.classList.remove(cls), { once: true });
     });
   }
 
@@ -2875,16 +2877,13 @@
     $('progressNum').textContent = (C.st.idx + 1) + ' / ' + total;
     const chip = $('turnChipText');
     $('turnChip').style.display = 'flex';
-    if (!C.st.started) {
-      chip.textContent = T().inviteWaiting;
-      chip.className = 'chip';
-    } else if (C.st.your_turn) {
-      chip.textContent = T().yourTurn;
-      chip.className = 'chip turn-you';
-    } else {
-      chip.textContent = fmt(T().partnerTurn, { name: C.st.turn_name || '…' });
-      chip.className = 'chip';
-    }
+    const yours = !!(C.st.started && C.st.your_turn);
+    if (!C.st.started) chip.textContent = T().inviteWaiting;
+    else if (yours) chip.textContent = T().yourTurn;
+    else chip.textContent = fmt(T().partnerTurn, { name: C.st.turn_name || '…' });
+    // Toggled, never assigned: the room is polled every 2.5 s, and writing
+    // className cut a refusal's `pulse` (refuseTurn) off mid-flash.
+    chip.classList.toggle('turn-you', yours);
     $('btnNext').setAttribute('aria-disabled', String(!(C.st.started && C.st.your_turn)));
   }
 
