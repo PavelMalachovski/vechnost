@@ -540,6 +540,23 @@ def test_the_back_of_the_card_never_takes_a_touch():
     assert "pointer-events: none" in back
 
 
+def test_the_turn_chip_keeps_a_refusal_s_flash_through_a_poll():
+    """The room is polled every 2.5 s and each poll redraws the turn chip.
+
+    It used to assign `className`, which dropped the `pulse` a refused tap
+    had just put on: the flash was cut short whenever a poll landed within
+    its 0.7 s, and a browser test waiting for the class timed out on WebKit.
+    The HUD toggles the one class it owns; the refusal's class comes off at
+    `animationend`.
+    """
+    html = INDEX.read_text(encoding="utf-8")
+    hud = html.split("function updateCoopHud() {")[1].split("\n  }\n")[0]
+    assert not re.search(r"\.className\s*=", hud)
+    assert "classList.toggle('turn-you'" in hud
+    refuse = html.split("function refuseTurn() {")[1].split("\n  }\n")[0]
+    assert "'animationend'" in refuse
+
+
 def test_the_paywall_leaves_a_live_card_on_the_stage():
     """Closing the paywall must land on a working deck, not a frozen one.
 

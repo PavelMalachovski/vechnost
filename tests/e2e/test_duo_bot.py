@@ -111,7 +111,7 @@ def test_a_referral_passes_from_one_user_to_the_next(server: Server, bot) -> Non
         assert access["discount_percent"] == settings.referral_discount_percent
 
         bot.send(alice, "/invite")
-        assert "Уже пришли по ссылке: 1" in server.telegram.texts_to(alice.id)[-1]
+        assert "Уже пришли по вашим приглашениям: 1" in server.telegram.texts_to(alice.id)[-1]
 
 
 def referral_param(server: Server, bot, player) -> str:
@@ -192,7 +192,7 @@ def test_a_referral_link_changes_nothing_for_someone_already_here(
         assert access.get("payment_url") != discounted
         assert "discount_percent" not in access
         bot.send(alice, "/invite")
-        assert "Уже пришли по ссылке: 0" in server.telegram.texts_to(alice.id)[-1]
+        assert "Уже пришли по вашим приглашениям: 0" in server.telegram.texts_to(alice.id)[-1]
 
 
 def test_a_gift_bought_by_one_user_unlocks_the_other(server: Server, bot) -> None:
@@ -271,3 +271,30 @@ def test_delete_me_takes_the_shared_rows_for_both(server: Server, bot) -> None:
     assert bob.status("GET", "/api/steps69/mine") == 404
     assert paid(bob) is True, "the partner keeps their own access"
     assert paid(alice) is False, "access does not come back after erasure"
+
+
+def test_a_buyer_who_never_opened_the_chat_gets_the_daily_card_after_start(
+    server: Server, bot
+) -> None:
+    """A purchase registers the buyer, often before they have ever written
+    to the bot, and Telegram refuses to start that chat. The daily card used
+    to read the refusal as a block and opt them out for good: the /start
+    that came later changed nothing, and they never got a card."""
+    from vechnost_bot import broadcast, daily_card
+
+    bob = server.player("Bob", paid=True)
+    server.telegram.strangers.add(bob.id)
+
+    def photos() -> int:
+        return sum(1 for s in server.telegram.to(bob.id) if s.method == "sendphoto")
+
+    with patch.object(broadcast, "SECONDS_BETWEEN_SENDS", 0):
+        before = photos()
+        server.portal.call(daily_card.send_daily_cards, bot.application.bot)
+        assert photos() == before, "no chat, no card"
+
+        bot.send(bob, "/start")
+        after_start = photos()
+        server.portal.call(daily_card.send_daily_cards, bot.application.bot)
+    assert photos() == after_start + 1, "the card reaches them once they have written"
+

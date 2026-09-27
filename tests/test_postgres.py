@@ -208,6 +208,31 @@ def test_invitations_before_the_marker_are_kept_on_postgres(pg_url: str) -> None
     assert _run(pg_url, restart_and_read) == (True, False)
 
 
+def test_can_message_reaches_an_existing_database_on_postgres(pg_url: str) -> None:
+    """The startup step's DDL on the database production runs: everyone
+    already there comes out reachable, and a second start changes nothing."""
+    from sqlalchemy import text
+
+    from vechnost_bot.payments.repositories import UserRepository
+
+    async def seed() -> None:
+        await database.create_tables()
+        async with database.get_db() as session:
+            await UserRepository.create_or_update(session, 950_001)
+        async with database._engine().begin() as conn:
+            await conn.execute(text("ALTER TABLE users DROP COLUMN can_message"))
+
+    async def restart_and_read() -> list[int]:
+        await database.create_tables()
+        await database.create_tables()
+        async with database.get_db() as session:
+            return [u.telegram_user_id
+                    for u in await UserRepository.get_daily_card_recipients(session)]
+
+    _run(pg_url, seed)
+    assert _run(pg_url, restart_and_read) == [950_001]
+
+
 def test_rejected_deliveries_are_kept_and_released_on_postgres(pg_url: str) -> None:
     """The release step renames a hash with `||` and matches with LIKE: both
     have to hold on the database production runs, and twice in a row."""
@@ -521,6 +546,7 @@ def test_the_hot_queries_use_an_index_on_postgres(pg_url: str) -> None:
         "DELETE FROM compat_tests": {"idx_compat_creator", "idx_compat_guest"},
         "DELETE FROM steps69_games": {"idx_steps69_creator", "idx_steps69_guest"},
         "UPDATE users SET referred_by": {"idx_users_referred_by"},
+        "UPDATE users SET partner_telegram_user_id": {"idx_users_partner"},
         "UPDATE certificates": {"idx_certificate_used_by"},
     }
 

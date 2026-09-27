@@ -214,6 +214,7 @@ class Player:
         telegram_id: int | None = None,
         ip: str | None = None,
         auth_date: int | None = None,
+        allows_write: bool = True,
     ) -> None:
         self.server = server
         self.name = name
@@ -224,7 +225,9 @@ class Player:
             "first_name": name,
             "username": f"e2e_{name.lower()}_{self.id % 100000}",
             "language_code": "ru",
-            "allows_write_to_pm": True,
+            # Whether the bot may message them: true for anyone who has a chat
+            # with it. False is someone who only ever opened the Mini App.
+            "allows_write_to_pm": allows_write,
         }
         self.init_data = sign_init_data(
             self.user, server.bot_token, auth_date=auth_date

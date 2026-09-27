@@ -2,8 +2,10 @@
 
 import logging
 from datetime import datetime
+from typing import Any, cast
 
 from sqlalchemy import and_, delete, or_, select, update
+from sqlalchemy.engine import CursorResult
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..compat import TOTAL_QUESTIONS
@@ -22,6 +24,19 @@ from .models import (
 )
 
 logger = logging.getLogger(__name__)
+
+
+def _insert(session: AsyncSession) -> Any:
+    """The session's dialect's INSERT, the one that can do nothing on a conflict."""
+    bind = session.bind
+    assert bind is not None, "get_db() always binds its sessions"
+    if bind.dialect.name == "postgresql":
+        from sqlalchemy.dialects import postgresql
+
+        return postgresql.insert
+    from sqlalchemy.dialects import sqlite
+
+    return sqlite.insert
 
 
 class UserRepository:
@@ -45,8 +60,14 @@ class UserRepository:
         first_name: str | None = None,
         last_name: str | None = None,
         language: str | None = None,
+        can_message: bool | None = None,
     ) -> User:
-        """Create or update user."""
+        """Create or update user.
+
+        `can_message=True` from the bot's own handlers: someone writing to
+        the bot can be written to (see `User.can_message`). The payment
+        webhook leaves it alone, since a purchase says nothing about a chat.
+        """
         user = await UserRepository.get_by_telegram_id(session, telegram_user_id)
 
         if user:
@@ -59,6 +80,8 @@ class UserRepository:
                 user.last_name = last_name
             if language is not None:
                 user.language = language
+            if can_message is not None:
+                user.can_message = can_message
             logger.info(f"Updated user: {telegram_user_id}")
         else:
             # Create new user
@@ -68,12 +91,112 @@ class UserRepository:
                 first_name=first_name,
                 last_name=last_name,
                 language=language,
+                can_message=True if can_message is None else can_message,
             )
             session.add(user)
             logger.info(f"Created new user: {telegram_user_id}")
 
         await session.flush()
         return user
+
+    @staticmethod
+    async def ensure(
+        session: AsyncSession,
+        telegram_user_id: int,
+        first_name: str | None = None,
+        username: str | None = None,
+        last_name: str | None = None,
+        language: str | None = None,
+    ) -> User:
+        """The user's row, made if missing and its names brought up to date.
+
+        One INSERT that does nothing on a conflict, not a read followed by a
+        write: the bot's /start, the Mini App's boot and a join can each be
+        the first to see a new person, and at once. `create_or_update` read
+        first, so the second of two lost the race to the unique constraint.
+        """
+        insert = _insert(session)
+        # Twice at most: the row the INSERT found can be erased (/delete_me)
+        # before the read, and the second INSERT then makes it.
+        user = None
+        for _ in range(2):
+            await session.execute(
+                insert(User)
+                .values(
+                    telegram_user_id=telegram_user_id,
+                    first_name=first_name,
+                    username=username,
+                    last_name=last_name,
+                    language=language,
+                    daily_card_opt_out=False,
+                    created_at=datetime.utcnow(),
+                )
+                .on_conflict_do_nothing(index_elements=["telegram_user_id"])
+            )
+            user = await UserRepository.get_by_telegram_id(session, telegram_user_id)
+            if user is not None:
+                break
+        if user is None:
+            raise RuntimeError(f"User {telegram_user_id} could not be made")
+        for field, value in (
+            ("first_name", first_name), ("username", username),
+            ("last_name", last_name), ("language", language),
+        ):
+            if value is not None and getattr(user, field) != value:
+                setattr(user, field, value)
+        await session.flush()
+        return user
+
+    @staticmethod
+    async def pair(session: AsyncSession, one: int, other: int) -> None:
+        """Make two people each other's partner, both ways, as of now."""
+        if one == other:
+            return
+        now = datetime.utcnow()
+        for user_id, partner_id in ((one, other), (other, one)):
+            await session.execute(
+                update(User)
+                .where(User.telegram_user_id == user_id)
+                .values(partner_telegram_user_id=partner_id, partner_since=now)
+            )
+        await session.flush()
+
+    @staticmethod
+    async def partner_of(session: AsyncSession, telegram_user_id: int) -> User | None:
+        """The person this user last played with, if they are still here."""
+        user = await UserRepository.get_by_telegram_id(session, telegram_user_id)
+        if not user or user.partner_telegram_user_id is None:
+            return None
+        return await UserRepository.get_by_telegram_id(session, user.partner_telegram_user_id)
+
+    @staticmethod
+    async def record_invite(
+        session: AsyncSession, telegram_user_id: int, inviter_id: int
+    ) -> bool:
+        """Credit the person whose invite link seated a newcomer. True when
+        it counted.
+
+        The same newcomer rule as a `ref_` link (`record_referral`), and the
+        same first-credit-wins, but it only counts: `referred_by` goes up in
+        the inviter's /invite, and `referred_at` - the marker the referral
+        price reads - stays unset. A partner invited into a game pays what
+        everyone pays.
+        """
+        from ..referrals import joined_recently
+
+        if telegram_user_id == inviter_id:
+            return False
+        user = await UserRepository.get_by_telegram_id(session, telegram_user_id)
+        if not user or user.referred_by is not None or user.referred_at is not None:
+            return False
+        if not joined_recently(user.created_at, datetime.utcnow()):
+            return False
+        if await UserRepository.has_history(session, user):
+            return False
+        user.referred_by = inviter_id
+        await session.flush()
+        logger.info(f"User {telegram_user_id} was invited by {inviter_id}")
+        return True
 
     @staticmethod
     async def set_daily_card_opt_out(
@@ -95,16 +218,34 @@ class UserRepository:
         await session.flush()
 
     @staticmethod
+    async def set_can_message(
+        session: AsyncSession, telegram_user_id: int, can_message: bool
+    ) -> None:
+        """Record whether the bot can start a conversation with this user.
+
+        Only an existing row: a send that failed for somebody the bot never
+        wrote down has nothing to mark.
+        """
+        await session.execute(
+            update(User)
+            .where(User.telegram_user_id == telegram_user_id)
+            .values(can_message=can_message)
+        )
+
+    @staticmethod
     async def get_daily_card_recipients(
         session: AsyncSession, after: int | None = None, limit: int | None = None
     ) -> list[User]:
-        """Users who haven't opted out of the daily card, by Telegram id.
+        """Users who haven't opted out of the daily card and whom the bot
+        can write to, by Telegram id.
 
         In id order, so a run can go a page at a time (`limit`) and be
         resumed after the last person it reached (`after`): the list is
         read as the run goes, and somebody who opts out mid-run is skipped.
         """
-        query = select(User).where(User.daily_card_opt_out.is_(False))
+        query = select(User).where(
+            User.daily_card_opt_out.is_(False), User.can_message.is_(True)
+        )
         if after is not None:
             query = query.where(User.telegram_user_id > after)
         query = query.order_by(User.telegram_user_id)
@@ -190,7 +331,9 @@ class UserRepository:
         from ..referrals import joined_recently
 
         user = await UserRepository.get_by_telegram_id(session, telegram_user_id)
-        if not user or user.referred_at is not None:
+        # `referred_by` alone is an invitation into a game (`record_invite`),
+        # which came first and keeps the credit.
+        if not user or user.referred_at is not None or user.referred_by is not None:
             return False
         now = datetime.utcnow()
         if not joined_recently(user.created_at, now):
@@ -243,7 +386,8 @@ class UserRepository:
         not a person, and is what lets a later refund of the gift still
         revoke it. Anyone this user invited keeps their discount and loses
         the link to who invited them: `referred_by` is cleared,
-        `referred_at` - the marker the discount reads - stays. Every
+        `referred_at` - the marker the discount reads - stays. Whoever had
+        them as a partner loses that link too. Every
         analytics event of the user goes as well: counted, it is still a
         record of what they did.
         """
@@ -285,6 +429,15 @@ class UserRepository:
         )
         removed["referrals_unlinked"] = result.rowcount or 0
 
+        # Whoever played with them forgets them too: their partner link is
+        # a record of this person.
+        unlinked = cast("CursorResult[Any]", await session.execute(
+            _update(User)
+            .where(User.partner_telegram_user_id == telegram_user_id)
+            .values(partner_telegram_user_id=None, partner_since=None)
+        ))
+        removed["partners_unlinked"] = unlinked.rowcount or 0
+
         user = await UserRepository.get_by_telegram_id(session, telegram_user_id)
         if user is None:
             removed["user"] = 0
@@ -299,14 +452,17 @@ class UserRepository:
 
     @staticmethod
     async def get_all(session: AsyncSession) -> list[User]:
-        """Every registered user, oldest first.
+        """Every registered user the bot can write to, oldest first.
 
         Deliberately does not honour `daily_card_opt_out`: that flag is a
         choice about the daily prompt, not consent withdrawn from the bot,
         and the one caller is an announcement about the product itself.
-        Anything recurring belongs in `get_daily_card_recipients`.
+        Anything recurring belongs in `get_daily_card_recipients`. It does
+        skip `can_message` false: a send there can only fail.
         """
-        result = await session.execute(select(User).order_by(User.id))
+        result = await session.execute(
+            select(User).where(User.can_message.is_(True)).order_by(User.id)
+        )
         return list(result.scalars().all())
 
 

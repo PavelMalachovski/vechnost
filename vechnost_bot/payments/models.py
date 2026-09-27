@@ -70,6 +70,16 @@ class User(Base):
     daily_card_opt_out: Mapped[bool] = mapped_column(
         Boolean, default=False, nullable=False, server_default="0"
     )
+    # Whether the bot can start a conversation with them. False once a send
+    # has come back "bot can't initiate conversation": someone who never
+    # opened a chat with the bot (a Tribute buyer, a partner who only ever
+    # opened an invite in the Mini App). True again the moment they write to
+    # the bot or allow it to write. Kept apart from `daily_card_opt_out`,
+    # which is their choice: that answer used to opt a person out for good,
+    # and a /start days later never undid it.
+    can_message: Mapped[bool] = mapped_column(
+        Boolean, default=True, nullable=False, server_default="1"
+    )
     # The code this user hands out, minted on first ask and stable after.
     referral_code: Mapped[str | None] = mapped_column(String, unique=True, nullable=True)
     # Who brought them in. Set once, on the /start that carried a code, and
@@ -83,6 +93,13 @@ class User(Base):
     # instead meant the inviter's /delete_me took the discount away from
     # everyone they had invited.
     referred_at: Mapped[datetime | None] = mapped_column(nullable=True)
+    # Who they last played with: set both ways the moment a guest takes the
+    # empty seat in a room, a compatibility test or a «69 ступеней» board
+    # (`payments/partners.py`), so each of the two knows the other outside
+    # any one game. The latest partner wins. A link to another person, so
+    # it goes when that person is erased.
+    partner_telegram_user_id: Mapped[int | None] = mapped_column(BigInteger, nullable=True)
+    partner_since: Mapped[datetime | None] = mapped_column(nullable=True)
     created_at: Mapped[datetime] = mapped_column(
         default=datetime.utcnow, nullable=False
     )
@@ -101,6 +118,11 @@ class User(Base):
         Index(
             "idx_users_referred_by", "referred_by",
             **_partial(column("referred_by").is_not(None)),
+        ),
+        # Whose partner a user is, for `erase`; partial for the same reason.
+        Index(
+            "idx_users_partner", "partner_telegram_user_id",
+            **_partial(column("partner_telegram_user_id").is_not(None)),
         ),
     )
 

@@ -84,6 +84,9 @@ EVENTS: dict[str, frozenset[str] | None] = {
     "deck_open": DECKS,
     "lib_open": frozenset(MODULES),
     "invite_share": INVITE_KINDS,
+    # The app asked for permission to message (requestWriteAccess), and
+    # which way it went.
+    "write_access": frozenset({"granted", "declined"}),
     "room_create": None,
     "room_join": None,
     "compat_create": None,
@@ -104,6 +107,7 @@ EVENTS: dict[str, frozenset[str] | None] = {
 # forged: a client cannot claim a purchase, a join or a finished test.
 CLIENT_EVENTS = frozenset({
     "app_open", "deck_open", "lib_open", "invite_share", "paywall_view", "buy_click",
+    "write_access",
 })
 
 SOURCE_TAG = re.compile(r"^[a-z0-9][a-z0-9_-]{0,31}$")
