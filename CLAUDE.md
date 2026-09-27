@@ -539,7 +539,9 @@ python scripts/smoke_production.py $URL  # read-only smoke of a deployed server
   brackets read as a form to fill in. Russian gives you present and future
   tense (no gender), «мне удалось», «случалось ли тебе», nominalisation
   («в чём проявилась моя щедрость»), and agreement with a noun («партнёр
-  изменил», «был ли у тебя опыт») — use those. `data/questions.yaml`,
+  изменил», «был ли у тебя опыт») — use those. The same goes for the
+  reader's partner: «партнёр», never «партнёрша», and no «он/она» – rewrite
+  the sentence so it needs no pronoun. `data/questions.yaml`,
   `data/library/*.yaml` and the interface copy carry none.
 - **No em dash in user-facing text.** `data/questions.yaml`,
   `data/steps69_ru.yaml` and `data/library/*.yaml` hold zero long dashes;
