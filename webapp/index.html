@@ -2285,7 +2285,37 @@
     face.classList.toggle('cut-top', z.scrollTop > 1);
     face.classList.toggle('cut-bottom', slack > 1 && z.scrollTop < slack - 1);
   }
-  function refreshZoneEdges() { document.querySelectorAll('.q-zone').forEach(markZoneEdges); }
+  // The flags follow the text's geometry, not only the events that used to
+  // move it: a font that arrives after the scroll, or a stage that settles
+  // later, re-flows the text with no scroll, mutation or resize to say so,
+  // and the fade stayed where the text had been. The WebKit screen tour
+  // caught one frame with the fade and one without. So each zone, and the
+  // text in it, is watched for size; a card thrown away is let go.
+  const zoneWatch = typeof ResizeObserver === 'function'
+    ? new ResizeObserver(entries => {
+        for (const e of entries) {
+          const z = e.target.closest('.q-zone');
+          if (z) markZoneEdges(z);
+        }
+      })
+    : null;
+  const watchedZones = new Set();
+  function refreshZoneEdges() {
+    document.querySelectorAll('.q-zone').forEach(z => {
+      markZoneEdges(z);
+      if (zoneWatch && !watchedZones.has(z)) {
+        watchedZones.add(z);
+        zoneWatch.observe(z);
+        if (z.firstElementChild) zoneWatch.observe(z.firstElementChild);
+      }
+    });
+    for (const z of watchedZones) {
+      if (z.isConnected) continue;
+      watchedZones.delete(z);
+      zoneWatch.unobserve(z);
+      if (z.firstElementChild) zoneWatch.unobserve(z.firstElementChild);
+    }
+  }
   // scroll doesn't bubble, so listen in the capture phase.
   document.addEventListener('scroll', e => {
     if (e.target instanceof Element && e.target.classList.contains('q-zone')) markZoneEdges(e.target);
