@@ -5,6 +5,7 @@ from collections.abc import AsyncGenerator
 from contextlib import asynccontextmanager
 from urllib.parse import urlsplit, urlunsplit
 
+from sqlalchemy.engine import Connection
 from sqlalchemy.ext.asyncio import (
     AsyncEngine,
     AsyncSession,
@@ -314,7 +315,7 @@ def _release_dropped_columns(sync_conn) -> None:
             )
 
 
-def _match_model_nullability(sync_conn) -> None:
+def _match_model_nullability(sync_conn: Connection) -> None:
     """Let go of NOT NULL wherever the model says a column may be empty.
 
     The alembic history and `create_all` disagree about some columns, and

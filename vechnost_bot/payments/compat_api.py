@@ -14,6 +14,7 @@ from typing import Any
 
 from fastapi import APIRouter, BackgroundTasks, Depends, Header, HTTPException
 from pydantic import BaseModel, Field
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from .. import invites
 from ..compat import TOTAL_QUESTIONS, build_result, load_spheres, scale_labels
@@ -21,6 +22,7 @@ from ..compat_notify import notify_result_ready
 from ..config import settings
 from ..i18n import Language
 from .database import get_db
+from .models import CompatTest
 from .repositories import CompatTestRepository
 from .services import user_has_access
 from .throttle import throttle
@@ -73,7 +75,9 @@ def _caller(
     raise HTTPException(status_code=401, detail="unauthorized")
 
 
-async def _find(session, code: str, for_update: bool = False):
+async def _find(
+    session: AsyncSession, code: str, for_update: bool = False
+) -> CompatTest | None:
     """The test behind a code, or None - without asking the database about a
     code that could never have been minted (a NUL byte is a 500 on
     PostgreSQL; see rooms._load_room)."""
