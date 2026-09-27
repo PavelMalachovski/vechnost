@@ -1,12 +1,13 @@
 """Service layer for payment operations."""
 
 import logging
-from collections.abc import Mapping
+from collections.abc import Iterable, Mapping
 from datetime import datetime
 from typing import Any
 
 from sqlalchemy.exc import IntegrityError
 
+from .. import referrals
 from ..config import settings
 from .database import get_db
 from .gifts import (
@@ -335,11 +336,11 @@ async def user_has_access(telegram_user_id: int) -> bool:
 
 
 async def get_products_for_purchase() -> list[Product]:
-    """
-    Get list of products available for purchase.
+    """Every product synced from Tribute, cheapest first.
 
-    Returns:
-        List of products
+    That is the whole catalogue - the access, the gift, the referral
+    discount - so nothing that offers a user something to buy may take the
+    list as it is: `access_product` picks the one the paywall sells.
     """
     try:
         async with get_db() as session:
@@ -348,6 +349,66 @@ async def get_products_for_purchase() -> list[Product]:
     except Exception as e:
         logger.error(f"Error fetching products: {e}")
         return []
+
+
+def is_access_product(product: Product) -> bool:
+    """Whether buying this product is buying access for oneself.
+
+    The gift is a certificate to hand on, and the referral product is the
+    discounted page only an invited user is sent to. Both sit in the synced
+    catalogue next to the access itself, and the paywall used to offer
+    whichever of the three was cheapest (backend audit B-10).
+    """
+    if settings.gift_product_id and str(product.id) == str(settings.gift_product_id).strip():
+        return False
+    others = {url for url in (settings.gift_payment_url, settings.referral_payment_url) if url}
+    return not ({product.t_link, product.web_link} & others)
+
+
+def access_product(products: Iterable[Product]) -> Product | None:
+    """The product the paywall sells, out of the synced catalogue.
+
+    `ACCESS_PRODUCT_ID` names it, and then nothing else is offered in its
+    place: a configured product that has not been synced yet means the plain
+    payment page, never a guess. Without the setting it is the cheapest
+    access product with a payment link - the choice the paywall always
+    made, minus the gift and the referral discount.
+    """
+    catalogue = list(products)
+    if settings.access_product_id:
+        wanted = str(settings.access_product_id).strip()
+        return next((p for p in catalogue if str(p.id) == wanted), None)
+    candidates = [p for p in catalogue if is_access_product(p)]
+    linked = [p for p in candidates if p.t_link or p.web_link]
+    if linked:
+        return linked[0]
+    return candidates[0] if candidates else None
+
+
+async def purchase_url_for(referred: bool = False) -> str:
+    """The payment page a paywall links to, the Mini App's and the bot's.
+
+    A user who arrived on someone's referral link is sent to the discounted
+    Tribute product instead. Tribute owns the price, so choosing the page is
+    the whole of the discount; with no discounted page configured everyone
+    gets the ordinary one and the referral is still recorded.
+    """
+    discounted = referrals.payment_url_for(referred)
+    if discounted:
+        return discounted
+    product = access_product(await get_products_for_purchase())
+    link = (product.t_link or product.web_link) if product else None
+    return link or settings.tribute_payment_url
+
+
+async def user_is_referred(telegram_user_id: int) -> bool:
+    """Whether this user came in on someone's invite. False when unsure."""
+    try:
+        async with get_db() as session:
+            return await UserRepository.is_referred(session, telegram_user_id)
+    except Exception as e:
+        logger.warning(f"Referral lookup failed: {e}")
+        return False
 
 
 CURRENCY_SYMBOLS = {"eur": "€", "usd": "$", "rub": "₽", "czk": "Kč", "gbp": "£"}
@@ -365,12 +426,16 @@ def format_price(amount_cents: int, currency: str) -> str:
 
 
 async def get_price_label() -> str | None:
-    """Formatted price of the cheapest product, or None if none are synced."""
-    products = await get_products_for_purchase()
-    for product in products:
-        if product.amount:
-            return format_price(product.amount, product.currency or "eur")
-    return None
+    """Formatted price of the access product, or None when it is unknown.
+
+    The price of the product the buy button leads to, never of whichever
+    product is cheapest: that was the gift or the referral discount as soon
+    as either was synced (backend audit B-10).
+    """
+    product = access_product(await get_products_for_purchase())
+    if product is None or not product.amount:
+        return None
+    return format_price(product.amount, product.currency or "eur")
 
 
 async def activate_certificate(

@@ -167,6 +167,18 @@ class Settings(BaseSettings):
                     "the bot answers with a button into the app."
     )
 
+    # The product the paywall sells
+    access_product_id: str | None = Field(
+        default=None,
+        validation_alias="ACCESS_PRODUCT_ID",
+        description="Tribute product id of the access itself. The Mini App's "
+                    "buy button, the price it shows and the bot's purchase "
+                    "button use exactly this product. Unset, they use the "
+                    "cheapest synced product that is neither the gift "
+                    "(GIFT_PRODUCT_ID) nor the referral discount "
+                    "(REFERRAL_PAYMENT_URL)."
+    )
+
     # Gift certificates
     gift_product_id: str | None = Field(
         default=None,

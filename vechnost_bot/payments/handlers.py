@@ -59,7 +59,9 @@ async def handle_check_payment(update: Update, context: ContextTypes.DEFAULT_TYP
     else:
         # No access
         no_access_text = get_text("payment.no_active_payment", language)
-        keyboard = await get_payment_keyboard(language.value)
+        keyboard = await get_payment_keyboard(
+            language.value, telegram_user_id=update.effective_user.id
+        )
         await query.edit_message_text(
             no_access_text, parse_mode="HTML", reply_markup=keyboard
         )

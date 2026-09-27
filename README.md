@@ -151,6 +151,7 @@ All settings are read from environment variables (or `.env`). See
 | `WEBHOOK_SECRET` | Optional second webhook signing key (a relay or test harness in front of the endpoint). Accepted alongside the API key, never instead of it |
 | `ADMIN_IDS` | Comma-separated Telegram user ids allowed to run `/broadcast` in the bot. Unset: the command is not registered at all |
 | `ADMIN_TOKEN` | Bearer token for `/admin/*`. Falls back to `TRIBUTE_API_KEY`; set it separately so an outbound credential is not also an inbound password |
+| `ACCESS_PRODUCT_ID` | Tribute product id of the access itself: the Mini App's buy button, its price and the bot's purchase button use exactly this product. Unset: the cheapest synced product that is neither the gift nor the referral discount |
 | `GIFT_PRODUCT_ID`, `GIFT_PAYMENT_URL` | Gift-certificate product (optional) |
 | `REFERRAL_PAYMENT_URL`, `REFERRAL_DISCOUNT_PERCENT` | Discounted Tribute product shown to users who arrived on someone's invite link. Unset: referrals are tracked, everyone pays the same |
 | `DAILY_CARD_ENABLED`, `DAILY_CARD_HOUR_UTC` | Daily self-reflection push (default on, 17:00 UTC ≈ 19:00 Prague) |
