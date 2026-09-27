@@ -104,7 +104,6 @@ ignore = [
 # sys.path entry for a script run from the repo root, or the environment
 # variable Settings refuses to start without.
 "scripts/*" = ["E402"]
-"start_webhook.py" = ["E402"]
 "tests/*" = ["E402"]
 
 [tool.mypy]
