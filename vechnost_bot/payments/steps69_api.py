@@ -4,9 +4,12 @@ Mirrors rooms.py: its own router, its own initData handling, a short code,
 both partners polling, and the game inheriting the creator's access so one
 payment covers both. Three things differ, and each is deliberate:
 
-* **The whole game is paid.** There is no free prefix, so `create` and
-  `board` refuse an unpaid caller outright rather than trimming a payload.
-  A guest joining a paid creator's game plays free, exactly as in a room.
+* **The whole game is paid.** There is no free prefix, so `create` refuses
+  an unpaid caller outright (402) rather than trimming a payload. Everything
+  after it - `join`, `board`, the state, the dice - asks only whether the
+  caller sits in the game: a guest joining a paid creator's game plays free,
+  exactly as in a room, so refusing them the board would lock them out of
+  the game they were invited to.
 * **No TTL.** A pair who stop at cell 45 come back to cell 45. `rooms.py`
   expires after a day because a deck is one sitting; a board is not.
 * **The dice are the server's.** The client asks to roll and is told what
@@ -379,7 +382,9 @@ async def board(
 
     Bound to a game and to its players rather than served flat, so the paid
     content is never reachable by anyone who has not been dealt into a game.
-    Instructions are not here; they arrive with the square you land on.
+    Access is not asked again here: the game was paid for when it was
+    created, and its guest plays on the creator's payment. Deals are not
+    here; they arrive with the square you land on.
     """
     user_id, _ = _caller(authorization, x_guest_id)
     async with get_db() as session:
