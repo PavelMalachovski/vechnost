@@ -384,7 +384,9 @@ python scripts/smoke_production.py $URL  # read-only smoke of a deployed server
   for a relay or a test harness, accepted alongside, never instead.
   `signature.py` fails closed whenever `ENABLE_PAYMENT` is on and no key is
   configured, and skips verification with payments off, where there is no
-  paywall to bypass. `apply_webhook_event` verifies before it opens a
+  paywall to bypass - but then `apply_webhook_event` applies nothing: a
+  grant recorded before launch would still be a subscription the day
+  payments are switched on. `apply_webhook_event` verifies before it opens a
   session and writes a `webhook_events` row only for a delivery it
   processed: a rejected one leaves no trace, so Tribute's retry of the same
   bytes is judged on its own. (It used to be recorded under the body's hash

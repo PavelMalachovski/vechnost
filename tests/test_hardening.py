@@ -58,6 +58,31 @@ def test_an_unsigned_webhook_still_passes_with_payments_off():
         assert verify_tribute_signature({}, b"{}") is True
 
 
+def test_an_unsigned_grant_before_launch_is_not_access_after_it(client):
+    """Payments off and no key: verification is skipped, which is right for a
+    laptop - but the grant used to be recorded, and on the day payments were
+    switched on, whoever had POSTed their own telegram_user_id before launch
+    was a lifetime customer. Acknowledged, now, and nothing applied."""
+    import asyncio
+
+    from vechnost_bot.payments.services import user_has_access
+
+    with (
+        patch.object(settings, "webhook_secret", None),
+        patch.object(settings, "tribute_api_key", None),
+        patch.object(settings, "enable_payment", False),
+    ):
+        response = client.post(
+            "/webhooks/tribute",
+            json={"name": "new_digital_product",
+                  "payload": {"telegram_user_id": 515151, "amount": 0}},
+        )
+    assert response.status_code == 200
+    assert response.json()["action"] == "ignore"
+    with patch.object(settings, "enable_payment", True):  # launch day
+        assert asyncio.run(user_has_access(515151)) is False
+
+
 def test_a_forged_signature_is_refused():
     with patch.object(settings, "webhook_secret", "s3cret"):
         assert verify_tribute_signature(

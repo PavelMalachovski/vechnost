@@ -27,6 +27,7 @@ from .repositories import (
 from .signature import (
     compute_body_sha256,
     signature_header,
+    signing_keys,
     verify_tribute_signature,
 )
 from .tribute_client import TributeAPIError, TributeClient
@@ -117,6 +118,21 @@ async def apply_webhook_event(
     if not event.name:
         logger.warning(f"Webhook without an event name: {list(payload)}")
         return _error("Missing event name in payload", 400)
+
+    if not signing_keys():
+        # Verification was skipped: payments are off and no key is set (with
+        # payments on, verify_tribute_signature has already refused). There
+        # is no paywall to protect now - but a grant recorded now is still a
+        # subscription row the day payments are switched on, so anyone who
+        # POSTed their own telegram_user_id before launch would launch as a
+        # lifetime customer. Acknowledged, and nothing applied.
+        logger.warning(f"Unsigned {event.name!r} acknowledged and not applied: no signing key")
+        return {
+            "status": "success",
+            "message": "Unsigned delivery acknowledged and not applied (no signing key configured)",
+            "action": "ignore",
+            "code": 200,
+        }
 
     try:
         telegram_user_id = event.telegram_user_id
