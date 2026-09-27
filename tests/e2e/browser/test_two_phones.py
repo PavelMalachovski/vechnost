@@ -5,6 +5,9 @@ them too, end to end: that the invite link the creator's screen shows is
 one the partner's app can open, that the partner lands on the right screen
 without typing anything, that the waiting phone catches up through its poll
 without a reload, and that neither phone shows a deal meant for the other.
+
+Each scenario runs on both phone models (conftest.py): two Android phones in
+Chromium, and two iPhones in WebKit.
 """
 
 from __future__ import annotations
@@ -202,17 +205,18 @@ def test_a_link_to_a_seat_that_is_taken_says_so(server: Server, phones, kind: st
     assert c.text("#toast"), "the refusal is said, not silent"
 
 
-def test_telegram_web_can_open_the_app_in_its_frame(chromium, live_url: str) -> None:
+def test_telegram_web_can_open_the_app_in_its_frame(browser, live_url: str) -> None:
     """Telegram Web shows a Mini App in an <iframe> under web.telegram.org.
 
     Both origins are served through Playwright routes - the parent is a page
     with the iframe, the app is the live server's own response, headers and
-    all - so this checks what Chromium does with the headers the server
-    really sends. With `X-Frame-Options: SAMEORIGIN` it refused to display
-    the frame, and Telegram Web users saw a blank app.
+    all - so this checks what the engine does with the headers the server
+    really sends: Chromium, and WebKit for Telegram Web in Safari. With
+    `X-Frame-Options: SAMEORIGIN` the frame was refused, and Telegram Web
+    users saw a blank app.
     """
     parent, app_origin = "https://web.telegram.org/k/", "https://vechnost-app.invalid"
-    context = chromium.new_context()
+    context = browser.new_context()
     refused: list[str] = []
 
     def route(route, request):

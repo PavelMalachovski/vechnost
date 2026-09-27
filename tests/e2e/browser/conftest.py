@@ -1,30 +1,36 @@
-"""Two phones: two Chromium contexts, each a different Telegram user.
+"""Two phones: two browser contexts, each a different Telegram user.
 
-Each context is its own phone — its own storage, its own cookies — and gets
+Each context is its own phone - its own storage, its own cookies - and gets
 its own copy of Telegram's WebApp object carrying that user's initData,
 signed with the bot token the server checks. So the server sees two real
-users, and the Mini App cannot tell it is not inside Telegram.
+users, and the Mini App cannot tell it is not inside Telegram. Each phone
+also sends its own `X-Forwarded-For`, as two phones on two networks do.
+
+Every test that opens phones runs once per phone model (`phones.py`): an
+Android phone in Chromium and an iPhone in WebKit, the two engines Telegram
+shows a Mini App in. Both partners of a scenario hold the same model, so a
+CI job per phone runs every scenario on one engine; `E2E_PHONES` picks the
+phones (`android`, `iphone`, or both, the default). Where an engine is not
+installed its tests skip and say why - unless `E2E_PHONES` named that phone,
+when they fail: a job meant to test the iPhone must not pass by testing
+nothing.
 
 The server is a real uvicorn: the one at E2E_BASE_URL (CI starts it on
 PostgreSQL), or one this module starts on a throwaway SQLite file.
 
-Opt-in: these run with E2E_BROWSER=1, because they need Chromium and take
-a minute. Screenshots of every step go to E2E_REPORT_DIR/browser/, and a
+Opt-in: these run with E2E_BROWSER=1, because they need browsers and take
+minutes. Screenshots of every step go to E2E_REPORT_DIR/browser/, and a
 Playwright trace of each phone is kept when a test fails.
 """
 
 from __future__ import annotations
 
-import json
 import os
-import re
 import socket
 import subprocess
 import sys
 import time
-from collections.abc import Iterator
-from dataclasses import dataclass, field
-from pathlib import Path
+from collections.abc import Callable, Iterator
 from typing import Any
 
 import httpx
@@ -37,17 +43,31 @@ from ..harness import (
     Server,
     ServerError,
 )
+from .phones import (
+    DEVICES,
+    PHONES,
+    PHONES_NAMED,
+    REPORT_DIR,
+    Device,
+    Engines,
+    Phone,
+    bot_token,
+    close_phones,
+    open_phone,
+)
 
 pytestmark = pytest.mark.browser
 
-STUB = (Path(__file__).parent / "telegram_stub.js").read_text(encoding="utf-8")
-REPORT_DIR = Path(os.environ.get("E2E_REPORT_DIR", "e2e-report")) / "browser"
-# Console lines that are the app working as designed: Chromium's note on
-# every non-2xx fetch, and the app's own `console.error('API', status, ...)`
-# for a 4xx it then explains to the user — a 404 from /api/steps69/mine is
-# "no game in play", a 409 on join is "the seat is taken". Real failures are
-# caught from the responses themselves: any 5xx fails the test.
-BENIGN_CONSOLE = re.compile(r"^(Failed to load resource|API 4\d\d )")
+
+def pytest_configure(config: pytest.Config) -> None:
+    # Registered here rather than in pyproject.toml: they only mean something
+    # to this directory, and CI selects by them (.github/workflows/e2e.yml).
+    config.addinivalue_line(
+        "markers", "screens: The screen tour: every screen, four sizes, each phone (browser)"
+    )
+    config.addinivalue_line(
+        "markers", "ui_fuzz: Two phones tapping at random (budget: E2E_UI_FUZZ_RUNS/_STEPS)"
+    )
 
 
 def pytest_collection_modifyitems(config: pytest.Config, items: list[pytest.Item]) -> None:
@@ -112,122 +132,59 @@ def live_url(tmp_path_factory: pytest.TempPathFactory) -> Iterator[str]:
 @pytest.fixture
 def server(live_url: str) -> Iterator[Server]:
     """The API side of the same server, for buying access the way Tribute sells it."""
-    token = os.environ.get("E2E_BOT_TOKEN") or os.environ["TELEGRAM_BOT_TOKEN"]
     with httpx.Client(base_url=live_url, timeout=30) as http:
-        yield Server(http, live=True, bot_token=token)
+        yield Server(http, live=True, bot_token=bot_token())
 
 
 @pytest.fixture(scope="session")
-def chromium() -> Iterator[Any]:
+def engines() -> Iterator[Engines]:
     playwright_api = pytest.importorskip("playwright.sync_api")
     with playwright_api.sync_playwright() as playwright:
-        try:
-            browser = playwright.chromium.launch()
-        except Exception as e:  # no browser installed on this machine
-            pytest.skip(f"Chromium is not available: {e}")
-        yield browser
-        browser.close()
+        found = Engines(playwright, required=PHONES_NAMED)
+        yield found
+        found.close()
 
 
-@dataclass
-class Phone:
-    """One person's phone with the Mini App open."""
-
-    name: str
-    player: Player
-    page: Any
-    context: Any
-    shots: Path
-    errors: list[str] = field(default_factory=list)
-    step: int = 0
-
-    def screen(self, screen_id: str, timeout: float = 15_000) -> None:
-        """Wait until the app shows this screen."""
-        self.page.wait_for_selector(f"section#{screen_id}.active", timeout=timeout)
-
-    def shot(self, label: str) -> None:
-        self.step += 1
-        self.shots.mkdir(parents=True, exist_ok=True)
-        self.page.screenshot(path=str(self.shots / f"{self.step:02d}-{self.name}-{label}.png"))
-
-    def text(self, selector: str) -> str:
-        return str(self.page.locator(selector).first.inner_text()).strip()
+@pytest.fixture(params=[device.name for device in PHONES])
+def device(request: pytest.FixtureRequest, engines: Engines) -> Device:
+    """The phone model this run of the test is on: `android` or `iphone`."""
+    chosen = DEVICES[request.param]
+    engines.get(chosen.engine)  # skip, or fail, before the first phone opens
+    return chosen
 
 
 @pytest.fixture
-def phones(chromium: Any, live_url: str, request: pytest.FixtureRequest) -> Iterator[Any]:
-    """`open_phone(player, start_param=None, init_script=None)` -> a Phone
-    with the app loaded."""
+def browser(engines: Engines, device: Device) -> Any:
+    """The engine that draws this phone, for a test that builds its own page."""
+    return engines.get(device.engine)
+
+
+@pytest.fixture
+def phones(
+    engines: Engines, live_url: str, device: Device, request: pytest.FixtureRequest
+) -> Iterator[Callable[..., Phone]]:
+    """`phones(player, start_param=None, init_script=None, ...)` -> a Phone
+    of this run's model with the app loaded (see `phones.open_phone`)."""
     opened: list[Phone] = []
     shots = REPORT_DIR / request.node.name
 
-    def open_phone(
-        player: Player, start_param: str | None = None, init_script: str | None = None
-    ) -> Phone:
-        context = chromium.new_context(
-            viewport={"width": 390, "height": 844},
-            device_scale_factor=2,
-            is_mobile=True,
-            has_touch=True,
-            locale="ru-RU",
+    def open_one(player: Player, start_param: str | None = None, **options: Any) -> Phone:
+        options.setdefault("device", device)
+        phone = open_phone(
+            engines, live_url, player, shots=shots, start_param=start_param, **options
         )
-        context.tracing.start(screenshots=True, snapshots=True)
-        unsafe = {"user": player.user, "auth_date": int(time.time()), "hash": "e2e"}
-        if start_param:
-            unsafe["start_param"] = start_param
-        stub = STUB.replace("__INIT__", json.dumps({
-            "initData": player.init_data, "initDataUnsafe": unsafe,
-        }))
-        # One handler for every request, because Playwright tries routes
-        # newest-first: a separate catch-all registered after the stub's
-        # route aborted Telegram's script before the stub could answer it.
-        # Nothing but the app and the stub: a test must not depend on the
-        # network, and must not call anyone.
-        def route_request(route: Any, request: Any, body: str = stub) -> None:
-            url = request.url
-            if url.startswith("https://telegram.org/js/telegram-web-app.js"):
-                route.fulfill(body=body, content_type="application/javascript")
-            elif url.startswith(live_url):
-                route.continue_()
-            else:
-                route.abort()
-
-        context.route("**/*", route_request)
-        if init_script:
-            # Runs before the app's own script, in every page of the phone.
-            context.add_init_script(init_script)
-        page = context.new_page()
-        phone = Phone(player.name, player, page, context, shots)
-
-        def on_console(message: Any) -> None:
-            if message.type == "error" and not BENIGN_CONSOLE.match(message.text):
-                phone.errors.append(f"console: {message.text}")
-
-        def on_response(response: Any) -> None:
-            if response.status >= 500:
-                phone.errors.append(f"{response.status} from {response.url}")
-
-        page.on("console", on_console)
-        page.on("pageerror", lambda error: phone.errors.append(f"pageerror: {error}"))
-        page.on("response", on_response)
-        page.goto(f"{live_url}/app/")
+        # The same person on a second phone gets a name of their own, or the
+        # two would write over each other's screenshots and trace.
+        taken = sum(1 for other in opened if other.player is player)
+        if taken:
+            phone.name = f"{phone.name}{taken + 1}"
         opened.append(phone)
         return phone
 
-    yield open_phone
+    yield open_one
 
     failed = getattr(request.node, "rep_call", None) is not None and request.node.rep_call.failed
-    for phone in opened:
-        try:
-            phone.shot("final")
-        except Exception:
-            pass
-        trace = shots / f"trace-{phone.name}.zip" if failed else None
-        if trace is not None:
-            shots.mkdir(parents=True, exist_ok=True)
-        phone.context.tracing.stop(path=str(trace) if trace else None)
-        phone.context.close()
-    problems = [f"{phone.name}: {error}" for phone in opened for error in phone.errors]
+    problems = close_phones(opened, shots, failed=failed)
     if problems:
         raise ServerError("the app misbehaved in the browser:\n" + "\n".join(problems))
 

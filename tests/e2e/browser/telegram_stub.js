@@ -1,7 +1,9 @@
 // Telegram's WebApp object, as the Mini App sees it inside Telegram.
 //
 // Served in place of https://telegram.org/js/telegram-web-app.js, one copy
-// per phone, with that phone's signed initData substituted for __INIT__.
+// per phone, with that phone's signed initData substituted for __INIT__,
+// along with what differs between phones: `platform` ("android" on the
+// Android phone, "ios" on the iPhone) and the client's Bot API `version`.
 // Everything the app calls is here; what it asks Telegram to *do* (open a
 // link, share, ask for permission) is recorded on window.__tg so a test can
 // read it back instead of Telegram acting on it.
@@ -32,8 +34,8 @@
     WebApp: {
       initData: init.initData,
       initDataUnsafe: init.initDataUnsafe,
-      version: '8.0',
-      platform: 'ios',
+      version: init.version || '8.0',
+      platform: init.platform || 'ios',
       colorScheme: 'dark',
       themeParams: {
         bg_color: '#17212b', text_color: '#f5f5f5', hint_color: '#708499',
