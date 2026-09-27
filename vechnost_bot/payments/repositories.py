@@ -146,12 +146,13 @@ class UserRepository:
     ) -> bool:
         """Credit an invitation. True when it counted, False when it did not.
 
-        Refused for a user who already has a referrer (the credit belongs to
-        whoever invited them first), for a code nobody owns, and for anyone
-        following their own link.
+        Refused for a user who was already invited (the credit belongs to
+        whoever invited them first, and stays theirs after that person is
+        erased), for a code nobody owns, and for anyone following their own
+        link.
         """
         user = await UserRepository.get_by_telegram_id(session, telegram_user_id)
-        if not user or user.referred_by is not None:
+        if not user or user.referred_at is not None:
             return False
 
         referrer = await UserRepository.get_by_referral_code(session, code)
@@ -159,6 +160,7 @@ class UserRepository:
             return False
 
         user.referred_by = referrer.telegram_user_id
+        user.referred_at = datetime.utcnow()
         await session.flush()
         logger.info(f"User {telegram_user_id} was referred by {referrer.telegram_user_id}")
         return True
@@ -173,8 +175,14 @@ class UserRepository:
 
     @staticmethod
     async def is_referred(session: AsyncSession, telegram_user_id: int) -> bool:
+        """Whether this user came in on an invitation.
+
+        Read from `referred_at`, never from `referred_by`: the link to the
+        inviter is cleared when the inviter is erased, and the discount it
+        promised is not theirs to take back.
+        """
         user = await UserRepository.get_by_telegram_id(session, telegram_user_id)
-        return bool(user and user.referred_by is not None)
+        return bool(user and user.referred_at is not None)
 
     @staticmethod
     async def erase(session: AsyncSession, telegram_user_id: int) -> dict[str, int]:
@@ -188,7 +196,8 @@ class UserRepository:
         same rule `DELETE /api/compat/{code}` follows. A certificate the
         user redeemed stays spent but forgets who spent it, so the code
         cannot be redeemed again. Anyone this user invited keeps their
-        discount and loses the link to who invited them.
+        discount and loses the link to who invited them: `referred_by` is
+        cleared, `referred_at` - the marker the discount reads - stays.
         """
         from sqlalchemy import update as _update
 

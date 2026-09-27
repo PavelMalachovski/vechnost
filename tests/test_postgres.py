@@ -178,6 +178,36 @@ def test_a_stray_not_null_is_released_at_startup(pg_url: str) -> None:
         engine.dispose()
 
 
+def test_invitations_before_the_marker_are_kept_on_postgres(pg_url: str) -> None:
+    """The deploy that adds `users.referred_at` must mark everyone already
+    invited, on the database production runs, or it takes their discount."""
+    from sqlalchemy import text
+
+    from vechnost_bot.payments.repositories import UserRepository
+
+    async def seed() -> None:
+        await database.create_tables()
+        async with database.get_db() as session:
+            await UserRepository.create_or_update(session, 940_001)
+            await UserRepository.create_or_update(session, 940_002)
+            code = await UserRepository.ensure_referral_code(session, 940_001)
+            assert code is not None
+            assert await UserRepository.record_referral(session, 940_002, code)
+        async with database._engine().begin() as conn:
+            await conn.execute(text("ALTER TABLE users DROP COLUMN referred_at"))
+
+    async def restart_and_read() -> tuple[bool, bool]:
+        await database.create_tables()
+        async with database.get_db() as session:
+            return (
+                await UserRepository.is_referred(session, 940_002),
+                await UserRepository.is_referred(session, 940_001),
+            )
+
+    _run(pg_url, seed)
+    assert _run(pg_url, restart_and_read) == (True, False)
+
+
 def test_rejected_deliveries_are_kept_and_released_on_postgres(pg_url: str) -> None:
     """The release step renames a hash with `||` and matches with LIKE: both
     have to hold on the database production runs, and twice in a row."""

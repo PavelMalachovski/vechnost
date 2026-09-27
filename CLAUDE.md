@@ -325,7 +325,10 @@ python scripts/smoke_production.py $URL  # read-only smoke of a deployed server
   owns the price, so `referrals.payment_url_for` only chooses which of two
   payment pages a user sees. With `REFERRAL_PAYMENT_URL` unset the codes are
   still minted and invites still recorded, and nobody is promised a discount
-  that does not exist.
+  that does not exist. Who counts as invited is `users.referred_at`, the
+  invitee's own marker, never `referred_by`: that is a link to another
+  person and goes when they are erased, and reading it took the discount
+  from everyone an erased user had invited.
 - **A broadcast has two doors and one delivery loop.** `broadcast.py` owns
   the loop — the pause between sends, the retry that honours Telegram's own
   `retry_after`, and the rule that a user who blocked the bot is opted out
@@ -346,7 +349,8 @@ python scripts/smoke_production.py $URL  # read-only smoke of a deployed server
   user sat in (one row shared with a partner, gone for both — the same
   unanimous-consent rule as `DELETE /api/compat/{code}`), the bot session;
   a redeemed certificate stays spent but forgets who, and `referred_by`
-  links to the user are cleared. Its callback is registered ahead of the
+  links to the user are cleared while the invitees keep `referred_at`, the
+  marker their discount reads. Its callback is registered ahead of the
   game's catch-all on a pattern, like the broadcast's. Anything new that
   stores a person must be added to `erase`, or the promise is broken.
   The question (`privacy.ask`) also tells the person to cancel a Tribute

@@ -60,9 +60,16 @@ class User(Base):
     # The code this user hands out, minted on first ask and stable after.
     referral_code: Mapped[str | None] = mapped_column(String, unique=True, nullable=True)
     # Who brought them in. Set once, on the /start that carried a code, and
-    # never overwritten: the discount belongs to the first person to invite
-    # them, and a second link must not reassign the credit.
+    # never overwritten: the credit belongs to the first person to invite
+    # them, and a second link must not reassign it. A link to another
+    # person, so it goes when that person asks to be forgotten.
     referred_by: Mapped[int | None] = mapped_column(BigInteger, nullable=True)
+    # When they came in on an invitation: the marker the discounted payment
+    # page reads. Kept apart from `referred_by` because the invitation, and
+    # the price it promised, belong to the invitee. Reading `referred_by`
+    # instead meant the inviter's /delete_me took the discount away from
+    # everyone they had invited.
+    referred_at: Mapped[datetime | None] = mapped_column(nullable=True)
     created_at: Mapped[datetime] = mapped_column(
         default=datetime.utcnow, nullable=False
     )

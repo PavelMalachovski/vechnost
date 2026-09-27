@@ -114,6 +114,37 @@ async def test_following_a_link_credits_the_inviter(db):
     async with get_db() as session:
         assert await UserRepository.is_referred(session, 2) is True
         assert await UserRepository.count_referrals(session, 1) == 1
+        invitee = await UserRepository.get_by_telegram_id(session, 2)
+        assert invitee.referred_by == 1
+        assert invitee.referred_at is not None, "the invitee's own marker"
+
+
+async def test_invitations_made_before_the_marker_keep_their_discount(db):
+    """A database from before `referred_at` gets the column at startup, and
+    everyone already invited is marked in the same step. Without that, the
+    deploy that added the marker would have taken the discount from every
+    invitee at once."""
+    from sqlalchemy import text
+
+    await _user(1, "Inviter")
+    await _user(2, "Invitee")
+    await _user(3, "Nobody")
+    async with get_db() as session:
+        code = await UserRepository.ensure_referral_code(session, 1)
+        await UserRepository.record_referral(session, 2, code)
+
+    # Back to the schema before the marker: the column gone, the link kept.
+    engine = database._engine()
+    async with engine.begin() as conn:
+        await conn.execute(text("ALTER TABLE users DROP COLUMN referred_at"))
+    await database.create_tables()
+
+    async with get_db() as session:
+        assert await UserRepository.is_referred(session, 2) is True
+        assert await UserRepository.is_referred(session, 3) is False
+        invitee = await UserRepository.get_by_telegram_id(session, 2)
+        assert invitee.referred_at == invitee.created_at
+    await database.close_db()
 
 
 async def test_nobody_can_follow_their_own_link(db):

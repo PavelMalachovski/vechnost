@@ -114,6 +114,35 @@ def test_a_referral_passes_from_one_user_to_the_next(server: Server, bot) -> Non
         assert "Уже пришли по ссылке: 1" in server.telegram.texts_to(alice.id)[-1]
 
 
+def referral_param(server: Server, bot, player) -> str:
+    """The `ref_…` start parameter of `player`'s own invite link."""
+    bot.send(player, "/invite")
+    link = re.search(r"https://t\.me/\S+", server.telegram.texts_to(player.id)[-1]).group(0)
+    return parse_qs(urlsplit(link).query)["start"][0]
+
+
+def test_the_invited_keep_their_discount_when_the_inviter_leaves(
+    server: Server, bot
+) -> None:
+    """The inviter's /delete_me clears the link to them, not the price the
+    invitation promised: that belongs to the person who was invited."""
+    alice = server.player("Alice")
+    bob = server.player("Bob")
+    discounted = "https://tribute.invalid/discount"
+    with patch.object(settings, "referral_payment_url", discounted):
+        param = referral_param(server, bot, alice)
+        bot.send(bob, f"/start {param}")
+        assert bob.ok("GET", "/api/questions")["access"]["payment_url"] == discounted
+
+        bot.send(alice, "/delete_me")
+        bot.press(alice, server.telegram.to(alice.id)[-1], CONFIRM)
+        assert server.telegram.to(alice.id)[-1].text == get_text("privacy.done")
+
+        access = bob.ok("GET", "/api/questions")["access"]
+        assert access["payment_url"] == discounted
+        assert access["discount_percent"] == settings.referral_discount_percent
+
+
 def test_a_gift_bought_by_one_user_unlocks_the_other(server: Server, bot) -> None:
     alice = server.player("Alice")
     bob = server.player("Bob")

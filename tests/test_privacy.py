@@ -133,6 +133,28 @@ async def test_the_invited_keep_their_place_and_lose_the_link(memory_db):
         assert invited.referred_by is None
 
 
+async def test_the_invited_keep_their_discount_when_the_inviter_is_erased(memory_db):
+    """`erase` promises the invited keep their discount. It used to read
+    `referred_by`, the very link it clears, so the inviter's /delete_me
+    sent everyone they had invited back to the full price."""
+    await _populate()
+    await privacy.erase_user(ME)
+    async with get_db() as session:
+        assert await UserRepository.is_referred(session, INVITED) is True
+
+
+async def test_a_second_link_cannot_claim_someone_whose_inviter_left(memory_db):
+    """The first invitation stands after its sender is gone: the marker,
+    not the cleared link, says the person was already invited."""
+    await _populate()
+    await privacy.erase_user(ME)
+    async with get_db() as session:
+        code = await UserRepository.ensure_referral_code(session, PARTNER)
+    async with get_db() as session:
+        assert await UserRepository.record_referral(session, INVITED, code) is False
+        assert await UserRepository.count_referrals(session, PARTNER) == 0
+
+
 async def test_erasing_a_stranger_removes_nothing(memory_db):
     await _populate()
     removed = await privacy.erase_user(999)

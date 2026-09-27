@@ -230,11 +230,25 @@ def _ensure_user_columns(sync_conn) -> None:
         # a database built from either gets the constraint.
         "referral_code": "ALTER TABLE users ADD COLUMN referral_code VARCHAR",
         "referred_by": "ALTER TABLE users ADD COLUMN referred_by BIGINT",
+        "referred_at": "ALTER TABLE users ADD COLUMN referred_at TIMESTAMP",
     }
     for column, ddl in additions.items():
         if column not in existing:
             sync_conn.execute(text(ddl))
             logger.info(f"Added users.{column} column")
+
+    if "referred_at" not in existing:
+        # The marker arrives after the invitations it marks: everyone
+        # already invited gets it now, in the same transaction as the
+        # column, so there is no start on which the column exists and an
+        # invited user reads as uninvited. Their join date stands in for
+        # the moment of the invitation, which was never recorded.
+        result = sync_conn.execute(text(
+            "UPDATE users SET referred_at = created_at "
+            "WHERE referred_by IS NOT NULL AND referred_at IS NULL"
+        ))
+        if result.rowcount:
+            logger.info(f"Marked {result.rowcount} invited user(s) as referred")
 
 
 def _ensure_steps69_columns(sync_conn) -> None:
