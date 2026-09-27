@@ -78,8 +78,10 @@ iPhone job must not go green by testing nothing.
 face, a mask on the scroller) and recording which probe notices, in
 `touch-canary-<phone>.json` and the job summary. On Chromium the back face
 stops the real scroll, as it did in production. The mask no longer does:
-current Chromium keeps a masked element in its hit test, so that rule is
-held by the computed-style probe on every phone.
+both engines keep a masked element in their hit test. And WebKit's own hit
+test skips a hidden back face, so the iPhone's input sees neither fault.
+Where real input is blind, the computed-style probe holds the rule, on
+every phone.
 
 ### Screens
 

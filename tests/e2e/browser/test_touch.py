@@ -19,8 +19,9 @@ Playwright has no touch drag for WebKit and no wheel on a mobile page.
 The last test turns the suite on itself: it breaks each rule on purpose and
 checks that the probes here notice. On the Android phone the back face
 taking touches stops the real scroll, exactly as it did in production. A
-mask on the scroller no longer does - Chromium stopped dropping masked
-elements from its hit test - so for that rule, and on WebKit, the
+mask on the scroller no longer does - neither engine drops a masked element
+from its hit test - and WebKit's own hit test skips a hidden back face, so
+for the mask everywhere, and for both rules on the iPhone, the
 computed-style probe is what holds the line. What each probe saw on each
 phone is written to `touch-canary-<phone>.json` in the report.
 """
@@ -59,9 +60,8 @@ def on_a_long_card(server: Server, phones: Any, device: Device) -> tuple[Phone, 
     """The longest card in the decks, open on a phone where it has to scroll.
 
     On the phone's own screen when the card overflows there, on the smallest
-    phone the app supports when it does not: the content may get shorter
-    (the four longest cards are being cut), and a card that fits proves
-    nothing about scrolling.
+    phone the app supports when it does not: the content may get shorter,
+    and a card that fits proves nothing about scrolling.
     """
     alice = server.player("Alice", paid=True)
     phone = phones(alice)
