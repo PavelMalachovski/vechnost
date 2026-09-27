@@ -57,10 +57,11 @@ jobs:
 
     # The repository has never been through `ruff format`, and a one-time
     # reformat would collide with every branch in flight. Until it has been,
-    # this only says how far off it is.
+    # this only says how far off it is: one line a file (the default output
+    # prints every diff, eleven thousand lines of it).
     - name: Formatting (advisory)
       continue-on-error: true
-      run: ruff format --check .
+      run: ruff format --check --output-format concise .
 
     # Strict, and blocking, on the modules that can hold the line today: the
     # domain layer and the loaders around it. See scripts/typecheck.sh for
