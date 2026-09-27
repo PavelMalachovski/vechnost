@@ -364,9 +364,10 @@ async def activate_certificate_command(
 
     # Get certificate code from command arguments
     if not context.args or len(context.args) == 0:
-        # No code provided
+        # No code provided. HTML: the text is bold-headed, and its
+        # placeholder is escaped in the YAML for exactly this parse mode.
         help_text = get_text("certificate.usage", language)
-        await message.reply_text(help_text)
+        await message.reply_text(help_text, parse_mode="HTML")
         return
 
     code = context.args[0].strip().upper()
