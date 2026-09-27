@@ -195,6 +195,9 @@ async def start_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
                 error_text = get_text("certificate.already_used", language)
                 await message.reply_text(error_text)
                 return
+            elif result.get("code") == 410:
+                await message.reply_text(get_text("certificate.revoked", language))
+                return
             else:
                 error_text = get_text("certificate.error", language)
                 await message.reply_text(error_text)
@@ -391,6 +394,8 @@ async def activate_certificate_command(
     elif result.get("code") == 409:
         error_text = get_text("certificate.already_used", language)
         await message.reply_text(error_text)
+    elif result.get("code") == 410:
+        await message.reply_text(get_text("certificate.revoked", language))
     else:
         error_text = get_text("certificate.error", language)
         await message.reply_text(error_text)

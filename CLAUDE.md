@@ -123,8 +123,10 @@ python scripts/smoke_production.py $URL  # read-only smoke of a deployed server
   `FREE_LIBRARY_ITEMS_PER_LIST = 3` for Library lists (used by
   `payments/library_api.py`). Change a rule there, not at each call site.
 - **Access** is decided by `payments/services.py::user_has_access()`: an
-  active, unexpired `subscriptions` row (a lifetime purchase has no expiry)
-  OR an activated certificate OR `ENABLE_PAYMENT=false`. A `payments` row
+  active, unexpired `subscriptions` row (a lifetime purchase has no expiry;
+  a cancelled subscription counts until the end of the period paid for) OR
+  an activated certificate that has not been revoked OR
+  `ENABLE_PAYMENT=false`. A `payments` row
   is a journal entry and never counts on its own — it used to, and every
   event Tribute sent, a cancellation included, became lifetime access. Reuse
   the function; don't reinvent access checks. The startup backfill that
@@ -133,12 +135,32 @@ python scripts/smoke_production.py $URL  # read-only smoke of a deployed server
   leaves an undated `payments` row, and must not become a customer.
 - **A Tribute event does what the table says.** `payments/tribute_event.py`
   parses a delivery (`name`, `created_at`, `sent_at`, and the purchase in
-  `payload`) and `action_for(name)` maps it to grant, revoke or ignore:
-  `new_digital_product`, `new_subscription` and `renewed_subscription` grant;
-  a cancellation, refund or chargeback revokes; anything else is
-  acknowledged with a 200, written to `webhook_events` with a note, and
-  changes nothing. Add an event there, never by substring-matching the name
-  in the handler.
+  `payload`) and `action_for(name)` maps it to grant, cancel, revoke or
+  ignore: `new_digital_product`, `new_subscription` and
+  `renewed_subscription` grant; a cancellation cancels, which keeps access
+  until the `expires_at` already paid for; a refund or chargeback revokes at
+  once; anything else is acknowledged with a 200, written to
+  `webhook_events` with a note, and changes nothing. Add an event there,
+  never by substring-matching the name in the handler. Three more rules:
+  - **Events apply in the order they happened.** `subscriptions.last_event_at`
+    holds the event's own `created_at`, and an older event than the one
+    that last decided a row changes nothing: a purchase redelivered after
+    its own refund must not grant again.
+  - **One event is processed once, whatever its bytes.** Tribute stamps
+    every attempt with its own `sent_at`, so besides the body hash a
+    delivery is checked against `TributeEvent.idempotency_key` (the purchase
+    id, or name, time, buyer and product), stored unique in
+    `webhook_events.event_key`.
+  - **A gift's refund revokes its certificate, never the buyer's access.**
+    A gift certificate carries the `purchase_id` that paid for it (one
+    certificate per purchase); a refund or chargeback of that purchase sets
+    `certificates.revoked_at`, and a revoked certificate neither activates
+    nor counts as access, redeemed or not. The code is sent after the
+    transaction commits.
+  The paywall sells exactly `ACCESS_PRODUCT_ID` when it is set (both the
+  Mini App's button and price, and the bot's purchase button); without it,
+  the cheapest synced product that is neither the gift nor the referral
+  discount (`services.access_product`).
 - **Mini App auth.** `/api/*` endpoints authenticate the caller with
   Telegram `initData` via `payments/webapp_auth.py::validate_init_data`
   (`Authorization: tma <initData>`). The server never ships paid content to
@@ -310,7 +332,8 @@ python scripts/smoke_production.py $URL  # read-only smoke of a deployed server
   script and unreadable by hand. The fade is an overlay on `.card .front`
   with `pointer-events: none`, and `markZoneEdges` puts the `cut-*` flags on
   the face for that reason. `tests/test_webapp_static.py` holds it.
-- **A certificate code is lifetime access to whoever reads it.** Two
+- **A certificate code is lifetime access to whoever reads it**, unless
+  the gift it was bought as is refunded (see the Tribute bullet). Two
   things mint one: a gift bought through Tribute (`payments/gifts.py`) and
   `scripts/generate_certificates.py` for printed vouchers, and the script
   calls the same `create_gift_certificate`, so there is one alphabet and one

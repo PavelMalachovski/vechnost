@@ -208,6 +208,36 @@ def test_rejected_deliveries_are_kept_and_released_on_postgres(pg_url: str) -> N
     ]
 
 
+def test_the_payment_columns_reach_an_existing_database_on_postgres(pg_url: str) -> None:
+    """A database made before the event key, the purchase link and the
+    revocation mark got them: the startup step adds the columns and their
+    unique indexes, in SQL PostgreSQL accepts, and a second start changes
+    nothing."""
+    from sqlalchemy import create_engine, inspect, text
+
+    _run(pg_url, database.create_tables)
+    engine = create_engine(_sync(pg_url))
+    try:
+        with engine.begin() as conn:
+            conn.execute(text("ALTER TABLE webhook_events DROP COLUMN event_key"))
+            conn.execute(text("ALTER TABLE certificates DROP COLUMN purchase_id"))
+            conn.execute(text("ALTER TABLE certificates DROP COLUMN revoked_at"))
+        _run(pg_url, database.create_tables)
+        _run(pg_url, database.create_tables)
+        inspector = inspect(engine)
+        for table, column, index in (
+            ("webhook_events", "event_key", "uq_webhook_events_event_key"),
+            ("certificates", "purchase_id", "uq_certificates_purchase_id"),
+        ):
+            assert column in {c["name"] for c in inspector.get_columns(table)}
+            [found] = [i for i in inspector.get_indexes(table) if i["name"] == index]
+            assert found["unique"] and found["column_names"] == [column]
+        revoked_at = {c["name"]: c for c in inspector.get_columns("certificates")}["revoked_at"]
+        assert str(revoked_at["type"]) == "TIMESTAMP" and revoked_at["nullable"] is True
+    finally:
+        engine.dispose()
+
+
 def _schema(sync_url: str) -> dict[str, dict[str, tuple[str, bool]]]:
     from sqlalchemy import create_engine, inspect
 

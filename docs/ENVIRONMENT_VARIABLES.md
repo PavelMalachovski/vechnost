@@ -53,6 +53,7 @@ This document describes all environment variables used by the Vechnost Telegram 
 | `TRIBUTE_API_KEY` | Tribute API key for authentication | ✅ Yes (if payments enabled) | None | `trib_live_xxxxxxxxxxxxx` |
 | `TRIBUTE_BASE_URL` | Tribute API base URL | No | `https://api.tribute.to` | `https://api.tribute.to` |
 | `TRIBUTE_PAYMENT_URL` | Tribute payment page URL for users | No | `https://tribute.to/vechnost` | `https://tribute.to/your_page` |
+| `ACCESS_PRODUCT_ID` | Tribute product id of the access the paywalls sell (Mini App buy button and price, bot purchase button). Unset: the cheapest synced product that is neither the gift nor the referral discount | No | None | `123456` |
 | `WEBHOOK_SECRET` | Secret for webhook signature verification | ✅ Yes (if payments enabled) | None | `whsec_xxxxxxxxxxxxx` |
 
 ### Database Configuration
