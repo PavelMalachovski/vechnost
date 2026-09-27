@@ -78,6 +78,23 @@ jobs:
         pip install pip-audit
         pip-audit --progress-spinner off
 
+    # Code nothing calls. [tool.vulture] in pyproject.toml lists what a
+    # framework calls by name; anything else it prints is a question for the
+    # PR: delete it, or say what uses it there.
+    - name: Dead code (advisory)
+      continue-on-error: true
+      run: |
+        pip install vulture
+        vulture
+
+    # A dependency nothing imports is an install that can break a build, and
+    # an import nothing declares works only while something else pulls it in.
+    - name: Dependencies against imports (advisory)
+      continue-on-error: true
+      run: |
+        pip install deptry
+        deptry .
+
   test:
     runs-on: ubuntu-latest
     timeout-minutes: 20

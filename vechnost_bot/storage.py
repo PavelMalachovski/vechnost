@@ -117,9 +117,6 @@ class MemorySessionStore:
     def __len__(self) -> int:
         return len(self._rows)
 
-    def clear(self) -> None:
-        self._rows.clear()
-
     async def get_session(self, chat_id: int) -> SessionState | None:
         row = self._rows.get(chat_id)
         if row is None:

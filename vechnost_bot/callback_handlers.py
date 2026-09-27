@@ -37,15 +37,12 @@ from .keyboards import (
     get_reset_confirmation_keyboard,
     get_theme_keyboard,
 )
-from .logic import load_game_data, localized_game_data
+from .logic import localized_game_data
 from .models import ContentType, SessionState, Theme
 from .renderer import get_background_path, render_card_bytes
 from .storage import get_session, save_session
 
 logger = logging.getLogger(__name__)
-
-# Load game data once at module level
-GAME_DATA = load_game_data()
 
 
 def _card_footer(theme: Theme, index: int, total: int, language: Language) -> str:

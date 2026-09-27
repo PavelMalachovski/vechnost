@@ -1,7 +1,6 @@
 """Tests for monitoring and error tracking."""
 
 import asyncio
-import os
 import time
 from unittest.mock import patch
 
@@ -9,15 +8,11 @@ import pytest
 
 from vechnost_bot.monitoring import (
     BotMetrics,
-    get_health_status,
     initialize_monitoring,
     log_bot_event,
     log_callback_event,
     log_image_rendering_event,
-    log_session_event,
     set_user_context,
-    track_errors,
-    track_operation,
     track_performance,
 )
 
@@ -41,18 +36,6 @@ class TestBotMetrics:
         metrics.record_timer("test_timer", 1.5)
 
         assert metrics._timers["test_timer"] == 1.5
-
-    def test_get_metrics(self):
-        """Test getting current metrics."""
-        metrics = BotMetrics()
-
-        metrics.increment_counter("test_counter", 5)
-        metrics.record_timer("test_timer", 1.5)
-
-        result = metrics.get_metrics()
-
-        assert result["counters"]["test_counter"] == 5
-        assert result["timers"]["test_timer"] == 1.5
 
 
 class TestTrackPerformance:
@@ -103,68 +86,6 @@ class TestTrackPerformance:
             await test_func()
 
 
-class TestTrackErrors:
-    """Test track_errors decorator."""
-
-    def test_sync_function_success(self):
-        """Test tracking errors of successful sync function."""
-        @track_errors("test_operation")
-        def test_func():
-            return "success"
-
-        result = test_func()
-
-        assert result == "success"
-
-    def test_sync_function_error(self):
-        """Test tracking errors of sync function that raises error."""
-        @track_errors("test_operation")
-        def test_func():
-            raise ValueError("Test error")
-
-        with pytest.raises(ValueError):
-            test_func()
-
-    @pytest.mark.asyncio
-    async def test_async_function_success(self):
-        """Test tracking errors of successful async function."""
-        @track_errors("test_operation")
-        async def test_func():
-            return "success"
-
-        result = await test_func()
-
-        assert result == "success"
-
-    @pytest.mark.asyncio
-    async def test_async_function_error(self):
-        """Test tracking errors of async function that raises error."""
-        @track_errors("test_operation")
-        async def test_func():
-            raise ValueError("Test error")
-
-        with pytest.raises(ValueError):
-            await test_func()
-
-
-class TestTrackOperation:
-    """Test track_operation context manager."""
-
-    @pytest.mark.asyncio
-    async def test_successful_operation(self):
-        """Test tracking successful operation."""
-        async with track_operation("test_operation", user_id=123):
-            await asyncio.sleep(0.01)
-
-    @pytest.mark.asyncio
-    async def test_failed_operation(self):
-        """Test tracking failed operation."""
-        with pytest.raises(ValueError):
-            async with track_operation("test_operation", user_id=123):
-                await asyncio.sleep(0.01)
-                raise ValueError("Test error")
-
-
 class TestLoggingFunctions:
     """Test logging functions."""
 
@@ -210,13 +131,6 @@ class TestLoggingFunctions:
             mock_metrics.increment_counter.assert_called_with("image_rendering_failed")
             mock_metrics.record_timer.assert_called_with("image_rendering_failed_duration", 0.5)
 
-    def test_log_session_event(self):
-        """Test logging session event."""
-        with patch('vechnost_bot.monitoring.metrics') as mock_metrics:
-            log_session_event("created", 123, theme="Acquaintance")
-
-            mock_metrics.increment_counter.assert_called_with("session_events_created")
-
 
 class TestSetUserContext:
     """Test set_user_context function."""
@@ -232,21 +146,6 @@ class TestSetUserContext:
                 "id": "123",
                 "theme": "Acquaintance"
             })
-
-
-class TestGetHealthStatus:
-    """Test get_health_status function."""
-
-    def test_get_health_status(self):
-        """Test getting health status."""
-        with patch.dict(os.environ, {"RELEASE_VERSION": "1.0.0", "ENVIRONMENT": "test"}):
-            status = get_health_status()
-
-            assert status["status"] == "healthy"
-            assert status["version"] == "1.0.0"
-            assert status["environment"] == "test"
-            assert "timestamp" in status
-            assert "metrics" in status
 
 
 class TestInitializeMonitoring:

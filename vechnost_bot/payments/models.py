@@ -268,11 +268,6 @@ class Certificate(Base):
         Index("uq_certificates_purchase_id", "purchase_id", unique=True),
     )
 
-    @property
-    def is_valid(self) -> bool:
-        """Whether the certificate can still be redeemed."""
-        return not self.is_used and self.revoked_at is None
-
     def __repr__(self) -> str:
         status = "revoked" if self.revoked_at else "used" if self.is_used else "available"
         return f"<Certificate(id={self.id}, code='{self.code}', status='{status}')>"

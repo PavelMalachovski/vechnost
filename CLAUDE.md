@@ -591,12 +591,16 @@ python scripts/smoke_production.py $URL --deep  # ...and its database and bot he
   why nothing is `immutable`.
 - **A module nothing imports is a trap, not an asset.** `security.py`,
   `rate_limiter.py`, `logo_generator.py`, `optimized_renderer.py`,
-  `connection_pool.py` and `async_file_ops.py` were all deleted: each was
-  reachable only from its own tests, and `optimized_renderer.py` in
-  particular was a second renderer sitting beside the wired-up one, waiting
-  for someone to tune the wrong file. `throttle.py` is the live rate
-  limiter; `renderer.py` is the live renderer. They are one revert away in
-  git history if a use for them ever appears.
+  `connection_pool.py`, `async_file_ops.py` and `exceptions.py` were all
+  deleted: each was reachable only from its own tests, and
+  `optimized_renderer.py` in particular was a second renderer sitting beside
+  the wired-up one, waiting for someone to tune the wrong file. `throttle.py`
+  is the live rate limiter; `renderer.py` is the live renderer. They are one
+  revert away in git history if a use for them ever appears. The same goes
+  for a function: CI runs `vulture` and `deptry` as advisory steps
+  (`[tool.vulture]` / `[tool.deptry]` in `pyproject.toml` list what a
+  framework calls by name, and why a dependency nothing imports stays), and
+  a finding there is answered in the PR - delete it, or say what uses it.
 - **Card rendering** (`renderer.py`) draws only the question text, and
   auto-picks between **Inter** (the card and UI face) and **DejaVu** (the
   last-resort fallback) per string, so a text in an alphabet Inter lacks
