@@ -57,8 +57,14 @@ def test_two_phones_share_one_deck(server: Server, phones) -> None:
             "t => document.querySelector('#stage .card.top .q-text')?.innerText.trim() === t",
             arg=before, timeout=POLL,
         )
-        # The waiting phone's button refuses without asking the server.
-        waiter.page.click("#btnNext")
+        # The waiting phone says so before the tap: its button is dimmed
+        # (audit D-20), the mover's is not. Tapped anyway, it refuses
+        # without asking the server - the card shakes, the chip flashes.
+        assert waiter.page.get_attribute("#btnNext", "aria-disabled") == "true"
+        assert mover.page.get_attribute("#btnNext", "aria-disabled") == "false"
+        waiter.page.click("#btnNext", force=True)
+        waiter.page.wait_for_selector("#stage .card.top.wobble")
+        waiter.page.wait_for_selector("#turnChipText.pulse")
         assert card_text(waiter) == before
 
         mover.page.click("#btnNext")

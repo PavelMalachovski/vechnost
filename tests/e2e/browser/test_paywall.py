@@ -24,6 +24,12 @@ PAY_ITEMS = [
 ]
 
 
+def press_back(phone) -> None:
+    """Telegram's Back: inside Telegram the page's own «←» is hidden (audit
+    D-25), and the header's Back does what it did."""
+    phone.page.evaluate("() => window.Telegram.WebApp.BackButton._cb()")
+
+
 def progress_is(phone, text: str, timeout: float = POLL) -> None:
     phone.page.wait_for_function(
         "t => document.getElementById('progressNum').innerText.trim() === t",
@@ -93,7 +99,7 @@ def test_paying_carries_on_at_the_next_card_not_at_card_one(server: Server, phon
     phone.shot("after-payment")
 
     # Reopened later, the deck is where it was, and whole.
-    phone.page.click("#deckBack")
+    press_back(phone)
     phone.screen("levels")
     phone.page.locator("#levelList .level-card").first.click()
     phone.screen("deck")
@@ -185,7 +191,7 @@ def test_the_board_asks_for_18_before_its_first_screen(server: Server, phones) -
     phone.screen("s69")
 
     # Asked once: the answer is remembered.
-    phone.page.click("#s69Back")
+    press_back(phone)
     phone.screen("home")
     phone.page.click("#btnS69")
     phone.screen("s69")
