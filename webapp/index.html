@@ -2694,6 +2694,8 @@
       return !last || Date.now() - last > WRITE_ASK_EVERY;
     } catch (e) { return false; }
   }
+  // Call it once the screen it belongs to is showing: `show()` closes every
+  // overlay, and one closed that way would count as asked.
   function askToWrite() {
     if (!canAskToWrite()) return;
     store.set('writeAskedAt', Date.now());
@@ -3430,7 +3432,8 @@
         return;
       }
       if (CT.idx > 0 && CT.idx < st.total) toast(fmt(T().compatResume, { n: CT.idx + 1 }));
-      enterCompatQuiz();
+      // After the quiz is on screen: a screen switch closes every overlay.
+      await enterCompatQuiz();
       askToWrite();
     } catch (e) {
       if (e.status === 409) toast(T().coopFull);
@@ -4608,7 +4611,8 @@
       G.piece = st.you.piece || G.piece;
       store.set('s69Code', st.code);
       store.set('s69Piece', G.piece);
-      enterS69();
+      // After the board is on screen: a screen switch closes every overlay.
+      await enterS69();
       askToWrite();
     } catch (e) { s69Error(e); }
     finally { $('loader').classList.remove('show'); }
