@@ -682,6 +682,10 @@ def test_a_phone_that_asks_for_less_motion_gets_no_confetti():
     assert "@media (prefers-reduced-motion: reduce)" in html
     body = html.split("function confetti() {", 1)[1]
     assert body.lstrip().startswith("if (REDUCED_MOTION) return;")
+    # The fan does not float even once: the block's .01ms left each card a
+    # float pending after its delay, drawn differently from one at rest.
+    block = html.split("@media (prefers-reduced-motion: reduce) {", 1)[1].split("\n  }\n", 1)[0]
+    assert ".deck-fan i { animation: none; }" in block
 
 
 def test_a_scroll_asked_for_by_script_asks_about_motion_too():

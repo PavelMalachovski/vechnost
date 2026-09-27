@@ -285,6 +285,11 @@
       transition-duration: .01ms !important;
       scroll-behavior: auto !important;
     }
+    /* Not once, either. Under the rule above each card still floated for
+       .01ms after its delay (.4s to 1.2s), and a card with its float still
+       pending is drawn differently from one at rest: the first picture of
+       the visual tour came out one way or the other by when it was taken. */
+    .deck-fan i { animation: none; }
   }
 
   .btn {
