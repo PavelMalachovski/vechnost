@@ -318,6 +318,92 @@ def test_an_oversized_body_is_refused_before_it_is_read(client):
     assert response.status_code == 413
 
 
+def test_a_chunked_body_is_cut_off_at_the_limit_not_read_whole(client):
+    """No Content-Length to refuse up front, so the stream itself is capped:
+    the old code read the whole chunked body first - 200 MB into the memory
+    of the process that also runs the bot - and only then said 413.
+
+    Driven at the ASGI level, because TestClient buffers a request body
+    before the app sees it and so cannot show where the app stopped reading.
+    """
+    offered = 400  # one-kilobyte chunks: 400 KB offered, 64 KB allowed
+    read = 0
+    started: dict = {}
+
+    async def receive():
+        nonlocal read
+        read += 1
+        return {"type": "http.request", "body": b"x" * 1024, "more_body": read < offered}
+
+    async def send(message):
+        if message["type"] == "http.response.start":
+            started["status"] = message["status"]
+
+    scope = {
+        "type": "http", "asgi": {"version": "3.0"}, "http_version": "1.1",
+        "method": "POST", "scheme": "http", "path": "/webhooks/tribute",
+        "raw_path": b"/webhooks/tribute", "query_string": b"", "root_path": "",
+        "headers": [
+            (b"content-type", b"application/json"),
+            (b"transfer-encoding", b"chunked"),
+            (b"trbt-signature", b"0" * 64),
+        ],
+        "client": ("127.0.0.1", 40000), "server": ("testserver", 80),
+    }
+    asyncio.run(app(scope, receive, send))
+    assert started["status"] == 413
+    assert read <= MAX_WEBHOOK_BODY // 1024 + 1, f"read {read} KB of a 64 KB limit"
+
+
+def test_an_integrity_error_on_an_unrecorded_delivery_is_retried_not_swallowed(client):
+    """Two purchases by a new buyer at once race to create one user row; the
+    loser used to be answered 200 "already processed", so Tribute never
+    retried and the purchase was lost. Now it is a 503 - send it again - and
+    the redelivery lands."""
+    from sqlalchemy.exc import IntegrityError
+
+    import vechnost_bot.payments.services as services
+
+    body = event("new_digital_product", product_id=555)
+    real_create = services.UserRepository.create_or_update
+    calls = 0
+
+    async def racing(session, **kwargs):
+        nonlocal calls
+        calls += 1
+        if calls == 1:
+            raise IntegrityError("INSERT INTO users", {}, Exception("duplicate key"))
+        return await real_create(session, **kwargs)
+
+    with patch.object(services.UserRepository, "create_or_update", side_effect=racing):
+        first = deliver(client, body)
+        assert first.status_code == 503, first.text
+        assert access() is False
+        retry = deliver(client, body)
+    assert retry.status_code == 200, retry.text
+    assert access() is True
+
+
+def test_a_delivery_racing_its_own_duplicate_is_still_a_duplicate(client):
+    """The case the old answer was written for keeps it: when the other copy
+    did record the delivery, the integrity error really is a duplicate."""
+    from sqlalchemy.exc import IntegrityError
+
+    import vechnost_bot.payments.services as services
+
+    body = event("new_digital_product", product_id=555)
+    assert deliver(client, body).status_code == 200
+    with (
+        patch.object(services.WebhookEventRepository, "get_by_body_sha256",
+                     side_effect=[None, object()]),
+        patch.object(services.UserRepository, "create_or_update",
+                     side_effect=IntegrityError("INSERT", {}, Exception("dup"))),
+    ):
+        again = deliver(client, body)
+    assert again.status_code == 200
+    assert "race condition" in again.json()["message"]
+
+
 def test_deliveries_are_throttled(client):
     limit, _ = throttle.LIMITS["webhook"]
     body = event("new_digital_product")

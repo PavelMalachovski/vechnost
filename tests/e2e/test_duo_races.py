@@ -140,3 +140,33 @@ def test_two_different_finales_at_once_the_first_stands(server: Server) -> None:
     winner = next(r.json()["finale_choice"] for r in responses if r.status_code == 200)
     for player in (alice, bob):
         assert player.ok("GET", f"/api/steps69/{code}")["finale_choice"] == winner
+
+
+def test_two_purchases_by_a_new_buyer_at_once_are_both_applied(server: Server) -> None:
+    """A first-time buyer's two purchases race to create one user row. The
+    loser used to be answered 200 "already processed" and never retried
+    (9 of 10 trials lost a purchase on PostgreSQL). Now it is told 503, and
+    Tribute's redelivery - replayed here - lands.
+
+    Five buyers, after a warm-up: on a cold server the first requests queue
+    for a connection and never overlap, and a race that does not happen
+    proves nothing.
+    """
+    warm = [server.webhook_body("unknown_event", Player(server, f"Warm{i}")) for i in range(4)]
+    server.deliver_all_at_once(warm)
+    for trial in range(5):
+        buyer = Player(server, f"Buyer{trial}")
+        bodies = [
+            server.webhook_body("new_digital_product", buyer, product_id=555),
+            server.webhook_body("new_subscription", buyer, subscription_id=777),
+        ]
+        for body, response in zip(bodies, server.deliver_all_at_once(bodies), strict=True):
+            if response.status_code == 503:
+                response = server.deliver(body, label="Tribute's retry")
+            assert response.status_code == 200, response.text
+        for body in bodies:
+            again = server.deliver(body, label="redelivery")
+            assert "already processed" in again.json()["message"], (
+                f"trial {trial}: a purchase was answered 200 and never recorded"
+            )
+        assert buyer.ok("GET", "/api/questions")["access"]["paid"] is True

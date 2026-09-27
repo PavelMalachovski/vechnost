@@ -2,6 +2,7 @@
 
 import asyncio
 import hmac
+import json
 import logging
 from contextlib import asynccontextmanager
 from pathlib import Path
@@ -344,9 +345,18 @@ async def tribute_webhook(request: Request) -> JSONResponse:
         if declared.isdigit() and int(declared) > MAX_WEBHOOK_BODY:
             raise HTTPException(status_code=413, detail="payload too large")
 
-        raw_body = await request.body()
-        if len(raw_body) > MAX_WEBHOOK_BODY:
-            raise HTTPException(status_code=413, detail="payload too large")
+        # Read the body as a stream and stop at the limit. A chunked request
+        # carries no Content-Length to refuse up front, and `request.body()`
+        # read all of it before the size was checked: 200 MB went into the
+        # memory of the process that also runs the bot (audit B-11).
+        chunks: list[bytes] = []
+        size = 0
+        async for chunk in request.stream():
+            size += len(chunk)
+            if size > MAX_WEBHOOK_BODY:
+                raise HTTPException(status_code=413, detail="payload too large")
+            chunks.append(chunk)
+        raw_body = b"".join(chunks)
 
         # The address only: the headers carry the signature, and a body can
         # carry a buyer's name, so neither goes to the log.
@@ -367,9 +377,9 @@ async def tribute_webhook(request: Request) -> JSONResponse:
                 },
             )
 
-        # Parse JSON payload
+        # Parse JSON payload (from the bytes already read: the stream is spent)
         try:
-            payload = await request.json()
+            payload = json.loads(raw_body)
         except Exception as e:
             logger.error(f"Invalid JSON payload: {e}")
             raise HTTPException(status_code=400, detail="Invalid JSON payload") from e
@@ -388,7 +398,12 @@ async def tribute_webhook(request: Request) -> JSONResponse:
             elif status_code == 400:
                 raise HTTPException(status_code=400, detail=result["message"])
             else:
-                raise HTTPException(status_code=500, detail=result["message"])
+                # 503 is "not applied, send it again", which is what Tribute's
+                # retry is for; anything else unexpected is a 500.
+                raise HTTPException(
+                    status_code=status_code if status_code == 503 else 500,
+                    detail=result["message"],
+                )
 
         # What was done, in the reply Tribute's delivery log keeps: an
         # operator reading "ignore" there learns more than "success".

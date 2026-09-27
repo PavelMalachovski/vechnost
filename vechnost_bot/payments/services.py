@@ -239,15 +239,35 @@ async def apply_webhook_event(
             }
 
     except IntegrityError as e:
-        # The same body landing twice at once: one of them wrote the row.
-        logger.error(f"Database integrity error processing webhook: {e}")
-        return {
-            "status": "success",
-            "message": "Webhook already processed (race condition)",
-        }
+        # A duplicate only if the delivery is now on record: the same body
+        # landing twice at once, and the other copy wrote it. Anything else -
+        # two *different* purchases by a new buyer racing to create the same
+        # user row, a constraint the schema should not have - was not
+        # applied, and answering 200 told Tribute never to retry it: the
+        # customer paid and got nothing (backend audit B-04). An error makes
+        # Tribute redeliver, and the redelivery finds the user in place.
+        if await _delivery_recorded(body_sha256):
+            logger.info(f"Webhook raced its own duplicate: {body_sha256[:12]}")
+            return {
+                "status": "success",
+                "message": "Webhook already processed (race condition)",
+            }
+        logger.error(f"Webhook {event.name} not applied, integrity error: {e}")
+        return _error("could not apply the event, retry it", 503)
     except Exception as e:
         logger.error(f"Error processing webhook: {e}", exc_info=True)
         return _error("internal error", 500)
+
+
+async def _delivery_recorded(body_sha256: str) -> bool:
+    """Whether a delivery with this body is on record as processed."""
+    try:
+        async with get_db() as session:
+            found = await WebhookEventRepository.get_by_body_sha256(session, body_sha256)
+            return found is not None
+    except Exception as e:
+        logger.warning(f"Could not look the delivery up: {e}")
+        return False
 
 
 async def user_has_access(telegram_user_id: int) -> bool:

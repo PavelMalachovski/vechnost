@@ -323,8 +323,12 @@ class Server:
     def webhook(
         self, name: str, player: Player, *, key: str = E2E_TRIBUTE_KEY, **payload: Any
     ) -> httpx.Response:
+        return self.deliver(self.webhook_body(name, player, **payload), key=key, label=f"{name} → {player.name}")
+
+    def webhook_body(self, name: str, player: Player, **payload: Any) -> bytes:
+        """One delivery's bytes, in Tribute's shape."""
         now = datetime.now(UTC).isoformat()
-        body = json.dumps({
+        return json.dumps({
             "name": name,
             "created_at": now,
             # A delivery is idempotent on its body hash, so two events for
@@ -339,8 +343,15 @@ class Server:
                 **payload,
             },
         }).encode()
+
+    def deliver(
+        self, body: bytes, *, key: str = E2E_TRIBUTE_KEY, label: str = "delivery",
+        http: httpx.Client | None = None,
+    ) -> httpx.Response:
+        """POST one delivery, signed. A 503 is Tribute's cue to redeliver,
+        so it is returned; any other 5xx fails the scenario."""
         started = time.perf_counter()
-        response = self.http.post(
+        response = (http or self.http).post(
             "/webhooks/tribute",
             content=body,
             headers={
@@ -350,14 +361,27 @@ class Server:
             },
         )
         self.transcript.add(Exchange(
-            who="tribute", method="POST", path=f"/webhooks/tribute [{name} → {player.name}]",
+            who="tribute", method="POST", path=f"/webhooks/tribute [{label}]",
             status=response.status_code,
             elapsed_ms=(time.perf_counter() - started) * 1000,
             received=response.text[:300],
         ))
-        if response.status_code >= 500:
-            raise ServerError(f"webhook {name} -> {response.status_code}: {response.text}")
+        if response.status_code >= 500 and response.status_code != 503:
+            raise ServerError(f"{label} -> {response.status_code}: {response.text}")
         return response
+
+    def deliver_all_at_once(self, bodies: list[bytes]) -> list[httpx.Response]:
+        """Several deliveries reaching the server at the same instant."""
+        barrier = threading.Barrier(len(bodies))
+        base_url = str(self.http.base_url)
+
+        def fire(body: bytes) -> httpx.Response:
+            with httpx.Client(base_url=base_url, timeout=60) as http:
+                barrier.wait()
+                return self.deliver(body, label="concurrent delivery", http=http)
+
+        with ThreadPoolExecutor(max_workers=len(bodies)) as pool:
+            return list(pool.map(fire, bodies))
 
     # -- the same instant on several phones ---------------------------------
 

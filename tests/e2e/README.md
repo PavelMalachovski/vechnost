@@ -51,7 +51,7 @@ A live server must be started with the harness's keys, the way
 ENABLE_PAYMENT=true TRIBUTE_API_KEY=e2e-tribute-signing-key \
 TELEGRAM_BOT_TOKEN=1234567890:TEST_TOKEN_FOR_UNIT_TESTS \
 BOT_USERNAME=vechnost_e2e_bot TRUSTED_PROXY_HOPS=1 \
-DATABASE_URL=postgresql+asyncpg://postgres:postgres@localhost:5432/vechnost_e2e \
+DATABASE_URL=postgresql+asyncpg://postgres@localhost:5432/vechnost_e2e \
 python -m uvicorn vechnost_bot.payments.web:app --port 8000
 ```
 
