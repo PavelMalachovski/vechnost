@@ -34,7 +34,10 @@ router = APIRouter(prefix="/api/rooms", tags=["rooms"])
 ROOM_TTL = timedelta(hours=24)
 class CreateRoomRequest(BaseModel):
     theme: str
-    level: int | None = None
+    # Bounded: the column is an INTEGER, and 99999999999 for a deck without
+    # levels was ignored when picking the cards and then overflowed int32 on
+    # PostgreSQL - a 500. Three levels exist; ten leaves room for more.
+    level: int | None = Field(default=None, ge=1, le=10)
     type: str = Field(default="questions", pattern="^(questions|tasks)$")
 
 
@@ -123,14 +126,33 @@ def _room_state(room, user_id: int, language: Language) -> dict[str, Any]:
     }
 
 
-async def _load_room(session, code: str):
-    """The room behind a code, or 404/410. Says nothing about membership.
+async def _load_room(
+    session, code: str, *, member: int | None = None, for_update: bool = False
+):
+    """The room behind a code, or 404/410.
 
-    Took a `user_id` it never looked at, which read like an access check and
-    was not one; every caller does its own membership check right after.
+    With `member`, anyone who is not sitting in the room gets the 404 an
+    unknown code gets, and gets it before the TTL is looked at: a 410 for a
+    stranger said "this code was real", which is exactly what the uniform
+    404 exists not to say. Join passes no member - whoever holds the link
+    may take the empty seat - and is throttled for that reason.
+
+    `for_update` takes a row lock, which /advance needs: it reads idx and
+    turn and writes both back, and a double tap is two of those at once.
     """
-    room = await RoomRepository.get_by_code(session, code.strip().upper())
+    code = code.strip().upper()
+    # A code that could never have been minted is the same 404 as an unknown
+    # one, and never reaches the database: a NUL byte in a text parameter
+    # is a 500 on PostgreSQL.
+    room = (
+        await RoomRepository.get_by_code(session, code, for_update=for_update)
+        if invites.valid_code(code) else None
+    )
     if not room:
+        raise HTTPException(status_code=404, detail="room not found")
+    if member is not None and member not in (
+        room.creator_telegram_user_id, room.guest_telegram_user_id
+    ):
         raise HTTPException(status_code=404, detail="room not found")
     if datetime.utcnow() - room.updated_at > ROOM_TTL:
         raise HTTPException(status_code=410, detail="room expired")
@@ -224,10 +246,8 @@ async def get_room(
     language = _language(lang)
 
     async with get_db() as session:
-        room = await _load_room(session, code)
-        if user_id not in (room.creator_telegram_user_id, room.guest_telegram_user_id):
-            # 404, not 403: a stranger must not learn that the code is live.
-            raise HTTPException(status_code=404, detail="room not found")
+        # A stranger gets 404, not 403: they must not learn the code is live.
+        room = await _load_room(session, code, member=user_id)
         return _room_state(room, user_id, language)
 
 
@@ -242,10 +262,10 @@ async def advance_room(
     language = _language(lang)
 
     async with get_db() as session:
-        room = await _load_room(session, code)
-        if user_id not in (room.creator_telegram_user_id, room.guest_telegram_user_id):
-            # 404, not 403: a stranger must not learn that the code is live.
-            raise HTTPException(status_code=404, detail="room not found")
+        # Locked: a double tap is two read-modify-writes of idx and turn at
+        # once, and without the lock both were accepted - five 200s for one
+        # card on PostgreSQL, and a straggling tap could undo the partner's.
+        room = await _load_room(session, code, member=user_id, for_update=True)
         if room.guest_telegram_user_id is None:
             raise HTTPException(status_code=409, detail="partner has not joined yet")
         if room.finished:

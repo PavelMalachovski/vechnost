@@ -5,6 +5,7 @@ from collections.abc import AsyncGenerator
 from contextlib import asynccontextmanager
 from urllib.parse import urlsplit, urlunsplit
 
+from sqlalchemy.engine import Connection
 from sqlalchemy.ext.asyncio import (
     AsyncEngine,
     AsyncSession,
@@ -91,36 +92,59 @@ def _engine() -> AsyncEngine:
 
 
 async def create_tables() -> None:
-    """Create all tables in the database."""
-    # One transaction each, on purpose. Postgres aborts a whole transaction
-    # on the first failing statement, so sharing one means a single bad DDL
-    # silently discards the work that already succeeded - and `get_db()`
-    # swallows the exception and never retries, which would make that
-    # permanent for the life of the process.
+    """Create all tables, then bring an older database up to the model.
+
+    One transaction per step, and a failing step does not stop the ones
+    after it. Postgres aborts a whole transaction on its first failing
+    statement, so sharing one would let a single bad DDL discard the work
+    that already succeeded. And the steps used to run in one straight line:
+    when the access backfill failed on PostgreSQL - on every start, for a
+    typing reason SQLite never showed - the webhook release after it never
+    ran either, and both failures were logged as "may already exist".
+    """
     async with _engine().begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
-    async with _engine().begin() as conn:
-        await conn.run_sync(_ensure_user_columns)
-    async with _engine().begin() as conn:
-        await conn.run_sync(_ensure_steps69_columns)
-    async with _engine().begin() as conn:
-        await conn.run_sync(_release_dropped_columns)
-    async with _engine().begin() as conn:
-        await conn.run_sync(_backfill_access_from_payments)
-    async with _engine().begin() as conn:
-        await conn.run_sync(_release_stuck_webhooks)
-    logger.info("Database tables created successfully")
+    failed = []
+    for step in _STARTUP_STEPS:
+        try:
+            async with _engine().begin() as conn:
+                await conn.run_sync(step)
+        except Exception:
+            failed.append(step.__name__)
+            logger.exception(f"Startup step {step.__name__} failed; continuing with the rest")
+    if failed:
+        logger.error(f"Database ready, but these startup steps failed: {', '.join(failed)}")
+    else:
+        logger.info("Database tables created successfully")
+
+
+# Payments written before this instant come from the code that counted any
+# undated payment as lifetime access (64f379a, merged 2026-09-03 15:54 UTC).
+# Those are the rows the backfill exists for. Anything newer is a journal
+# entry of the current code - a gift bought for someone else, a refund, a
+# chargeback - and grants nothing by itself; reading those as access too
+# handed a gift's buyer, or a user who charged back, lifetime access on the
+# next restart.
+ACCESS_FROM_PAYMENTS_CUTOVER = "2026-09-03 16:00:00"
 
 
 def _backfill_access_from_payments(sync_conn) -> None:
-    """Keep the access anyone holds today when `payments` stops counting.
+    """Keep the access anyone held when `payments` stopped counting.
 
     `user_has_access` used to treat any `payments` row without an expiry
     as lifetime access. It no longer does - access is a `subscriptions`
     row - so every user who had access only through such a payment gets
-    the equivalent lifetime row here, once. Idempotent: a user with any
+    the equivalent lifetime row here. Only payments from before the
+    cutover count, which is what makes this a one-off in effect even
+    though it runs on every start: a user it has served now has a
+    subscription row, and nothing written later qualifies. A user with any
     subscription row at all is left alone, whatever its status, because
     that row is a decision this backfill must not overturn.
+
+    The NULL is typed on purpose. PostgreSQL types a bare NULL in a
+    `SELECT DISTINCT` as text and then refuses to put it in a timestamp
+    column, so the untyped version of this statement failed on every
+    start of every production process and never backfilled anyone.
     """
     from sqlalchemy import inspect, text
 
@@ -130,9 +154,11 @@ def _backfill_access_from_payments(sync_conn) -> None:
     result = sync_conn.execute(text(
         "INSERT INTO subscriptions "
         "(user_id, subscription_id, period, status, expires_at, last_event_at) "
-        "SELECT DISTINCT p.user_id, 0, 'lifetime', 'active', NULL, CURRENT_TIMESTAMP "
+        "SELECT DISTINCT p.user_id, 0, 'lifetime', 'active', "
+        "CAST(NULL AS TIMESTAMP), CURRENT_TIMESTAMP "
         "FROM payments p "
         "WHERE p.expires_at IS NULL "
+        f"AND p.created_at < '{ACCESS_FROM_PAYMENTS_CUTOVER}' "
         "AND NOT EXISTS (SELECT 1 FROM subscriptions s WHERE s.user_id = p.user_id)"
     ))
     if result.rowcount:
@@ -142,28 +168,39 @@ def _backfill_access_from_payments(sync_conn) -> None:
         )
 
 
+# A rejected delivery keeps its row with the hash renamed, so the next
+# delivery of the same body is not taken for a duplicate.
+RELEASED_PREFIX = "released:"
+
+
 def _release_stuck_webhooks(sync_conn) -> None:
-    """Forget deliveries that were recorded as rejected.
+    """Free the hashes of deliveries that were recorded as rejected.
 
     A webhook refused for its signature used to be written down under the
     body's hash, and Tribute's retry of that body - the same bytes, now
     with a key we accept - was then answered "already processed". Those
-    rows are exactly the payments this deployment lost. Deleting them lets
-    a retry, or a manual redelivery from the Tribute dashboard, land. The
-    handler no longer writes a row for anything it did not process, so
-    after the first run this deletes nothing.
+    rows are exactly the payments this deployment lost. Renaming their hash
+    lets a retry, or a manual redelivery from the Tribute dashboard, land,
+    and keeps the row: it is the list of payments to redeliver. This step
+    used to delete them, which left that list only in a copy someone had to
+    remember to take before the first deploy. The handler no longer writes
+    a row for anything it did not process, so after the first run this
+    changes nothing.
     """
     from sqlalchemy import inspect, text
 
     if "webhook_events" not in inspect(sync_conn).get_table_names():
         return
-    result = sync_conn.execute(
-        text("DELETE FROM webhook_events WHERE status_code >= 400")
-    )
+    result = sync_conn.execute(text(
+        f"UPDATE webhook_events SET body_sha256 = '{RELEASED_PREFIX}' || body_sha256 "
+        f"WHERE status_code >= 400 AND body_sha256 NOT LIKE '{RELEASED_PREFIX}%'"
+    ))
     if result.rowcount:
         logger.warning(
             f"Released {result.rowcount} rejected webhook delivery record(s) so "
-            "Tribute's retries can be processed"
+            "Tribute's retries can be processed. They stay in webhook_events "
+            f"with body_sha256 starting '{RELEASED_PREFIX}': redeliver those "
+            "payments from the Tribute dashboard"
         )
 
 
@@ -289,6 +326,49 @@ def _release_dropped_columns(sync_conn) -> None:
             )
 
 
+def _match_model_nullability(sync_conn: Connection) -> None:
+    """Let go of NOT NULL wherever the model says a column may be empty.
+
+    The alembic history and `create_all` disagree about some columns, and
+    one disagreement cost money: the first revision made
+    `subscriptions.expires_at` NOT NULL, while a lifetime purchase is
+    exactly a subscription with no expiry. On a database built by
+    `alembic upgrade head` every lifetime grant failed its INSERT, and the
+    webhook handler answered Tribute 200. The model is the contract the
+    code writes to, so where it allows NULL the database must too.
+    PostgreSQL only, like `_release_dropped_columns`.
+    """
+    from sqlalchemy import inspect, text
+
+    if sync_conn.dialect.name == "sqlite":
+        return
+    inspector = inspect(sync_conn)
+    tables = set(inspector.get_table_names())
+    for table, model_table in Base.metadata.tables.items():
+        if table not in tables:
+            continue
+        nullable_in_model = {c.name for c in model_table.columns if c.nullable}
+        for column in inspector.get_columns(table):
+            name = column["name"]
+            if name in nullable_in_model and not column.get("nullable", True):
+                sync_conn.execute(
+                    text(f'ALTER TABLE {table} ALTER COLUMN "{name}" DROP NOT NULL')
+                )
+                logger.warning(f"Dropped NOT NULL on {table}.{name} to match the model")
+
+
+# Run in this order by `create_tables`, each in its own transaction. The
+# column steps come first so the data steps see the schema they expect.
+_STARTUP_STEPS = (
+    _ensure_user_columns,
+    _ensure_steps69_columns,
+    _release_dropped_columns,
+    _match_model_nullability,
+    _backfill_access_from_payments,
+    _release_stuck_webhooks,
+)
+
+
 async def drop_tables() -> None:
     """Drop all tables from the database (for testing)."""
     async with _engine().begin() as conn:
@@ -306,14 +386,15 @@ async def get_db() -> AsyncGenerator[AsyncSession, None]:
     if async_session_maker is None:
         init_db()
 
-    # Automatically create tables on first access
+    # Automatically create tables on first access. The steps after
+    # create_all report their own failures (see create_tables); what lands
+    # here is create_all itself failing, which is never benign.
     if not _tables_created:
         try:
             await create_tables()
-            _tables_created = True
         except Exception as e:
-            logger.warning(f"Error creating tables (may already exist): {e}")
-            _tables_created = True  # Don't try again
+            logger.error(f"Could not create the database tables: {e}", exc_info=True)
+        _tables_created = True  # once per process either way
 
     async with async_session_maker() as session:
         try:

@@ -3,6 +3,12 @@ builder = "NIXPACKS"
 
 [deploy]
 startCommand = "python -m vechnost_bot.run_webhook"
+# Railway sends traffic to a new deploy only once this answers 200, and keeps
+# the previous deploy serving until then. Without it a build that cannot
+# start (a dependency that no longer imports, a bad migration) replaced a
+# working deploy with a restart loop; with it, the old one stays up.
+healthcheckPath = "/health"
+healthcheckTimeout = 120
 restartPolicyType = "ON_FAILURE"
 restartPolicyMaxRetries = 10
 

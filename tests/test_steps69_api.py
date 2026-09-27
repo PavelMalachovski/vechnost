@@ -258,7 +258,9 @@ def test_a_player_who_reaches_sixty_nine_stops_and_the_other_keeps_rolling(clien
     assert state["partner"]["home"] is False
     assert state["both_home"] is False
     assert state["turn"] == 1, "the turn must sit with the piece still walking"
-    assert roll(client, code, ALICE).status_code in (403, 409)
+    # Done, not waiting: "not your turn" would promise a turn that never comes.
+    refused = roll(client, code, ALICE)
+    assert refused.status_code == 409 and "dice" in refused.json()["detail"]
 
     assert roll(client, code, BOB).status_code == 200
     after = client.get(f"/api/steps69/{code}", headers=BOB).json()
@@ -481,7 +483,8 @@ def test_the_dice_are_dead_once_a_piece_is_home(client):
     code = started_game(client)
     _walk_home(client, code)
     for headers in (ALICE, BOB):
-        assert roll(client, code, headers).status_code in (403, 409)
+        # Whoever the turn was left with, both are told the same thing.
+        assert roll(client, code, headers).status_code == 409
 
 
 def test_choosing_a_finale_ends_the_game(client):

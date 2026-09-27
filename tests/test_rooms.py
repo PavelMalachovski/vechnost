@@ -191,3 +191,20 @@ def test_expired_room_410(client):
 
     asyncio.run(age_room())
     assert client.get(f"/api/rooms/{code}", headers=ALICE).status_code == 410
+
+
+def test_an_expired_room_is_a_404_to_a_stranger_and_a_410_to_its_players(client):
+    """The TTL is looked at only after membership: a 410 for a stranger said
+    "this code was real", which the uniform 404 exists not to say."""
+    import vechnost_bot.payments.rooms as rooms
+
+    code = create_room(client)["code"]
+    client.post(f"/api/rooms/{code}/join", headers=BOB)
+    with patch.object(rooms, "ROOM_TTL", timedelta(seconds=-1)):
+        stranger = client.get(f"/api/rooms/{code}", headers=EVE)
+        unknown = client.get("/api/rooms/NOPE42", headers=EVE)
+        assert stranger.status_code == unknown.status_code == 404
+        assert stranger.json() == unknown.json()
+        assert client.post(f"/api/rooms/{code}/advance", headers=EVE).status_code == 404
+        assert client.get(f"/api/rooms/{code}", headers=BOB).status_code == 410
+        assert client.post(f"/api/rooms/{code}/advance", headers=ALICE).status_code == 410

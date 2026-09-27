@@ -30,12 +30,35 @@ pytest -n0                               # ...serially, for a debugger
 pytest tests/test_freemium.py -q         # run one suite
 ruff check .                             # lint (CI gates on this)
 ./scripts/typecheck.sh                   # types (CI gates on this)
+pytest tests/e2e -n0                     # the two-user suite, in-process
+E2E_BROWSER=1 pytest tests/e2e/browser -n0   # two Chromium phones (needs .[e2e])
+python scripts/smoke_production.py $URL  # read-only smoke of a deployed server
 ```
+
+- **Two users, not one.** `tests/e2e` plays both partners against the real
+  app with payments on: signed initData, access bought by a signed Tribute
+  webhook, a transcript printed on failure. Scenarios, the bot (real
+  `create_application()` over a fake Bot API), a Hypothesis fuzzer whose
+  reference model *is* the rules, race tests and two browsers. When you
+  change a two-partner rule, change the fuzzer's model in
+  `test_duo_fuzz.py` with it. `tests/e2e/README.md` has the details.
+- **PostgreSQL is tested.** Production runs it and SQLite hid real faults
+  (a NULL typed as text, int32 overflow, NUL bytes, row locks).
+  `tests/test_postgres.py` runs when `POSTGRES_TEST_URL` is set;
+  `E2E_DATABASE_URL` / `E2E_BASE_URL` run the two-user suite on PostgreSQL
+  in-process / against a live server. CI (`e2e.yml`) does all three.
+- **Railway deploys only green commits** ("Wait for CI" waits for every
+  workflow on the commit) and only once `/health` answers (`railway.toml`).
+  So anything added to a workflow that runs on `push` gates production;
+  and nothing that waits for a deploy may run on `push`, or it deadlocks
+  with "Wait for CI". `docs/CI_CD.md` explains the pipeline.
 
 - **The three CI gates are `pytest -q`, `ruff check .` and
   `scripts/typecheck.sh`, and all three pass.** Keep them passing. CI runs on
-  `master` only; it used to name `main` and `develop`, neither of which
-  exists here, so it had never run at all.
+  pull requests, on `master`, and nightly on today's PyPI (nothing pins the
+  tree: SQLAlchemy 2.1 broke a fresh install with no commit behind it); it
+  used to name `main` and `develop`, neither of which exists here, so it had
+  never run at all. `e2e.yml` gates on the two-user suite the same way.
 - **`scripts/typecheck.sh` is mypy on a list, not on the repo.** The strict
   settings in `[tool.mypy]` are real but the repo does not satisfy them yet
   (`python -m mypy vechnost_bot` shows the backlog; CI prints it without
@@ -63,7 +86,10 @@ ruff check .                             # lint (CI gates on this)
   are **skipped with a reason** when nothing is listening. CI starts a Redis
   service so they really run there.
 - Nothing needs `TELEGRAM_BOT_TOKEN` exported to run the tests; conftest
-  supplies a fake one before anything imports `config`.
+  supplies a fake one before anything imports `config`. It also *overrides*
+  `DATABASE_URL` with a throwaway SQLite file: tests that merely called
+  `get_db()` used to reach whatever the environment named, production
+  included under `railway run`.
 
 ## Architecture notes
 
@@ -90,7 +116,10 @@ ruff check .                             # lint (CI gates on this)
   OR an activated certificate OR `ENABLE_PAYMENT=false`. A `payments` row
   is a journal entry and never counts on its own — it used to, and every
   event Tribute sent, a cancellation included, became lifetime access. Reuse
-  the function; don't reinvent access checks.
+  the function; don't reinvent access checks. The startup backfill that
+  carried the old access over reads only payments from before that change
+  (`ACCESS_FROM_PAYMENTS_CUTOVER`): a gift's buyer or a chargeback also
+  leaves an undated `payments` row, and must not become a customer.
 - **A Tribute event does what the table says.** `payments/tribute_event.py`
   parses a delivery (`name`, `created_at`, `sent_at`, and the purchase in
   `payload`) and `action_for(name)` maps it to grant, revoke or ignore:
@@ -127,7 +156,12 @@ ruff check .                             # lint (CI gates on this)
   and a distinct status was an oracle for sweeping the code space; and the
   second seat is taken by **one conditional UPDATE** (`seat_guest`, WHERE
   the seat is empty), never a read followed by a write, so two partners
-  opening one link at once cannot both be seated. `payments/library_api.py` was
+  opening one link at once cannot both be seated. A third: every
+  read-modify-write of the shared row (`advance`, `answer`, `roll`,
+  `finale`) reads it `FOR UPDATE` - `/advance` did not, and a double tap
+  turned the card five times on PostgreSQL. And a code that could never have
+  been minted (`invites.valid_code`) gets the same 404 without reaching the
+  database. `payments/library_api.py` was
   deliberately modelled on this pattern — extend it for the next two-partner
   feature rather than inventing a second one.
 - **The compatibility test** is the second two-partner feature and follows a
@@ -137,8 +171,9 @@ ruff check .                             # lint (CI gates on this)
   `payments/compat_api.py` serves it at `/api/compat`, and `compat_tests`
   stores it. Unlike rooms it has **no TTL** — a completed test is meant to
   be re-read months later — and completing a retake deletes the pair's
-  previous sessions outright (`CompatTestRepository.delete_superseded`)
-  rather than keeping a history. A completed test is also immutable:
+  *older* sessions outright (`CompatTestRepository.delete_superseded`)
+  rather than keeping a history; a newer test still being answered is left
+  alone. A completed test is also immutable:
   `/answer` returns 409 once both partners have finished, so neither partner
   can quietly revise a conclusion the other has already read. Either
   participant can erase the whole thing with `DELETE /api/compat/{code}`,
@@ -332,7 +367,9 @@ ruff check .                             # lint (CI gates on this)
   `parse_mode="HTML"` and `/about` is plain text. Add a feature there, not at
   each screen.
 - **Rate limiting lives in `payments/throttle.py`**, as FastAPI
-  dependencies: `throttle("join")` on anything that takes a six-character
+  dependencies (the client's budget is checked before the global one, and an
+  attempt counts only once it passes both - refused requests used to spend
+  everyone's ceiling, so one address could lock every couple out): `throttle("join")` on anything that takes a six-character
   code, `throttle("render")` on `/api/card`, `throttle("admin")` on the
   admin routes, `throttle("write")` on in-game writes. Windows are
   in-process (every throttled endpoint lives in the single web process;
@@ -347,12 +384,20 @@ ruff check .                             # lint (CI gates on this)
   for a relay or a test harness, accepted alongside, never instead.
   `signature.py` fails closed whenever `ENABLE_PAYMENT` is on and no key is
   configured, and skips verification with payments off, where there is no
-  paywall to bypass. `apply_webhook_event` verifies before it opens a
+  paywall to bypass - but then `apply_webhook_event` applies nothing: a
+  grant recorded before launch would still be a subscription the day
+  payments are switched on. `apply_webhook_event` verifies before it opens a
   session and writes a `webhook_events` row only for a delivery it
   processed: a rejected one leaves no trace, so Tribute's retry of the same
   bytes is judged on its own. (It used to be recorded under the body's hash
   first, so the correctly signed retry was told "already processed" and the
-  payment was lost.) `/webhooks/tribute` is throttled and bounds the body.
+  payment was lost. A startup step frees those old rows by renaming the hash
+  to `released:<hash>` and keeps them: they are the list of payments to
+  redeliver from the Tribute dashboard, so nothing has to be copied out
+  before a deploy.) An IntegrityError is a duplicate only if the delivery
+  is on record afterwards; otherwise the answer is 503 so Tribute redelivers
+  (two purchases by a new buyer race to create the user row). The body is
+  read as a stream and cut at 64 KB, chunked or not.
   `/admin/*` authenticates against `settings.admin_secret` (`ADMIN_TOKEN`,
   falling back to `TRIBUTE_API_KEY`) with `compare_digest`, and returns 503
   rather than 401 when neither is configured.
@@ -371,9 +416,11 @@ ruff check .                             # lint (CI gates on this)
   or a finished game: those have no TTL on purpose and a couple is meant to
   re-read them months later.
 - **The web app sets its own security headers.** `payments/web.py`'s
-  `security_headers` middleware adds `nosniff`, `X-Frame-Options:
-  SAMEORIGIN` (not `DENY` — Telegram frames the Mini App itself) and a
-  referrer policy that keeps a room code out of the `Referer`. CORS and
+  `security_headers` middleware adds `nosniff`, a CSP `frame-ancestors` that
+  names `'self'` and Telegram, and a referrer policy that keeps a room code
+  out of the `Referer`. Not `X-Frame-Options: SAMEORIGIN`: Telegram Web
+  opens a Mini App in an iframe under web.telegram.org, which SAMEORIGIN
+  refused, and the app was blank there (a browser test holds this). CORS and
   trusted hosts are configured only when `CORS_ALLOW_ORIGINS` /
   `ALLOWED_HOSTS` are set, so a default deployment is not locked out of
   itself.
@@ -424,6 +471,11 @@ ruff check .                             # lint (CI gates on this)
   existing tables, so new columns are **also** added idempotently at
   startup (`payments/database.py::_ensure_*`). When you add a column, do
   both: the model + an alembic revision + the idempotent startup add.
+  The startup steps (`_STARTUP_STEPS`) each run in their own transaction
+  and a failing one no longer stops the rest; write SQL that PostgreSQL
+  accepts (type your NULLs), because a step that only works on SQLite fails
+  on every production start. `tests/test_postgres.py` checks that alembic
+  and `create_all` build the same schema.
 
 ## Conventions
 

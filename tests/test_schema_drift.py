@@ -135,14 +135,96 @@ def test_sqlite_is_skipped_rather_than_attempted():
 def test_each_startup_step_gets_its_own_transaction():
     """Postgres aborts a whole transaction on the first failing statement.
 
-    Sharing one between create_all and the ensure steps means a single bad
-    DDL silently discards the ones that already succeeded - and `get_db()`
-    catches the error and sets `_tables_created`, so it never runs again.
+    Sharing one between create_all and the steps after it means a single bad
+    DDL silently discards the ones that already succeeded.
     """
     source = Path("vechnost_bot/payments/database.py").read_text()
     body = source.split("async def create_tables()")[1].split("\ndef ")[0]
 
-    assert body.count("_engine().begin()") == 6, (
-        "create_all, the three ensure steps, the access backfill and the "
-        "webhook release each need their own transaction"
+    assert body.count("_engine().begin()") == 2, (
+        "create_all gets one transaction, and the loop opens a fresh one per step"
     )
+    assert "for step in _STARTUP_STEPS" in body
+
+
+def test_one_failing_startup_step_does_not_cancel_the_ones_after_it(tmp_path, caplog):
+    """The access backfill failed on every PostgreSQL start, and the webhook
+    release queued behind it never ran either - both logged as "may already
+    exist". Now a failure is logged as what it is and the rest still run."""
+    import asyncio
+
+    import vechnost_bot.payments.database as database
+    from vechnost_bot.config import settings
+
+    ran = []
+
+    def boom(sync_conn):
+        raise RuntimeError("a step that fails")
+
+    def after(sync_conn):
+        ran.append("after")
+
+    with (
+        patch.object(settings, "database_url", f"sqlite:///{tmp_path / 'steps.db'}"),
+        patch.object(database, "engine", None),
+        patch.object(database, "async_session_maker", None),
+        patch.object(database, "_STARTUP_STEPS", (boom, after)),
+    ):
+        asyncio.run(database.create_tables())
+        asyncio.run(database.close_db())
+
+    assert ran == ["after"]
+    assert "boom" in caplog.text and "failed" in caplog.text
+
+
+def test_the_backfilled_null_is_typed_for_postgres():
+    """PostgreSQL types a bare NULL in `SELECT DISTINCT` as text and refuses
+    it for a timestamp column - so the untyped statement never ran there."""
+    source = Path("vechnost_bot/payments/database.py").read_text()
+    backfill = source.split("def _backfill_access_from_payments")[1].split("\ndef ")[0]
+    assert "CAST(NULL AS TIMESTAMP)" in backfill
+    migration = Path(
+        "alembic/versions/a9c1d2e3f4b5_access_from_subscriptions_only.py"
+    ).read_text()
+    assert "CAST(NULL AS TIMESTAMP)" in migration
+
+
+def _nullability_connection(columns: list[dict]):
+    conn = MagicMock()
+    conn.dialect.name = "postgresql"
+    conn.executed = []
+    conn.execute.side_effect = lambda stmt: conn.executed.append(str(stmt))
+    inspector = MagicMock()
+    inspector.get_table_names.return_value = ["subscriptions"]
+    inspector.get_columns.return_value = columns
+    return conn, inspector
+
+
+def test_a_not_null_the_model_does_not_have_is_released():
+    """alembic's first revision made subscriptions.expires_at NOT NULL, and
+    a lifetime purchase is exactly a subscription without an expiry: on a
+    database alembic built, every lifetime grant failed its INSERT."""
+    from vechnost_bot.payments.database import _match_model_nullability
+
+    conn, inspector = _nullability_connection([
+        {"name": "id", "nullable": False},
+        {"name": "user_id", "nullable": False},
+        {"name": "expires_at", "nullable": False},
+        {"name": "status", "nullable": False},
+    ])
+    with patch("sqlalchemy.inspect", return_value=inspector):
+        _match_model_nullability(conn)
+
+    assert conn.executed == [
+        'ALTER TABLE subscriptions ALTER COLUMN "expires_at" DROP NOT NULL',
+    ]
+
+
+def test_matching_nullability_is_skipped_on_sqlite():
+    from vechnost_bot.payments.database import _match_model_nullability
+
+    conn, inspector = _nullability_connection([{"name": "expires_at", "nullable": False}])
+    conn.dialect.name = "sqlite"
+    with patch("sqlalchemy.inspect", return_value=inspector):
+        _match_model_nullability(conn)
+    assert conn.executed == []

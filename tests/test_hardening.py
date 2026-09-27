@@ -58,6 +58,31 @@ def test_an_unsigned_webhook_still_passes_with_payments_off():
         assert verify_tribute_signature({}, b"{}") is True
 
 
+def test_an_unsigned_grant_before_launch_is_not_access_after_it(client):
+    """Payments off and no key: verification is skipped, which is right for a
+    laptop - but the grant used to be recorded, and on the day payments were
+    switched on, whoever had POSTed their own telegram_user_id before launch
+    was a lifetime customer. Acknowledged, now, and nothing applied."""
+    import asyncio
+
+    from vechnost_bot.payments.services import user_has_access
+
+    with (
+        patch.object(settings, "webhook_secret", None),
+        patch.object(settings, "tribute_api_key", None),
+        patch.object(settings, "enable_payment", False),
+    ):
+        response = client.post(
+            "/webhooks/tribute",
+            json={"name": "new_digital_product",
+                  "payload": {"telegram_user_id": 515151, "amount": 0}},
+        )
+    assert response.status_code == 200
+    assert response.json()["action"] == "ignore"
+    with patch.object(settings, "enable_payment", True):  # launch day
+        assert asyncio.run(user_has_access(515151)) is False
+
+
 def test_a_forged_signature_is_refused():
     with patch.object(settings, "webhook_secret", "s3cret"):
         assert verify_tribute_signature(
@@ -127,6 +152,23 @@ def test_a_client_rotating_its_forwarded_address_still_hits_the_global_ceiling()
     with pytest.raises(Exception) as excinfo:
         throttle.check("join", "192.168.1.1")
     assert excinfo.value.status_code == 429
+
+
+def test_a_client_that_never_rotates_cannot_spend_everyones_ceiling():
+    """Refused requests used to be stamped into the global window anyway, so
+    one address hammering past its own budget - no rotation, nothing clever
+    - ran the global ceiling out for every couple: ~2 req/s closed join for
+    everyone, ~10 req/s the Tribute webhook (backend audit B-03)."""
+    throttle.reset()
+    ceiling, _ = throttle.GLOBAL_LIMITS["join"]
+    refused = 0
+    for _ in range(ceiling * 2):
+        try:
+            throttle.check("join", "6.6.6.6")
+        except Exception:
+            refused += 1
+    assert refused == ceiling * 2 - throttle.LIMITS["join"][0]
+    throttle.check("join", "2.2.2.2")  # a partner opening an invite: let in
 
 
 def test_guessing_room_codes_is_throttled(client):
@@ -319,3 +361,49 @@ def test_a_throttled_creator_is_told_they_are_throttled_not_that_it_broke():
         assert status in index.split("function statusMessage(")[1].split("}")[0], (
             f"the client has no sentence for a {status}"
         )
+
+
+# --------------------------------------------------------------------------
+# Framing, and which commit is answering
+# --------------------------------------------------------------------------
+
+def test_telegram_web_may_frame_the_app_and_nobody_else_may(client):
+    """Telegram Web opens a Mini App in an <iframe> under web.telegram.org.
+    `X-Frame-Options: SAMEORIGIN` refused that parent, and the app opened
+    blank there; `frame-ancestors` can name Telegram and still refuse the
+    rest (tests/e2e/browser checks it in Chromium)."""
+    response = client.get("/app/")
+    csp = response.headers.get("content-security-policy", "")
+    assert "frame-ancestors" in csp
+    assert "https://web.telegram.org" in csp
+    assert "'self'" in csp
+    assert "*" not in csp.replace("https://*.telegram.org", ""), "no wildcard beyond Telegram"
+    assert response.headers.get("x-frame-options") is None, "XFO SAMEORIGIN blocks Telegram Web"
+    assert response.headers.get("x-content-type-options") == "nosniff"
+
+
+def test_health_says_which_commit_is_answering(client, monkeypatch):
+    monkeypatch.setenv("RAILWAY_GIT_COMMIT_SHA", "0123456789abcdef")
+    assert client.get("/health").json()["commit"] == "0123456789abcdef"
+    monkeypatch.delenv("RAILWAY_GIT_COMMIT_SHA")
+    assert client.get("/health").json()["commit"] is None
+
+
+def test_the_web_process_sets_up_logging_and_sentry(tmp_path):
+    """The bot initialised monitoring; the web process - payments, webhooks,
+    the Mini App API - never did, so its INFO lines were dropped and its
+    errors never reached Sentry."""
+    from unittest.mock import MagicMock
+
+    import vechnost_bot.monitoring as monitoring
+
+    init = MagicMock()
+    with (
+        patch.object(monitoring, "initialize_monitoring", init),
+        patch.object(settings, "database_url", f"sqlite:///{tmp_path / 'm.db'}"),
+        patch.object(database, "engine", None),
+        patch.object(database, "async_session_maker", None),
+        TestClient(app) as client,
+    ):
+        assert client.get("/health").status_code == 200
+    init.assert_called_once()

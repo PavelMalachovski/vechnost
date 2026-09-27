@@ -3,21 +3,43 @@ name: CI
 # The default branch here is `master`. This used to say `main, develop`, which
 # exist in no clone of this repository — so nothing ever ran, on any pull
 # request or any push, and every merge went in unchecked.
+#
+# Railway's "Wait for CI" holds a deploy of master until every workflow that
+# ran on the commit has finished, and skips the deploy if one failed. So what
+# runs on `push` here is the gate between a merge and production: keep it
+# green, and keep it deterministic. docs/CI_CD.md has the whole pipeline.
 on:
   push:
     branches: [ master ]
   pull_request:
+  # Nothing pins the dependency tree, so a release upstream can break a
+  # commit nobody touched: SQLAlchemy 2.1 moved greenlet behind an extra and
+  # a fresh install stopped importing, days before the next push would have
+  # shown it. The nightly run installs today's PyPI and finds out first.
+  schedule:
+    - cron: "23 3 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
   lint:
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     steps:
     - uses: actions/checkout@v4
 
     - name: Set up Python 3.11
-      uses: actions/setup-python@v4
+      uses: actions/setup-python@v5
       with:
         python-version: '3.11'
+        cache: pip
+        cache-dependency-path: pyproject.toml
 
     - name: Install dependencies
       run: |
@@ -40,10 +62,19 @@ jobs:
     # is here so the size of that job stays visible.
     - name: Run mypy (advisory)
       continue-on-error: true
-      run: mypy vechnost_bot
+      run: python -m mypy vechnost_bot
+
+    # Advisory for the same reason: a new advisory against a dependency
+    # should be seen the day it is published, not block an unrelated PR.
+    - name: Audit dependencies for known vulnerabilities (advisory)
+      continue-on-error: true
+      run: |
+        pip install pip-audit
+        pip-audit --progress-spinner off
 
   test:
     runs-on: ubuntu-latest
+    timeout-minutes: 20
 
     # The Redis suite is a real integration test against a real server.
     # Without one it skips itself (see tests/conftest.py), which is right on a
@@ -63,9 +94,11 @@ jobs:
     - uses: actions/checkout@v4
 
     - name: Set up Python 3.11
-      uses: actions/setup-python@v4
+      uses: actions/setup-python@v5
       with:
         python-version: '3.11'
+        cache: pip
+        cache-dependency-path: pyproject.toml
 
     - name: Install dependencies
       run: |
@@ -74,12 +107,73 @@ jobs:
 
     # Runs across every core: `-n auto --dist load` is in pyproject's addopts.
     # No environment to set up — conftest supplies a fake bot token, and
-    # nothing here talks to Telegram.
+    # nothing here talks to Telegram. This includes the in-process two-user
+    # suite (tests/e2e) with a short fuzz; the long runs are in e2e.yml.
     - name: Run tests
       run: pytest -q
 
+  # The build production actually gets: Railway's Nixpacks runs a plain
+  # `pip install .` (no dev extras, today's versions) and starts the app from
+  # the checkout. The test job cannot see a break here, because the dev extras
+  # can drag in what the runtime forgot to declare.
+  install-smoke:
+    name: Fresh install, the way Railway builds it
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      TELEGRAM_BOT_TOKEN: "1234567890:TEST_TOKEN_FOR_UNIT_TESTS"
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Set up Python 3.11
+      uses: actions/setup-python@v5
+      with:
+        python-version: '3.11'
+
+    - name: Install the runtime dependencies only
+      run: |
+        python -m venv /tmp/runtime
+        /tmp/runtime/bin/pip install --upgrade pip
+        /tmp/runtime/bin/pip install .
+        /tmp/runtime/bin/pip freeze > runtime-freeze.txt
+
+    # Every module, not just the package: the break that motivated this job
+    # lived in `vechnost_bot.payments`, which `import vechnost_bot` never
+    # touches, and parts of the bot import it lazily inside handlers.
+    - name: Import every module
+      run: |
+        /tmp/runtime/bin/python - <<'PY'
+        import importlib, pkgutil
+        import vechnost_bot
+        names = [m.name for m in pkgutil.walk_packages(vechnost_bot.__path__, "vechnost_bot.")]
+        for name in names:
+            importlib.import_module(name)
+        print(f"imported {len(names)} modules")
+        PY
+
+    - name: Serve the web process and smoke it
+      env:
+        ENABLE_PAYMENT: "true"
+        TRIBUTE_API_KEY: "ci-signing-key"
+        DATABASE_URL: "sqlite+aiosqlite:///./ci-smoke.db"
+        PYTHONPATH: "."
+      run: |
+        /tmp/runtime/bin/python -m uvicorn vechnost_bot.payments.web:app --port 8000 > uvicorn.log 2>&1 &
+        for i in $(seq 1 60); do curl -sf http://127.0.0.1:8000/health && break; sleep 1; done
+        /tmp/runtime/bin/python scripts/smoke_production.py http://127.0.0.1:8000
+        if grep -E "Traceback|failed" uvicorn.log; then cat uvicorn.log; exit 1; fi
+
+    - name: Keep the resolved versions
+      if: always()
+      uses: actions/upload-artifact@v4
+      with:
+        name: runtime-freeze
+        path: runtime-freeze.txt
+        if-no-files-found: ignore
+
   docker:
     runs-on: ubuntu-latest
+    timeout-minutes: 20
     needs: [lint, test]
     steps:
     - uses: actions/checkout@v4
@@ -90,7 +184,58 @@ jobs:
     - name: Build Docker image
       run: docker build -t vechnost-bot:ci .
 
+    # It used to run `import vechnost_bot`, a three-line __init__, which
+    # would have passed with the payments package unable to import.
     - name: Test Docker image
       run: |
-        # Test that the image builds and can start (without actual bot token)
-        docker run --rm vechnost-bot:ci python -c "import vechnost_bot; print('Import successful')"
+        docker run --rm -e TELEGRAM_BOT_TOKEN=1:ci vechnost-bot:ci python -c "
+        import importlib, pkgutil, vechnost_bot
+        names = [m.name for m in pkgutil.walk_packages(vechnost_bot.__path__, 'vechnost_bot.')]
+        [importlib.import_module(n) for n in names]
+        print('imported', len(names), 'modules')"
+        docker run -d --name web -p 8000:8000 -e TELEGRAM_BOT_TOKEN=1:ci \
+          -e DATABASE_URL=sqlite+aiosqlite:////tmp/ci.db \
+          vechnost-bot:ci python -m uvicorn vechnost_bot.payments.web:app --host 0.0.0.0 --port 8000
+        for i in $(seq 1 60); do curl -sf http://127.0.0.1:8000/health && break; sleep 1; done
+        curl -sf http://127.0.0.1:8000/health
+        curl -sf http://127.0.0.1:8000/app/ > /dev/null
+        docker logs web
+        docker rm -f web
+
+  # A red nightly run has no commit behind it and so no author to tell: GitHub
+  # mails only whoever last edited the cron line. File it where it is seen.
+  report-nightly-failure:
+    name: File the nightly failure
+    if: failure() && github.event_name == 'schedule'
+    needs: [lint, test, install-smoke, docker]
+    runs-on: ubuntu-latest
+    permissions:
+      issues: write
+    steps:
+    - uses: actions/github-script@v7
+      with:
+        script: |
+          const label = 'ci-nightly';
+          const run = `${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`;
+          const body = `The nightly CI run failed on ${context.sha.slice(0, 7)}: ${run}\n\n` +
+                       'With no new commit the likely cause is a release on PyPI: compare this ' +
+                       'run\'s runtime-freeze artifact with the last green night\'s.';
+          try {
+            await github.rest.issues.createLabel({
+              owner: context.repo.owner, repo: context.repo.repo, name: label, color: 'b60205',
+            });
+          } catch (e) { /* already there */ }
+          const { data: open } = await github.rest.issues.listForRepo({
+            owner: context.repo.owner, repo: context.repo.repo, state: 'open', labels: label,
+          });
+          if (open.length) {
+            await github.rest.issues.createComment({
+              owner: context.repo.owner, repo: context.repo.repo,
+              issue_number: open[0].number, body,
+            });
+          } else {
+            await github.rest.issues.create({
+              owner: context.repo.owner, repo: context.repo.repo,
+              title: 'Nightly CI failed on today\'s PyPI', body, labels: [label],
+            });
+          }

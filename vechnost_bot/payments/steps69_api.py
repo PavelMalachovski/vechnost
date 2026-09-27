@@ -130,12 +130,21 @@ async def _require_access(user_id: int) -> None:
         raise HTTPException(status_code=402, detail="payment required")
 
 
+async def _find(
+    session: AsyncSession, code: str, for_update: bool = False
+) -> Steps69Game | None:
+    """The game behind a code, or None - without asking the database about a
+    code that could never have been minted (see rooms._load_room)."""
+    code = code.strip().upper()
+    if not invites.valid_code(code):
+        return None
+    return await Steps69Repository.get_by_code(session, code, for_update=for_update)
+
+
 async def _load(
     session: AsyncSession, code: str, user_id: int, for_update: bool = False
 ) -> Steps69Game:
-    game = await Steps69Repository.get_by_code(
-        session, code.strip().upper(), for_update=for_update
-    )
+    game = await _find(session, code, for_update=for_update)
     if not game:
         raise HTTPException(status_code=404, detail="game not found")
     if user_id not in (game.creator_telegram_user_id, game.guest_telegram_user_id):
@@ -339,7 +348,7 @@ async def join(
     language = _language(lang)
 
     async with get_db() as session:
-        game = await Steps69Repository.get_by_code(session, code.strip().upper())
+        game = await _find(session, code)
         if not game:
             raise HTTPException(status_code=404, detail="game not found")
         if game.mode == "solo":
@@ -417,13 +426,16 @@ async def roll(
             if game.guest_telegram_user_id is None:
                 raise HTTPException(status_code=409, detail="partner has not joined yet")
             mover = _seat(game, user_id)
-            if game.turn != mover:
-                raise HTTPException(status_code=403, detail="not your turn")
 
+        # Home is asked before whose turn it is. A player already on 69 while
+        # the partner is still climbing used to hear "not your turn", which
+        # promises a turn that never comes; for them the dice are done.
         if _home(game, mover):
             # Cell 69 blocks that piece for the rest of the game; the pair
             # leave the board by choosing a finale, not by rolling past it.
             raise HTTPException(status_code=409, detail="the dice are done")
+        if not solo and game.turn != mover:
+            raise HTTPException(status_code=403, detail="not your turn")
 
         move = steps69.resolve_move(
             _position(game, mover), steps69.roll_dice(), language

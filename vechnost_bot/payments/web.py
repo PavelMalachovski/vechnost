@@ -2,12 +2,15 @@
 
 import asyncio
 import hmac
+import json
 import logging
+import os
 from contextlib import asynccontextmanager
 from pathlib import Path
 from typing import Any
 
 from fastapi import Depends, FastAPI, Header, HTTPException, Request
+from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.middleware.trustedhost import TrustedHostMiddleware
 from fastapi.responses import JSONResponse, Response
@@ -45,7 +48,16 @@ ASSETS_DIR = Path(__file__).parent.parent.parent / "assets"
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """Lifespan context manager for FastAPI app."""
-    # Startup
+    # Startup. Logging and Sentry first: this is the process that takes the
+    # payments, and it never set either up - its INFO lines were dropped,
+    # its warnings printed without level or time, and an exception here
+    # never reached Sentry. Monitoring failing must not stop the server.
+    try:
+        from ..monitoring import initialize_monitoring
+
+        initialize_monitoring()
+    except Exception as e:
+        logger.warning(f"Monitoring could not be initialised: {e}")
     logger.info("Starting payment webhook server...")
     init_db()
     logger.info("Database initialized")
@@ -67,14 +79,45 @@ app = FastAPI(
 )
 
 
+# Who may put the app in a frame: ourselves, and Telegram. The phone and
+# desktop clients open a Mini App in a native webview, but Telegram Web
+# (web.telegram.org, the K and A clients) opens it in an <iframe> whose
+# parent is Telegram's origin, not ours.
+FRAME_ANCESTORS = "frame-ancestors 'self' https://web.telegram.org https://*.telegram.org"
+
+
+@app.exception_handler(RequestValidationError)
+async def validation_error(request: Request, exc: RequestValidationError) -> JSONResponse:
+    """A 422 that says what failed and where, without echoing the input.
+
+    FastAPI's default repeats each error's `input`, and a body such as
+    `{"index": 1e309}` parses to infinity, which the JSON encoder refuses to
+    write: the 422 itself became a 500. The input is the caller's own
+    request, so nothing is lost by not sending it back.
+    """
+    errors = [
+        {
+            "loc": [part if isinstance(part, int) else str(part) for part in error.get("loc", ())],
+            "msg": str(error.get("msg", "")),
+            "type": str(error.get("type", "")),
+        }
+        for error in exc.errors()
+    ]
+    return JSONResponse(status_code=422, content={"detail": errors})
+
+
 @app.middleware("http")
 async def security_headers(request: Request, call_next):
     """Headers the app had none of.
 
-    The Mini App runs inside Telegram's own webview, which frames it itself,
-    so `X-Frame-Options: DENY` would break the product. `SAMEORIGIN` refuses
-    everyone else, which is the part that matters: nothing here should be
-    embedded in a stranger's page and clicked through.
+    Framing is allowed to Telegram and refused to everyone else, which is
+    the part that matters: nothing here should be embedded in a stranger's
+    page and clicked through. It used to be `X-Frame-Options: SAMEORIGIN`,
+    on the belief that Telegram frames the app the same way everywhere; in
+    Telegram Web the parent is web.telegram.org, SAMEORIGIN refused it, and
+    the Mini App opened blank there (Chromium: "Refused to display ... in a
+    frame"). CSP `frame-ancestors` can name Telegram, and every browser that
+    runs Telegram Web honours it.
 
     `nosniff` stops a browser second-guessing a content type, and the
     referrer policy keeps a room code out of the Referer header on any link
@@ -82,7 +125,7 @@ async def security_headers(request: Request, call_next):
     """
     response = await call_next(request)
     response.headers.setdefault("X-Content-Type-Options", "nosniff")
-    response.headers.setdefault("X-Frame-Options", "SAMEORIGIN")
+    response.headers.setdefault("Content-Security-Policy", FRAME_ANCESTORS)
     response.headers.setdefault("Referrer-Policy", "strict-origin-when-cross-origin")
     return response
 
@@ -130,12 +173,18 @@ app.include_router(steps69_router)
 
 
 @app.get("/health")
-async def health_check() -> dict[str, str]:
-    """Health check endpoint."""
+async def health_check() -> dict[str, str | None]:
+    """Health check endpoint, and which commit is answering.
+
+    Railway sets RAILWAY_GIT_COMMIT_SHA on a deploy from GitHub; reporting
+    it lets the post-deploy smoke test (scripts/smoke_production.py) wait
+    for the commit it was started for instead of testing the old one.
+    """
     return {
         "status": "ok",
         "service": "vechnost-payment-webhooks",
         "payment_enabled": str(settings.enable_payment),
+        "commit": os.environ.get("RAILWAY_GIT_COMMIT_SHA") or None,
     }
 
 
@@ -344,9 +393,18 @@ async def tribute_webhook(request: Request) -> JSONResponse:
         if declared.isdigit() and int(declared) > MAX_WEBHOOK_BODY:
             raise HTTPException(status_code=413, detail="payload too large")
 
-        raw_body = await request.body()
-        if len(raw_body) > MAX_WEBHOOK_BODY:
-            raise HTTPException(status_code=413, detail="payload too large")
+        # Read the body as a stream and stop at the limit. A chunked request
+        # carries no Content-Length to refuse up front, and `request.body()`
+        # read all of it before the size was checked: 200 MB went into the
+        # memory of the process that also runs the bot (audit B-11).
+        chunks: list[bytes] = []
+        size = 0
+        async for chunk in request.stream():
+            size += len(chunk)
+            if size > MAX_WEBHOOK_BODY:
+                raise HTTPException(status_code=413, detail="payload too large")
+            chunks.append(chunk)
+        raw_body = b"".join(chunks)
 
         # The address only: the headers carry the signature, and a body can
         # carry a buyer's name, so neither goes to the log.
@@ -367,9 +425,9 @@ async def tribute_webhook(request: Request) -> JSONResponse:
                 },
             )
 
-        # Parse JSON payload
+        # Parse JSON payload (from the bytes already read: the stream is spent)
         try:
-            payload = await request.json()
+            payload = json.loads(raw_body)
         except Exception as e:
             logger.error(f"Invalid JSON payload: {e}")
             raise HTTPException(status_code=400, detail="Invalid JSON payload") from e
@@ -388,7 +446,12 @@ async def tribute_webhook(request: Request) -> JSONResponse:
             elif status_code == 400:
                 raise HTTPException(status_code=400, detail=result["message"])
             else:
-                raise HTTPException(status_code=500, detail=result["message"])
+                # 503 is "not applied, send it again", which is what Tribute's
+                # retry is for; anything else unexpected is a 500.
+                raise HTTPException(
+                    status_code=status_code if status_code == 503 else 500,
+                    detail=result["message"],
+                )
 
         # What was done, in the reply Tribute's delivery log keeps: an
         # operator reading "ignore" there learns more than "success".
@@ -428,7 +491,9 @@ def verify_admin_token(authorization: str = Header(None)) -> bool:
     if scheme.lower() != "bearer" or not token:
         raise HTTPException(status_code=401, detail="Invalid authorization header")
 
-    if not hmac.compare_digest(token, secret):
+    # Bytes, for the same reason as in webapp_auth: a non-ASCII token must be
+    # a wrong token, not a TypeError.
+    if not hmac.compare_digest(token.encode("utf-8", "replace"), secret.encode("utf-8")):
         raise HTTPException(status_code=401, detail="Invalid token")
 
     return True

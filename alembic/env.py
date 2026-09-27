@@ -18,7 +18,17 @@ from vechnost_bot.payments.models import Base
 config = context.config
 
 # Set database URL from settings
-config.set_main_option("sqlalchemy.url", settings.database_url)
+def _sync_url(url: str) -> str:
+    """The app's async URL, spelled for the synchronous engine alembic runs.
+
+    DATABASE_URL names asyncpg or aiosqlite because the app is async; handed
+    to alembic's plain engine unchanged, every `alembic upgrade` died with
+    MissingGreenlet before touching a table.
+    """
+    return url.replace("+asyncpg", "+psycopg2").replace("+aiosqlite", "")
+
+
+config.set_main_option("sqlalchemy.url", _sync_url(settings.database_url))
 
 # Interpret the config file for Python logging.
 # This line sets up loggers basically.

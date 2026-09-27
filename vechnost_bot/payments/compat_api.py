@@ -12,8 +12,9 @@ import logging
 from datetime import datetime
 from typing import Any
 
-from fastapi import APIRouter, Depends, Header, HTTPException
+from fastapi import APIRouter, BackgroundTasks, Depends, Header, HTTPException
 from pydantic import BaseModel, Field
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from .. import invites
 from ..compat import TOTAL_QUESTIONS, build_result, load_spheres, scale_labels
@@ -21,6 +22,7 @@ from ..compat_notify import notify_result_ready
 from ..config import settings
 from ..i18n import Language
 from .database import get_db
+from .models import CompatTest
 from .repositories import CompatTestRepository
 from .services import user_has_access
 from .throttle import throttle
@@ -73,10 +75,20 @@ def _caller(
     raise HTTPException(status_code=401, detail="unauthorized")
 
 
+async def _find(
+    session: AsyncSession, code: str, for_update: bool = False
+) -> CompatTest | None:
+    """The test behind a code, or None - without asking the database about a
+    code that could never have been minted (a NUL byte is a 500 on
+    PostgreSQL; see rooms._load_room)."""
+    code = code.strip().upper()
+    if not invites.valid_code(code):
+        return None
+    return await CompatTestRepository.get_by_code(session, code, for_update=for_update)
+
+
 async def _load(session, code: str, user_id: int, for_update: bool = False):
-    test = await CompatTestRepository.get_by_code(
-        session, code.strip().upper(), for_update=for_update
-    )
+    test = await _find(session, code, for_update=for_update)
     if not test:
         raise HTTPException(status_code=404, detail="test not found")
     if user_id not in (test.creator_telegram_user_id, test.guest_telegram_user_id):
@@ -164,7 +176,7 @@ async def join(
     user_id, name = _caller(authorization, x_guest_id)
 
     async with get_db() as session:
-        test = await CompatTestRepository.get_by_code(session, code.strip().upper())
+        test = await _find(session, code)
         if not test:
             raise HTTPException(status_code=404, detail="test not found")
         if test.creator_telegram_user_id == user_id:
@@ -213,6 +225,7 @@ async def state(
 async def answer(
     code: str,
     body: AnswerRequest,
+    background: BackgroundTasks,
     lang: str = "ru",
     authorization: str | None = Header(default=None),
     x_guest_id: str | None = Header(default=None),
@@ -263,7 +276,11 @@ async def answer(
         )
 
     if recipients:
-        await notify_result_ready(recipients, code=state["code"])
+        # After the response, not before it: the push is a getMe and two
+        # sendMessage calls with five-second timeouts, and the client gives
+        # a request ten. With Telegram slow, the fortieth answer "failed" on
+        # screen although the test was complete.
+        background.add_task(notify_result_ready, recipients, code=state["code"])
     return state
 
 

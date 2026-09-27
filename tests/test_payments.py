@@ -313,7 +313,12 @@ async def test_apply_webhook_event_idempotency(test_db):
     headers = {"X-Tribute-Signature": "test_sig"}
 
     # Mock signature verification
-    with patch("vechnost_bot.payments.services.verify_tribute_signature", return_value=True):
+    # A verified delivery means a key is configured: with none, the handler
+    # acknowledges an (unverifiable) delivery and applies nothing.
+    with (
+        patch("vechnost_bot.payments.services.verify_tribute_signature", return_value=True),
+        patch.object(settings, "tribute_api_key", "test-signing-key"),
+    ):
         # First call - should process
         result1 = await apply_webhook_event(payload, headers, raw_body)
         assert result1["status"] == "success"
@@ -363,7 +368,12 @@ async def test_apply_webhook_event_subscription(test_db):
     headers = {"trbt-signature": "test_sig"}
 
     # Mock signature verification
-    with patch("vechnost_bot.payments.services.verify_tribute_signature", return_value=True):
+    # A verified delivery means a key is configured: with none, the handler
+    # acknowledges an (unverifiable) delivery and applies nothing.
+    with (
+        patch("vechnost_bot.payments.services.verify_tribute_signature", return_value=True),
+        patch.object(settings, "tribute_api_key", "test-signing-key"),
+    ):
         result = await apply_webhook_event(payload, headers, raw_body)
         assert result["status"] == "success"
 
