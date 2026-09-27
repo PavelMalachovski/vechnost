@@ -24,16 +24,6 @@ class TestCertificateModel:
         assert cert.used_by_telegram_user_id is None
         assert cert.used_at is None
 
-    def test_is_valid_property_unused(self):
-        """Test is_valid returns True for unused certificate."""
-        cert = Certificate(code="VECH-TEST-1234", is_used=False)
-        assert cert.is_valid is True
-
-    def test_is_valid_property_used(self):
-        """Test is_valid returns False for used certificate."""
-        cert = Certificate(code="VECH-TEST-1234", is_used=True)
-        assert cert.is_valid is False
-
     def test_certificate_repr(self):
         """Test certificate string representation."""
         cert = Certificate(id=1, code="VECH-TEST-1234", is_used=False)
@@ -235,7 +225,6 @@ class TestUserAccess:
              patch('vechnost_bot.payments.services.UserRepository') as mock_user_repo, \
              patch('vechnost_bot.payments.services.CertificateRepository') as mock_cert_repo, \
              patch('vechnost_bot.payments.services.SubscriptionRepository') as mock_sub_repo, \
-             patch('vechnost_bot.payments.services.PaymentRepository') as mock_pay_repo, \
              patch('vechnost_bot.payments.services.settings') as mock_settings:
 
             mock_settings.enable_payment = True
@@ -247,9 +236,8 @@ class TestUserAccess:
             mock_user.id = 1
             mock_user_repo.get_by_telegram_id = AsyncMock(return_value=mock_user)
 
-            # Mock no subscriptions or payments
+            # Mock no subscriptions
             mock_sub_repo.get_active_subscriptions_for_user = AsyncMock(return_value=[])
-            mock_pay_repo.get_active_payments_for_user = AsyncMock(return_value=[])
 
             # Mock activated certificate
             mock_cert = MagicMock(spec=Certificate)
@@ -270,7 +258,6 @@ class TestUserAccess:
              patch('vechnost_bot.payments.services.UserRepository') as mock_user_repo, \
              patch('vechnost_bot.payments.services.CertificateRepository') as mock_cert_repo, \
              patch('vechnost_bot.payments.services.SubscriptionRepository') as mock_sub_repo, \
-             patch('vechnost_bot.payments.services.PaymentRepository') as mock_pay_repo, \
              patch('vechnost_bot.payments.services.settings') as mock_settings:
 
             mock_settings.enable_payment = True
@@ -281,9 +268,8 @@ class TestUserAccess:
             mock_user.id = 1
             mock_user_repo.get_by_telegram_id = AsyncMock(return_value=mock_user)
 
-            # No subscriptions, payments, or certificates
+            # No subscriptions or certificates
             mock_sub_repo.get_active_subscriptions_for_user = AsyncMock(return_value=[])
-            mock_pay_repo.get_active_payments_for_user = AsyncMock(return_value=[])
             mock_cert_repo.get_by_user = AsyncMock(return_value=[])
 
             has_access = await user_has_access(123456789)
@@ -294,21 +280,6 @@ class TestUserAccess:
 @pytest.mark.asyncio
 class TestCertificateRepository:
     """Test CertificateRepository methods."""
-
-    async def test_mark_as_used_sets_all_fields(self):
-        """Test that mark_as_used sets is_used, user_id, and timestamp (requirement #2)."""
-        mock_session = AsyncMock()
-
-        cert = Certificate(code="VECH-TEST-1234", is_used=False)
-        user_id = 123456789
-
-        result = await CertificateRepository.mark_as_used(mock_session, cert, user_id)
-
-        assert result.is_used is True
-        assert result.used_by_telegram_user_id == user_id
-        assert result.used_at is not None
-        assert isinstance(result.used_at, datetime)
-        mock_session.flush.assert_called_once()
 
     async def test_get_by_user_returns_user_certificates(self):
         """Test getting certificates by user."""
@@ -379,10 +350,10 @@ class TestCertificateIntegration:
     async def test_concurrent_activation_race_condition(self, memory_db):
         """Two redemptions of one code: the UPDATE's WHERE clause seats one.
 
-        SQLite has no concurrent writers, so this exercises the mechanism
-        rather than the interleaving: the second `claim` finds no row with
-        `is_used = false` to change and comes back empty, which is exactly
-        what the loser of a real race on Postgres sees.
+        The in-memory database here is one connection, so this exercises the
+        mechanism rather than the interleaving: the second `claim` finds no
+        row with `is_used = false` to change and comes back empty, which is
+        exactly what the loser of a real race on Postgres sees.
         """
         from vechnost_bot.payments.database import get_db
         from vechnost_bot.payments.gifts import create_gift_certificate
@@ -395,5 +366,6 @@ class TestCertificateIntegration:
             loser = await CertificateRepository.claim(session, code, 222)
 
         assert winner is not None and winner.used_by_telegram_user_id == 111
+        assert winner.is_used is True and isinstance(winner.used_at, datetime)
         assert loser is None
 

@@ -71,7 +71,7 @@ async def collect(now: datetime | None = None) -> Report:
             .group_by(E.telegram_user_id)
         )
         first_seen: dict[int, datetime] = {
-            uid: at for uid, at in first_rows.tuples().all() if uid is not None
+            uid: at for uid, at in first_rows.all() if uid is not None
         }
 
         # The channel on each person's first arrival in the longest window.
@@ -96,7 +96,7 @@ async def collect(now: datetime | None = None) -> Report:
             .group_by(E.telegram_user_id)
         )
         first_activation: dict[int, datetime] = {
-            uid: at for uid, at in activations.tuples().all() if uid is not None
+            uid: at for uid, at in activations.all() if uid is not None
         }
 
         windows = []
@@ -157,7 +157,7 @@ async def collect(now: datetime | None = None) -> Report:
                     E.created_at < cohort_to + timedelta(days=8),
                 )
             )
-            for uid, at in days_active.tuples().all():
+            for uid, at in days_active.all():
                 if uid is None:
                     continue
                 start = cohort[uid]

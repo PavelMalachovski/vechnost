@@ -40,19 +40,6 @@ class TestGameData:
         """Test empty game data."""
         game_data = GameData()
         assert game_data.themes == {}
-        assert game_data.get_available_themes() == []
-
-    def test_get_available_themes(self):
-        """Test getting available themes."""
-        game_data = GameData(themes={
-            Theme.ACQUAINTANCE: {"levels": {1: {"questions": ["q1"]}}},
-            Theme.SEX: {"levels": {1: {"questions": ["q2"], "tasks": ["t1"]}}},
-        })
-
-        themes = game_data.get_available_themes()
-        assert Theme.ACQUAINTANCE in themes
-        assert Theme.SEX in themes
-        assert len(themes) == 2
 
     def test_get_available_levels(self):
         """Test getting available levels for a theme."""
@@ -95,23 +82,6 @@ class TestGameData:
         # Test non-existent content
         questions = game_data.get_content(Theme.ACQUAINTANCE, 1, ContentType.QUESTIONS)
         assert questions == []
-
-    def test_get_available_content_types(self):
-        """Test getting available content types."""
-        game_data = GameData(themes={
-            Theme.ACQUAINTANCE: {"levels": {1: {"questions": ["q1"]}}},
-            Theme.SEX: {"levels": {1: {"questions": ["q1"], "tasks": ["t1"]}}},
-        })
-
-        # Theme with only questions
-        types = game_data.get_available_content_types(Theme.ACQUAINTANCE, 1)
-        assert types == [ContentType.QUESTIONS]
-
-        # Theme with both questions and tasks
-        types = game_data.get_available_content_types(Theme.SEX, 1)
-        assert ContentType.QUESTIONS in types
-        assert ContentType.TASKS in types
-        assert len(types) == 2
 
     def test_has_nsfw_content(self):
         """Test NSFW content detection."""

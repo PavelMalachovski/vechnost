@@ -1,21 +1,27 @@
-"""Simple user payment checker without emoji (Windows-friendly)."""
+"""Show what the database knows about one user: the row, access, payments.
+
+Reads through the app's own repositories, so it works on whatever
+DATABASE_URL names (SQLite locally, PostgreSQL in production) and agrees with
+the bot about who has access. Settings, `.env` included, are the app's.
+
+    python scripts/check_user_simple.py 123456789
+"""
+import argparse
 import asyncio
 import sys
+from pathlib import Path
 
-from dotenv import load_dotenv
-
-load_dotenv()
-
-# Import payment modules
-from sqlalchemy import select
-
-from vechnost_bot.payments.database import get_db, init_db
-from vechnost_bot.payments.models import Payment, Subscription
-from vechnost_bot.payments.repositories import UserRepository
+sys.path.insert(0, str(Path(__file__).parent.parent))
 
 
 async def check_user(telegram_user_id: int):
     """Check user payment and subscription status."""
+    from sqlalchemy import select
+
+    from vechnost_bot.payments.database import get_db, init_db
+    from vechnost_bot.payments.models import Payment, Subscription
+    from vechnost_bot.payments.repositories import UserRepository
+
     init_db()
 
     print("="*60)
@@ -109,21 +115,13 @@ async def check_user(telegram_user_id: int):
         print(f"\n{'='*60}")
 
 
-async def main():
-    """Main function."""
-    if len(sys.argv) < 2:
-        print("Usage: python check_user_simple.py <telegram_user_id>")
-        sys.exit(1)
-
-    try:
-        telegram_user_id = int(sys.argv[1])
-    except ValueError:
-        print("[X] Error: telegram_user_id must be a number")
-        sys.exit(1)
-
-    await check_user(telegram_user_id)
+def main() -> None:
+    parser = argparse.ArgumentParser(description=__doc__.split("\n\n")[0])
+    parser.add_argument("telegram_user_id", type=int, help="the user's Telegram id")
+    args = parser.parse_args()
+    asyncio.run(check_user(args.telegram_user_id))
 
 
 if __name__ == "__main__":
-    asyncio.run(main())
+    main()
 

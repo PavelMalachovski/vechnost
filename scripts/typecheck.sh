@@ -1,11 +1,11 @@
 #!/usr/bin/env bash
 # Strict type checking, on the modules that can hold the line.
 #
-# The repository as a whole does not type-check cleanly yet (run
-# `mypy vechnost_bot` to see the backlog; most of it is missing annotations,
-# and the `union-attr` findings in the Telegram handlers are worth a pass of
-# their own). Gating CI on the whole thing would mean turning the strict
-# settings off, which would gate on nothing.
+# The repository as a whole does not type-check cleanly yet (most of the
+# backlog is missing annotations). Gating CI on the whole thing would mean
+# turning the strict settings off, which would gate on nothing; instead the
+# rest is held to .mypy-baseline by scripts/mypy_ratchet.py, which fails on
+# an error that is not listed there.
 #
 # So the gate is this list instead: the domain layer, the models and the
 # content loaders - everything that imports neither FastAPI nor

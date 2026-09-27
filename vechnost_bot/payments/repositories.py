@@ -417,21 +417,6 @@ class PaymentRepository:
         logger.info(f"Created payment for user {telegram_user_id}: {event_name}")
         return payment
 
-    @staticmethod
-    async def get_active_payments_for_user(
-        session: AsyncSession, telegram_user_id: int
-    ) -> list[Payment]:
-        """Get active (non-expired) payments for user."""
-        now = datetime.utcnow()
-        result = await session.execute(
-            select(Payment)
-            .where(Payment.telegram_user_id == telegram_user_id)
-            .where(
-                or_(Payment.expires_at.is_(None), Payment.expires_at > now)
-            )
-        )
-        return list(result.scalars().all())
-
 
 # Statuses of a subscription row that grant access while unexpired, and the
 # one that grants it only until `expires_at`: renewal switched off, the
@@ -619,21 +604,6 @@ class WebhookEventRepository:
         logger.info(f"Created webhook event: {name} (status: {status_code})")
         return webhook_event
 
-    @staticmethod
-    async def update_status(
-        session: AsyncSession,
-        webhook_event: WebhookEvent,
-        status_code: int,
-        processed_at: datetime,
-        error: str | None = None,
-    ) -> WebhookEvent:
-        """Update webhook event status."""
-        webhook_event.status_code = status_code
-        webhook_event.processed_at = processed_at
-        webhook_event.error = error
-        await session.flush()
-        return webhook_event
-
 
 class CertificateRepository:
     """Repository for Certificate operations."""
@@ -681,9 +651,8 @@ class CertificateRepository:
         One UPDATE whose WHERE clause carries the condition, so two people
         redeeming the same code at the same moment cannot both read
         `is_used = false` and both mark it: the database decides, exactly
-        one row changes, and the loser gets None. `mark_as_used` below sets
-        the same fields on an instance already checked, which is the
-        read-then-write this replaces on the activation path.
+        one row changes, and the loser gets None. It replaces a read of the
+        row followed by a write to it, the way activation used to work.
         """
         result = await session.execute(
             update(Certificate)
@@ -706,40 +675,6 @@ class CertificateRepository:
                 f"Claimed certificate #{certificate.id} for user {telegram_user_id}"
             )
         return certificate
-
-    @staticmethod
-    async def mark_as_used(
-        session: AsyncSession,
-        certificate: Certificate,
-        telegram_user_id: int,
-    ) -> Certificate:
-        """Mark certificate as used by a user."""
-        certificate.is_used = True
-        certificate.used_by_telegram_user_id = telegram_user_id
-        certificate.used_at = datetime.utcnow()
-        await session.flush()
-        logger.info(
-            f"Marked certificate #{certificate.id} as used by user {telegram_user_id}"
-        )
-        return certificate
-
-    @staticmethod
-    async def get_all_unused(session: AsyncSession) -> list[Certificate]:
-        """Get all unused certificates."""
-        result = await session.execute(
-            select(Certificate)
-            .where(Certificate.is_used == False)  # noqa: E712
-            .order_by(Certificate.created_at)
-        )
-        return list(result.scalars().all())
-
-    @staticmethod
-    async def get_all(session: AsyncSession) -> list[Certificate]:
-        """Get all certificates."""
-        result = await session.execute(
-            select(Certificate).order_by(Certificate.created_at.desc())
-        )
-        return list(result.scalars().all())
 
     @staticmethod
     async def get_by_user(
@@ -836,7 +771,9 @@ class Steps69Repository:
         list, and both partners' clients poll the same row. Without it, two
         rolls landing together on READ COMMITTED would each read the same
         starting square and the second would overwrite the first, losing a
-        move. SQLite ignores the clause; it has no concurrent writers.
+        move. SQLite ignores the clause; there every transaction begins
+        IMMEDIATE instead (`database._sqlite_file_engine`), which takes the
+        same turns over the whole file.
         """
         stmt = select(Steps69Game).where(Steps69Game.code == code)
         if for_update:
@@ -1056,8 +993,9 @@ class CompatTestRepository:
         tapper has several POSTs in flight at once. Without the lock, on
         READ COMMITTED the second transaction reads the pre-update array and
         writes back a stale copy of everything but its own index — one answer
-        silently vanishes. SQLite ignores the clause; it has no concurrent
-        writers to protect against.
+        silently vanishes. SQLite ignores the clause; there every transaction
+        begins IMMEDIATE instead (`database._sqlite_file_engine`), which takes
+        the same turns over the whole file.
         """
         stmt = select(CompatTest).where(CompatTest.code == code)
         if for_update:

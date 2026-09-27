@@ -241,7 +241,7 @@ async def test_someone_who_already_bought_is_not_credited(db, history):
             )
         else:
             certificate = await CertificateRepository.create(session, code="REF-HISTORY-TEST")
-            await CertificateRepository.mark_as_used(session, certificate, 2)
+            await CertificateRepository.claim(session, certificate.code, 2)
     async with get_db() as session:
         assert await UserRepository.record_referral(session, 2, code) is False
         assert await UserRepository.is_referred(session, 2) is False

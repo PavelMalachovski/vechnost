@@ -6,12 +6,11 @@ import os
 import re
 import sys
 import time
-from contextlib import asynccontextmanager
 from functools import wraps
 from typing import Any
 
 import structlog
-from sentry_sdk import capture_exception, set_context, set_tag, set_user
+from sentry_sdk import set_user
 from sentry_sdk.integrations.logging import LoggingIntegration
 
 # --------------------------------------------------------------------------
@@ -273,7 +272,7 @@ def before_send_filter(event, hint):
     """Filter events before sending to Sentry."""
     # Don't send certain types of errors
     if 'exc_info' in hint:
-        exc_type, exc_value, tb = hint['exc_info']
+        exc_type = hint['exc_info'][0]
         if exc_type.__name__ in ['KeyboardInterrupt', 'SystemExit']:
             return None
 
@@ -306,13 +305,6 @@ class BotMetrics:
         """Record a timer metric."""
         self._timers[name] = duration
         self.logger.debug("timer_recorded", timer=name, duration=duration, **context)
-
-    def get_metrics(self) -> dict[str, Any]:
-        """Get current metrics."""
-        return {
-            "counters": self._counters.copy(),
-            "timers": self._timers.copy(),
-        }
 
 
 # Global metrics instance
@@ -355,115 +347,6 @@ def track_performance(operation_name: str):
         else:
             return sync_wrapper
     return decorator
-
-
-def track_errors(operation_name: str):
-    """Decorator to track errors and send them to Sentry."""
-    def decorator(func):
-        @wraps(func)
-        async def async_wrapper(*args, **kwargs):
-            try:
-                return await func(*args, **kwargs)
-            except Exception as e:
-                # Set context for Sentry
-                set_tag("operation", operation_name)
-                set_context("operation_context", {
-                    "function": func.__name__,
-                    "args_count": len(args),
-                    "kwargs_keys": list(kwargs.keys())
-                })
-
-                # Capture exception
-                capture_exception(e)
-
-                # Log error
-                logger = structlog.get_logger("error_tracking")
-                logger.error(
-                    "operation_failed",
-                    operation=operation_name,
-                    error=str(e),
-                    error_type=type(e).__name__,
-                    exc_info=True
-                )
-
-                # Increment error counter
-                metrics.increment_counter(f"{operation_name}_errors")
-
-                raise
-
-        @wraps(func)
-        def sync_wrapper(*args, **kwargs):
-            try:
-                return func(*args, **kwargs)
-            except Exception as e:
-                # Set context for Sentry
-                set_tag("operation", operation_name)
-                set_context("operation_context", {
-                    "function": func.__name__,
-                    "args_count": len(args),
-                    "kwargs_keys": list(kwargs.keys())
-                })
-
-                # Capture exception
-                capture_exception(e)
-
-                # Log error
-                logger = structlog.get_logger("error_tracking")
-                logger.error(
-                    "operation_failed",
-                    operation=operation_name,
-                    error=str(e),
-                    error_type=type(e).__name__,
-                    exc_info=True
-                )
-
-                # Increment error counter
-                metrics.increment_counter(f"{operation_name}_errors")
-
-                raise
-
-        if asyncio.iscoroutinefunction(func):
-            return async_wrapper
-        else:
-            return sync_wrapper
-    return decorator
-
-
-@asynccontextmanager
-async def track_operation(operation_name: str, **context):
-    """Context manager to track operations."""
-    logger = structlog.get_logger("operation_tracking")
-    start_time = time.time()
-
-    logger.info("operation_started", operation=operation_name, **context)
-    metrics.increment_counter(f"{operation_name}_started")
-
-    try:
-        yield
-        duration = time.time() - start_time
-        logger.info("operation_completed", operation=operation_name, duration=duration, **context)
-        metrics.record_timer(f"{operation_name}_success", duration)
-        metrics.increment_counter(f"{operation_name}_completed")
-    except Exception as e:
-        duration = time.time() - start_time
-        logger.error(
-            "operation_failed",
-            operation=operation_name,
-            duration=duration,
-            error=str(e),
-            error_type=type(e).__name__,
-            **context,
-            exc_info=True
-        )
-        metrics.record_timer(f"{operation_name}_error", duration)
-        metrics.increment_counter(f"{operation_name}_failed")
-
-        # Send to Sentry
-        set_tag("operation", operation_name)
-        set_context("operation_context", context)
-        capture_exception(e)
-
-        raise
 
 
 def set_user_context(user_id: int, username: str | None = None, **extra_context):
@@ -547,19 +430,6 @@ def log_image_rendering_event(success: bool, duration: float, **context):
         metrics.record_timer("image_rendering_failed_duration", duration)
 
 
-def log_session_event(event_type: str, user_id: int, **context):
-    """Log a session event."""
-    logger = structlog.get_logger("session_events")
-    logger.info(
-        "session_event",
-        event_type=event_type,
-        user_id=user_id,
-        **context
-    )
-
-    metrics.increment_counter(f"session_events_{event_type}")
-
-
 # Initialize monitoring
 def initialize_monitoring() -> None:
     """Initialize monitoring and error tracking."""
@@ -568,15 +438,3 @@ def initialize_monitoring() -> None:
 
     logger = structlog.get_logger("monitoring")
     logger.info("monitoring_initialized")
-
-
-# Health check endpoint
-def get_health_status() -> dict[str, Any]:
-    """Get health status for monitoring."""
-    return {
-        "status": "healthy",
-        "timestamp": time.time(),
-        "metrics": metrics.get_metrics(),
-        "version": os.getenv("RELEASE_VERSION", "unknown"),
-        "environment": os.getenv("ENVIRONMENT", "development"),
-    }

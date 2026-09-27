@@ -58,10 +58,6 @@ class GameData(BaseModel):
 
     themes: dict[Theme, dict] = Field(default_factory=dict)
 
-    def get_available_themes(self) -> list[Theme]:
-        """Get list of available themes."""
-        return list(self.themes.keys())
-
     def _has_levels_structure(self, theme: Theme) -> bool:
         """Check if theme uses the levels structure."""
         if theme not in self.themes:
@@ -100,34 +96,6 @@ class GameData(BaseModel):
             content_type.value, []
         )
         return leveled
-
-    def get_available_content_types(self, theme: Theme, level: int | None) -> list[ContentType]:
-        """Get available content types for a theme and level."""
-        if theme not in self.themes:
-            return []
-
-        available = []
-
-        # For themes without levels (Sex, Provocation), check theme directly
-        if not self._has_levels_structure(theme):
-            if "questions" in self.themes[theme]:
-                available.append(ContentType.QUESTIONS)
-            if "tasks" in self.themes[theme]:
-                available.append(ContentType.TASKS)
-            return available
-
-        # For themes with levels (Acquaintance, For Couples)
-        if "levels" not in self.themes[theme]:
-            return []
-        if level is None or level not in self.themes[theme]["levels"]:
-            return []
-
-        level_data = self.themes[theme]["levels"][level]
-        if "questions" in level_data:
-            available.append(ContentType.QUESTIONS)
-        if "tasks" in level_data:
-            available.append(ContentType.TASKS)
-        return available
 
     def has_nsfw_content(self, theme: Theme) -> bool:
         """Check if theme contains NSFW content."""

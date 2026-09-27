@@ -17,17 +17,20 @@ import json
 import os
 import sys
 from datetime import UTC, datetime
+from pathlib import Path
 
 import httpx
-from dotenv import load_dotenv
 
-load_dotenv()
+sys.path.insert(0, str(Path(__file__).parent.parent))
 
 WEBHOOK_URL = os.getenv("WEBHOOK_URL", "http://localhost:8000/webhooks/tribute")
 
 
 def signing_key() -> str:
-    key = os.getenv("TRIBUTE_API_KEY") or os.getenv("WEBHOOK_SECRET") or ""
+    """The key the server checks: the app's own settings, `.env` included."""
+    from vechnost_bot.config import settings
+
+    key = settings.tribute_api_key or settings.webhook_secret or ""
     if not key:
         sys.exit("Set TRIBUTE_API_KEY (or WEBHOOK_SECRET) so the delivery can be signed")
     return key
@@ -59,16 +62,18 @@ def main() -> None:
     parser.add_argument("--product", type=int, default=1, help="product_id")
     parser.add_argument("--bad-signature", action="store_true",
                         help="sign with a wrong key; the server must answer 401")
+    parser.add_argument("--url", default=WEBHOOK_URL,
+                        help="where to send it (default: $WEBHOOK_URL, else a local server)")
     args = parser.parse_args()
 
     body = build(args.name, args.user, args.product)
     key = "wrong-key" if args.bad_signature else signing_key()
     signature = hmac.new(key.encode(), body, hashlib.sha256).hexdigest()
 
-    print(f"POST {WEBHOOK_URL}")
+    print(f"POST {args.url}")
     print(body.decode())
     response = httpx.post(
-        WEBHOOK_URL,
+        args.url,
         content=body,
         headers={"Content-Type": "application/json", "trbt-signature": signature},
         timeout=30.0,

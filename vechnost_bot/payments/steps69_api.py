@@ -51,8 +51,6 @@ router = APIRouter(prefix="/api/steps69", tags=["steps69"])
 # the same world as the cards. Both partners must pick different ones.
 PIECES = ("hearts", "spades", "clubs", "diamonds")
 
-Seat = Literal[0, 1]
-
 
 class CreateRequest(BaseModel):
     mode: Literal["duo", "solo"] = "duo"

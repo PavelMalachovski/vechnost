@@ -30,11 +30,14 @@ pip install -e ".[dev]"                 # ...or today's versions, unpinned
 python -m vechnost_bot                   # run the bot (polling)
 python -m uvicorn vechnost_bot.payments.web:app --reload --port 8000  # web + Mini App
                                          # (logs as production does once the app starts)
-pytest                                   # run tests (parallel, ~10s)
+pytest                                   # run tests (parallel, ~30s)
 pytest -n0                               # ...serially, for a debugger
+pytest --cov                             # ...with coverage, as CI measures it
+pytest -m "not slow"                     # ...without the fuzzer and the subprocess tests
 pytest tests/test_freemium.py -q         # run one suite
 ruff check .                             # lint (CI gates on this)
-./scripts/typecheck.sh                   # types (CI gates on this)
+./scripts/typecheck.sh                   # types, strict, on the domain layer (CI gates on this)
+python scripts/mypy_ratchet.py           # types, the rest, against .mypy-baseline (CI gates on this)
 pytest tests/e2e -n0                     # the two-user suite, in-process
 E2E_BROWSER=1 pytest tests/e2e/browser -n0   # two Chromium phones (needs .[e2e])
 python scripts/smoke_production.py $URL  # read-only smoke of a deployed server
@@ -59,11 +62,20 @@ python scripts/smoke_production.py $URL --deep  # ...and its database and bot he
   and nothing that waits for a deploy may run on `push`, or it deadlocks
   with "Wait for CI". `docs/CI_CD.md` explains the pipeline.
 
-- **The three CI gates are `pytest -q`, `ruff check .` and
-  `scripts/typecheck.sh`, and all three pass.** Keep them passing. CI runs on
-  pull requests, on `master`, and nightly; it used to name `main` and
-  `develop`, neither of which exists here, so it had never run at all.
+- **The CI gates are `pytest` (with a coverage floor), `ruff check .`,
+  `scripts/typecheck.sh` and `scripts/mypy_ratchet.py`, and all of them
+  pass.** Keep them passing. CI runs on pull requests, on `master`, and
+  nightly; it used to name `main` and `develop`, neither of which exists
+  here, so it had never run at all.
   `e2e.yml` gates on the two-user suite the same way.
+- **Coverage has a floor that only rises.** CI's `pytest` measures it
+  (`[tool.coverage]` in `pyproject.toml`: branches, greenlets and threads,
+  and subprocesses, without which the API modules read 30-38 points low and
+  `run_webhook.py` 29 % instead of 93 %) and fails below
+  `--cov-fail-under` in `ci.yml`: the measured total, rounded down. When a
+  change raises the total, raise the floor with it; a change that would
+  lower it adds the test instead. Pull requests also get the coverage of the
+  lines they change (diff-cover, advisory) in the job summary.
 - **Dependencies are locked.** `requirements.lock` is what the production
   image installs and `requirements-dev.lock` (constrained by it) what CI
   installs: exact versions, hashes, wheels only. SQLAlchemy 2.1 broke a
@@ -73,22 +85,40 @@ python scripts/smoke_production.py $URL --deep  # ...and its database and bot he
   if you forget. The nightly `upstream` job runs the suite on today's PyPI,
   unpinned, to hear about a breaking release before a lock update does.
 - **`scripts/typecheck.sh` is mypy on a list, not on the repo.** The strict
-  settings in `[tool.mypy]` are real but the repo does not satisfy them yet
-  (`python -m mypy vechnost_bot` shows the backlog; CI prints it without
-  failing). The script names the modules that *do* — the domain layer plus
-  the loaders around it — and `--follow-imports=silent` keeps their
+  settings in `[tool.mypy]` are real but the repo does not satisfy them yet.
+  The script names the modules that *do* — the domain layer plus the
+  loaders around it — and `--follow-imports=silent` keeps their
   dependencies' errors out. Add a new domain module to that list.
   Note `python -m mypy`: a standalone mypy runs on its own interpreter and
   reports every third-party import as missing.
+- **The rest of the package is held to `.mypy-baseline`.** It lists the
+  errors `python -m mypy vechnost_bot` reported when the ratchet was set,
+  without line numbers; `scripts/mypy_ratchet.py` (a CI gate) fails on an
+  error that is not listed and on a listed one that is fixed. Fix a new
+  error rather than list it; after fixing old ones, run
+  `python scripts/mypy_ratchet.py --update` and commit the smaller file.
+- **`ruff format` has never been applied.** CI checks it, advisory, until a
+  one-time reformat lands at a moment with no branches in flight; until then
+  do not reformat files you are not otherwise changing.
 - Pytest config lives in `pyproject.toml` under `[tool.pytest.ini_options]`
   (`asyncio_mode = "auto"`). Do **not** re-add a `pytest.ini` — a
   `[tool:pytest]` header there silently disables the pyproject config.
 - **The suite runs in parallel by default** (`-n auto --dist load` in
-  addopts) and takes about ten seconds. `-n0` runs it serially, which is
-  what a debugger or readable output needs. Two things make parallel safe
-  and must stay that way: the Redis tests take a database per xdist worker
-  (`_test_db()` in `tests/test_redis_storage.py`), and every test gets its
-  own storage from the autouse fixture rather than sharing the singleton.
+  addopts) and takes about half a minute on four cores. `-n0` runs it
+  serially, which is what a debugger or readable output needs. Two things
+  make parallel safe and must stay that way: the Redis tests take a database
+  per xdist worker (`_test_db()` in `tests/test_redis_storage.py`), and every
+  test gets its own storage from the autouse fixture rather than sharing the
+  singleton. A test that takes seconds by design says so with `slow`;
+  nothing is marked by its name any more.
+- **Warnings that mean a bug are errors** (`filterwarnings` in
+  `pyproject.toml`): a RuntimeWarning (a coroutine nobody awaited), a thread
+  or unraisable exception, and a deprecation raised in `vechnost_bot`.
+  Dependencies' own deprecations stay quiet; the nightly unpinned run is
+  where they turn into breakage first. The autouse fixture that disposes of
+  every database engine a test builds is what keeps an aiosqlite connection
+  from outliving its event loop - its thread used to die with "Event loop
+  is closed" dozens of times a run.
 - **No test may touch a real Redis unless it asks to.** The session store
   is chosen from `REDIS_URL` on first use and kept for the life of the
   process, so a machine or CI job exporting `REDIS_URL` would otherwise send
@@ -577,8 +607,9 @@ python scripts/smoke_production.py $URL --deep  # ...and its database and bot he
   same check-in. The cursor is a person's id for the daily card and is
   cleared when the run finishes. A new bulk send takes a `Run` the same way
   and sends through `broadcast.deliver`; the race tests are in
-  `tests/test_postgres.py`, because SQLite here shares one connection
-  between sessions.
+  `tests/test_postgres.py`, because a SQLite file takes one writer at a
+  time (every transaction begins IMMEDIATE), so two bots at once never
+  meet there.
 - **Chats are handled side by side, one chat in order.**
   `bot.py::PerChatUpdateProcessor` runs up to `CONCURRENT_UPDATES` updates
   at once, but each chat's in the order they came: every handler reads,
@@ -629,12 +660,16 @@ python scripts/smoke_production.py $URL --deep  # ...and its database and bot he
   why nothing is `immutable`.
 - **A module nothing imports is a trap, not an asset.** `security.py`,
   `rate_limiter.py`, `logo_generator.py`, `optimized_renderer.py`,
-  `connection_pool.py` and `async_file_ops.py` were all deleted: each was
-  reachable only from its own tests, and `optimized_renderer.py` in
-  particular was a second renderer sitting beside the wired-up one, waiting
-  for someone to tune the wrong file. `throttle.py` is the live rate
-  limiter; `renderer.py` is the live renderer. They are one revert away in
-  git history if a use for them ever appears.
+  `connection_pool.py`, `async_file_ops.py` and `exceptions.py` were all
+  deleted: each was reachable only from its own tests, and
+  `optimized_renderer.py` in particular was a second renderer sitting beside
+  the wired-up one, waiting for someone to tune the wrong file. `throttle.py`
+  is the live rate limiter; `renderer.py` is the live renderer. They are one
+  revert away in git history if a use for them ever appears. The same goes
+  for a function: CI runs `vulture` and `deptry` as advisory steps
+  (`[tool.vulture]` / `[tool.deptry]` in `pyproject.toml` list what a
+  framework calls by name, and why a dependency nothing imports stays), and
+  a finding there is answered in the PR - delete it, or say what uses it.
 - **Card rendering** (`renderer.py`) draws only the question text, and
   auto-picks between **Inter** (the card and UI face) and **DejaVu** (the
   last-resort fallback) per string, so a text in an alphabet Inter lacks
@@ -769,6 +804,14 @@ python scripts/smoke_production.py $URL --deep  # ...and its database and bot he
   those, don't fork them.
 - Prefer adding tests next to the feature (`tests/test_<feature>.py`); the
   suite runs offline (no network, Tribute mocked).
+- **A script in `scripts/` answers `--help` and works through the app.**
+  `tests/test_scripts.py` runs every `scripts/*.py --help` in a fresh
+  interpreter and fails on a non-zero exit, on output that is not argparse's,
+  and on a file written: parse the arguments before touching anything. Read
+  and write through the repositories and `settings`, never raw SQL or a
+  second `.env` loader - `activate_simple.py`, which wrote subscriptions by
+  hand, could not see a lifetime purchase. To grant access by hand, mint one
+  certificate (`generate_certificates.py 1`) and send the code.
 - Brand: dark aubergine background, pink gradient accents, playing-card
   motifs (suits, "V" emblem). Keep card watermarks/share images on-brand.
 
@@ -804,8 +847,15 @@ python scripts/smoke_production.py $URL --deep  # ...and its database and bot he
   `ValueError`: pydantic would repeat every setting, the token and the
   database password included, into the crash log. Development and the test
   suite are unaffected; the production service has to set the variable.
-- There is a large legacy `docs/` folder with historical setup notes; the
-  root `README.md` is the current source of truth.
+- **`docs/` holds only what is kept true**: `AUDIT_2026-09.md`, `CI_CD.md`,
+  `RAILWAY_DEPLOYMENT.md`, `PAYMENT_SETUP_GUIDE.md` and
+  `ENVIRONMENT_VARIABLES.md`, whose table of settings is generated from
+  `Settings` - after adding, renaming or re-describing a setting, run
+  `python scripts/env_docs.py --write` (`tests/test_env_docs.py` fails
+  until you do; it also wants every variable read outside `Settings`
+  listed). Older notes, plans and reviews are in `docs/archive/` under a
+  one-line banner and are not maintained; the root `README.md` is the
+  current source of truth.
 
 ## Workflow
 

@@ -88,7 +88,7 @@ async def _populate():
             creator_name="P", mode="solo", creator_piece="hearts",
         )
         certificate = await CertificateRepository.create(session, code="VECH-TEST-ERAS")
-        await CertificateRepository.mark_as_used(session, certificate, ME)
+        await CertificateRepository.claim(session, certificate.code, ME)
 
 
 async def test_erase_removes_the_person_and_what_they_sat_in(memory_db):
