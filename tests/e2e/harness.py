@@ -250,7 +250,7 @@ class Player:
         *,
         json_body: Any = None,
         expect: int | Iterable[int] | None = None,
-        headers: dict[str, str] | None = None,
+        headers: dict[str, str | bytes] | None = None,
     ) -> httpx.Response:
         """One request. A 5xx or an unexpected status fails with the transcript."""
         started = time.perf_counter()

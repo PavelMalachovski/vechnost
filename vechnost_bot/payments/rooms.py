@@ -34,7 +34,10 @@ router = APIRouter(prefix="/api/rooms", tags=["rooms"])
 ROOM_TTL = timedelta(hours=24)
 class CreateRoomRequest(BaseModel):
     theme: str
-    level: int | None = None
+    # Bounded: the column is an INTEGER, and 99999999999 for a deck without
+    # levels was ignored when picking the cards and then overflowed int32 on
+    # PostgreSQL - a 500. Three levels exist; ten leaves room for more.
+    level: int | None = Field(default=None, ge=1, le=10)
     type: str = Field(default="questions", pattern="^(questions|tasks)$")
 
 
@@ -137,8 +140,13 @@ async def _load_room(
     `for_update` takes a row lock, which /advance needs: it reads idx and
     turn and writes both back, and a double tap is two of those at once.
     """
-    room = await RoomRepository.get_by_code(
-        session, code.strip().upper(), for_update=for_update
+    code = code.strip().upper()
+    # A code that could never have been minted is the same 404 as an unknown
+    # one, and never reaches the database: a NUL byte in a text parameter
+    # is a 500 on PostgreSQL.
+    room = (
+        await RoomRepository.get_by_code(session, code, for_update=for_update)
+        if invites.valid_code(code) else None
     )
     if not room:
         raise HTTPException(status_code=404, detail="room not found")

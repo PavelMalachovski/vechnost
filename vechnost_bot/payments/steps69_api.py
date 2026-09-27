@@ -130,12 +130,21 @@ async def _require_access(user_id: int) -> None:
         raise HTTPException(status_code=402, detail="payment required")
 
 
+async def _find(
+    session: AsyncSession, code: str, for_update: bool = False
+) -> Steps69Game | None:
+    """The game behind a code, or None - without asking the database about a
+    code that could never have been minted (see rooms._load_room)."""
+    code = code.strip().upper()
+    if not invites.valid_code(code):
+        return None
+    return await Steps69Repository.get_by_code(session, code, for_update=for_update)
+
+
 async def _load(
     session: AsyncSession, code: str, user_id: int, for_update: bool = False
 ) -> Steps69Game:
-    game = await Steps69Repository.get_by_code(
-        session, code.strip().upper(), for_update=for_update
-    )
+    game = await _find(session, code, for_update=for_update)
     if not game:
         raise HTTPException(status_code=404, detail="game not found")
     if user_id not in (game.creator_telegram_user_id, game.guest_telegram_user_id):
@@ -339,7 +348,7 @@ async def join(
     language = _language(lang)
 
     async with get_db() as session:
-        game = await Steps69Repository.get_by_code(session, code.strip().upper())
+        game = await _find(session, code)
         if not game:
             raise HTTPException(status_code=404, detail="game not found")
         if game.mode == "solo":

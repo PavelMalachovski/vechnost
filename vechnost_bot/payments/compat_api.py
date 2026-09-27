@@ -73,10 +73,18 @@ def _caller(
     raise HTTPException(status_code=401, detail="unauthorized")
 
 
+async def _find(session, code: str, for_update: bool = False):
+    """The test behind a code, or None - without asking the database about a
+    code that could never have been minted (a NUL byte is a 500 on
+    PostgreSQL; see rooms._load_room)."""
+    code = code.strip().upper()
+    if not invites.valid_code(code):
+        return None
+    return await CompatTestRepository.get_by_code(session, code, for_update=for_update)
+
+
 async def _load(session, code: str, user_id: int, for_update: bool = False):
-    test = await CompatTestRepository.get_by_code(
-        session, code.strip().upper(), for_update=for_update
-    )
+    test = await _find(session, code, for_update=for_update)
     if not test:
         raise HTTPException(status_code=404, detail="test not found")
     if user_id not in (test.creator_telegram_user_id, test.guest_telegram_user_id):
@@ -164,7 +172,7 @@ async def join(
     user_id, name = _caller(authorization, x_guest_id)
 
     async with get_db() as session:
-        test = await CompatTestRepository.get_by_code(session, code.strip().upper())
+        test = await _find(session, code)
         if not test:
             raise HTTPException(status_code=404, detail="test not found")
         if test.creator_telegram_user_id == user_id:

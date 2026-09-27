@@ -10,6 +10,7 @@ from pathlib import Path
 from typing import Any
 
 from fastapi import Depends, FastAPI, Header, HTTPException, Request
+from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.middleware.trustedhost import TrustedHostMiddleware
 from fastapi.responses import JSONResponse, Response
@@ -74,6 +75,26 @@ app = FastAPI(
 # (web.telegram.org, the K and A clients) opens it in an <iframe> whose
 # parent is Telegram's origin, not ours.
 FRAME_ANCESTORS = "frame-ancestors 'self' https://web.telegram.org https://*.telegram.org"
+
+
+@app.exception_handler(RequestValidationError)
+async def validation_error(request: Request, exc: RequestValidationError) -> JSONResponse:
+    """A 422 that says what failed and where, without echoing the input.
+
+    FastAPI's default repeats each error's `input`, and a body such as
+    `{"index": 1e309}` parses to infinity, which the JSON encoder refuses to
+    write: the 422 itself became a 500. The input is the caller's own
+    request, so nothing is lost by not sending it back.
+    """
+    errors = [
+        {
+            "loc": [part if isinstance(part, int) else str(part) for part in error.get("loc", ())],
+            "msg": str(error.get("msg", "")),
+            "type": str(error.get("type", "")),
+        }
+        for error in exc.errors()
+    ]
+    return JSONResponse(status_code=422, content={"detail": errors})
 
 
 @app.middleware("http")
@@ -461,7 +482,9 @@ def verify_admin_token(authorization: str = Header(None)) -> bool:
     if scheme.lower() != "bearer" or not token:
         raise HTTPException(status_code=401, detail="Invalid authorization header")
 
-    if not hmac.compare_digest(token, secret):
+    # Bytes, for the same reason as in webapp_auth: a non-ASCII token must be
+    # a wrong token, not a TypeError.
+    if not hmac.compare_digest(token.encode("utf-8", "replace"), secret.encode("utf-8")):
         raise HTTPException(status_code=401, detail="Invalid token")
 
     return True

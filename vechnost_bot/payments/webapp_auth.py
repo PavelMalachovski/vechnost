@@ -57,7 +57,11 @@ def validate_init_data(
         secret_key, data_check_string.encode(), hashlib.sha256
     ).hexdigest()
 
-    if not hmac.compare_digest(expected_hash, received_hash):
+    # Bytes, not str: compare_digest raises TypeError on a non-ASCII str, and
+    # the hash is whatever the caller wrote - an unauthenticated 500 for "é".
+    if not hmac.compare_digest(
+        expected_hash.encode(), received_hash.encode("utf-8", "replace")
+    ):
         raise InitDataError("initData signature mismatch")
 
     try:
