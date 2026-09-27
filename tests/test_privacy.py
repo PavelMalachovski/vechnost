@@ -153,6 +153,16 @@ async def test_the_command_asks_before_it_deletes(mock_update, mock_context):
     ]
 
 
+def test_the_question_says_a_tribute_subscription_keeps_billing():
+    """Erasing the row does not reach Tribute: a subscription goes on
+    charging, and its next renewal event creates the user again with
+    access. The person has to cancel it there, and has to be told so
+    before they tap the button, not after."""
+    ask = get_text("privacy.ask", Language.RUSSIAN)
+    assert "Tribute" in ask
+    assert "отмените" in ask and "списания" in ask
+
+
 async def test_confirming_erases_and_says_so(mock_update, mock_callback_query, mock_context):
     mock_callback_query.data = privacy.CONFIRM
     with patch("vechnost_bot.privacy.erase_user", AsyncMock(return_value={"user": 1})) as erase:

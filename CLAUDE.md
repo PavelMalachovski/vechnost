@@ -349,6 +349,9 @@ python scripts/smoke_production.py $URL  # read-only smoke of a deployed server
   links to the user are cleared. Its callback is registered ahead of the
   game's catch-all on a pattern, like the broadcast's. Anything new that
   stores a person must be added to `erase`, or the promise is broken.
+  The question (`privacy.ask`) also tells the person to cancel a Tribute
+  subscription at Tribute: erasing the row does not stop the billing, and
+  the next renewal event creates the user again.
 - **The daily push has one button into the app.** «Играть» and «Библиотека»
   were the same app opened at two screens, and the choice came before the
   reader had seen either. It is one «Зайти в приложение» now, with the

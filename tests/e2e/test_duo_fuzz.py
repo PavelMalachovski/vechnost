@@ -584,7 +584,8 @@ class TwoUsers(RuleBasedStateMachine):
             self.call(actor, "POST", path, body, expect=409)
             return
         if choice not in FINALES:
-            self.call(actor, "POST", path, body, expect=404)
+            # Not 404: that reads as "game deleted" on the phone.
+            self.call(actor, "POST", path, body, expect=422)
             return
         if model.finished and model.finale != choice:
             self.call(actor, "POST", path, body, expect=409)
