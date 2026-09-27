@@ -97,3 +97,44 @@ def test_the_secret_hint_is_readable_on_the_light_card(server: Server, phones) -
     opacity = float(_style(phone.page, html, ".hint", "opacity"))
     seen = tuple(opacity * c + (1 - opacity) * bg for c, bg in zip(color[:3], LIGHT_CARD, strict=True))
     assert _contrast(seen, LIGHT_CARD) >= 3.0, f"contrast {_contrast(seen, LIGHT_CARD):.2f}:1"
+
+
+def test_the_card_keeps_its_shape_and_its_text_band_on_every_phone(server: Server, phones) -> None:
+    """D-04: the card was the stage's own box capped at 340x470, with a text
+    band held in by fixed 103px margins. On a short phone the card turned
+    nearly square and the band shrank to 147 of its 353px, so 255 of the
+    310 cards had to be scrolled. Now the card keeps one shape and the band
+    one share of it, from the smallest phone to the largest."""
+    phone = phones(server.player("Alice"))
+    phone.screen("home")
+    phone.page.click("#btnPlay")
+    phone.screen("themes")
+    phone.page.locator("#themeList .theme-card").first.click()
+    phone.screen("levels")
+    phone.page.locator("#levelList .level-card").first.click()
+    phone.screen("deck")
+    measured = {}
+    for width, height in ((320, 568), (375, 667), (430, 932)):
+        phone.page.set_viewport_size({"width": width, "height": height})
+        phone.page.wait_for_timeout(250)
+        box = phone.page.evaluate(
+            """() => {
+                const stage = document.getElementById('stage').getBoundingClientRect();
+                const card = document.querySelector('#stage .card.top');
+                const r = card.getBoundingClientRect();
+                const zone = card.querySelector('.q-zone');
+                const text = card.querySelector('.q-text');
+                return {w: r.width, h: r.height, band: zone.clientHeight,
+                        inside: r.left >= stage.left - 0.5 && r.right <= stage.right + 0.5
+                                && r.top >= stage.top - 0.5 && r.bottom <= stage.bottom + 0.5,
+                        font: parseFloat(getComputedStyle(text).fontSize)};
+            }"""
+        )
+        measured[f"{width}x{height}"] = box
+        phone.shot(f"card-{width}x{height}")
+        assert box["inside"], f"the card overflows the stage at {width}x{height}: {box}"
+        assert abs(box["w"] / box["h"] - 340 / 470) < 0.01, f"card shape at {width}x{height}: {box}"
+        assert abs(box["band"] / box["h"] - 264 / 470) < 0.01, f"text band at {width}x{height}: {box}"
+        assert 17 <= box["font"] <= 22, f"card text size at {width}x{height}: {box}"
+    # The largest phone gets a larger card, not the same one in more space.
+    assert measured["430x932"]["w"] > 340, measured

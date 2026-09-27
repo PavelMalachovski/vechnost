@@ -112,7 +112,9 @@
     --fs-2xl: 22px;
     --fs-3xl: 26px;
     --fs-display: 56px;
-    --fs-card: clamp(18px, 6.4cqw, 24px);   /* card text, from the card's own width */
+    /* --fs-card, the card text, is declared on .card: it is a fraction of
+       the card's width, and a var() in a custom property resolves where the
+       property is declared, so on :root there is no width to read. */
     --fw-regular: 400; --fw-semibold: 600; --fw-bold: 700;
     --lh-tight: 1.2; --lh-snug: 1.35; --lh-normal: 1.5; --lh-relaxed: 1.6;
     --ls-caps: .06em; --ls-logo: .14em;
@@ -481,15 +483,32 @@
      against a collapse gesture on old ones. Widening touch-action further
      would give back the horizontal block that protects the card swipe, and
      the Telegram-side guarantee is not there to catch it. */
-  #stage { flex: 1; position: relative; perspective: 1300px; margin: 4px 0 10px; touch-action: pan-y; }
+  #stage { flex: 1; position: relative; perspective: 1300px; margin: 4px 0 10px; touch-action: pan-y; container-type: size; }
   /* The Library deck stands on the same stage — identical declarations, kept
      as its own rule rather than a comma group because the tests read the
      `#stage {` block by name and compare the two. */
-  #libStage { flex: 1; position: relative; perspective: 1300px; margin: 4px 0 10px; touch-action: pan-y; }
+  #libStage { flex: 1; position: relative; perspective: 1300px; margin: 4px 0 10px; touch-action: pan-y; container-type: size; }
 
+  /* The card keeps one shape, 340:470, at every size: as wide as the stage
+     allows, as tall as that makes it, and never past --card-max-w. It used
+     to be the stage's own box capped at 340x470, so on a short phone it
+     turned nearly square while the text band inside kept its 103px
+     margins: on 320x568 the band was 210x147 and 255 of the 310 cards
+     had to be scrolled to be read (audit D-04).
+
+     The stage is the size container (container-type on #stage and
+     #libStage), not the card: containment on an element in the 3D flip
+     is a risk nothing here needs to take. --card-w is inherited as the
+     expression and resolved where it is used, so every length on the
+     card's faces below is a fraction of the one width - the art is
+     stretched 100% 100% onto the face, so a fraction of the width is
+     the same fraction of the art at every size. */
   .card {
+    --card-w: min(100cqw, 100cqh * 340 / 470, var(--card-max-w));
+    --fs-card: clamp(17px, calc(var(--card-w) * 22 / 340), 22px);
     position: absolute; inset: 0; margin: auto;
-    max-width: 340px; max-height: 470px;
+    width: var(--card-w);
+    height: calc(var(--card-w) * 470 / 340);
     border-radius: var(--radius-card);
     transform-style: preserve-3d;
     will-change: transform;
@@ -525,8 +544,9 @@
     box-shadow: 0 18px 44px rgba(0,0,0,.5);
     /* The printed V+suit marks occupy the top 21.3% and the bottom 21.4% of
        the art; renderer.py keeps its text inside the central 56% x 76%.
-       These are those fractions of the 340x470 card. */
-    padding: 103px 41px 103px;
+       These are those fractions of the card: 103px and 41px of a 340x470
+       one, as they were when that was its only size. */
+    padding: calc(var(--card-w) * 103 / 340) calc(var(--card-w) * 41 / 340);
   }
   /* The back of the card is decoration, and it must never be touchable.
      `backface-visibility: hidden` hides it from the eye but not from the
@@ -580,28 +600,32 @@
      over the scroller without covering the printed corner marks. */
   .card .front::before,
   .card .front::after {
-    content: ''; position: absolute; left: 41px; right: 41px; height: 18px;
+    content: ''; position: absolute;
+    left: calc(var(--card-w) * 41 / 340); right: calc(var(--card-w) * 41 / 340); height: 18px;
     pointer-events: none; opacity: 0; transition: opacity .16s ease; z-index: 2;
   }
   .card .front::before {
-    top: 103px;
+    top: calc(var(--card-w) * 103 / 340);
     background: linear-gradient(to bottom, var(--card-bg), rgba(253,235,247,0));
   }
   .card .front::after {
-    bottom: 103px;
+    bottom: calc(var(--card-w) * 103 / 340);
     background: linear-gradient(to top, var(--card-bg), rgba(253,235,247,0));
   }
   .card .front.cut-top::before { opacity: 1; }
   .card .front.cut-bottom::after { opacity: 1; }
+  /* 22px on the 340px card, as before; 17px at the floor on the smallest
+     phones, and never above 22px: a large phone gets room, not bigger
+     letters. */
   .q-text {
     color: var(--ink); text-align: center; font-weight: 600;
-    font-size: 22px; line-height: 1.42; letter-spacing: .002em;
+    font-size: var(--fs-card); line-height: 1.42; letter-spacing: .002em;
     overflow-wrap: anywhere;
   }
   /* Level with the bottom-right mark but centred, well clear of it — the
      same place renderer.py puts it, ~11% up from the bottom edge. */
   .card-footer {
-    position: absolute; left: 0; right: 0; bottom: 40px;
+    position: absolute; left: 0; right: 0; bottom: calc(var(--card-w) * 40 / 340);
     text-align: center; font-size: 12px; font-weight: 600; color: #7A3F64; letter-spacing: .06em;
   }
 

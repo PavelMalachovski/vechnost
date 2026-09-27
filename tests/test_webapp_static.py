@@ -188,8 +188,29 @@ def test_long_card_text_scrolls_instead_of_shrinking():
     # declares its own so a nested scroller keeps the vertical pan that
     # scrolls the text on a touch screen.
     assert "touch-action" in q_zone
+    # The size follows the card's width (17px on the smallest phones, 22px
+    # from a 340px card up) and nothing else: no class shrinks it.
     q_text = _css_block(html, ".q-text")
-    assert "font-size: 22px" in q_text
+    assert "font-size: var(--fs-card)" in q_text
+    assert "--fs-card: clamp(17px, calc(var(--card-w) * 22 / 340), 22px);" in html
+
+
+def test_the_card_and_its_text_band_scale_from_one_width():
+    """D-04: the card's shape is fixed and every length on its face is a
+    fraction of its width. A px margin inside a card whose box followed the
+    stage is what left a 147px band on a 320x568 phone. The stage, not the
+    card, is the size container: the card sits in the 3D flip."""
+    html = INDEX.read_text(encoding="utf-8")
+    for stage in ("#stage", "#libStage"):
+        assert "container-type: size" in _css_block(html, stage)
+    card = _css_block(html, ".card")
+    assert "--card-w: min(100cqw, 100cqh * 340 / 470, var(--card-max-w));" in card
+    assert "height: calc(var(--card-w) * 470 / 340);" in card
+    assert "container-type" not in card
+    front = _css_block(html, ".card .front")
+    assert "padding: calc(var(--card-w) * 103 / 340) calc(var(--card-w) * 41 / 340);" in front
+    declarations = re.sub(r"/\*.*?\*/", "", front, flags=re.S)
+    assert "103px" not in declarations and "41px" not in declarations
 
 
 def test_the_fade_marks_only_an_edge_that_actually_hides_something():
