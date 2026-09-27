@@ -115,6 +115,10 @@ jobs:
 
     steps:
     - uses: actions/checkout@v4
+      with:
+        # The whole history, so the diff coverage below can find where this
+        # pull request branched off.
+        fetch-depth: 0
 
     - name: Set up Python 3.11
       uses: actions/setup-python@v5
@@ -137,8 +141,34 @@ jobs:
     # No environment to set up — conftest supplies a fake bot token, and
     # nothing here talks to Telegram. This includes the in-process two-user
     # suite (tests/e2e) with a short fuzz; the long runs are in e2e.yml.
+    #
+    # Coverage is measured on the way ([tool.coverage] in pyproject.toml:
+    # branches, greenlets and threads, subprocesses) and may not fall below
+    # the floor. The floor is the total this job measured, rounded down: a
+    # ratchet. Raise it when the total rises; never lower it to get a pull
+    # request through - add the test instead. 87.6 % on 2026-09-27.
     - name: Run tests
-      run: pytest -q
+      run: pytest -q --cov --cov-report=term-missing:skip-covered --cov-report=xml --cov-fail-under=87
+
+    # How much of what this pull request changes the tests reach. Advisory:
+    # the floor above is the gate, this is where to look first.
+    - name: Coverage of the lines this pull request changes (advisory)
+      if: github.event_name == 'pull_request'
+      continue-on-error: true
+      env:
+        BASE: ${{ github.base_ref }}
+      run: |
+        pip install diff-cover
+        diff-cover coverage.xml --compare-branch="origin/$BASE" --markdown-report diff-cover.md
+        cat diff-cover.md >> "$GITHUB_STEP_SUMMARY"
+
+    - name: Keep the coverage report
+      if: always()
+      uses: actions/upload-artifact@v4
+      with:
+        name: coverage
+        path: coverage.xml
+        if-no-files-found: ignore
 
   # The build production actually gets: Railway builds this repository's
   # Dockerfile, which installs requirements.lock and starts run_webhook. So

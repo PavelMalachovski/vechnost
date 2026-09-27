@@ -52,6 +52,8 @@ dev = [
     # The suite runs in parallel by default (see addopts); -p no:xdist turns
     # that off for a run where the output order matters.
     "pytest-xdist>=3.5.0",
+    # Coverage in CI, with a floor that only rises (see ci.yml).
+    "pytest-cov>=5.0",
     "ruff>=0.1.0",
     "mypy>=1.0.0",
     "types-PyYAML>=6.0.0",
@@ -199,3 +201,29 @@ filterwarnings = [
     "error::pytest.PytestUnraisableExceptionWarning",
 ]
 
+[tool.coverage.run]
+source = ["vechnost_bot"]
+branch = true
+# The API handlers reach the database through SQLAlchemy's async bridge,
+# which runs each call in a greenlet, and TestClient serves every request on
+# a thread of its own. Without both, coverage loses those frames and reports
+# the API modules 30-38 points lower than they are.
+concurrency = ["thread", "greenlet"]
+# The supervisor production starts (run_webhook.py) is tested by running it
+# in a subprocess, which coverage sees only with this: 29 % without, 93 % with.
+patch = ["subprocess"]
+relative_files = true
+
+[tool.coverage.paths]
+# CI installs the package as well; a subprocess that imports that copy
+# counts for the checkout.
+source = ["vechnost_bot", "*/site-packages/vechnost_bot"]
+
+[tool.coverage.report]
+precision = 1
+show_missing = true
+skip_covered = true
+exclude_also = [
+    "if TYPE_CHECKING:",
+    "if __name__ == .__main__.:",
+]

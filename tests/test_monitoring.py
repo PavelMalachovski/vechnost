@@ -164,6 +164,19 @@ class TestInitializeMonitoring:
 class TestSentryIntegration:
     """Test Sentry integration."""
 
+    @pytest.mark.parametrize("error", [KeyboardInterrupt, SystemExit])
+    def test_a_stop_is_not_an_error_report(self, error):
+        """Ctrl-C and a clean exit are how a process stops, not a fault."""
+        from vechnost_bot.monitoring import before_send_filter
+
+        assert before_send_filter({}, {"exc_info": (error, error(), None)}) is None
+
+    def test_an_error_is_sent_with_the_bot_tagged(self):
+        from vechnost_bot.monitoring import before_send_filter
+
+        event = before_send_filter({}, {"exc_info": (ValueError, ValueError(), None)})
+        assert event["tags"]["bot_name"] == "vechnost-bot"
+
     def test_configure_sentry_with_dsn(self):
         """The DSN is read from settings, so one set only in .env counts."""
         from vechnost_bot.config import settings
