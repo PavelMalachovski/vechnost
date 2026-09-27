@@ -11,6 +11,7 @@ from .models import (
     AnalyticsEvent,
     Certificate,
     CompatTest,
+    JobRun,
     Payment,
     Product,
     Room,
@@ -94,11 +95,22 @@ class UserRepository:
         await session.flush()
 
     @staticmethod
-    async def get_daily_card_recipients(session: AsyncSession) -> list[User]:
-        """All users who haven't opted out of the daily card."""
-        result = await session.execute(
-            select(User).where(User.daily_card_opt_out.is_(False))
-        )
+    async def get_daily_card_recipients(
+        session: AsyncSession, after: int | None = None, limit: int | None = None
+    ) -> list[User]:
+        """Users who haven't opted out of the daily card, by Telegram id.
+
+        In id order, so a run can go a page at a time (`limit`) and be
+        resumed after the last person it reached (`after`): the list is
+        read as the run goes, and somebody who opts out mid-run is skipped.
+        """
+        query = select(User).where(User.daily_card_opt_out.is_(False))
+        if after is not None:
+            query = query.where(User.telegram_user_id > after)
+        query = query.order_by(User.telegram_user_id)
+        if limit is not None:
+            query = query.limit(limit)
+        result = await session.execute(query)
         return list(result.scalars().all())
 
     @staticmethod
@@ -905,7 +917,10 @@ class Steps69Repository:
 
     @staticmethod
     async def stalled(
-        session: AsyncSession, idle_since: datetime, give_up_before: datetime
+        session: AsyncSession,
+        idle_since: datetime,
+        give_up_before: datetime,
+        after_id: int | None = None,
     ) -> list[Steps69Game]:
         """Games abandoned mid-board and not yet nudged about.
 
@@ -913,17 +928,20 @@ class Steps69Repository:
         pair who are playing right now, and `give_up_before` stops the job
         from resurrecting a game from two months ago that nobody meant to
         finish. A game that has never been rolled is not stalled, it was
-        never started.
+        never started. In id order, and past `after_id` when given, so a
+        nudge run taken over after a restart carries on after the last game
+        it reached.
         """
-        result = await session.execute(
-            select(Steps69Game).where(
-                Steps69Game.finished.is_(False),
-                (Steps69Game.creator_turns + Steps69Game.guest_turns) > 0,
-                Steps69Game.resume_notified_at.is_(None),
-                Steps69Game.updated_at < idle_since,
-                Steps69Game.updated_at > give_up_before,
-            )
+        query = select(Steps69Game).where(
+            Steps69Game.finished.is_(False),
+            (Steps69Game.creator_turns + Steps69Game.guest_turns) > 0,
+            Steps69Game.resume_notified_at.is_(None),
+            Steps69Game.updated_at < idle_since,
+            Steps69Game.updated_at > give_up_before,
         )
+        if after_id is not None:
+            query = query.where(Steps69Game.id > after_id)
+        result = await session.execute(query.order_by(Steps69Game.id))
         return list(result.scalars().all())
 
     @staticmethod
@@ -933,7 +951,9 @@ class Steps69Repository:
         """Record that a stalled-game nudge actually reached these games.
 
         Called after the sends, not before: a game flagged before anyone
-        was reached is a game whose pair never hears about it.
+        was reached is a game whose pair never hears about it. The nudge
+        marks each game the moment it is reached, so a run cut short is
+        resumed without messaging those pairs again.
 
         One UPDATE that sets `updated_at` to itself. Assigning the flag
         through the ORM fired the column's `onupdate`, so a nudge counted as
@@ -960,6 +980,14 @@ class RetentionRepository:
     alone deliberately: those are meant to be re-read months later, and that
     is the whole reason they have no TTL.
     """
+
+    @staticmethod
+    async def delete_old_job_runs(session: AsyncSession, before: datetime) -> int:
+        """Scheduled-job runs started before `before` (`jobs.KEEP`)."""
+        result = await session.execute(
+            delete(JobRun).where(JobRun.started_at < before)
+        )
+        return result.rowcount or 0
 
     @staticmethod
     async def delete_old_events(session: AsyncSession, before: datetime) -> int:

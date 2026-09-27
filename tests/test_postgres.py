@@ -260,6 +260,63 @@ def test_the_heartbeat_round_trips_on_postgres(pg_url: str) -> None:
     assert not healthy and checks["bot"] == "stale"
 
 
+def test_one_bot_of_many_claims_a_day_s_run_on_postgres(pg_url: str) -> None:
+    """A deploy's overlap at the daily card's slot: every bot asks at once,
+    one gets the run. The claim is one INSERT ... ON CONFLICT DO NOTHING,
+    and the takeover one UPDATE whose WHERE re-reads the lease under the
+    row lock - so of two bots finding a dead owner, one resumes the run."""
+    from datetime import date
+
+    from vechnost_bot import jobs
+
+    day = date(2026, 9, 27)
+
+    async def race() -> tuple[list[str], list[str]]:
+        await database.create_tables()
+        fresh = await asyncio.gather(*(
+            jobs.claim("daily_card", day, owner=f"bot{i}") for i in range(8)
+        ))
+        later = jobs.utcnow() + jobs.LEASE + timedelta(seconds=1)
+        takeover = await asyncio.gather(*(
+            jobs.claim("daily_card", day, owner=f"next{i}", now=later) for i in range(8)
+        ))
+        return [o for o, _ in fresh], [o for o, _ in takeover]
+
+    fresh, takeover = _run(pg_url, race)
+    assert sorted(fresh) == [jobs.BUSY] * 7 + [jobs.FRESH]
+    assert sorted(takeover) == [jobs.BUSY] * 7 + [jobs.RESUMED]
+
+
+def test_two_bots_send_the_daily_list_once_between_them_on_postgres(pg_url: str) -> None:
+    from datetime import date, time
+
+    from vechnost_bot import jobs
+
+    day = date(2026, 9, 27)
+    people = list(range(1, 41))
+    sent: list[int] = []
+
+    async def audience(bot, run: jobs.Run) -> None:
+        for person in people:
+            if run.cursor is not None and person <= run.cursor:
+                continue
+            run.check()
+            sent.append(person)
+            await run.advance(person, jobs.SENT)
+
+    job = jobs.DailyJob("daily_card", time(17), timedelta(hours=3), audience)
+
+    async def overlap() -> list[str]:
+        await database.create_tables()
+        return list(await asyncio.gather(
+            jobs.run_once(job, day, bot=None), jobs.run_once(job, day, bot=None),
+        ))
+
+    outcomes = _run(pg_url, overlap)
+    assert sorted(outcomes) == sorted([jobs.FINISHED, jobs.BUSY])
+    assert sorted(sent) == people
+
+
 def test_the_payment_columns_reach_an_existing_database_on_postgres(pg_url: str) -> None:
     """A database made before the event key, the purchase link and the
     revocation mark got them: the startup step adds the columns and their
@@ -432,6 +489,11 @@ def test_the_hot_queries_use_an_index_on_postgres(pg_url: str) -> None:
          {"idx_users_referred_by"}),
         ("resume nudge", lambda s: Steps69Repository.stalled(s, now, now),
          {"idx_steps69_unfinished_updated"}),
+        ("resume nudge, resumed", lambda s: Steps69Repository.stalled(s, now, now, after_id=7),
+         {"idx_steps69_unfinished_updated"}),
+        # The daily card, a page at a time after the last person reached.
+        ("daily card page", lambda s: UserRepository.get_daily_card_recipients(
+            s, after=1, limit=500), {"users_telegram_user_id_key"}),
         ("sweep: games", lambda s: RetentionRepository.delete_abandoned_games(s, now),
          {"idx_steps69_unfinished_updated"}),
         ("sweep: tests", lambda s: RetentionRepository.delete_abandoned_compat_tests(s, now),

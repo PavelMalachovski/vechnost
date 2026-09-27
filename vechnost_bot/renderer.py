@@ -2,6 +2,8 @@
 
 import logging
 import time
+from collections.abc import Callable
+from dataclasses import dataclass
 from functools import lru_cache
 from io import BytesIO
 from pathlib import Path
@@ -23,9 +25,26 @@ JPEG_QUALITY = 92
 TEXT_AREA_WIDTH = int(CARD_WIDTH * 0.76)   # comfortable measure, ~30-38 chars/line
 TEXT_AREA_HEIGHT = int(CARD_HEIGHT * 0.56)  # central band clear of corner marks
 
+# Where the corner marks sit on the deck faces once scaled to the card: the
+# top-left V with its suit and the bottom-right Λ with its suit, measured on
+# every face in assets/backgrounds and given a few pixels of air, as
+# (left, top, right, bottom). The central band above never reaches them. A
+# text too long for the band uses the height beside them instead, with the
+# lines that pass a mark narrowed to clear it (audit D-17: four long
+# «Провокация» cards ran over the suits). tests/test_card_layout.py holds
+# every card in the deck clear of these boxes, and the boxes over every face.
+CORNER_MARKS = ((102, 108, 204, 295), (876, 1055, 978, 1242))
+# Space kept between a line and a mark it passes beside.
+CORNER_CLEARANCE = 10
+# How high a long text may start: level with the top of the marks.
+TEXT_TOP_LIMIT = 108
+
 # Typography
 MAX_FONT_SIZE = 84
 MIN_FONT_SIZE = 44
+# The floor for the few texts too long for the central band even at
+# MIN_FONT_SIZE: still about 13 pt on a phone, which beats a line on a suit.
+LONG_TEXT_MIN_FONT_SIZE = 36
 LINE_SPACING = 1.32          # multiple of (ascent + descent)
 TEXT_COLOR = (53, 0, 39)     # dark maroon #350027, ~13:1 contrast on the pale pink
 FOOTER_COLOR = (122, 63, 100)  # muted plum, readable but secondary
@@ -171,16 +190,25 @@ def _break_long_word(word: str, font: ImageFont.FreeTypeFont, max_width: int) ->
 
 def _wrap_text(text: str, font: ImageFont.FreeTypeFont, max_width: int) -> list[str]:
     """Wrap text to fit within max_width, breaking overlong words with hyphens."""
+    return _wrap_lines(text, font, lambda _line: max_width)
+
+
+def _wrap_lines(text: str, font: ImageFont.FreeTypeFont,
+                width_of: Callable[[int], int]) -> list[str]:
+    """Wrap text with a width per line (`width_of(line index)`), breaking
+    overlong words with hyphens. The same greedy wrap as always; a line that
+    passes a corner mark simply gets less room."""
     lines: list[str] = []
     current_line: list[str] = []
 
     for word in text.split():
+        max_width = width_of(len(lines))
         if _text_width(word, font) > max_width:
             # Flush the current line, then split the long word across lines
             if current_line:
                 lines.append(' '.join(current_line))
                 current_line = []
-            pieces = _break_long_word(word, font, max_width)
+            pieces = _break_long_word(word, font, width_of(len(lines)))
             lines.extend(pieces[:-1])
             current_line = [pieces[-1]]
             continue
@@ -250,6 +278,122 @@ def _fit_text(text: str, max_width: int, max_height: int,
     return font, lines
 
 
+@dataclass(frozen=True)
+class TextLayout:
+    """Where a card's text goes: its font, its lines, the first line's top."""
+
+    font: ImageFont.FreeTypeFont
+    lines: list[str]
+    top: int
+    line_height: int
+
+    def line_boxes(self) -> list[tuple[float, float, float, float]]:
+        """Each line as drawn, centred: (left, top, right, bottom), where
+        top and bottom are the font's ascent and descent, not the spacing."""
+        ascent, descent = self.font.getmetrics()
+        boxes = []
+        for i, line in enumerate(self.lines):
+            width = _text_width(line, self.font)
+            left = (CARD_WIDTH - width) / 2
+            y = self.top + i * self.line_height
+            boxes.append((left, y, left + width, y + ascent + descent))
+        return boxes
+
+
+def _text_floor(has_footer: bool) -> int:
+    """The lowest a line may reach: above the footer when there is one."""
+    if has_footer:
+        return CARD_HEIGHT - FOOTER_BOTTOM_MARGIN - TEXT_FOOTER_GAP
+    return CARD_HEIGHT - TEXT_TOP_LIMIT
+
+
+def _centred_top(total_height: int, has_footer: bool) -> int:
+    """Centre the block on the card, but never under the footer."""
+    top = (CARD_HEIGHT - total_height) // 2
+    if has_footer:
+        top = max(0, min(top, _text_floor(True) - total_height))
+    return top
+
+
+def _width_beside_marks(top: float, bottom: float) -> int:
+    """How wide a centred line spanning [top, bottom) may be."""
+    width = TEXT_AREA_WIDTH
+    (tl_left, tl_top, tl_right, tl_bottom), (br_left, br_top, br_right, br_bottom) = CORNER_MARKS
+    centre = CARD_WIDTH / 2
+    if top < tl_bottom and bottom > tl_top:
+        width = min(width, int(2 * (centre - tl_right - CORNER_CLEARANCE)))
+    if top < br_bottom and bottom > br_top:
+        width = min(width, int(2 * (br_left - CORNER_CLEARANCE - centre)))
+    return width
+
+
+def _around_the_marks(text: str, font: ImageFont.FreeTypeFont,
+                      has_footer: bool) -> TextLayout | None:
+    """The card's full height, lines beside a corner mark narrowed to
+    clear it; None when the text does not fit even so.
+
+    Where the lines fall depends on how many there are (the block is
+    centred), and how many there are on how wide the lines beside the marks
+    may be, so each line count is tried in turn until one is consistent:
+    wrapped at the widths its own positions allow, and still that many
+    lines.
+    """
+    line_height = _line_height(font)
+    ascent, descent = font.getmetrics()
+    ink = ascent + descent
+    first = len(_wrap_text(text, font, TEXT_AREA_WIDTH))
+    for count in range(first, first + 8):
+        top = _centred_top(count * line_height, has_footer)
+
+        def width_of(i: int, _top: int = top) -> int:
+            y = _top + i * line_height
+            return _width_beside_marks(y, y + ink)
+
+        lines = _wrap_lines(text, font, width_of)
+        if len(lines) > count:
+            continue
+        layout = TextLayout(font, lines, _centred_top(len(lines) * line_height, has_footer),
+                            line_height)
+        boxes = layout.line_boxes()
+        if boxes[0][1] < TEXT_TOP_LIMIT or boxes[-1][3] > _text_floor(has_footer):
+            return None
+        # Fewer lines than planned moves the block; it must still clear.
+        if all(right - left <= _width_beside_marks(y0, y1) + 0.5
+               for left, y0, right, y1 in boxes):
+            return layout
+    return None
+
+
+def layout_text(text: str, font_path: str | None, *, has_footer: bool,
+                single_line: bool = False) -> TextLayout:
+    """Where `render_card` puts `text`.
+
+    The central band first, at the largest size that fits, exactly as
+    before: nearly every card is laid out here and looks as it always did.
+    A text too long for the band at MIN_FONT_SIZE gets the card's height
+    beside the corner marks, down to LONG_TEXT_MIN_FONT_SIZE, rather than
+    running tall over them.
+    """
+    font, lines = _fit_text(text, TEXT_AREA_WIDTH, TEXT_AREA_HEIGHT, font_path,
+                            single_line=single_line)
+    line_height = _line_height(font)
+    if single_line or len(lines) * line_height <= TEXT_AREA_HEIGHT:
+        return TextLayout(font, lines, _centred_top(len(lines) * line_height, has_footer),
+                          line_height)
+
+    for size in range(MIN_FONT_SIZE, LONG_TEXT_MIN_FONT_SIZE - 1, -2):
+        smaller = _load_font(size, font_path)
+        if smaller is None:
+            continue
+        layout = _around_the_marks(text, smaller, has_footer)
+        if layout is not None:
+            return layout
+
+    # Nothing fits: the last resort it has always been, running tall.
+    return TextLayout(font, lines, _centred_top(len(lines) * line_height, has_footer),
+                      line_height)
+
+
 @track_performance("render_card")
 def render_card(
     text: str,
@@ -284,24 +428,13 @@ def render_card(
         card = background.copy()
         draw = ImageDraw.Draw(card)
 
-        # Fit text into the central column, with a font that covers its alphabet
+        # Fit text clear of the corner marks, with a font that covers its
+        # alphabet, centred on the card but never under the footer
         font_path = _pick_font_path(text + (footer or "") + (watermark or ""))
-        font, lines = _fit_text(text, TEXT_AREA_WIDTH, TEXT_AREA_HEIGHT, font_path,
-                                single_line=single_line)
-        line_height = _line_height(font)
-        total_text_height = len(lines) * line_height
-
-        # Center the block vertically on the card, but never under the footer
-        start_y = (CARD_HEIGHT - total_text_height) // 2
-        if footer or watermark:
-            band_top = CARD_HEIGHT - FOOTER_BOTTOM_MARGIN - TEXT_FOOTER_GAP
-            start_y = max(0, min(start_y, band_top - total_text_height))
-
-        for i, line in enumerate(lines):
-            line_width = _text_width(line, font)
-            x = (CARD_WIDTH - line_width) / 2
-            y = start_y + i * line_height
-            draw.text((x, y), line, font=font, fill=TEXT_COLOR)
+        layout = layout_text(text, font_path, has_footer=bool(footer or watermark),
+                             single_line=single_line)
+        for line, (x, y, _, _) in zip(layout.lines, layout.line_boxes(), strict=True):
+            draw.text((x, y), line, font=layout.font, fill=TEXT_COLOR)
 
         # Footer: theme + progress, small and quiet, bottom center
         if footer:

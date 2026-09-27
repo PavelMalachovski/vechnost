@@ -430,9 +430,26 @@ class Settings(BaseSettings):
 settings = Settings()  # type: ignore[call-arg]
 
 
+# Connections to the Bot API. python-telegram-bot's default is one, with a
+# one-second wait for it: with updates handled side by side and a job
+# sending at the same time, a tap queued behind the daily push failed with
+# `Pool timeout` after a second, and the user saw nothing. The getUpdates
+# long poll has its own connection and is not counted here.
+BOT_API_CONNECTIONS = 64
+BOT_API_POOL_TIMEOUT = 10.0
+
+
 def create_bot() -> Bot:
-    """Create a Telegram bot instance."""
-    return Bot(token=settings.telegram_bot_token)
+    """The bot the application runs on, with a pool sized for concurrency."""
+    from telegram.request import HTTPXRequest
+
+    return Bot(
+        token=settings.telegram_bot_token,
+        request=HTTPXRequest(
+            connection_pool_size=BOT_API_CONNECTIONS,
+            pool_timeout=BOT_API_POOL_TIMEOUT,
+        ),
+    )
 
 
 def get_log_level() -> str:

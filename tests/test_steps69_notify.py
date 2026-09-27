@@ -193,3 +193,41 @@ async def test_a_nudge_is_not_activity(db):
         game = await Steps69Repository.get_by_code(session, "HHHHHH")
         assert game.resume_notified_at is not None
         assert game.updated_at == before
+
+
+async def test_a_nudge_run_cut_short_is_resumed_without_repeating_itself(db):
+    """Each game is flagged the moment somebody is reached, and the run's
+    cursor moves past it, so the process that picks the run up after a
+    crash neither messages that pair again nor retries today a pair the
+    first process could not reach."""
+    import asyncio
+
+    from vechnost_bot.jobs import Run
+
+    await _game("RUN00001", position=10, idle=IDLE_BEFORE_NUDGE * 2)
+    await _game("RUN00002", position=20, idle=IDLE_BEFORE_NUDGE * 2)
+    await _game("RUN00003", position=30, idle=IDLE_BEFORE_NUDGE * 2)
+    async with get_db() as session:
+        ids = [g.id for g in await Steps69Repository.stalled(
+            session, datetime.utcnow(), datetime.utcnow() - GIVE_UP_AFTER)]
+
+    bot = _bot()
+    # Game 1 reached; game 2's pair cannot be reached; the process dies on
+    # game 3's first message.
+    bot.send_message.side_effect = [
+        None, None, Forbidden("no chat"), Forbidden("no chat"), asyncio.CancelledError(),
+    ]
+    run = Run.detached_for("steps69_nudge")
+    try:
+        await nudge_stalled_games(bot, run)
+    except asyncio.CancelledError:
+        pass
+    assert run.cursor == ids[1]
+
+    bot.send_message.side_effect = None
+    bot.send_message.reset_mock()
+    resumed = Run.detached_for("steps69_nudge")
+    resumed.cursor = run.cursor
+    assert await nudge_stalled_games(bot, resumed) == 1
+    assert {c.kwargs["chat_id"] for c in bot.send_message.await_args_list} == {11, 22}
+    assert all("30" in c.kwargs["text"] for c in bot.send_message.await_args_list)
