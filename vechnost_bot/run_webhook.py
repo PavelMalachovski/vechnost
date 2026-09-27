@@ -1,69 +1,124 @@
 #!/usr/bin/env python3
-"""Start both webhook server and Telegram bot."""
+"""Run the web server and the Telegram bot side by side, as production does.
+
+Railway starts one process, `python -m vechnost_bot.run_webhook`, and this
+is it: the FastAPI app (Mini App, API, Tribute webhooks) and the bot run as
+two child processes under a small supervisor.
+
+- If either child dies, the supervisor stops the other and exits non-zero,
+  so the platform's restart policy brings the pair back together. Joining
+  them one after the other used to leave the deployment running half-alive:
+  a dead bot behind a healthy web server, invisibly.
+- On SIGTERM or SIGINT (a redeploy, a stop) it passes SIGTERM on and waits
+  for both to finish: uvicorn drains its requests, and the bot's
+  run_polling stops cleanly and confirms the updates it has handled. It used
+  to ignore SIGTERM - as PID 1 in a container nothing handled it - so the
+  platform killed both children mid-request at the end of its grace period,
+  and the bot handled its last updates a second time after the restart.
+
+The children are started with the "spawn" method and their targets live at
+module level, so the supervisor does not depend on `fork`, which newer
+Pythons no longer use by default.
+"""
+
+import multiprocessing
 import os
+import signal
 import sys
 import time
+from collections.abc import Callable, Sequence
+from typing import Any
 
-if __name__ == '__main__':
-    # Get port from environment or use 8000 as default
-    port = int(os.getenv('PORT', '8000'))
+# How long the children get to finish after SIGTERM before they are killed.
+STOP_TIMEOUT = 20.0
+# How often the supervisor looks at its children.
+POLL_INTERVAL = 0.5
+# The bot starts a moment after the web process, which creates the tables
+# first; both would otherwise run the startup steps at once on a fresh
+# database.
+BOT_START_DELAY = 3.0
 
-    print(f"[*] Starting webhook server on port {port}...")
+Child = tuple[str, Callable[..., Any], tuple[Any, ...]]
 
-    # Start webhook server in background
-    import multiprocessing
 
-    def run_webhook():
-        """Run webhook server."""
-        import uvicorn
-        uvicorn.run(
-            'vechnost_bot.payments.web:app',
-            host='0.0.0.0',
-            port=port,
-            log_level='info'
-        )
+def serve_web(port: int) -> None:
+    """The web process: FastAPI under uvicorn."""
+    import uvicorn
 
-    def run_bot():
-        """Run Telegram bot."""
-        print("[*] Starting Telegram bot...")
-        time.sleep(3)  # Wait for webhook server to start
-        from vechnost_bot import main
-        main.main()
+    uvicorn.run("vechnost_bot.payments.web:app", host="0.0.0.0", port=port, log_level="info")
 
-    # Start webhook server in separate process
-    webhook_process = multiprocessing.Process(target=run_webhook)
-    webhook_process.start()
 
-    # Start bot in separate process
-    bot_process = multiprocessing.Process(target=run_bot)
-    bot_process.start()
+def serve_bot() -> None:
+    """The bot process: long polling until SIGTERM."""
+    print("[*] Starting Telegram bot...", flush=True)
+    time.sleep(BOT_START_DELAY)
+    from vechnost_bot import main
 
-    print("[*] Both webhook server and bot are running!")
+    main.main()
 
-    # Supervise both children: if either dies, take the other down and exit
-    # non-zero so the platform's restart policy brings the pair back.
-    # Joining them one after the other used to leave the deployment running
-    # half-alive - a dead bot behind a healthy web server, invisibly.
-    try:
-        while True:
-            for process, name in (
-                (webhook_process, "webhook server"),
-                (bot_process, "bot"),
-            ):
-                if not process.is_alive():
-                    print(f"[!] The {name} died (exit code {process.exitcode}), stopping the other")
-                    for other in (webhook_process, bot_process):
-                        if other is not process and other.is_alive():
-                            other.terminate()
-                            other.join(timeout=10)
-                    sys.exit(process.exitcode or 1)
-            time.sleep(5)
-    except KeyboardInterrupt:
-        print("\n[*] Stopping services...")
-        webhook_process.terminate()
-        bot_process.terminate()
-        webhook_process.join()
-        bot_process.join()
-        print("[*] Services stopped")
-        sys.exit(0)
 
+def _stop(processes: Sequence[Any], timeout: float) -> None:
+    """SIGTERM every live process, then wait; kill whatever outlives `timeout`."""
+    for process in processes:
+        if process.is_alive():
+            process.terminate()
+    deadline = time.monotonic() + timeout
+    for process in processes:
+        process.join(max(0.0, deadline - time.monotonic()))
+        if process.is_alive():
+            print(f"[!] The {process.name} did not stop in time, killing it", flush=True)
+            process.kill()
+            process.join()
+
+
+def supervise(
+    children: Sequence[Child],
+    stop_timeout: float = STOP_TIMEOUT,
+    poll_interval: float = POLL_INTERVAL,
+) -> int:
+    """Start the children and watch them. Returns the exit code to leave with."""
+    stop_requested: list[int] = []
+
+    def request_stop(signum: int, _frame: object) -> None:
+        stop_requested.append(signum)
+
+    signal.signal(signal.SIGTERM, request_stop)
+    signal.signal(signal.SIGINT, request_stop)
+
+    context = multiprocessing.get_context("spawn")
+    processes = []
+    for name, target, args in children:
+        process = context.Process(target=target, args=args, name=name)
+        process.start()
+        processes.append(process)
+    print(f"[*] Running: {', '.join(p.name for p in processes)}", flush=True)
+
+    while True:
+        if stop_requested:
+            print(f"[*] Signal {stop_requested[0]} received, stopping services...", flush=True)
+            _stop(processes, stop_timeout)
+            print("[*] Services stopped", flush=True)
+            return 0
+        for process in processes:
+            if not process.is_alive():
+                print(
+                    f"[!] The {process.name} died (exit code {process.exitcode}), "
+                    "stopping the rest",
+                    flush=True,
+                )
+                _stop([p for p in processes if p is not process], stop_timeout)
+                return process.exitcode or 1
+        time.sleep(poll_interval)
+
+
+def main() -> int:
+    port = int(os.getenv("PORT", "8000"))
+    print(f"[*] Starting webhook server on port {port}...", flush=True)
+    return supervise([
+        ("webhook server", serve_web, (port,)),
+        ("bot", serve_bot, ()),
+    ])
+
+
+if __name__ == "__main__":
+    sys.exit(main())

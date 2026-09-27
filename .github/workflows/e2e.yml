@@ -72,12 +72,14 @@ jobs:
       with:
         python-version: '3.11'
         cache: pip
-        cache-dependency-path: pyproject.toml
+        cache-dependency-path: requirements-dev.lock
 
     - name: Install dependencies
       run: |
         python -m pip install --upgrade pip
-        pip install .[dev]
+        pip install --require-hashes --no-deps -r requirements-dev.lock
+        pip install --no-deps .
+        pip check
         mkdir -p "$E2E_REPORT_DIR"
 
     # Startup data steps, the access backfill, alembic end to end, and
@@ -148,12 +150,14 @@ jobs:
       with:
         python-version: '3.11'
         cache: pip
-        cache-dependency-path: pyproject.toml
+        cache-dependency-path: requirements-dev.lock
 
     - name: Install dependencies
       run: |
         python -m pip install --upgrade pip
-        pip install .[dev]
+        pip install --require-hashes --no-deps -r requirements-dev.lock
+        pip install --no-deps .
+        pip check
 
     # A few minutes on a pull request; about thirteen at night, or whatever
     # a manual run asks for. A failure prints the shortest sequence of steps
@@ -196,12 +200,14 @@ jobs:
       with:
         python-version: '3.11'
         cache: pip
-        cache-dependency-path: pyproject.toml
+        cache-dependency-path: requirements-dev.lock
 
     - name: Install dependencies and Chromium
       run: |
         python -m pip install --upgrade pip
-        pip install .[dev,e2e]
+        pip install --require-hashes --no-deps -r requirements-dev.lock
+        pip install --no-deps .
+        pip check
         python -m playwright install --with-deps chromium
         mkdir -p "$E2E_REPORT_DIR"
 

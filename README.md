@@ -61,7 +61,7 @@ inside a polished Telegram Mini App.
 | Card rendering | Pillow (Inter / Lora / Forum, Cyrillic-aware font fallback) |
 | Payments | [Tribute](https://tribute.to) webhooks |
 | Config | pydantic-settings |
-| Hosting | Railway (Nixpacks) |
+| Hosting | Railway, built from the repository's `Dockerfile` |
 
 ## Project layout
 
@@ -113,9 +113,13 @@ vechnost/
 git clone <repository-url>
 cd vechnost
 python -m pip install --upgrade pip
-pip install -e ".[dev]"
+pip install --require-hashes --no-deps -r requirements-dev.lock   # the versions CI and production run
+pip install --no-deps -e .
 cp env.example .env   # then edit .env (at minimum TELEGRAM_BOT_TOKEN)
 ```
+
+`pip install -e ".[dev]"` works too, but resolves today's versions rather
+than the locked ones.
 
 Run the **bot** (long polling):
 
@@ -131,8 +135,9 @@ python -m uvicorn vechnost_bot.payments.web:app --reload --port 8000
 
 The Mini App is then served at `http://localhost:8000/app/`, its deck
 content at `/api/questions`, and the Library at `/api/library`. In
-production `run_webhook.py` starts both the web server and the bot in one
-process (this is the Railway start command).
+production `python -m vechnost_bot.run_webhook` runs both, the web server and
+the bot, as two supervised child processes (this is the Railway start
+command).
 
 ## Configuration
 
@@ -227,12 +232,17 @@ the `redis` marker and fail only when Redis is absent.
 
 ## Deployment
 
-Deployed on **Railway** via Nixpacks. `railway.toml` sets the start command
-to `python -m vechnost_bot.run_webhook`, which runs the FastAPI web server
-(Mini App + Tribute webhooks) and the Telegram bot together. Database
-migrations live in `alembic/`; new columns are also created idempotently at
-startup so a fresh deploy works without a manual migration step. See
-[`docs/RAILWAY_DEPLOYMENT.md`](docs/RAILWAY_DEPLOYMENT.md) and
+Deployed on **Railway**, which builds the repository's `Dockerfile`
+(`railway.toml`). The image installs `requirements.lock` - exact versions,
+checked against their hashes - so nothing is resolved at deploy time, and CI
+builds and smokes the same image before a merge can reach production. Its
+command, `python -m vechnost_bot.run_webhook`, runs the FastAPI web server
+(Mini App + Tribute webhooks) and the Telegram bot together and stops both
+cleanly on SIGTERM. Database migrations live in `alembic/`; new columns are
+also created idempotently at startup so a fresh deploy works without a
+manual migration step. See
+[`docs/RAILWAY_DEPLOYMENT.md`](docs/RAILWAY_DEPLOYMENT.md),
+[`docs/CI_CD.md`](docs/CI_CD.md) and
 [`docs/PAYMENT_SETUP_GUIDE.md`](docs/PAYMENT_SETUP_GUIDE.md) for details.
 
 ## Roadmap
