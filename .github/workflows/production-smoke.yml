@@ -1,0 +1,60 @@
+name: Production smoke
+
+# Read-only checks of the deployed web process: scripts/smoke_production.py.
+# It creates nothing and posts nothing, so it is safe to point at production
+# as often as you like.
+#
+# Deliberately NOT on push. Railway's "Wait for CI" holds a deploy until
+# every workflow on the commit has finished, and this one waits for the
+# deploy: on push the two would wait for each other until this timed out and
+# failed - and a failed workflow makes Railway skip the deploy altogether.
+# So it runs when a deployment reports success (Railway posts GitHub
+# deployment statuses when the repo is connected), every three hours as
+# synthetic monitoring, and by hand.
+#
+# Set the repository variable PRODUCTION_URL (Settings -> Secrets and
+# variables -> Actions -> Variables), e.g. https://your-app.up.railway.app.
+# Without it the job is skipped.
+on:
+  deployment_status:
+  schedule:
+    - cron: "41 */3 * * *"
+  workflow_dispatch:
+    inputs:
+      expect_commit:
+        description: "Fail unless /health reports this commit (optional)"
+        default: ""
+
+permissions:
+  contents: read
+
+jobs:
+  smoke:
+    if: >-
+      vars.PRODUCTION_URL != '' &&
+      (github.event_name != 'deployment_status' ||
+       github.event.deployment_status.state == 'success')
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+    - uses: actions/checkout@v4
+
+    - uses: actions/setup-python@v5
+      with:
+        python-version: '3.11'
+
+    - name: Install httpx
+      run: pip install httpx
+
+    # After a deployment, wait (up to ten minutes) for /health to report the
+    # deployed commit, so the old process is never mistaken for the new one.
+    - name: Smoke production
+      env:
+        URL: ${{ vars.PRODUCTION_URL }}
+        EXPECT: ${{ github.event.deployment.sha || inputs.expect_commit }}
+      run: |
+        if [ -n "$EXPECT" ]; then
+          python scripts/smoke_production.py "$URL" --expect-commit "$EXPECT" --wait 600
+        else
+          python scripts/smoke_production.py "$URL"
+        fi
