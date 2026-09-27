@@ -162,3 +162,45 @@ def test_with_nothing_synced_both_paywalls_link_the_payment_page(shop):
     shop.portal.call(empty)
     assert bot_urls(shop) == [FALLBACK]
     assert paywall(shop)["payment_url"] == FALLBACK
+
+
+# ---------------------------------------------------------------------------
+# The gift, in the Mini App
+# ---------------------------------------------------------------------------
+
+def test_the_gift_is_offered_to_everyone_at_its_own_price(shop):
+    """The gift rides outside the unpaid branch: a couple who has paid is who
+    gives it most. Its price is the gift product's, never the access's."""
+    visitor = paywall(shop)
+    assert (visitor["gift_url"], visitor["gift_price"]) == (GIFT_LINK, "7,90 €")
+    assert visitor["payment_url"] != GIFT_LINK
+
+    with (
+        patch(
+            "vechnost_bot.payments.web.validate_init_data",
+            return_value={"user": {"id": 7, "first_name": "X"}},
+        ),
+        patch("vechnost_bot.payments.web.user_has_access", AsyncMock(return_value=True)),
+    ):
+        paid = shop.get("/api/questions", headers={"Authorization": "tma x"}).json()["access"]
+    assert paid["paid"] is True
+    assert (paid["gift_url"], paid["gift_price"]) == (GIFT_LINK, "7,90 €")
+
+
+def test_a_gift_page_without_a_synced_product_has_no_price(shop):
+    with (
+        patch.object(settings, "gift_product_id", "404"),
+        patch.object(settings, "gift_payment_url", FALLBACK + "/gift"),
+    ):
+        access = paywall(shop)
+    assert access["gift_url"] == FALLBACK + "/gift"
+    assert "gift_price" not in access
+
+
+def test_no_gift_configured_no_gift_offered(shop):
+    with (
+        patch.object(settings, "gift_product_id", None),
+        patch.object(settings, "gift_payment_url", None),
+    ):
+        access = paywall(shop)
+    assert "gift_url" not in access and "gift_price" not in access

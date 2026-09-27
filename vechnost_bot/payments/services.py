@@ -719,6 +719,9 @@ async def activate_certificate(
                     "status": "error",
                     "message": "Certificate already used",
                     "code": 409,
+                    # Used by the very person asking - a second tap, a code
+                    # typed again - is not somebody else's gift.
+                    "yours": certificate.used_by_telegram_user_id == telegram_user_id,
                 }
 
             # Ensure user exists with full information

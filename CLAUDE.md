@@ -450,6 +450,23 @@ python scripts/smoke_production.py $URL --deep  # ...and its database and bot he
   ignore. Five live codes were once committed in a review document; they
   are gone from the tree but not from the public history, so they must be
   treated as spent. The repository logs a certificate's id, never its code.
+- **A gift is sold where people are, and asked before it is spent.** The
+  Mini App offers it on the home screen and in the paywall whenever
+  `/api/questions` names a gift link (`access.gift_url`, with `gift_price`
+  when the gift product is synced; `gifts.gift_offer`). Both come for payers
+  too: a couple who has paid is who gives it most. The certificate arrives
+  as a message from the bot, so the gift sheet asks Telegram's
+  `requestWriteAccess` first whenever the bot cannot write to the buyer
+  yet: a gift paid for and never delivered is the worst way this goes. The
+  card's caption carries `t.me/<bot>?start=activate_<CODE>`
+  (`gifts.activation_link`), and that link, a printed voucher's QR too,
+  opens on a question, never an activation: the first person to open a
+  gift's link is usually its buyer, and a code activates once. The code
+  rides in the question's text, which «Активировать» reads back
+  (`handlers.activate_callback`), never in callback data, which the
+  callback registry logs. A second yes from the same person is «уже на
+  вашем аккаунте», not «уже использован» (`activate_certificate`'s 409
+  carries `yours`).
 - **Referral discounts are a second Tribute product, not a coupon.** Tribute
   owns the price, so `referrals.payment_url_for` only chooses which of two
   payment pages a user sees. With `REFERRAL_PAYMENT_URL` unset the codes are

@@ -30,6 +30,7 @@ from ..models import ContentType, Theme
 from ..renderer import get_background_path, render_card_bytes
 from .compat_api import router as compat_router
 from .database import close_db, get_db, init_db
+from .gifts import gift_offer
 from .grant_notify import notify_access_granted
 from .library_api import router as library_router
 from .repositories import UserRepository
@@ -467,6 +468,14 @@ async def get_questions(
         access["price"] = await get_price_label()
         if referred and referrals.discount_available():
             access["discount_percent"] = settings.referral_discount_percent
+
+    # The gift is offered to everyone: a couple who has paid is who gives it
+    # most, so it rides outside the unpaid branch above.
+    gift_url, gift_price = await gift_offer()
+    if gift_url:
+        access["gift_url"] = gift_url
+        if gift_price:
+            access["gift_price"] = gift_price
 
     bot_url = f"https://t.me/{settings.bot_username}" if settings.bot_username else None
 

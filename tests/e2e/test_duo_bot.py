@@ -205,13 +205,39 @@ def test_a_gift_bought_by_one_user_unlocks_the_other(server: Server, bot) -> Non
     code = GIFT_CODE.search(card.text).group(0)
     assert paid(alice) is False, "a gift is a certificate to hand on, not the buyer's access"
 
-    bot.send(bob, f"/activate {code}")
+    # The card carries the link to forward; opening it asks, never spends.
+    assert f"?start=activate_{code}" in card.text
+
+    def question_to(player):
+        [asked] = [s for s in server.telegram.to(player.id)[-1:]
+                   if {b.get("callback_data") for b in s.buttons()} == {"gift_activate", "gift_later"}]
+        assert code in asked.text and code not in str(asked.markup)
+        return asked
+
+    # The buyer checks the link first: asked, and «Не сейчас» spends nothing.
+    bot.send(alice, f"/start activate_{code}")
+    bot.press(alice, question_to(alice), "gift_later")
+    assert paid(alice) is False
+
+    # The couple it was bought for open the same link and say yes.
+    bot.send(bob, f"/start activate_{code}")
+    asked = question_to(bob)
+    bot.press(bob, asked, "gift_activate")
     assert paid(bob) is True
     assert get_text("certificate.activated") in server.telegram.texts_to(bob.id)
+    # A second tap is not somebody else's gift.
+    bot.press(bob, asked, "gift_activate")
+    assert get_text("certificate.already_yours") in server.telegram.texts_to(bob.id)
 
+    # The buyer, too late: the code is spent, and on someone else.
     bot.send(alice, f"/start activate_{code}")
+    bot.press(alice, question_to(alice), "gift_activate")
     assert get_text("certificate.already_used") in server.telegram.texts_to(alice.id)
     assert paid(alice) is False
+
+    # Typing the code still works, and says the same.
+    bot.send(alice, f"/activate {code}")
+    assert server.telegram.texts_to(alice.id)[-1] == get_text("certificate.already_used")
 
 
 def test_a_refunded_gift_is_taken_back_from_whoever_redeemed_it(server: Server, bot) -> None:
