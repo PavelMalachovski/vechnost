@@ -29,9 +29,6 @@ dependencies = [
     "structlog>=23.0.0",
     "sentry-sdk>=1.40.0",
     "babel>=2.12.0",
-    "pycountry>=22.3.0",
-    "aiofiles>=23.0.0",
-    "aiohttp>=3.8.0",
     "redis>=5.0.0",
     # The asyncio extra is what brings greenlet, and the async engine cannot
     # import without it. SQLAlchemy 2.0 installed greenlet unasked; 2.1 moved
@@ -55,6 +52,8 @@ dev = [
     # The suite runs in parallel by default (see addopts); -p no:xdist turns
     # that off for a run where the output order matters.
     "pytest-xdist>=3.5.0",
+    # Coverage in CI, with a floor that only rises (see ci.yml).
+    "pytest-cov>=5.0",
     "ruff>=0.1.0",
     "mypy>=1.0.0",
     "types-PyYAML>=6.0.0",
@@ -121,6 +120,48 @@ warn_no_return = true
 warn_unreachable = true
 strict_equality = true
 
+# Dead code (vulture) and undeclared or unused dependencies (deptry), both
+# advisory in CI: a module or a function nothing calls is a trap (CLAUDE.md),
+# and a dependency nothing imports is an install that can break a build.
+# vulture cannot see what a framework calls by name, so those are listed.
+[tool.vulture]
+paths = ["vechnost_bot", "scripts"]
+min_confidence = 60
+ignore_decorators = [
+    "@app.*",                               # FastAPI routes, middleware, handlers
+    "@router.*",
+    "@field_validator",                     # pydantic validators
+    "@model_validator",
+    "@event.listens_for",                   # SQLAlchemy event hooks
+]
+ignore_names = [
+    "model_config",                         # pydantic settings
+    "impl", "cache_ok",                     # SQLAlchemy TypeDecorator
+    "process_bind_param", "process_result_value",
+    "authorized",                           # a FastAPI dependency's result
+    # python-telegram-bot's BaseUpdateProcessor calls these (bot.py).
+    "do_process_update", "initialize", "shutdown",
+    # Content models, filled from YAML and serialised into the API's JSON:
+    "raw_data", "framing", "strengths_fallback", "recommendation",
+    "critical_blocks", "why", "art", "tips", "lead", "intro", "outro",
+    "subtitle",
+    # The tests' way in: dropping the schema, and the board's portals.
+    "drop_tables", "portals", "ladders", "snakes",
+    "isolation_level",                      # set on the SQLite driver's connection
+]
+
+[tool.deptry]
+known_first_party = ["vechnost_bot"]
+optional_dependencies_dev_groups = ["dev", "e2e"]
+
+[tool.deptry.per_rule_ignores]
+# The database drivers SQLAlchemy loads by the name in the URL: asyncpg and
+# aiosqlite for the app, psycopg2 for alembic (alembic/env.py). Nothing
+# imports them by name.
+DEP002 = ["asyncpg", "aiosqlite", "psycopg2-binary"]
+# FastAPI is built on Starlette and pins it; web.py takes one type from it.
+DEP003 = ["starlette"]
+
 [tool.pytest.ini_options]
 # The suite runs across every core by default. `--dist load` hands out
 # individual tests rather than whole files, which is what keeps the wall
@@ -136,12 +177,9 @@ python_files = ["test_*.py"]
 python_classes = ["Test*"]
 python_functions = ["test_*"]
 markers = [
-    "unit: Unit tests",
-    "integration: Integration tests",
-    "performance: Performance tests",
-    "slow: Slow running tests",
+    "integration: A flow through the real handlers, several steps long",
+    "slow: Takes seconds by design (real subprocesses, the fuzzer); -m 'not slow' skips them",
     "redis: Tests requiring Redis",
-    "telegram: Tests requiring Telegram API",
     "e2e: Two-user scenarios in tests/e2e (in-process by default, live with E2E_BASE_URL)",
     "inprocess_only: Needs the in-process server (fake Telegram, the bot); skipped against a live one",
     "live_only: Needs a live server over real HTTP (E2E_BASE_URL); skipped in-process",
@@ -150,7 +188,45 @@ markers = [
     "postgres: Needs a PostgreSQL server (POSTGRES_TEST_URL); skipped with a reason without one",
 ]
 filterwarnings = [
+    # A dependency's deprecations are its own to fix, and the nightly
+    # "Today's PyPI, unpinned" run is where they turn into breakage first.
     "ignore::DeprecationWarning",
     "ignore::PendingDeprecationWarning",
     "ignore::UserWarning:pydantic.*",
+    # A deprecation raised in our own code is ours, and an error: it names
+    # a call that stops working on the next upgrade (Result.tuples() did).
+    "error::DeprecationWarning:vechnost_bot",
+    "error::PendingDeprecationWarning:vechnost_bot",
+    # A coroutine nobody awaited, or a thread that died with an exception
+    # (an aiosqlite connection outliving its event loop), is a bug.
+    "error::RuntimeWarning",
+    "error::pytest.PytestUnhandledThreadExceptionWarning",
+    "error::pytest.PytestUnraisableExceptionWarning",
+]
+
+[tool.coverage.run]
+source = ["vechnost_bot"]
+branch = true
+# The API handlers reach the database through SQLAlchemy's async bridge,
+# which runs each call in a greenlet, and TestClient serves every request on
+# a thread of its own. Without both, coverage loses those frames and reports
+# the API modules 30-38 points lower than they are.
+concurrency = ["thread", "greenlet"]
+# The supervisor production starts (run_webhook.py) is tested by running it
+# in a subprocess, which coverage sees only with this: 29 % without, 93 % with.
+patch = ["subprocess"]
+relative_files = true
+
+[tool.coverage.paths]
+# CI installs the package as well; a subprocess that imports that copy
+# counts for the checkout.
+source = ["vechnost_bot", "*/site-packages/vechnost_bot"]
+
+[tool.coverage.report]
+precision = 1
+show_missing = true
+skip_covered = true
+exclude_also = [
+    "if TYPE_CHECKING:",
+    "if __name__ == .__main__.:",
 ]

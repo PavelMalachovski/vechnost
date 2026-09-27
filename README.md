@@ -15,12 +15,13 @@ inside a polished Telegram Mini App.
   very PNGs the bot composites onto, served from `/assets`.
 - **Four decks.** Acquaintance ♥, For Couples ♠, Sex ♣ (18+), Provocation ♦ —
   310 questions/tasks, with 3 progressive levels on the couple-facing decks.
-- **Library.** Six modules listed on the Mini App's home screen and read as
-  decks of cards: 150 date ideas in 8 categories, the 36 questions to fall in
-  love, 25 practices for couples and 25 for yourself, and a year of
-  self-reflection prompts. The nude photography masterclass is the exception,
-  read as a document: five numbered steps from light to safety, each item a
-  schematic drawing beside the words and the tips underneath.
+- **Library.** Six modules. Five are read as decks of cards, one tap behind
+  «Практики» on the Mini App's home screen: 150 date ideas in 8 categories,
+  the 36 questions to fall in love, 25 practices for couples and 25 for
+  yourself, and a year of self-reflection prompts. The nude photography
+  masterclass sits on the home screen itself and is read as a document: five
+  numbered steps from light to safety, each item a schematic drawing beside
+  the words and the tips underneath.
 - **Referrals.** `/invite` hands a user a link. Whoever opens the bot through
   it is sent to a discounted Tribute product when the paywall comes up.
 - **Russian.** UI and content are Russian throughout, in both front-ends.
@@ -45,7 +46,7 @@ inside a polished Telegram Mini App.
   partner gets the one line written for them.
 - **Compatibility test.** Forty questions across eight areas, taken separately
   by both partners and compared. The result names the areas where they are a
-  team, the two worth talking about, and the exact questions they answered
+  team, the ones worth talking about, and the exact questions they answered
   differently — without showing either partner the other's answers. A push
   tells both partners the moment the result is ready.
 
@@ -58,7 +59,7 @@ inside a polished Telegram Mini App.
 | Web / Mini App API | FastAPI + Uvicorn |
 | Data | SQLAlchemy 2 (async) — SQLite locally, PostgreSQL in production; Alembic migrations |
 | Bot sessions | In the bot process's memory (expiring, bounded); Redis when `REDIS_URL` is set |
-| Card rendering | Pillow (Inter / Lora / Forum, Cyrillic-aware font fallback) |
+| Card rendering | Pillow: Inter with a DejaVu fallback per string; the Lora and Forum brand letters are printed into the backgrounds by `scripts/generate_card_assets.py` |
 | Payments | [Tribute](https://tribute.to) webhooks |
 | Config | pydantic-settings |
 | Hosting | Railway, built from the repository's `Dockerfile` |
@@ -103,8 +104,10 @@ vechnost/
 │                          #   library.png and card_back.png are generated
 │                          #   by scripts/generate_card_assets.py
 ├── alembic/               # Database migrations
+├── scripts/               # Admin and development scripts (scripts/README.md)
 ├── tests/                 # pytest suite
-└── docs/                  # Detailed setup/ops guides
+└── docs/                  # Deployment, CI, payments, environment variables;
+                           #   docs/archive/ holds older notes, not maintained
 ```
 
 ## Quick start (local)
@@ -149,8 +152,10 @@ as well. `LOG_LEVEL=DEBUG` adds the per-tap metrics.
 
 ## Configuration
 
-All settings are read from environment variables (or `.env`). See
-`env.example` for the full list; the essentials:
+All settings are read from environment variables (or `.env`).
+[`docs/ENVIRONMENT_VARIABLES.md`](docs/ENVIRONMENT_VARIABLES.md) lists every
+one, generated from the code, and `env.example` is a starting `.env`. The
+essentials:
 
 | Variable | Purpose |
 |----------|---------|
@@ -232,6 +237,8 @@ Nothing is sent without `--confirm`. Either way a user who has blocked the
 bot is counted as blocked and opted out of the daily push, since that is the
 same signal, and Telegram's own `retry_after` is honoured rather than raced.
 
+## Payments
+
 **Webhooks are signed with `TRIBUTE_API_KEY`.** Tribute sends every event
 with an HMAC-SHA256 of the body in the `trbt-signature` header, keyed by the
 account's API key; there is no separate webhook secret on their side. With
@@ -245,21 +252,26 @@ it (they retry for about a day) is judged on its own.
 
 What an event does is a table in `payments/tribute_event.py`:
 `new_digital_product`, `new_subscription` and `renewed_subscription` grant
-access, a cancellation, refund or chargeback revokes it, and any other
-event is acknowledged and changes nothing. Access itself is a row in
+access; a cancellation keeps it until the end of the period already paid
+for; a refund or a chargeback revokes it at once; any other event is
+acknowledged and changes nothing. Access itself is a row in
 `subscriptions`; a `payments` row is a journal entry and never counts on
-its own.
+its own. Setting Tribute up, and what to check when a payment did not turn
+into access: [`docs/PAYMENT_SETUP_GUIDE.md`](docs/PAYMENT_SETUP_GUIDE.md).
 
 ## Testing
 
 ```bash
-pytest                    # full suite, across every core (~10s)
+pytest                    # full suite, across every core (~30s)
 pytest -n0                # serially, for a debugger or readable output
+pytest --cov              # with coverage, as CI measures it
 pytest tests/test_freemium.py tests/test_webapp_auth.py   # focused
 ```
 
 Some suites need a local Redis on `localhost:6379`; those are marked with
 the `redis` marker and are skipped, with a reason, when nothing listens there.
+CI also holds coverage to a floor that only rises and the package's type
+errors to `.mypy-baseline`; [`docs/CI_CD.md`](docs/CI_CD.md) says how.
 
 ## Deployment
 
@@ -278,22 +290,16 @@ manual migration step. See
 
 ## Roadmap
 
-Recently shipped: freemium funnel, branded card sharing, gift certificates,
-Mini App content-API protection, couple mode (`payments/rooms.py`), the
-Library — date ideas, the 36 questions, practices, and a daily
-self-reflection question that replaced the old "card of the day" push — the
-compatibility test (`compat.py`, `payments/compat_api.py`): 40 questions
-across 8 areas, answered separately by both partners, compared, and pushed
-to both the moment the result is ready — and a single card identity: one
-Cyrillic type family (Inter, Lora, Forum), the same printed card art in the
-bot and the Mini App, the Library read as a deck, and Russian as the only
-language.
+Shipped: the freemium funnel, branded card sharing, gift certificates, couple
+mode (`payments/rooms.py`), the Library (date ideas, the 36 questions,
+practices and a daily self-reflection question), the compatibility test
+(`compat.py`), «69 ступеней» (`steps69.py`), the nude-photography
+masterclass (a `guide` module with generated pose drawings), a single card
+identity shared by the bot and the Mini App, and funnel analytics (`/stats`).
 
-Not started: the "Territory of Temptation" 18+ board game (69 steps, dice,
-spoilers), and a nude-photography masterclass (blocked on pose illustrations
-that don't exist yet). Each has its own design spec under
-`docs/superpowers/specs/` and is expected to reuse the `rooms.py`
-two-partner pattern.
+What is open - the bot's job scheduling, the Mini App's design tokens and
+accessibility, and the rest of the technical backlog - is tracked in
+[`docs/AUDIT_2026-09.md`](docs/AUDIT_2026-09.md), section 3.
 
 ## License
 

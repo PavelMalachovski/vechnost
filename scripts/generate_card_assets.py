@@ -14,6 +14,7 @@ PNGs are committed.
     python scripts/generate_card_assets.py
 """
 
+import argparse
 from collections import deque
 from pathlib import Path
 
@@ -299,6 +300,11 @@ def build_suit_emblems() -> dict[str, Image.Image]:
 
 
 def main() -> None:
+    argparse.ArgumentParser(
+        description=__doc__.split("\n\n")[0],
+        epilog="Rewrites assets/backgrounds/library.png, card_back.png and "
+               "assets/suits/*.png; commit them with the change that needed them.",
+    ).parse_args()
     build_library_card().save(BG / "library.png")
     build_card_back().save(BG / "card_back.png")
     SUITS_DIR.mkdir(parents=True, exist_ok=True)

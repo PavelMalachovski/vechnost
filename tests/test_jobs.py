@@ -200,8 +200,8 @@ async def test_a_bot_that_was_down_at_the_slot_still_sends_and_only_once(db):
 
 async def test_a_second_bot_finds_the_run_taken_and_sends_nothing(db):
     """A deploy's overlap, one step at a time (the real race, both bots at
-    once, runs on PostgreSQL in tests/test_postgres.py: SQLite here shares
-    one connection between sessions and cannot hold two at once)."""
+    once, runs on PostgreSQL in tests/test_postgres.py: a SQLite file takes
+    one writer at a time, so the two never meet here)."""
     _, first = await claim("daily_card", DAY, owner="old bot")
     await first.advance(1, SENT)
 

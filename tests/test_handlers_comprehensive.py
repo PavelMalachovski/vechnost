@@ -188,6 +188,36 @@ class TestCallbackHandlers:
 
         mock_registry.handle_callback.assert_not_awaited()
 
+    @pytest.mark.asyncio
+    async def test_a_query_without_data_is_answered_and_dropped(
+        self, mock_update, mock_context
+    ):
+        """Telegram allows a callback query with no data at all; the spinner
+        still has to stop, and there is nothing to dispatch."""
+        mock_update.callback_query.data = None
+        with patch(
+            'vechnost_bot.callback_handlers.callback_registry'
+        ) as mock_registry:
+            mock_registry.handle_callback = AsyncMock()
+
+            await handle_callback_query(mock_update, mock_context)
+
+        mock_update.callback_query.answer.assert_awaited_once()
+        mock_registry.handle_callback.assert_not_awaited()
+
+    @pytest.mark.asyncio
+    async def test_an_update_without_a_query_is_ignored(self, mock_context):
+        update = MagicMock(spec=Update)
+        update.callback_query = None
+        with patch(
+            'vechnost_bot.callback_handlers.callback_registry'
+        ) as mock_registry:
+            mock_registry.handle_callback = AsyncMock()
+
+            await handle_callback_query(update, mock_context)
+
+        mock_registry.handle_callback.assert_not_awaited()
+
 
 # NSFW and Reset handlers are now in callback_handlers.py
 

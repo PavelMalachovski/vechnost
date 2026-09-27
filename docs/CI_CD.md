@@ -18,7 +18,7 @@ every 3 h ──► Production smoke (read-only)
 
 | Workflow | Runs on | Jobs | What a red job means |
 |---|---|---|---|
-| `ci.yml` | PR, push to master, nightly, manual | `lint` (ruff, typed domain layer, mypy and pip-audit advisory), `test` (the whole suite with Redis, ~20 s), `install-smoke` (the `Dockerfile` Railway builds: every module imported inside the image, the web process served from it and smoked), `upstream` (nightly only: the suite on today's PyPI, unpinned) | Code, types or a dependency are broken. A red `upstream` with every other job green is a release upstream that the lock keeps away from production (this is how the SQLAlchemy 2.1 break is now caught). |
+| `ci.yml` | PR, push to master, nightly, manual | `lint` (ruff; the typed domain layer; the rest of the package against `.mypy-baseline`; advisory: `ruff format`, vulture, deptry, and pip-audit on both locks, which fails only at night), `test` (the whole suite with Redis and coverage, red below the floor; on a PR, the coverage of the changed lines in the job summary), `install-smoke` (the `Dockerfile` Railway builds: every module imported inside the image, the web process served from it and smoked), `upstream` (nightly only: the suite on today's PyPI, unpinned) | Code, types or a dependency are broken, or coverage fell below the floor. A red `upstream` with every other job green is a release upstream that the lock keeps away from production (this is how the SQLAlchemy 2.1 break is now caught). |
 | `e2e.yml` | PR, push to master, nightly, manual | `postgres` (PostgreSQL-only tests, then the two-user suite in-process and over real HTTP against a live server, with the race tests and the production smoke), `fuzz` (three users doing anything; 120×80 on a PR, 400×100 at night), `browser`, one job per phone (two Androids in Chromium, two iPhones in WebKit: every scenario through a room, the test and the board, the paywall, Back and real touch; on a PR and at night also every screen at four sizes and the UI fuzzer, 3×25 steps on a PR and 3×3×100 at night) | Something two people do together is broken. The log has the two-user transcript, the fuzzer's shrunk reproduction or the UI fuzzer's seed and steps, or screenshots, the contact sheet of every screen and traces in the job's artifacts. |
 | `production-smoke.yml` | a successful deployment, every 3 hours, manual | `smoke`: `scripts/smoke_production.py` against `PRODUCTION_URL` | Production is down, is not the commit that was deployed, lost a content API, or answers anonymous callers where it should refuse them. |
 
@@ -66,6 +66,33 @@ on push. When it runs for a deployment it first waits, up to ten minutes,
 for `/health` to report the deployed commit (`RAILWAY_GIT_COMMIT_SHA`), so
 it never tests the old process by mistake.
 
+## Two ratchets
+
+Both only move one way, and both say what to do when they stop a pull
+request.
+
+- **Coverage.** `test` fails below `--cov-fail-under` in `ci.yml`: the total
+  it measured, rounded down (88 % on 2026-09-27, measured 88.6 %). Raise the
+  number when a change raises the total; a change that would lower it adds
+  the missing test instead. `[tool.coverage]` in `pyproject.toml` follows
+  greenlets, threads and subprocesses, without which the API modules and
+  `run_webhook.py` read far lower than they are.
+- **Types.** `scripts/typecheck.sh` holds the domain layer to the strict
+  settings. Everything else is held to `.mypy-baseline`, the errors mypy
+  reported when the ratchet was set: `scripts/mypy_ratchet.py` fails on an
+  error that is not listed, and on a listed one that has been fixed, so the
+  file only shrinks (`python scripts/mypy_ratchet.py --update`, committed
+  with the fix).
+
+`pip-audit` is deliberately not a ratchet. An advisory is published against
+a pinned version without any commit of ours, and a blocking audit would hold
+every merge and, through "Wait for CI", every deploy until upstream ships a
+fix. It is advisory on pull requests and pushes and fails the nightly run,
+which turns a new advisory into the `ci-nightly` issue.
+
+The actions the workflows use are on their Node 24 majors, and Dependabot
+(`.github/dependabot.yml`) proposes updates to them once a week.
+
 ## Dependencies are locked
 
 Every job except `upstream` installs `requirements-dev.lock` (development)
@@ -78,8 +105,8 @@ a dependency and regenerate the locks: [`RAILWAY_DEPLOYMENT.md`](RAILWAY_DEPLOYM
 
 ```bash
 pip install --require-hashes --no-deps -r requirements-dev.lock && pip install --no-deps -e .
-pytest                                              # what `test` runs
-ruff check . && ./scripts/typecheck.sh              # what `lint` gates on
+pytest --cov                                        # what `test` runs
+ruff check . && ./scripts/typecheck.sh && python scripts/mypy_ratchet.py   # what `lint` gates on
 pytest tests/e2e -n0                                # the two-user suite, in-process
 E2E_BROWSER=1 pytest tests/e2e/browser -n0          # two phones of each model (needs .[e2e],
                                                     # Chromium and WebKit; E2E_PHONES=android for one)

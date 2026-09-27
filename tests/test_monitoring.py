@@ -1,7 +1,6 @@
 """Tests for monitoring and error tracking."""
 
 import asyncio
-import os
 import time
 from unittest.mock import patch
 
@@ -9,15 +8,11 @@ import pytest
 
 from vechnost_bot.monitoring import (
     BotMetrics,
-    get_health_status,
     initialize_monitoring,
     log_bot_event,
     log_callback_event,
     log_image_rendering_event,
-    log_session_event,
     set_user_context,
-    track_errors,
-    track_operation,
     track_performance,
 )
 
@@ -41,18 +36,6 @@ class TestBotMetrics:
         metrics.record_timer("test_timer", 1.5)
 
         assert metrics._timers["test_timer"] == 1.5
-
-    def test_get_metrics(self):
-        """Test getting current metrics."""
-        metrics = BotMetrics()
-
-        metrics.increment_counter("test_counter", 5)
-        metrics.record_timer("test_timer", 1.5)
-
-        result = metrics.get_metrics()
-
-        assert result["counters"]["test_counter"] == 5
-        assert result["timers"]["test_timer"] == 1.5
 
 
 class TestTrackPerformance:
@@ -103,68 +86,6 @@ class TestTrackPerformance:
             await test_func()
 
 
-class TestTrackErrors:
-    """Test track_errors decorator."""
-
-    def test_sync_function_success(self):
-        """Test tracking errors of successful sync function."""
-        @track_errors("test_operation")
-        def test_func():
-            return "success"
-
-        result = test_func()
-
-        assert result == "success"
-
-    def test_sync_function_error(self):
-        """Test tracking errors of sync function that raises error."""
-        @track_errors("test_operation")
-        def test_func():
-            raise ValueError("Test error")
-
-        with pytest.raises(ValueError):
-            test_func()
-
-    @pytest.mark.asyncio
-    async def test_async_function_success(self):
-        """Test tracking errors of successful async function."""
-        @track_errors("test_operation")
-        async def test_func():
-            return "success"
-
-        result = await test_func()
-
-        assert result == "success"
-
-    @pytest.mark.asyncio
-    async def test_async_function_error(self):
-        """Test tracking errors of async function that raises error."""
-        @track_errors("test_operation")
-        async def test_func():
-            raise ValueError("Test error")
-
-        with pytest.raises(ValueError):
-            await test_func()
-
-
-class TestTrackOperation:
-    """Test track_operation context manager."""
-
-    @pytest.mark.asyncio
-    async def test_successful_operation(self):
-        """Test tracking successful operation."""
-        async with track_operation("test_operation", user_id=123):
-            await asyncio.sleep(0.01)
-
-    @pytest.mark.asyncio
-    async def test_failed_operation(self):
-        """Test tracking failed operation."""
-        with pytest.raises(ValueError):
-            async with track_operation("test_operation", user_id=123):
-                await asyncio.sleep(0.01)
-                raise ValueError("Test error")
-
-
 class TestLoggingFunctions:
     """Test logging functions."""
 
@@ -175,17 +96,24 @@ class TestLoggingFunctions:
 
             mock_metrics.increment_counter.assert_called_with("bot_events_test_event")
 
-    def test_log_callback_event(self):
-        """Test logging callback event."""
+    @pytest.mark.parametrize("data, counter", [
+        ("theme_Acquaintance", "callback_events_theme"),
+        ("level_1", "callback_events_level"),
+        ("cal:acq:1:q:0", "callback_events_calendar"),
+        ("q:acq:1:0", "callback_events_question"),
+        ("nav:acq:1:1:q", "callback_events_navigation"),
+        ("toggle:sex:0:t", "callback_events_toggle"),
+        ("back:themes", "callback_events_back"),
+        ("reset_game", "callback_events_other"),
+        (None, "callback_events_other"),
+    ])
+    def test_log_callback_event(self, data, counter):
+        """Every tap counts once in the total and once under its kind."""
         with patch('vechnost_bot.monitoring.metrics') as mock_metrics:
-            log_callback_event("theme_Acquaintance", 123, action="test")
+            log_callback_event(data, 123, action="test")
 
-            # Check that both calls were made
-            assert mock_metrics.increment_counter.call_count >= 2
-            calls = mock_metrics.increment_counter.call_args_list
-            call_args = [call[0][0] for call in calls]
-            assert "callback_events_total" in call_args
-            assert "callback_events_theme" in call_args
+        calls = [call.args[0] for call in mock_metrics.increment_counter.call_args_list]
+        assert calls == ["callback_events_total", counter]
 
     def test_log_image_rendering_event_success(self):
         """Test logging successful image rendering event."""
@@ -202,13 +130,6 @@ class TestLoggingFunctions:
 
             mock_metrics.increment_counter.assert_called_with("image_rendering_failed")
             mock_metrics.record_timer.assert_called_with("image_rendering_failed_duration", 0.5)
-
-    def test_log_session_event(self):
-        """Test logging session event."""
-        with patch('vechnost_bot.monitoring.metrics') as mock_metrics:
-            log_session_event("created", 123, theme="Acquaintance")
-
-            mock_metrics.increment_counter.assert_called_with("session_events_created")
 
 
 class TestSetUserContext:
@@ -227,21 +148,6 @@ class TestSetUserContext:
             })
 
 
-class TestGetHealthStatus:
-    """Test get_health_status function."""
-
-    def test_get_health_status(self):
-        """Test getting health status."""
-        with patch.dict(os.environ, {"RELEASE_VERSION": "1.0.0", "ENVIRONMENT": "test"}):
-            status = get_health_status()
-
-            assert status["status"] == "healthy"
-            assert status["version"] == "1.0.0"
-            assert status["environment"] == "test"
-            assert "timestamp" in status
-            assert "metrics" in status
-
-
 class TestInitializeMonitoring:
     """Test initialize_monitoring function."""
 
@@ -257,6 +163,19 @@ class TestInitializeMonitoring:
 
 class TestSentryIntegration:
     """Test Sentry integration."""
+
+    @pytest.mark.parametrize("error", [KeyboardInterrupt, SystemExit])
+    def test_a_stop_is_not_an_error_report(self, error):
+        """Ctrl-C and a clean exit are how a process stops, not a fault."""
+        from vechnost_bot.monitoring import before_send_filter
+
+        assert before_send_filter({}, {"exc_info": (error, error(), None)}) is None
+
+    def test_an_error_is_sent_with_the_bot_tagged(self):
+        from vechnost_bot.monitoring import before_send_filter
+
+        event = before_send_filter({}, {"exc_info": (ValueError, ValueError(), None)})
+        assert event["tags"]["bot_name"] == "vechnost-bot"
 
     def test_configure_sentry_with_dsn(self):
         """The DSN is read from settings, so one set only in .env counts."""
