@@ -23,19 +23,22 @@ This document describes all environment variables used by the Vechnost Telegram 
 | `CHAT_ID` | Optional chat ID for notifications | None | `123456789` |
 | `ENVIRONMENT` | Application environment | `development` | `production` |
 
-### Redis Configuration
+### Sessions (Redis is optional)
+
+Bot sessions live in the bot process's memory unless `REDIS_URL` is set.
+Nothing starts a Redis server for you.
 
 | Variable | Description | Default | Example |
 |----------|-------------|---------|---------|
-| `REDIS_URL` | Redis connection URL | `redis://localhost:6379` | `redis://user:pass@host:6379` |
-| `REDIS_DB` | Redis database number | `0` | `0` |
+| `REDIS_URL` | Redis for bot sessions. Unset: in memory, expiring and bounded | unset | `redis://user:pass@host:6379/0` |
+| `REDIS_DB` | Database number, when `REDIS_URL` names none | `0` | `0` |
 
 ### Performance Configuration
 
 | Variable | Description | Default | Example |
 |----------|-------------|---------|---------|
-| `MAX_CONNECTIONS` | Maximum Redis connections | `20` | `50` |
-| `SESSION_TTL` | Session TTL in seconds | `3600` | `7200` |
+| `MAX_CONNECTIONS` | Maximum Redis connections (callers past it wait) | `20` | `50` |
+| `SESSION_TTL` | Seconds a session outlives its last save, in memory and in Redis | `3600` | `7200` |
 
 ### Monitoring & Error Tracking
 
@@ -85,11 +88,9 @@ ENVIRONMENT=development
 CHAT_ID=your_chat_id_here
 
 # ============================================
-# REDIS CONFIGURATION (Optional)
+# SESSIONS (Optional: memory unless REDIS_URL is set)
 # ============================================
-REDIS_URL=redis://localhost:6379
-REDIS_DB=0
-MAX_CONNECTIONS=20
+# REDIS_URL=redis://localhost:6379/0
 SESSION_TTL=3600
 
 # ============================================
@@ -227,8 +228,10 @@ nano .env
 ### Redis Connection Issues
 
 **Error**: "Could not connect to Redis"
-- **Solution**: Verify `REDIS_URL` is correct and Redis server is running
-- Bot will fallback to in-memory storage if Redis unavailable
+- **Solution**: Verify `REDIS_URL` is correct and the Redis server is running,
+  or unset `REDIS_URL` to keep sessions in the bot's memory
+- There is no silent fallback: while a configured Redis is down, taps that
+  need a session are answered with a short apology and the bot logs the error
 
 ## Getting Your Credentials
 

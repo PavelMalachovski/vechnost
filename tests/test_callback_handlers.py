@@ -458,11 +458,15 @@ class TestSimpleActionHandler:
             action=CallbackAction.RESET_CONFIRM
         )
 
-        with patch('vechnost_bot.callback_handlers.reset_session') as mock_reset:
-            await handler.handle(mock_query, callback_data, session)
+        session.theme = Theme.SEX
+        session.is_nsfw_confirmed = True
 
-            mock_reset.assert_called_once_with(12345)
-            mock_query.edit_message_text.assert_called_once()
+        await handler.handle(mock_query, callback_data, session)
+
+        # The session it was handed is the one the registry saves.
+        assert session.theme is None
+        assert session.is_nsfw_confirmed is False
+        mock_query.edit_message_text.assert_called_once()
 
     @pytest.mark.asyncio
     async def test_handle_noop(self, handler, mock_query, session):

@@ -87,15 +87,14 @@ python scripts/smoke_production.py $URL  # read-only smoke of a deployed server
   and must stay that way: the Redis tests take a database per xdist worker
   (`_test_db()` in `tests/test_redis_storage.py`), and every test gets its
   own storage from the autouse fixture rather than sharing the singleton.
-- **No test may touch a real Redis unless it asks to.** `HybridStorage`
-  auto-starts a server on first use and waits about ninety seconds to give
-  up, then caches the answer process-wide — so one arbitrary test paid for
-  it, which test that was depended on collection order, and under `-n auto`
-  every worker paid again. `tests/conftest.py` hands each test its own
-  storage with the fallback already decided. Tests that genuinely need a
-  server carry the `redis` marker: they run against `localhost:6379`, and
-  are **skipped with a reason** when nothing is listening. CI starts a Redis
-  service so they really run there.
+- **No test may touch a real Redis unless it asks to.** The session store
+  is chosen from `REDIS_URL` on first use and kept for the life of the
+  process, so a machine or CI job exporting `REDIS_URL` would otherwise send
+  every test's sessions there. `tests/conftest.py` hands each test a fresh
+  in-memory store of its own. Tests that genuinely need a server carry the
+  `redis` marker: they run against `localhost:6379`, and are **skipped with
+  a reason** when nothing is listening. CI starts a Redis service so they
+  really run there.
 - Nothing needs `TELEGRAM_BOT_TOKEN` exported to run the tests; conftest
   supplies a fake one before anything imports `config`. It also *overrides*
   `DATABASE_URL` with a throwaway SQLite file: tests that merely called
@@ -112,6 +111,18 @@ python scripts/smoke_production.py $URL  # read-only smoke of a deployed server
   in git history, one revert away. `i18n.Language` has a single member; use
   `Language.coerce(code)` to read a stored or client-supplied `en`/`cs`,
   which comes back as Russian instead of raising.
+- **Bot sessions live in memory unless `REDIS_URL` says otherwise.**
+  `storage.py` keeps a chat's session (theme, level, the 18+ consent) in
+  the bot process, each forgotten `SESSION_TTL` seconds after its last save
+  and at most `MAX_SESSIONS` of them; with `REDIS_URL` set it uses that
+  Redis instead, with a timeout on every call. Nothing starts a Redis
+  server: the code that did ignored `REDIS_URL`, froze the event loop for
+  seconds on every start, and hid behind a fallback nothing could reach. A
+  Redis failure is not papered over with memory either, which would split
+  one chat across two stores; the player gets the short apology. The
+  memory store serializes like Redis, so a read is a copy: a handler
+  changes the session it is handed and the callback registry saves that
+  one (the reset button once reset a second copy, which only memory hid).
 - **Library content** lives in `data/library/` — one YAML per module
   (`dates`, `fall_in_love`, `practices_self`, `practices_couples`,
   `nude_guide`, `reflection`). `library.py` loads it and deliberately imports neither
@@ -372,6 +383,18 @@ python scripts/smoke_production.py $URL  # read-only smoke of a deployed server
   links to the user are cleared. Its callback is registered ahead of the
   game's catch-all on a pattern, like the broadcast's. Anything new that
   stores a person must be added to `erase`, or the promise is broken.
+- **The bot never answers a failure with silence, or with the wrong
+  words.** `bot.py::on_error` logs, then sends the chat one line
+  (`errors.something_went_wrong`), never a traceback; an error with no chat
+  (a poll, a job) tells nobody, and a getUpdates `Conflict` is only logged.
+  In the callback registry an unparseable button is «Неизвестная команда»
+  and anything that fails after parsing (storage, database, Telegram) is
+  `errors.callback_failed`: parsing sits in its own `try` because pydantic's
+  `ValidationError` is a `ValueError` and used to be filed as an unknown
+  button. Text no handler asked for, in a private chat, gets
+  `handlers.py::free_text_hint`: a pasted `VECH-XXXX-XXXX` gets the
+  `/activate` command ready to copy, anything else a pointer to /start and
+  /help. The text itself is never logged; it may be a certificate code.
 - **The daily push has one button into the app.** «Играть» and «Библиотека»
   were the same app opened at two screens, and the choice came before the
   reader had seen either. It is one «Зайти в приложение» now, with the

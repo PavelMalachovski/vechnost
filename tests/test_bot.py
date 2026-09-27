@@ -79,35 +79,27 @@ class TestBotSetup:
             with pytest.raises(InvalidToken):
                 create_application()
 
-    # run_bot() opens with initialize_redis_sync(), which tries to auto-start
-    # a real Redis. Unpatched, these two hang for as long as that takes to
-    # give up — and whether they hang at all depended on what an earlier test
-    # in the same process had already done to the Redis singletons, which is
-    # exactly the kind of order dependence that breaks under -n auto.
-    @patch('vechnost_bot.bot.cleanup_redis_sync')
-    @patch('vechnost_bot.bot.initialize_redis_sync', return_value=False)
     @patch('vechnost_bot.bot.Application.run_polling')
-    def test_run_bot_success(self, mock_run_polling, mock_init_redis, mock_cleanup):
-        """Test successful bot run."""
+    def test_run_bot_success(self, mock_run_polling):
+        """run_bot builds the application and polls, and starts nothing else.
+
+        It used to open with a synchronous Redis auto-start, which these
+        tests had to patch out or hang for as long as that took to give up.
+        """
         mock_run_polling.return_value = AsyncMock()
 
-        # Should not raise any exceptions
-        run_bot()
+        with patch("subprocess.Popen", side_effect=AssertionError("spawned a process")):
+            run_bot()
 
         mock_run_polling.assert_called_once()
-        mock_init_redis.assert_called_once()
 
-    @patch('vechnost_bot.bot.cleanup_redis_sync')
-    @patch('vechnost_bot.bot.initialize_redis_sync', return_value=False)
     @patch('vechnost_bot.bot.Application.run_polling')
-    def test_run_bot_exception_handling(self, mock_run_polling, mock_init_redis, mock_cleanup):
-        """A failing poll is re-raised, and Redis is cleaned up on the way out."""
+    def test_run_bot_exception_handling(self, mock_run_polling):
+        """A failing poll is re-raised."""
         mock_run_polling.side_effect = Exception("Test error")
 
         with pytest.raises(Exception, match="Test error"):
             run_bot()
-
-        mock_cleanup.assert_called_once()
 
 
 class TestConfig:
