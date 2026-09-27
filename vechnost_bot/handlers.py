@@ -5,6 +5,7 @@ the handler registry in callback_handlers.py.
 """
 
 import logging
+import re
 
 from telegram import Message, Update
 from telegram.ext import ContextTypes
@@ -395,6 +396,40 @@ async def activate_certificate_command(
     else:
         error_text = get_text("certificate.error", language)
         await message.reply_text(error_text)
+
+
+# A gift or voucher code as people paste it: `VECH-XXXX-XXXX`, in any case,
+# with or without its dashes, often inside a sentence.
+_CERTIFICATE_CODE = re.compile(
+    r"(?<![A-Za-z0-9])VECH[-\s]?([A-Z0-9]{4})[-\s]?([A-Z0-9]{4})(?![A-Za-z0-9])",
+    re.IGNORECASE,
+)
+
+
+async def free_text_hint(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """Answer text that no command or button asked for.
+
+    The bot is driven by buttons and commands, and anything else used to
+    get no answer at all - including a certificate code pasted on its own,
+    which is exactly what someone holding a gift card does first. That
+    case gets the command to send, ready to copy; everything else gets a
+    pointer to /start and /help. The text itself is never logged: it may
+    be a code, and a code is lifetime access to whoever reads it.
+    """
+    message = update.message
+    if message is None or not message.text:
+        return
+
+    match = _CERTIFICATE_CODE.search(message.text)
+    if match:
+        code = f"VECH-{match.group(1).upper()}-{match.group(2).upper()}"
+        await message.reply_text(
+            get_text("hints.certificate", Language.RUSSIAN, code=code),
+            parse_mode="HTML",
+        )
+        return
+
+    await message.reply_text(get_text("hints.free_text", Language.RUSSIAN))
 
 
 @track_performance("callback_query")

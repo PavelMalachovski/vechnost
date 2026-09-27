@@ -360,6 +360,18 @@ python scripts/smoke_production.py $URL  # read-only smoke of a deployed server
   links to the user are cleared. Its callback is registered ahead of the
   game's catch-all on a pattern, like the broadcast's. Anything new that
   stores a person must be added to `erase`, or the promise is broken.
+- **The bot never answers a failure with silence, or with the wrong
+  words.** `bot.py::on_error` logs, then sends the chat one line
+  (`errors.something_went_wrong`), never a traceback; an error with no chat
+  (a poll, a job) tells nobody, and a getUpdates `Conflict` is only logged.
+  In the callback registry an unparseable button is «Неизвестная команда»
+  and anything that fails after parsing (storage, database, Telegram) is
+  `errors.callback_failed`: parsing sits in its own `try` because pydantic's
+  `ValidationError` is a `ValueError` and used to be filed as an unknown
+  button. Text no handler asked for, in a private chat, gets
+  `handlers.py::free_text_hint`: a pasted `VECH-XXXX-XXXX` gets the
+  `/activate` command ready to copy, anything else a pointer to /start and
+  /help. The text itself is never logged; it may be a certificate code.
 - **The daily push has one button into the app.** «Играть» and «Библиотека»
   were the same app opened at two screens, and the choice came before the
   reader had seen either. It is one «Зайти в приложение» now, with the

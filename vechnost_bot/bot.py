@@ -25,6 +25,7 @@ from .config import create_bot, settings
 from .handlers import (
     about_command,
     activate_certificate_command,
+    free_text_hint,
     handle_callback_query,
     help_command,
     invite_command,
@@ -44,7 +45,15 @@ def setup_logging() -> None:
 
 
 async def on_error(update: object, context: ContextTypes.DEFAULT_TYPE) -> None:
-    """Global PTB error handler: keep transient noise compact, log the rest fully."""
+    """Global PTB error handler: log the failure, and tell the person.
+
+    Transient network noise is logged compactly and the rest in full, as
+    before. What is new is the second half: a command that failed (/start,
+    /help, /about...) used to leave its sender with silence, which reads as
+    a dead bot. They now get one short line and never a traceback. Errors
+    with no chat behind them - a failed poll, a scheduled job - have nobody
+    to tell.
+    """
     logger = logging.getLogger(__name__)
     error = context.error
 
@@ -55,10 +64,31 @@ async def on_error(update: object, context: ContextTypes.DEFAULT_TYPE) -> None:
         return
     if isinstance(error, (NetworkError, TimedOut)):
         logger.warning(f"Transient Telegram network error: {error}")
-        return
+    else:
+        logger.error("Unhandled error while processing update", exc_info=error)
+        log_bot_event("unhandled_error", error=str(error))
 
-    logger.error("Unhandled error while processing update", exc_info=error)
-    log_bot_event("unhandled_error", error=str(error))
+    await _apologise(update, context)
+
+
+async def _apologise(update: object, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """One short line to the chat the failed update came from, if any."""
+    from telegram import Update
+
+    from .i18n import Language, get_text
+
+    chat = update.effective_chat if isinstance(update, Update) else None
+    if chat is None:
+        return
+    try:
+        await context.bot.send_message(
+            chat_id=chat.id,
+            text=get_text("errors.something_went_wrong", Language.RUSSIAN),
+        )
+    except Exception as e:
+        # Most likely the same outage that caused the error, or a chat that
+        # blocked the bot. Nothing more to be done for this update.
+        logging.getLogger(__name__).warning(f"Could not tell chat {chat.id} about the error: {e}")
 
 
 async def _publish_entry_points(application: Application) -> None:
@@ -209,6 +239,18 @@ def create_application() -> Application:
             pattern=f"^({CONFIRM}|{CANCEL})$",
             block=False,
         ))
+
+    # Text nobody asked for - a greeting, a certificate code pasted without
+    # /activate - gets a hint rather than silence. Private chats only, new
+    # messages only (not edits), and registered after the admin's broadcast
+    # capture, which takes an admin's messages first in the same group.
+    application.add_handler(MessageHandler(
+        filters.UpdateType.MESSAGE
+        & filters.ChatType.PRIVATE
+        & filters.TEXT
+        & ~filters.COMMAND,
+        free_text_hint,
+    ))
 
     # Add callback query handler
     application.add_handler(CallbackQueryHandler(handle_callback_query))
