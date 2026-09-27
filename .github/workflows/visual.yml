@@ -1,0 +1,164 @@
+name: Visual changes
+
+# Every screen of the Mini App at four sizes, on both phones, photographed
+# twice in one job: as master has it (the pull request's merge base) and as
+# the pull request has it. Both tours run on the same runner, the same
+# browser build and the same fonts, so nothing but the pull request can
+# make them differ, and there are no committed reference pictures to go
+# stale with every browser release (tests/e2e/browser/visual.py).
+#
+# A screen that changed fails the job unless the pull request carries the
+# `visual-change` label. A change that is the point of the pull request is
+# labelled and read in the report (the artifact's index.html: master, the
+# pull request and the difference side by side); one that is not gets
+# caught. Pull requests only: a push has nothing to be compared with, and
+# nothing here may hold up a deploy.
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, labeled, unlabeled]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: visual-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  # Fake, and only ever used to sign the players' initData.
+  TELEGRAM_BOT_TOKEN: "1234567890:TEST_TOKEN_FOR_UNIT_TESTS"
+  E2E_SERVER_ENV: >-
+    ENABLE_PAYMENT=true
+    TRIBUTE_API_KEY=e2e-tribute-signing-key
+    BOT_USERNAME=vechnost_e2e_bot
+    TRUSTED_PROXY_HOPS=1
+    LOG_LEVEL=WARNING
+
+jobs:
+  compare:
+    name: "Visual changes: ${{ matrix.title }}"
+    # Another label coming or going changes nothing here.
+    if: >-
+      (github.event.action != 'labeled' && github.event.action != 'unlabeled')
+      || github.event.label.name == 'visual-change'
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - phone: android
+            engine: chromium
+            title: Android in Chromium
+          - phone: iphone
+            engine: webkit
+            title: iPhone in WebKit
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_HOST_AUTH_METHOD: trust
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 20
+    env:
+      E2E_BROWSER: "1"
+      # Masks what is random by design (invite codes, a room's deck order).
+      E2E_VISUAL: "1"
+      E2E_PHONES: ${{ matrix.phone }}
+    steps:
+    - uses: actions/checkout@v4
+      with:
+        fetch-depth: 0
+
+    - uses: actions/setup-python@v5
+      with:
+        python-version: '3.11'
+        cache: pip
+        cache-dependency-path: requirements-dev.lock
+
+    - name: Install dependencies and ${{ matrix.engine }}
+      run: |
+        python -m pip install --upgrade pip
+        pip install --require-hashes --no-deps -r requirements-dev.lock
+        pip install --no-deps .
+        pip check
+        python -m playwright install --with-deps ${{ matrix.engine }}
+
+    # HEAD is the pull request merged into its base branch, so its merge base
+    # with master is master as the pull request would land on it.
+    - name: Check out master as the pull request would land on it
+      run: |
+        base=$(git merge-base origin/master HEAD)
+        echo "master at $(git log -1 --format='%h %s' "$base")"
+        git worktree add "$RUNNER_TEMP/base" "$base"
+
+    - name: Create the databases
+      run: |
+        python - <<'PY'
+        from sqlalchemy import create_engine, text
+        admin = create_engine("postgresql+psycopg2://postgres@localhost:5432/postgres",
+                              isolation_level="AUTOCOMMIT")
+        with admin.connect() as conn:
+            for name in ("visual_base", "visual_head"):
+                conn.execute(text(f"CREATE DATABASE {name}"))
+        PY
+
+    # Each server runs its own checkout's code, page and content: `python -m`
+    # puts the working directory ahead of the installed package.
+    - name: Start master's server and the pull request's
+      run: |
+        mkdir -p visual
+        (cd "$RUNNER_TEMP/base" && env $E2E_SERVER_ENV \
+          DATABASE_URL=postgresql+asyncpg://postgres@localhost:5432/visual_base \
+          WEBAPP_URL=http://127.0.0.1:8001/app/ \
+          nohup python -m uvicorn vechnost_bot.payments.web:app --host 127.0.0.1 --port 8001 \
+          > "$GITHUB_WORKSPACE/visual/base-server.log" 2>&1 &)
+        env $E2E_SERVER_ENV \
+          DATABASE_URL=postgresql+asyncpg://postgres@localhost:5432/visual_head \
+          WEBAPP_URL=http://127.0.0.1:8000/app/ \
+          nohup python -m uvicorn vechnost_bot.payments.web:app --host 127.0.0.1 --port 8000 \
+          > visual/head-server.log 2>&1 &
+        for port in 8000 8001; do
+          for i in $(seq 1 60); do curl -sf "http://127.0.0.1:$port/health" && break; sleep 1; done
+        done
+
+    # The pull request's tour, driving master's app: a screen master cannot
+    # reach yet is reported as new rather than failing here.
+    - name: Every screen, as master has it
+      env:
+        E2E_BASE_URL: http://127.0.0.1:8001
+        E2E_REPORT_DIR: visual/base
+      run: pytest tests/e2e/browser/test_screens.py -n0 -q -rs || echo "::warning::master's tour did not reach every screen"
+
+    - name: Every screen, as this pull request has it
+      env:
+        E2E_BASE_URL: http://127.0.0.1:8000
+        E2E_REPORT_DIR: visual/head
+      run: pytest tests/e2e/browser/test_screens.py -n0 -q -rs
+
+    - name: Compare
+      if: ${{ !cancelled() }}
+      run: >-
+        python -m tests.e2e.browser.visual
+        visual/base/browser/screens visual/head/browser/screens visual/report
+        ${{ contains(github.event.pull_request.labels.*.name, 'visual-change') && '--accept' || '' }}
+
+    - name: Summary
+      if: always()
+      run: |
+        if [ -f visual/report/summary.md ]; then
+          { echo "#### ${{ matrix.title }}"; cat visual/report/summary.md; } >> "$GITHUB_STEP_SUMMARY"
+        fi
+
+    - name: Keep the pictures
+      if: always()
+      uses: actions/upload-artifact@v4
+      with:
+        name: visual-${{ matrix.phone }}
+        path: visual
+        if-no-files-found: ignore

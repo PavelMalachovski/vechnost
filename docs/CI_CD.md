@@ -1,12 +1,13 @@
 # CI/CD
 
-Three workflows, one rule: what runs on a push to `master` is the gate
+Four workflows, one rule: what runs on a push to `master` is the gate
 between a merge and production, because Railway deploys `master` only once
 every workflow on the commit has passed.
 
 ```
 pull request ──► CI ───────────── lint · types · tests · the production image, built and smoked
-             └─► Two-user E2E ─── PostgreSQL (in-process + live + races) · fuzz · browsers
+             ├─► Two-user E2E ─── PostgreSQL (in-process + live + races) · fuzz · browsers
+             └─► Visual changes ─ every screen of the pull request against master's
 merge to master ──► the same two ──► all green? ──► Railway deploys ──► /health answers?
                                                                          │ yes: traffic moves
                                                                          └► Production smoke
@@ -20,6 +21,7 @@ every 3 h ──► Production smoke (read-only)
 |---|---|---|---|
 | `ci.yml` | PR, push to master, nightly, manual | `lint` (ruff; the typed domain layer; the rest of the package against `.mypy-baseline`; advisory: `ruff format`, vulture, deptry, and pip-audit on both locks, which fails only at night), `test` (the whole suite with Redis and coverage, red below the floor; on a PR, the coverage of the changed lines in the job summary), `install-smoke` (the `Dockerfile` Railway builds: every module imported inside the image, the web process served from it and smoked), `upstream` (nightly only: the suite on today's PyPI, unpinned) | Code, types or a dependency are broken, or coverage fell below the floor. A red `upstream` with every other job green is a release upstream that the lock keeps away from production (this is how the SQLAlchemy 2.1 break is now caught). |
 | `e2e.yml` | PR, push to master, nightly, manual | `postgres` (PostgreSQL-only tests, then the two-user suite in-process and over real HTTP against a live server, with the race tests and the production smoke), `fuzz` (three users doing anything; 120×80 on a PR, 400×100 at night), `browser`, one job per phone (two Androids in Chromium, two iPhones in WebKit: every scenario through a room, the test and the board, the paywall, Back and real touch; on a PR and at night also every screen at four sizes and the UI fuzzer, 3×25 steps on a PR and 3×3×100 at night) | Something two people do together is broken. The log has the two-user transcript, the fuzzer's shrunk reproduction or the UI fuzzer's seed and steps, or screenshots, the contact sheet of every screen and traces in the job's artifacts. |
+| `visual.yml` | PR only (and when its `visual-change` label is added or removed) | `compare`, one job per phone: every screen photographed at master (the pull request's merge base) and at the pull request in the same job, then compared (`tests/e2e/browser/visual.py`) | A screen looks different from master. If that is the point of the pull request, add the `visual-change` label; the artifact's `report/index.html` shows both and the difference. Never on push, so it cannot hold up a deploy. |
 | `production-smoke.yml` | a successful deployment, every 3 hours, manual | `smoke`: `scripts/smoke_production.py` against `PRODUCTION_URL` | Production is down, is not the commit that was deployed, lost a content API, or answers anonymous callers where it should refuse them. |
 
 The two-user harness is described in [`tests/e2e/README.md`](../tests/e2e/README.md).
@@ -50,7 +52,9 @@ The two-user harness is described in [`tests/e2e/README.md`](../tests/e2e/README
    list is `lint`, `test`, `Fresh install, the way Railway builds it`,
    `Two users on PostgreSQL`, `Three people doing anything`,
    `Two phones: Android in Chromium` and `Two phones: iPhone in WebKit`.
-   Then a red PR cannot be merged at all, and
+   Add `Visual changes: Android in Chromium` and `Visual changes: iPhone in
+   WebKit` too if every visual change should need the `visual-change`
+   label to merge. Then a red PR cannot be merged at all, and
    "Wait for CI" is the second lock rather than the only one. Leave
    `Today's PyPI, unpinned` out: it runs only at night, and an upstream
    release is not a reason to block a merge.

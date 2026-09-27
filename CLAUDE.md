@@ -42,7 +42,9 @@ pytest tests/e2e -n0                     # the two-user suite, in-process
 E2E_BROWSER=1 pytest tests/e2e/browser -n0   # the Mini App on an Android in Chromium and an
                                          # iPhone in WebKit (needs .[e2e]); E2E_PHONES=android
                                          # for one phone, -m screens / -m ui_fuzz for the
-                                         # screen tour / the UI fuzzer alone
+                                         # screen tour and design lint / the UI fuzzer alone
+UPDATE_CARD_REFERENCES=1 pytest tests/test_card_references.py  # new reference pictures
+                                         # of the bot's cards, after a deliberate change
 python scripts/smoke_production.py $URL  # read-only smoke of a deployed server
 python scripts/smoke_production.py $URL --deep  # ...and its database and bot heartbeat
 ```

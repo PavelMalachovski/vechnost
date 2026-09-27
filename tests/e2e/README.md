@@ -15,6 +15,8 @@ Telegram itself.
 | Browsers | `browser/test_two_phones.py`, `test_paywall.py`, `test_navigation.py`, `test_design_regressions.py` | Two phones driving the Mini App UI, each scenario on both phone models: the invite link one screen shows opens the other, the waiting phone catches up by itself, no deal leaks to the wrong screen, the paywall and the 18+ doors, Back | CI (`E2E_BROWSER=1`), one job per phone |
 | Touch | `browser/test_touch.py` | A long card under real input: a finger in the middle of the text scrolls it, a vertical drag leaves the card alone, a swipe turns it; and the suite breaks the two hit-testing rules on purpose to prove it notices | CI, one job per phone |
 | Screens | `browser/test_screens.py` | Every screen and overlay of the Mini App, reached for real, photographed at 320×568, 375×667, 393×852 and 430×932 on each phone | CI on pull requests and at night |
+| Design lint | `browser/test_design_lint.py` | Every screen at every size against the rules the audit measured by hand (text size, contrast, tap targets, icon names, overflow, clipping), held to a baseline that can only shrink | CI on pull requests and at night |
+| Visual changes | `.github/workflows/visual.yml` | Every screen of a pull request against master's, both photographed in the same job; a changed screen needs the `visual-change` label | CI on pull requests |
 | UI fuzzer | `browser/test_ui_fuzz.py` | Both partners in one room, test or board, tapping, swiping, scrolling and pressing Back at random; checked after every step (errors, unexpected `/api` answers, sideways overflow, Back, the two phones agreeing) | CI on pull requests (short) and at night (long) |
 
 ## Running it
@@ -28,7 +30,7 @@ pip install -e ".[dev,e2e]" && python -m playwright install chromium webkit
 E2E_BROWSER=1 pytest tests/e2e/browser -n0  # both phones, everything (~6 min per phone)
 E2E_BROWSER=1 E2E_PHONES=android pytest tests/e2e/browser -n0 -m "not screens and not ui_fuzz"
                                             # one phone, the deterministic part (what a push runs)
-E2E_BROWSER=1 pytest tests/e2e/browser -n0 -m screens   # every screen at four sizes
+E2E_BROWSER=1 pytest tests/e2e/browser -n0 -m screens   # every screen at four sizes, and the design lint
 E2E_UI_FUZZ_RUNS=3 E2E_UI_FUZZ_STEPS=100 E2E_BROWSER=1 \
   pytest tests/e2e/browser -n0 -m ui_fuzz -s             # the nightly UI fuzz (~20 min per phone)
 ```
@@ -110,6 +112,59 @@ Every arena runs `E2E_UI_FUZZ_RUNS` times for `E2E_UI_FUZZ_STEPS` steps: 1×25
 on a pull request, 3×100 at night. A failure prints the seed, the command
 that replays it (`E2E_UI_FUZZ_SEED=<seed> ...`) and every step both phones
 took; `ui_fuzz_<phone>_<arena>_<seed>.json` keeps what each run did.
+
+### The design lint
+
+The screen tour carries a second visitor, `browser/design.py`, which looks
+at the layer on top at every stop and size through the engine's computed
+styles and names what breaks a rule:
+
+| Rule | What it measures | Audit |
+|---|---|---|
+| `font-size` | text under 11 px for a label (short, or in a control), 12 px for a caption; SVG text at its drawn scale | D-12 |
+| `contrast` | WCAG AA (4.5:1, or 3:1 from 24 px or 18.66 px bold) against every layer under the text composited, opacity included; a gradient at its worst stop; text over a picture is skipped and listed | D-11 |
+| `tap-target` | a control under 44×44 | D-25 |
+| `icon-name` | a control showing only an icon, with no `aria-label` | D-14 |
+| `overflow` | anything past the sides of the phone | |
+| `clipped` | text cut off by a box that neither shows nor scrolls it | |
+
+A finding is `rule | stop | element`, the element named by its id, or by
+the nearest id above it and its first class, never by its text. So it
+stays the same finding while the copy changes. `test_design_lint.py` holds
+each phone's findings to `browser/design_baseline.json`, the ones known
+today. A new finding fails; so does a baseline entry that no longer
+occurs, which is then deleted from the file. The list can only get
+shorter. The failure prints the phone's whole current list, ready to paste
+once every new entry is deliberate. What each finding measured is in
+`e2e-report/browser/screens/design-<phone>.json`, and the job summary
+counts them by rule.
+
+### Visual changes
+
+`.github/workflows/visual.yml` photographs every screen twice in one job,
+per phone. The first tour runs against a server built from master as the
+pull request would land on it (its merge base); the second runs against
+the pull request. Then `browser/visual.py` compares them. Nothing is
+committed as a reference: both sides come from the same runner, browser
+build and fonts, so a browser release or another machine's rasteriser
+cannot make them differ. Two tours of the same code come out identical to
+the pixel. The comparison can therefore be strict: a screen changed when
+more than four pixels moved by more than 12 of 255 on a lightly blurred
+luminance difference (a full stop added to a 15 px line moves twelve).
+Invite codes and a room's shuffled deck are masked, because they are
+random by design (`screens.VISUAL_MASKS`, active with `E2E_VISUAL=1`).
+
+A changed screen fails the job unless the pull request carries the
+`visual-change` label. The artifact's `report/index.html` shows master,
+the pull request and the difference side by side. To compare two tours
+yourself:
+
+```bash
+E2E_VISUAL=1 E2E_REPORT_DIR=before E2E_BROWSER=1 pytest tests/e2e/browser/test_screens.py -n0
+# ...change something...
+E2E_VISUAL=1 E2E_REPORT_DIR=after E2E_BROWSER=1 pytest tests/e2e/browser/test_screens.py -n0
+python -m tests.e2e.browser.visual before/browser/screens after/browser/screens diff
+```
 
 ### Against a live server, or PostgreSQL
 

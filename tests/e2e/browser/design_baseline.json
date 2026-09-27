@@ -1,0 +1,41 @@
+{
+  "_about": "Design findings known today, per phone, as `rule | stop | element` (tests/e2e/browser/design.py). The lint fails on a finding that is not listed and on an entry that no longer occurs, so this list can only shrink. What is left belongs to open audit items: icon-name to D-14, contrast and the board's hint size to H-04; D-11, D-12 and D-25 were fixed in #49, which took 46 entries off this list.",
+  "android": [
+    "contrast | guide | #guideBody span.art-cap",
+    "contrast | guide | #guideBody span.guide-num",
+    "contrast | s69-board | #s69Dice span",
+    "contrast | s69-board | #s69Map div.s69-cell",
+    "contrast | s69-board | p#s69MapHint",
+    "font-size | s69-board | p#s69MapHint",
+    "icon-name | deck | button#btnNext",
+    "icon-name | deck | button#btnShare",
+    "icon-name | deck | button#btnShuffle",
+    "icon-name | deck-long | button#btnNext",
+    "icon-name | deck-long | button#btnPrev",
+    "icon-name | deck-long | button#btnShare",
+    "icon-name | deck-long | button#btnShuffle",
+    "icon-name | practice | button#libNext",
+    "icon-name | room-playing | button#btnNext",
+    "icon-name | room-playing | button#btnShare",
+    "icon-name | s69-board | button#s69MapToggle"
+  ],
+  "iphone": [
+    "contrast | guide | #guideBody span.art-cap",
+    "contrast | guide | #guideBody span.guide-num",
+    "contrast | s69-board | #s69Dice span",
+    "contrast | s69-board | #s69Map div.s69-cell",
+    "contrast | s69-board | p#s69MapHint",
+    "font-size | s69-board | p#s69MapHint",
+    "icon-name | deck | button#btnNext",
+    "icon-name | deck | button#btnShare",
+    "icon-name | deck | button#btnShuffle",
+    "icon-name | deck-long | button#btnNext",
+    "icon-name | deck-long | button#btnPrev",
+    "icon-name | deck-long | button#btnShare",
+    "icon-name | deck-long | button#btnShuffle",
+    "icon-name | practice | button#libNext",
+    "icon-name | room-playing | button#btnNext",
+    "icon-name | room-playing | button#btnShare",
+    "icon-name | s69-board | button#s69MapToggle"
+  ]
+}

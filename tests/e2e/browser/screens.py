@@ -46,6 +46,18 @@ POLL = 15_000  # a phone hears a partner through its ~2.5 s poll
 SCREENS_DIR = REPORT_DIR / "screens"
 # A toast is a moment, not a screen: it is hidden from the pictures.
 SHOT_STYLE = "#toast { visibility: hidden !important; }"
+# E2E_VISUAL=1: the pictures are for comparing with another tour's
+# (visual.py), so what is random by design is masked - an invite link
+# carries a fresh code, and a room deals its deck in a random order. Two
+# tours of the same code on one machine are otherwise pixel for pixel alike.
+VISUAL = os.environ.get("E2E_VISUAL") == "1"
+VISUAL_MASKS = {
+    "room-waiting": ["#inviteCode"],
+    # The text band, not the text: a mask the size of a random text differs.
+    "room-playing": ["#stage .card .q-zone"],
+    "compat-invite": ["#compatCode"],
+    "s69-invite": ["#s69Code"],
+}
 
 # (id, what the contact sheet calls it), in the order the tour reaches them.
 STOPS = [
@@ -186,9 +198,10 @@ class Tour:
     def _screenshot(self, atlas: Atlas, stop: str, phone: Phone, viewport: Viewport) -> None:
         name = f"{stop}@{vp_name(viewport)}.png"
         phone.page.evaluate("() => document.fonts.ready.then(() => true)")
+        masks = [phone.page.locator(sel) for sel in VISUAL_MASKS.get(stop, [])] if VISUAL else []
         phone.page.screenshot(
             path=str(self.out / name), animations="disabled", caret="hide",
-            scale="css", style=SHOT_STYLE,
+            scale="css", style=SHOT_STYLE, mask=masks,
         )
         atlas.shots.setdefault(stop, {})[vp_name(viewport)] = f"{self.device.name}/{name}"
 

@@ -253,6 +253,8 @@ jobs:
 
     # Pull requests, nights and manual runs only (see the top of this file),
     # and after a failed scenario too: the pictures help read the failure.
+    # The design lint rides along and holds every screen to
+    # tests/e2e/browser/design_baseline.json.
     - name: Every screen at four sizes
       if: ${{ !cancelled() && github.event_name != 'push' }}
       env:
@@ -272,9 +274,9 @@ jobs:
     - name: Summary
       if: always()
       run: |
-        if [ -f "$E2E_REPORT_DIR/browser/screens/summary.md" ]; then
-          cat "$E2E_REPORT_DIR/browser/screens/summary.md" >> "$GITHUB_STEP_SUMMARY"
-        fi
+        for f in "$E2E_REPORT_DIR/browser/screens/summary.md" "$E2E_REPORT_DIR"/browser/screens/design-*.md; do
+          if [ -f "$f" ]; then cat "$f" >> "$GITHUB_STEP_SUMMARY"; fi
+        done
         for f in "$E2E_REPORT_DIR"/browser/touch-canary-*.json; do
           [ -f "$f" ] || continue
           { echo "### What the touch probes notice ($(basename "$f" .json))"; echo '```json';
