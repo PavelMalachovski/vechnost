@@ -139,6 +139,14 @@ production `python -m vechnost_bot.run_webhook` runs both, the web server and
 the bot, as two supervised child processes (this is the Railway start
 command).
 
+Both log the way production does: one JSON line per record, with `level`,
+`logger` and `timestamp` (colours when the output is a terminal), and the
+room, test and game codes masked out of uvicorn's access log. The app
+applies that when it starts, so the plain `uvicorn` command above needs no
+flag; production passes the same configuration to uvicorn up front
+(`monitoring.uvicorn_log_config()`), which covers uvicorn's first two lines
+as well. `LOG_LEVEL=DEBUG` adds the per-tap metrics.
+
 ## Configuration
 
 All settings are read from environment variables (or `.env`). See
@@ -147,6 +155,7 @@ All settings are read from environment variables (or `.env`). See
 | Variable | Purpose |
 |----------|---------|
 | `TELEGRAM_BOT_TOKEN` | Bot token from @BotFather (**required**) |
+| `ENVIRONMENT` | `production` on the production service: it then refuses to start on a development default (SQLite, an unset `ENABLE_PAYMENT`, no Tribute key with payments on, a Mini App URL that is not `https://`) and lists what to set. Default `development` |
 | `BOT_USERNAME` | Bot handle without `@`, used in card watermark & share links |
 | `WEBAPP_URL` | HTTPS URL of the Mini App (`…/app/`); enables the "Play in app" button |
 | `WEBAPP_MAIN_APP` | `true` when the bot has a **Main** Mini App (BotFather → Bot Settings → Configure Mini App). Invites become one-tap links: `t.me/<bot>?startapp=…` |

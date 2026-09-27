@@ -43,18 +43,123 @@
     font-weight: 400; font-style: normal; font-display: swap;
     unicode-range: U+0301, U+0400-045F, U+0490-0491, U+04B0-04B1, U+2116; }
 
+  /* Design tokens (docs/AUDIT_2026-09.md, section 4). The first step of a
+     migration: every value here is one the page already uses, and nothing
+     reads a token yet except through the old names aliased at the end of
+     the block, so adding it changed no pixel. New rules take tokens; old
+     literals move over a step at a time, each step checked by comparing
+     screenshots. */
   :root {
+    /* 1. Palette: the only place a colour is spelled. */
+    --c-aubergine-950: #14020D;   /* overlay scrim */
+    --c-aubergine-900: #1C0414;   /* the shell, Telegram's header, the seams in the drawings */
+    --c-aubergine-700: #47102F;   /* the glow at the top of the shell */
+    --c-ink:           #350027;   /* card text = renderer.TEXT_COLOR */
+    --c-plum-800:      #4A073A;   /* the card back = generate_card_assets.DARK */
+    --c-plum-600:      #7A1147;   /* end of the call-to-action gradient */
+    --c-plum-500:      #6E1040;
+    --c-plum-400:      #7A3F64;   /* card footer = renderer.FOOTER_COLOR */
+    --c-rose-600:      #C4256E;   /* the brand rose */
+    --c-rose-400:      #E86BB5;   /* accent: rings, progress, selection */
+    --c-rose-300:      #FF89B8;   /* red suits on the dark shell */
+    --c-rose-100:      #FFD9EF;   /* the logo's highlight, links */
+    --c-blush-100:     #FBE9F4;   /* text on the dark shell */
+    --c-blush-50:      #FFE5FA;   /* the printed card's ground = generate_card_assets.PALE */
+    --c-violet-500:    #7F2BFF;   /* the second accent, «69 ступеней» only */
+    --c-magenta-500:   #E100C7;
+    --c-mint-300:      #9FEFC4;   /* success, ladders, the camera */
+    --c-amber-300:     #FFD96E;   /* the Joker, light, growth */
+    --c-lilac-200:     #CFC0FF;   /* secrets */
+    --c-red-300:       #FF7896;   /* crisis, snakes, danger */
+
+    /* 2. Roles. */
+    --bg-app:          var(--c-aubergine-900);
+    --bg-app-glow:     radial-gradient(120% 90% at 50% 0%, var(--c-aubergine-700) 0%, var(--c-aubergine-900) 62%);
+    --bg-scrim:        rgb(20 2 13 / .88);
+    --surface-1:       rgb(255 255 255 / .05);   /* panels */
+    --surface-2:       rgb(255 255 255 / .08);   /* buttons, chips, tiles */
+    --surface-3:       rgb(255 255 255 / .12);   /* tracks, active grounds */
+    --surface-toast:   #2E1827;
+    --border-1:        rgb(255 255 255 / .13);
+    --border-2:        rgb(255 255 255 / .2);
+    --text-1:          var(--c-blush-100);
+    --text-2:          rgb(251 233 244 / .62);   /* 6.7:1 on the shell */
+    --text-3:          rgb(251 233 244 / .5);    /* 14px and up only */
+    --text-on-card:    var(--c-ink);
+    --text-on-card-2:  rgb(53 0 39 / .62);
+    --text-on-accent:  #fff;
+    --card-ground:     var(--c-blush-50);
+    --accent:          var(--c-rose-400);
+    --accent-soft:     rgb(232 107 181 / .28);
+    --accent-line:     rgb(232 107 181 / .8);
+    --grad-cta:        linear-gradient(135deg, var(--c-rose-600), var(--c-plum-600));
+    --grad-alt:        linear-gradient(135deg, var(--c-violet-500), var(--c-magenta-500));
+    --ok:              var(--c-mint-300);
+    --warn:            var(--c-amber-300);
+    --danger:          var(--c-red-300);
+    --secret:          var(--c-lilac-200);
+
+    /* 3. Type. Eleven pixels is the floor. */
     --font-text: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
     --font-logo: 'Lora', serif;
-    --font-emblem: 'Forum', serif;
-    --ink: #350027;
-    --card-bg: #FFE5FA;  /* the printed card's own ground (generate_card_assets.PALE) */
-    --shell-1: #1C0414;
-    --text-on-dark: #FBE9F4;
-    --muted-on-dark: rgba(251, 233, 244, .62);
-    --radius-card: 26px;
-    --safe-top: env(safe-area-inset-top, 0px);
-    --safe-bottom: env(safe-area-inset-bottom, 0px);
+    --fs-2xs: 11px;
+    --fs-xs: 12px;
+    --fs-sm: 13px;
+    --fs-md: 14px;
+    --fs-base: 15px;
+    --fs-lg: 17px;
+    --fs-xl: 20px;
+    --fs-2xl: 22px;
+    --fs-3xl: 26px;
+    --fs-display: 56px;
+    /* --fs-card, the card text, is declared on .card: it is a fraction of
+       the card's width, and a var() in a custom property resolves where the
+       property is declared, so on :root there is no width to read. */
+    --fw-regular: 400; --fw-semibold: 600; --fw-bold: 700;
+    --lh-tight: 1.2; --lh-snug: 1.35; --lh-normal: 1.5; --lh-relaxed: 1.6;
+    --ls-caps: .06em; --ls-logo: .14em;
+
+    /* 4. Space, on a 4px step. */
+    --space-1: 4px; --space-2: 8px; --space-3: 12px; --space-4: 16px;
+    --space-5: 20px; --space-6: 24px; --space-8: 32px; --space-10: 40px;
+    --gutter: 16px;
+    --tap-min: 44px;
+    --btn-h: 52px; --btn-h-sm: 44px; --btn-pad-x: 20px;
+    --card-max-w: 420px;
+
+    /* 5. Radii. */
+    --r-xs: 6px; --r-sm: 8px; --r-md: 12px; --r-lg: 16px; --r-xl: 22px;
+    --r-card: 26px; --r-pill: 999px;
+
+    /* 6. Shadows. */
+    --shadow-1: 0 2px 6px rgb(0 0 0 / .5);
+    --shadow-2: 0 8px 24px rgb(0 0 0 / .4);
+    --shadow-card: 0 18px 44px rgb(0 0 0 / .5);
+    --glow-accent: 0 8px 22px rgb(196 37 110 / .42);
+    --ring-accent: 0 0 0 2px rgb(232 107 181 / .6);
+    --inset-hi: inset 0 1px 0 rgb(255 255 255 / .22);
+    --focus-ring: 0 0 0 2px var(--c-aubergine-900), 0 0 0 4px var(--accent);
+
+    /* 7. Motion. */
+    --dur-1: 120ms; --dur-2: 200ms; --dur-3: 300ms; --dur-4: 450ms; --dur-5: 600ms;
+    --ease-std: cubic-bezier(.2, .7, .25, 1);
+    --ease-in: cubic-bezier(.5, .05, .9, .4);
+    --ease-back: cubic-bezier(.2, .9, .3, 1.2);
+    --ease-emph: cubic-bezier(.3, .9, .3, 1);
+
+    /* 8. Layers. */
+    --z-raised: 2; --z-piece: 3; --z-overlay: 30; --z-confetti: 31; --z-toast: 40; --z-loader: 50;
+
+    /* 9. Safe area: the notch, and Telegram's own controls from Bot API 8.0. */
+    --safe-top: max(env(safe-area-inset-top, 0px), var(--tg-content-safe-area-inset-top, 0px));
+    --safe-bottom: max(env(safe-area-inset-bottom, 0px), var(--tg-safe-area-inset-bottom, 0px));
+
+    /* The names the rules below were written against, now aliases. */
+    --ink: var(--c-ink);
+    --card-bg: var(--card-ground);
+    --text-on-dark: var(--text-1);
+    --muted-on-dark: var(--text-2);
+    --radius-card: var(--r-card);
   }
 
   * { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
@@ -378,15 +483,32 @@
      against a collapse gesture on old ones. Widening touch-action further
      would give back the horizontal block that protects the card swipe, and
      the Telegram-side guarantee is not there to catch it. */
-  #stage { flex: 1; position: relative; perspective: 1300px; margin: 4px 0 10px; touch-action: pan-y; }
+  #stage { flex: 1; position: relative; perspective: 1300px; margin: 4px 0 10px; touch-action: pan-y; container-type: size; }
   /* The Library deck stands on the same stage — identical declarations, kept
      as its own rule rather than a comma group because the tests read the
      `#stage {` block by name and compare the two. */
-  #libStage { flex: 1; position: relative; perspective: 1300px; margin: 4px 0 10px; touch-action: pan-y; }
+  #libStage { flex: 1; position: relative; perspective: 1300px; margin: 4px 0 10px; touch-action: pan-y; container-type: size; }
 
+  /* The card keeps one shape, 340:470, at every size: as wide as the stage
+     allows, as tall as that makes it, and never past --card-max-w. It used
+     to be the stage's own box capped at 340x470, so on a short phone it
+     turned nearly square while the text band inside kept its 103px
+     margins: on 320x568 the band was 210x147 and 255 of the 310 cards
+     had to be scrolled to be read (audit D-04).
+
+     The stage is the size container (container-type on #stage and
+     #libStage), not the card: containment on an element in the 3D flip
+     is a risk nothing here needs to take. --card-w is inherited as the
+     expression and resolved where it is used, so every length on the
+     card's faces below is a fraction of the one width - the art is
+     stretched 100% 100% onto the face, so a fraction of the width is
+     the same fraction of the art at every size. */
   .card {
+    --card-w: min(100cqw, 100cqh * 340 / 470, var(--card-max-w));
+    --fs-card: clamp(17px, calc(var(--card-w) * 22 / 340), 22px);
     position: absolute; inset: 0; margin: auto;
-    max-width: 340px; max-height: 470px;
+    width: var(--card-w);
+    height: calc(var(--card-w) * 470 / 340);
     border-radius: var(--radius-card);
     transform-style: preserve-3d;
     will-change: transform;
@@ -422,8 +544,9 @@
     box-shadow: 0 18px 44px rgba(0,0,0,.5);
     /* The printed V+suit marks occupy the top 21.3% and the bottom 21.4% of
        the art; renderer.py keeps its text inside the central 56% x 76%.
-       These are those fractions of the 340x470 card. */
-    padding: 103px 41px 103px;
+       These are those fractions of the card: 103px and 41px of a 340x470
+       one, as they were when that was its only size. */
+    padding: calc(var(--card-w) * 103 / 340) calc(var(--card-w) * 41 / 340);
   }
   /* The back of the card is decoration, and it must never be touchable.
      `backface-visibility: hidden` hides it from the eye but not from the
@@ -477,28 +600,32 @@
      over the scroller without covering the printed corner marks. */
   .card .front::before,
   .card .front::after {
-    content: ''; position: absolute; left: 41px; right: 41px; height: 18px;
+    content: ''; position: absolute;
+    left: calc(var(--card-w) * 41 / 340); right: calc(var(--card-w) * 41 / 340); height: 18px;
     pointer-events: none; opacity: 0; transition: opacity .16s ease; z-index: 2;
   }
   .card .front::before {
-    top: 103px;
+    top: calc(var(--card-w) * 103 / 340);
     background: linear-gradient(to bottom, var(--card-bg), rgba(253,235,247,0));
   }
   .card .front::after {
-    bottom: 103px;
+    bottom: calc(var(--card-w) * 103 / 340);
     background: linear-gradient(to top, var(--card-bg), rgba(253,235,247,0));
   }
   .card .front.cut-top::before { opacity: 1; }
   .card .front.cut-bottom::after { opacity: 1; }
+  /* 22px on the 340px card, as before; 17px at the floor on the smallest
+     phones, and never above 22px: a large phone gets room, not bigger
+     letters. */
   .q-text {
     color: var(--ink); text-align: center; font-weight: 600;
-    font-size: 22px; line-height: 1.42; letter-spacing: .002em;
+    font-size: var(--fs-card); line-height: 1.42; letter-spacing: .002em;
     overflow-wrap: anywhere;
   }
   /* Level with the bottom-right mark but centred, well clear of it — the
      same place renderer.py puts it, ~11% up from the bottom edge. */
   .card-footer {
-    position: absolute; left: 0; right: 0; bottom: 40px;
+    position: absolute; left: 0; right: 0; bottom: calc(var(--card-w) * 40 / 340);
     text-align: center; font-size: 12px; font-weight: 600; color: #7A3F64; letter-spacing: .06em;
   }
 

@@ -5,6 +5,7 @@ import hmac
 import json
 import logging
 import os
+from collections.abc import Callable
 from contextlib import asynccontextmanager
 from pathlib import Path
 from typing import Any
@@ -12,13 +13,16 @@ from typing import Any
 from fastapi import BackgroundTasks, Depends, FastAPI, Header, HTTPException, Request
 from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.middleware.gzip import GZipMiddleware
 from fastapi.middleware.trustedhost import TrustedHostMiddleware
 from fastapi.responses import JSONResponse, Response
 from fastapi.staticfiles import StaticFiles
+from starlette.types import Scope
 
 from .. import referrals
 from ..config import settings
 from ..freemium import FREE_CARDS_PER_DECK, free_slice, is_index_free
+from ..heartbeat import deep_status
 from ..i18n import Language, get_text
 from ..logic import localized_game_data
 from ..models import ContentType, Theme
@@ -108,6 +112,20 @@ async def validation_error(request: Request, exc: RequestValidationError) -> JSO
     return JSONResponse(status_code=422, content={"detail": errors})
 
 
+# Compression. The Mini App is one 211 KB page of text and /api/questions
+# another 54 KB, and both went out as they were: about 60 KB in gzip, on
+# the first screen of a phone that may be on a train. Starlette leaves
+# images, fonts and anything already encoded alone.
+#
+# Added before the headers middleware below, which makes it the inner of
+# the two: that one hands every response on as a stream, and GZip treats a
+# stream as large whatever its size, so outside it a 30-byte /health came
+# back gzipped. Inside, it sees the app's response whole, and a response
+# under a kilobyte goes out as it is. Level 6, not Starlette's 9: on the
+# page, 9 took twice the CPU of 6 to save 222 bytes of 63 KB.
+app.add_middleware(GZipMiddleware, minimum_size=1024, compresslevel=6)
+
+
 @app.middleware("http")
 async def security_headers(request: Request, call_next):
     """Headers the app had none of.
@@ -130,6 +148,46 @@ async def security_headers(request: Request, call_next):
     response.headers.setdefault("Content-Security-Policy", FRAME_ANCESTORS)
     response.headers.setdefault("Referrer-Policy", "strict-origin-when-cross-origin")
     return response
+
+
+class CachedStaticFiles(StaticFiles):
+    """StaticFiles that tells the browser how long it may keep each file.
+
+    Without it every launch asked again for the fonts and the card art -
+    an ETag each, so a 304 at best, but twenty round trips before the home
+    screen could draw its fan of decks. `cache_control` maps the file being
+    served to the header it goes out with, a 304 included: a revalidation
+    that did not say so would leave the cached copy stale again at once.
+    """
+
+    def __init__(self, *, cache_control: Callable[[Path], str], **kwargs: Any) -> None:
+        super().__init__(**kwargs)
+        self._cache_control = cache_control
+
+    def file_response(
+        self,
+        full_path: str | os.PathLike[str],
+        stat_result: os.stat_result,
+        scope: Scope,
+        status_code: int = 200,
+    ) -> Response:
+        response = super().file_response(full_path, stat_result, scope, status_code)
+        response.headers["Cache-Control"] = self._cache_control(Path(full_path))
+        return response
+
+
+# The page itself is always revalidated: a deploy has to reach the next
+# launch, and a 304 costs one round trip. The fonts are the same bytes for
+# months, so a month. The card art can be regenerated
+# (scripts/generate_card_assets.py), so a day, then served from the cache
+# while the browser checks in the background.
+PAGE_CACHE = "no-cache"
+FONT_CACHE = "public, max-age=2592000"
+ASSET_CACHE = "public, max-age=86400, stale-while-revalidate=604800"
+
+
+def _webapp_cache_control(path: Path) -> str:
+    return FONT_CACHE if path.parent.name == "fonts" else PAGE_CACHE
 
 
 # The API authenticates with an `Authorization` header, never a cookie, so a
@@ -188,6 +246,29 @@ async def health_check() -> dict[str, str | None]:
         "payment_enabled": str(settings.enable_payment),
         "commit": os.environ.get("RAILWAY_GIT_COMMIT_SHA") or None,
     }
+
+
+@app.get("/health/deep")
+async def deep_health_check() -> JSONResponse:
+    """Whether the database answers and the bot is alive: 200, or 503.
+
+    Not Railway's healthcheck - that is `/health`, which must stay light so
+    a database blip or a restarting bot never blocks a deploy or recycles a
+    web process that serves fine. This one is for the smoke test and for
+    whoever is looking: `SELECT 1`, and the age of the heartbeat the bot
+    writes every minute (`heartbeat.py`), which stops when the bot dies or
+    its event loop is stuck.
+    """
+    healthy, checks = await deep_status()
+    return JSONResponse(
+        status_code=200 if healthy else 503,
+        content={
+            "status": "ok" if healthy else "unhealthy",
+            "commit": os.environ.get("RAILWAY_GIT_COMMIT_SHA") or None,
+            "checks": checks,
+        },
+        headers={"Cache-Control": "no-store"},
+    )
 
 
 async def _caller_is_referred(authorization: str | None) -> bool:
@@ -545,7 +626,11 @@ async def root() -> dict[str, str]:
 
 # Telegram Mini App (static single-page game)
 if WEBAPP_DIR.exists():
-    app.mount("/app", StaticFiles(directory=str(WEBAPP_DIR), html=True), name="webapp")
+    app.mount(
+        "/app",
+        CachedStaticFiles(directory=str(WEBAPP_DIR), html=True, cache_control=_webapp_cache_control),
+        name="webapp",
+    )
 else:
     logger.warning(f"Mini App directory not found: {WEBAPP_DIR}")
 
@@ -553,7 +638,11 @@ else:
 # it needs the PNGs themselves. Read-only and public: these are the same
 # images every user already receives as photos.
 if ASSETS_DIR.exists():
-    app.mount("/assets", StaticFiles(directory=str(ASSETS_DIR)), name="assets")
+    app.mount(
+        "/assets",
+        CachedStaticFiles(directory=str(ASSETS_DIR), cache_control=lambda _path: ASSET_CACHE),
+        name="assets",
+    )
 else:
     logger.warning(f"Assets directory not found: {ASSETS_DIR}")
 

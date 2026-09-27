@@ -238,6 +238,28 @@ def test_rejected_deliveries_are_kept_and_released_on_postgres(pg_url: str) -> N
     ]
 
 
+def test_the_heartbeat_round_trips_on_postgres(pg_url: str) -> None:
+    """The bot writes a naive UTC timestamp and the web process subtracts it
+    from its own clock: both halves have to hold on the database production
+    runs, and a second beat must update the row rather than collide."""
+    from vechnost_bot import heartbeat
+
+    async def beat_twice_and_check() -> tuple[bool, dict]:
+        await heartbeat.beat(at=heartbeat.utcnow() - timedelta(minutes=2))
+        await heartbeat.beat()
+        return await heartbeat.deep_status()
+
+    healthy, checks = _run(pg_url, beat_twice_and_check)
+    assert healthy, checks
+    assert checks["bot_heartbeat_age_s"] < 60
+
+    async def stale() -> tuple[bool, dict]:
+        return await heartbeat.deep_status(now=heartbeat.utcnow() + timedelta(hours=1))
+
+    healthy, checks = _run(pg_url, stale)
+    assert not healthy and checks["bot"] == "stale"
+
+
 def test_the_payment_columns_reach_an_existing_database_on_postgres(pg_url: str) -> None:
     """A database made before the event key, the purchase link and the
     revocation mark got them: the startup step adds the columns and their

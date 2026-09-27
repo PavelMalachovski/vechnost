@@ -1,12 +1,77 @@
 """Configuration management for the bot using Pydantic Settings."""
 
 import logging
+from urllib.parse import urlsplit
 
-from pydantic import Field, RedisDsn, TypeAdapter, field_validator
+from pydantic import Field, RedisDsn, TypeAdapter, field_validator, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 from telegram import Bot
 
 logger = logging.getLogger(__name__)
+
+# The one database driver the app can run on in production: the engine is
+# async, and PostgreSQL is what production runs (SQLite in a container is a
+# file lost on every deploy, and shared by two processes).
+PRODUCTION_DATABASE_SCHEME = "postgresql+asyncpg"
+
+
+class ProductionConfigError(RuntimeError):
+    """A production deployment started on development defaults.
+
+    Deliberately not a ValueError: pydantic turns a ValueError raised in a
+    validator into a ValidationError whose message repeats the input, and
+    the input is every setting - the bot token and the database password
+    among them - which would land in the deploy log of a failed start.
+    """
+
+
+def production_problems(settings: "Settings") -> list[str]:
+    """What stops these settings from being a production configuration.
+
+    Every default here is a development one, and each is wrong in its own
+    quiet way: no ENABLE_PAYMENT means the paywall is open, no DATABASE_URL
+    means a SQLite file inside the container, a paywall without the Tribute
+    key refuses every payment, and Telegram opens a Mini App over HTTPS
+    only. The messages name the variable and never echo a value, since a
+    value may be a secret.
+    """
+    problems: list[str] = []
+    explicit = settings.model_fields_set
+
+    scheme = urlsplit(settings.database_url).scheme
+    if "database_url" not in explicit:
+        problems.append(
+            "DATABASE_URL is not set, so the database would be a SQLite file "
+            "inside the container, lost on every deploy; set it to "
+            f"{PRODUCTION_DATABASE_SCHEME}://..."
+        )
+    elif scheme != PRODUCTION_DATABASE_SCHEME:
+        problems.append(
+            f"DATABASE_URL must be PostgreSQL with the async driver "
+            f"({PRODUCTION_DATABASE_SCHEME}://...), not {scheme or 'a URL without a scheme'}; "
+            "Railway's own variable is spelled postgresql://, add +asyncpg"
+        )
+
+    if "enable_payment" not in explicit:
+        problems.append(
+            "ENABLE_PAYMENT is not set: say true or false, because unset "
+            "means every paid card is free"
+        )
+    elif settings.enable_payment and not settings.tribute_api_key:
+        problems.append(
+            "TRIBUTE_API_KEY is not set, and with ENABLE_PAYMENT=true every "
+            "Tribute webhook would be refused unverified"
+        )
+
+    if settings.webapp_url:
+        url = urlsplit(settings.webapp_url)
+        if url.scheme != "https" or not url.netloc:
+            problems.append(
+                "WEBAPP_URL must be an https:// address: Telegram opens a "
+                "Mini App over HTTPS only, and refuses the whole /start "
+                "greeting that carries a button to anything else"
+            )
+    return problems
 
 
 class Settings(BaseSettings):
@@ -33,7 +98,9 @@ class Settings(BaseSettings):
     # Environment Configuration
     environment: str = Field(
         default="development",
-        description="Application environment"
+        description="Application environment. `production` makes the "
+                    "service refuse to start on development defaults "
+                    "(see production_problems), and tags Sentry events."
     )
 
     # Sessions. Unset (the default) keeps them in the bot process's memory,
@@ -278,6 +345,29 @@ class Settings(BaseSettings):
         validation_alias="DAILY_CARD_HOUR_UTC",
         description="UTC hour when the daily card is sent (17 = ~19:00 Prague)."
     )
+
+    @property
+    def is_production(self) -> bool:
+        """Whether this is the production deployment (ENVIRONMENT=production)."""
+        return self.environment.strip().lower() == "production"
+
+    @model_validator(mode="after")
+    def _refuse_development_defaults_in_production(self) -> "Settings":
+        """Stop a production start on settings that only suit development.
+
+        Each of these used to fail open, and quietly: the service came up
+        and served, free, from a file in the container. Refusing to start
+        means the deploy's healthcheck never passes and the previous
+        deploy keeps serving, with a log line naming every variable to fix.
+        """
+        if self.is_production:
+            problems = production_problems(self)
+            if problems:
+                raise ProductionConfigError(
+                    "ENVIRONMENT=production, but the configuration is not "
+                    "one to start with:\n- " + "\n- ".join(problems)
+                )
+        return self
 
     @property
     def admin_secret(self) -> str | None:

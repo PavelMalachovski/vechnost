@@ -54,6 +54,62 @@ def test_the_mount_does_not_escape_via_percent_encoded_traversal(client):
     assert res.status_code != 200
 
 
+def _max_age(cache_control: str) -> int:
+    match = re.search(r"max-age=(\d+)", cache_control)
+    return int(match.group(1)) if match else 0
+
+
+def test_the_page_goes_out_compressed_and_is_always_revalidated(client):
+    """index.html is 211 KB of text and went out as it was, with no
+    Cache-Control at all. Compressed it is about 60 KB; and it must be
+    revalidated on every launch, or a deploy would not reach the phones
+    that already have it."""
+    with client.stream("GET", "/app/", headers={"Accept-Encoding": "gzip"}) as res:
+        raw = b"".join(res.iter_raw())
+        headers = res.headers
+    assert res.status_code == 200
+    assert headers["content-encoding"] == "gzip"
+    assert len(raw) < 100_000, f"{len(raw)} bytes on the wire"
+    assert "accept-encoding" in headers["vary"].lower()
+    assert headers["cache-control"] == "no-cache"
+    # The security headers are set inside the compression, not lost to it.
+    assert headers["x-content-type-options"] == "nosniff"
+    assert "frame-ancestors" in headers["content-security-policy"]
+    assert headers["referrer-policy"] == "strict-origin-when-cross-origin"
+    # A revalidation that comes back 304 says the same about caching.
+    again = client.get("/app/", headers={"If-None-Match": headers["etag"]})
+    assert again.status_code == 304
+    assert again.headers["cache-control"] == "no-cache"
+
+
+def test_fonts_and_card_art_are_kept_by_the_browser(client):
+    """Twenty requests for the same fonts and PNGs on every launch, each
+    answered only by an ETag, stood between a tap and the home screen."""
+    font = client.get("/app/fonts/inter-400.woff2", headers={"Accept-Encoding": "gzip"})
+    assert font.status_code == 200
+    assert "public" in font.headers["cache-control"]
+    assert _max_age(font.headers["cache-control"]) >= 30 * 86400
+    # woff2 and PNG are compressed already; gzip would only cost CPU.
+    assert "content-encoding" not in font.headers
+    art = client.get("/assets/backgrounds/library.png", headers={"Accept-Encoding": "gzip"})
+    assert art.status_code == 200
+    assert "public" in art.headers["cache-control"]
+    assert _max_age(art.headers["cache-control"]) >= 86400
+    assert "content-encoding" not in art.headers
+    again = client.get("/assets/backgrounds/library.png",
+                       headers={"If-None-Match": art.headers["etag"]})
+    assert again.status_code == 304
+    assert again.headers["cache-control"] == art.headers["cache-control"]
+
+
+def test_the_api_is_compressed_and_a_tiny_answer_is_not(client):
+    questions = client.get("/api/questions", headers={"Accept-Encoding": "gzip"})
+    assert questions.status_code == 200
+    assert questions.headers.get("content-encoding") == "gzip"
+    health = client.get("/health", headers={"Accept-Encoding": "gzip"})
+    assert "content-encoding" not in health.headers
+
+
 def test_the_mini_app_points_at_the_real_card_art():
     html = INDEX.read_text(encoding="utf-8")
     assert "/assets/backgrounds/" in html
@@ -132,8 +188,29 @@ def test_long_card_text_scrolls_instead_of_shrinking():
     # declares its own so a nested scroller keeps the vertical pan that
     # scrolls the text on a touch screen.
     assert "touch-action" in q_zone
+    # The size follows the card's width (17px on the smallest phones, 22px
+    # from a 340px card up) and nothing else: no class shrinks it.
     q_text = _css_block(html, ".q-text")
-    assert "font-size: 22px" in q_text
+    assert "font-size: var(--fs-card)" in q_text
+    assert "--fs-card: clamp(17px, calc(var(--card-w) * 22 / 340), 22px);" in html
+
+
+def test_the_card_and_its_text_band_scale_from_one_width():
+    """D-04: the card's shape is fixed and every length on its face is a
+    fraction of its width. A px margin inside a card whose box followed the
+    stage is what left a 147px band on a 320x568 phone. The stage, not the
+    card, is the size container: the card sits in the 3D flip."""
+    html = INDEX.read_text(encoding="utf-8")
+    for stage in ("#stage", "#libStage"):
+        assert "container-type: size" in _css_block(html, stage)
+    card = _css_block(html, ".card")
+    assert "--card-w: min(100cqw, 100cqh * 340 / 470, var(--card-max-w));" in card
+    assert "height: calc(var(--card-w) * 470 / 340);" in card
+    assert "container-type" not in card
+    front = _css_block(html, ".card .front")
+    assert "padding: calc(var(--card-w) * 103 / 340) calc(var(--card-w) * 41 / 340);" in front
+    declarations = re.sub(r"/\*.*?\*/", "", front, flags=re.S)
+    assert "103px" not in declarations and "41px" not in declarations
 
 
 def test_the_fade_marks_only_an_edge_that_actually_hides_something():
@@ -533,3 +610,37 @@ def test_the_finale_overlay_is_not_rebuilt_under_a_tap():
     html = INDEX.read_text(encoding="utf-8")
     body = html.split("function showS69Finale(st) {")[1].split("\n  }")[0]
     assert "contains('show')) return" in body
+
+
+def _root_block(html: str) -> str:
+    """The declarations of the page's :root rule: the design tokens."""
+    return html.split("  :root {", 1)[1].split("\n  }", 1)[0]
+
+
+def test_the_old_custom_property_names_are_aliases_of_the_tokens():
+    """The token block is the one place a value is spelled. The names the
+    rules were written against stay, pointing at it, so a colour changed in
+    the palette reaches every rule that still says --ink or --card-bg; and
+    the two that nothing ever read are gone."""
+    html = INDEX.read_text(encoding="utf-8")
+    root = _root_block(html)
+    for alias, token in (("--ink", "--c-ink"), ("--card-bg", "--card-ground"),
+                         ("--text-on-dark", "--text-1"), ("--muted-on-dark", "--text-2"),
+                         ("--radius-card", "--r-card")):
+        assert f"{alias}: var({token});" in root, alias
+    assert re.search(r"--card-ground:\s+var\(--c-blush-50\)", root)
+    assert re.search(r"--c-blush-50:\s+#FFE5FA", root), "generate_card_assets.PALE"
+    assert "--shell-1" not in html
+    assert "--font-emblem" not in html
+
+
+def test_every_custom_property_the_page_reads_is_declared():
+    """A misspelt token is not an error in CSS: var() of an undeclared name
+    quietly falls back to the property's initial value, so a colour turns
+    black or a gap turns zero and nothing says why."""
+    html = INDEX.read_text(encoding="utf-8")
+    declared = set(re.findall(r"(--[\w-]+)\s*:", html))
+    used = set(re.findall(r"var\((--[\w-]+)", html))
+    # Telegram sets its own --tg-* on the document from telegram-web-app.js.
+    missing = {name for name in used - declared if not name.startswith("--tg-")}
+    assert not missing, missing

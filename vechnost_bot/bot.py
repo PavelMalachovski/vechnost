@@ -280,6 +280,10 @@ def create_application() -> Application:
     else:
         from datetime import time
 
+        from .heartbeat import register_heartbeat
+
+        register_heartbeat(application)  # the pulse /health/deep reads
+
         # Deleting rows is not urgent and should not share a minute with
         # anything that messages a user, so it runs in the small hours.
         from .retention import retention_job
