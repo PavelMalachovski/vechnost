@@ -96,7 +96,7 @@ def test_back_from_the_invite_offers_the_board_already_started(server: Server, p
     phone.page.locator("#s69Suits button").first.click()
     phone.page.click("#btnS69Duo")
     phone.screen("s69Invite")
-    phone.page.click("#s69InviteBack")
+    press_back(phone)
     phone.screen("s69")
     phone.page.wait_for_selector("#btnS69Resume", state="visible", timeout=POLL)
     phone.shot("resume-offered")
