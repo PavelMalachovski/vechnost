@@ -12,7 +12,10 @@ Telegram itself.
 | Bot | `test_duo_bot.py` | What travels between two users through the chat: an invite turned into a button, a referral, a gift bought by one and redeemed by the other, `/delete_me` taking shared rows for both | every `pytest` |
 | Fuzzer | `test_duo_fuzz.py` | Three people (Alice paid, Bob unpaid, Carol a stranger with the link) doing *anything* in any order, checked after every step against a reference model of the rules | every `pytest` (small budget); CI raises it |
 | Races | `test_duo_races.py` | The same seat, turn or answer hit by both phones at the same instant | CI, against PostgreSQL |
-| Browsers | `browser/test_two_phones.py` | Two Chromium phones driving the Mini App UI: the invite link one screen shows opens the other, the waiting phone catches up by itself, no deal leaks to the wrong screen | CI (`E2E_BROWSER=1`) |
+| Browsers | `browser/test_two_phones.py`, `test_paywall.py`, `test_navigation.py`, `test_design_regressions.py` | Two phones driving the Mini App UI, each scenario on both phone models: the invite link one screen shows opens the other, the waiting phone catches up by itself, no deal leaks to the wrong screen, the paywall and the 18+ doors, Back | CI (`E2E_BROWSER=1`), one job per phone |
+| Touch | `browser/test_touch.py` | A long card under real input: a finger in the middle of the text scrolls it, a vertical drag leaves the card alone, a swipe turns it; and the suite breaks the two hit-testing rules on purpose to prove it notices | CI, one job per phone |
+| Screens | `browser/test_screens.py` | Every screen and overlay of the Mini App, reached for real, photographed at 320×568, 375×667, 393×852 and 430×932 on each phone | CI on pull requests and at night |
+| UI fuzzer | `browser/test_ui_fuzz.py` | Both partners in one room, test or board, tapping, swiping, scrolling and pressing Back at random; checked after every step (errors, unexpected `/api` answers, sideways overflow, Back, the two phones agreeing) | CI on pull requests (short) and at night (long) |
 
 ## Running it
 
@@ -21,13 +24,91 @@ pytest tests/e2e -n0                        # scenarios, bot, a short fuzz (~15 
 E2E_FUZZ_EXAMPLES=400 E2E_FUZZ_STEPS=100 \
   pytest tests/e2e/test_duo_fuzz.py -n0 -s  # the nightly fuzz (~13 min), prints what it reached
 
-pip install -e ".[dev,e2e]" && python -m playwright install chromium
-E2E_BROWSER=1 pytest tests/e2e/browser -n0  # two phones in Chromium (~1 min)
+pip install -e ".[dev,e2e]" && python -m playwright install chromium webkit
+E2E_BROWSER=1 pytest tests/e2e/browser -n0  # both phones, everything (~6 min per phone)
+E2E_BROWSER=1 E2E_PHONES=android pytest tests/e2e/browser -n0 -m "not screens and not ui_fuzz"
+                                            # one phone, the deterministic part (what a push runs)
+E2E_BROWSER=1 pytest tests/e2e/browser -n0 -m screens   # every screen at four sizes
+E2E_UI_FUZZ_RUNS=3 E2E_UI_FUZZ_STEPS=100 E2E_BROWSER=1 \
+  pytest tests/e2e/browser -n0 -m ui_fuzz -s             # the nightly UI fuzz (~20 min per phone)
 ```
 
 Screenshots of every browser step, a Playwright trace of each phone when a
 test fails, and `fuzz_coverage.json` go to `E2E_REPORT_DIR` (default
 `./e2e-report`, git-ignored).
+
+## Two phones, two engines
+
+Telegram shows a Mini App in Chromium on Android and in WebKit on iOS, so
+every browser test runs once per phone model (`browser/phones.py`):
+
+| Phone | Engine | Screen | Telegram says |
+|---|---|---|---|
+| `android`, Pixel-class | Chromium | 412×915 at 2.625x, touch | `platform: "android"` |
+| `iphone`, iPhone 15 Pro-class | WebKit | 393×852 at 3x, touch | `platform: "ios"` |
+
+Both partners of a scenario hold the same model, so a CI job per phone runs
+every scenario on one engine, against a live server on PostgreSQL. Locally
+the browsers' server runs on a SQLite file unless `E2E_DATABASE_URL` names
+another database, and SQLite's single shared connection (audit B-13, H-03)
+now and then refuses a partner's first join with «test is full» while the
+seat stays empty: a two-phone test that fails that way locally is B-13, not
+the test. PostgreSQL does not do it. `E2E_PHONES=android` (or `iphone`) picks the
+phones; unset, both run, and a phone whose engine is not installed skips
+with the reason. Named in `E2E_PHONES`, a missing engine fails instead: the
+iPhone job must not go green by testing nothing.
+
+### What is real touch, and what is not
+
+* **Android (Chromium): all of it.** Taps, swipes and scrolls are CDP
+  `Input.dispatchTouchEvent`, which Chromium's compositor hit-tests and
+  scrolls exactly as it does a finger - which is what the two hit-testing
+  rules in `CLAUDE.md` are about, and what `elementFromPoint` gets wrong.
+* **iPhone (WebKit): real input, but not all of it touch.** A tap is
+  Playwright's `touchscreen.tap`, WebKit's own touch path. Playwright has no
+  touch drag for WebKit, so a swipe is a real mouse drag (the swipe engine
+  listens to both) and a scroll a real mouse wheel, each hit-tested by
+  WebKit itself. Not covered, and not coverable with Playwright: a touch
+  drag in WebKit, and everything iOS adds on top of it - UIKit's scroll
+  views and gesture recognisers, momentum. Playwright's WebKit is the Linux
+  build, not an iPhone.
+
+`test_touch.py` ends by breaking each rule on purpose (a touchable back
+face, a mask on the scroller) and recording which probe notices, in
+`touch-canary-<phone>.json` and the job summary. On Chromium the back face
+stops the real scroll, as it did in production. The mask no longer does:
+current Chromium keeps a masked element in its hit test, so that rule is
+held by the computed-style probe on every phone.
+
+### Screens
+
+`test_screens.py` walks each phone through every screen and overlay - the
+decks, the 18+ question and the paywall, a room, the compatibility test and
+«69 ступеней» from their doors to their ends (a partner joins and plays
+through the API; the phone hears it through its own poll), the Library, a
+practice and the masterclass - and photographs each at 320×568, 375×667,
+393×852 and 430×932. `e2e-report/browser/screens/index.html` is the contact
+sheet; CI uploads it with the job's artifact and puts the table in the job
+summary.
+
+### The UI fuzzer
+
+`test_ui_fuzz.py` seats Alice (paid) and Bob (not) in one room, test or
+board through the UI and lets both phones act at random: tap any visible,
+enabled control, swipe a card, scroll whatever scrolls, press Telegram's
+Back, wait, close and reopen the app, open the invite again. After every
+step, on both phones: no page error and no console error; no `/api` answer
+the app does not expect (`EXPECTED` lists the 4xx it is built to handle,
+each with its reason) and no 5xx; nothing reaching past the sides of the
+screen; Back closed the top layer (the overlay, else the screen); the loader
+never up for more than 10 s; a way out of every overlay; and once their
+polls settle, both phones showing what the server holds for each of them.
+At the end both find their way home.
+
+Every arena runs `E2E_UI_FUZZ_RUNS` times for `E2E_UI_FUZZ_STEPS` steps: 1×25
+on a pull request, 3×100 at night. A failure prints the seed, the command
+that replays it (`E2E_UI_FUZZ_SEED=<seed> ...`) and every step both phones
+took; `ui_fuzz_<phone>_<arena>_<seed>.json` keeps what each run did.
 
 ### Against a live server, or PostgreSQL
 
@@ -81,6 +162,12 @@ server and one database without seeing each other.
   so a failing game replays exactly.
 * **Browsers** leave `e2e-report/browser/<test>/`: numbered screenshots of
   both phones, and `trace-<name>.zip` for `playwright show-trace`.
+* **The UI fuzzer** prints its seed, the replay command and the steps; the
+  screenshots of both phones at the failure are in its test's folder.
+* To show a browser test catches a fault, put the fault back in a scratch
+  copy of `webapp/index.html` and run with `E2E_WEBAPP_HTML=<copy>`: the
+  phones load that page instead of the server's, with everything else
+  (fonts, art, the API) still real.
 
 ## Adding a scenario
 

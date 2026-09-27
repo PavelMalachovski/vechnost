@@ -36,7 +36,10 @@ pytest tests/test_freemium.py -q         # run one suite
 ruff check .                             # lint (CI gates on this)
 ./scripts/typecheck.sh                   # types (CI gates on this)
 pytest tests/e2e -n0                     # the two-user suite, in-process
-E2E_BROWSER=1 pytest tests/e2e/browser -n0   # two Chromium phones (needs .[e2e])
+E2E_BROWSER=1 pytest tests/e2e/browser -n0   # the Mini App on an Android in Chromium and an
+                                         # iPhone in WebKit (needs .[e2e]); E2E_PHONES=android
+                                         # for one phone, -m screens / -m ui_fuzz for the
+                                         # screen tour / the UI fuzzer alone
 python scripts/smoke_production.py $URL  # read-only smoke of a deployed server
 python scripts/smoke_production.py $URL --deep  # ...and its database and bot heartbeat
 ```

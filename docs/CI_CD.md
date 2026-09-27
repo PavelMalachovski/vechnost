@@ -19,7 +19,7 @@ every 3 h ──► Production smoke (read-only)
 | Workflow | Runs on | Jobs | What a red job means |
 |---|---|---|---|
 | `ci.yml` | PR, push to master, nightly, manual | `lint` (ruff, typed domain layer, mypy and pip-audit advisory), `test` (the whole suite with Redis, ~20 s), `install-smoke` (the `Dockerfile` Railway builds: every module imported inside the image, the web process served from it and smoked), `upstream` (nightly only: the suite on today's PyPI, unpinned) | Code, types or a dependency are broken. A red `upstream` with every other job green is a release upstream that the lock keeps away from production (this is how the SQLAlchemy 2.1 break is now caught). |
-| `e2e.yml` | PR, push to master, nightly, manual | `postgres` (PostgreSQL-only tests, then the two-user suite in-process and over real HTTP against a live server, with the race tests and the production smoke), `fuzz` (three users doing anything; 120×80 on a PR, 400×100 at night), `browser` (two Chromium phones through a room, the test and the board) | Something two people do together is broken. The log has the two-user transcript, the fuzzer's shrunk reproduction, or screenshots and traces in the job's artifacts. |
+| `e2e.yml` | PR, push to master, nightly, manual | `postgres` (PostgreSQL-only tests, then the two-user suite in-process and over real HTTP against a live server, with the race tests and the production smoke), `fuzz` (three users doing anything; 120×80 on a PR, 400×100 at night), `browser`, one job per phone (two Androids in Chromium, two iPhones in WebKit: every scenario through a room, the test and the board, the paywall, Back and real touch; on a PR and at night also every screen at four sizes and the UI fuzzer, 3×25 steps on a PR and 3×3×100 at night) | Something two people do together is broken. The log has the two-user transcript, the fuzzer's shrunk reproduction or the UI fuzzer's seed and steps, or screenshots, the contact sheet of every screen and traces in the job's artifacts. |
 | `production-smoke.yml` | a successful deployment, every 3 hours, manual | `smoke`: `scripts/smoke_production.py` against `PRODUCTION_URL` | Production is down, is not the commit that was deployed, lost a content API, or answers anonymous callers where it should refuse them. |
 
 The two-user harness is described in [`tests/e2e/README.md`](../tests/e2e/README.md).
@@ -48,8 +48,9 @@ The two-user harness is described in [`tests/e2e/README.md`](../tests/e2e/README
    rule* for `master`: require a pull request, and require these checks to
    pass. A check is named after its job's `name:` where it has one, so the
    list is `lint`, `test`, `Fresh install, the way Railway builds it`,
-   `Two users on PostgreSQL`, `Three people doing anything` and
-   `Two phones in Chromium`. Then a red PR cannot be merged at all, and
+   `Two users on PostgreSQL`, `Three people doing anything`,
+   `Two phones: Android in Chromium` and `Two phones: iPhone in WebKit`.
+   Then a red PR cannot be merged at all, and
    "Wait for CI" is the second lock rather than the only one. Leave
    `Today's PyPI, unpinned` out: it runs only at night, and an upstream
    release is not a reason to block a merge.
@@ -80,7 +81,8 @@ pip install --require-hashes --no-deps -r requirements-dev.lock && pip install -
 pytest                                              # what `test` runs
 ruff check . && ./scripts/typecheck.sh              # what `lint` gates on
 pytest tests/e2e -n0                                # the two-user suite, in-process
-E2E_BROWSER=1 pytest tests/e2e/browser -n0          # two phones (needs .[e2e] + Chromium)
+E2E_BROWSER=1 pytest tests/e2e/browser -n0          # two phones of each model (needs .[e2e],
+                                                    # Chromium and WebKit; E2E_PHONES=android for one)
 python scripts/smoke_production.py https://your-app.up.railway.app
 python scripts/smoke_production.py https://your-app.up.railway.app --deep   # + database and bot heartbeat
 ```
