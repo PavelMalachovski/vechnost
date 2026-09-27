@@ -42,7 +42,7 @@ from .keyboards import (
 from .logic import load_game_data, localized_game_data
 from .models import ContentType, SessionState, Theme
 from .renderer import get_background_path, render_card_bytes
-from .storage import get_session, reset_session
+from .storage import get_session
 
 logger = logging.getLogger(__name__)
 
@@ -922,8 +922,15 @@ class SimpleActionHandler(CallbackHandler):
         )
 
     async def _handle_reset_confirmation(self, query: Any, session: SessionState) -> None:
-        """Handle reset confirmation."""
-        await reset_session(query.message.chat.id)
+        """Handle reset confirmation.
+
+        Resets the session it was handed, which is the one the registry saves
+        once the handler returns. It used to reset a second copy read from
+        storage and save that, and the registry then saved its own copy over
+        it: invisible in memory, where both copies were one object, and a
+        reset that changed nothing wherever the store serializes.
+        """
+        session.reset()
         await query.edit_message_text(
             get_text('reset.completed', session.language),
             reply_markup=get_theme_keyboard(session.language)

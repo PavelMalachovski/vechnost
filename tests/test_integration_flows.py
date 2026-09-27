@@ -7,7 +7,7 @@ from telegram import CallbackQuery, Chat, Message, Update, User
 
 from vechnost_bot.handlers import handle_callback_query, start_command
 from vechnost_bot.models import SessionState
-from vechnost_bot.storage import get_session, reset_session
+from vechnost_bot.storage import get_session
 
 
 class TestCompleteUserFlows:
@@ -43,10 +43,6 @@ class TestCompleteUserFlows:
         query.edit_message_text = AsyncMock()
         query.answer = AsyncMock()
         return query
-
-    def setup_method(self):
-        """Clear sessions before each test."""
-        reset_session(12345)
 
     @pytest.mark.asyncio
     async def test_complete_acquaintance_flow(self, mock_update, mock_context, mock_callback_query):
