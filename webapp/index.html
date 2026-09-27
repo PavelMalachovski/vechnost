@@ -275,7 +275,9 @@
   /* Someone who asked their phone for less motion gets it: no floating fan,
      no tumbling die, no card flights, no confetti (see confetti()). Motion
      that carries meaning - a card leaving, the board moving - still ends in
-     the same place, only without the travel (audit D-13). */
+     the same place, only without the travel (audit D-13). What script
+     starts, this block cannot reach: the confetti and the map's scroll to
+     the piece (paintS69Map) ask REDUCED_MOTION themselves. */
   @media (prefers-reduced-motion: reduce) {
     *, *::before, *::after {
       animation-duration: .01ms !important;
@@ -4843,7 +4845,11 @@
 
     const here = s69MapCell(mineAt);
     if (here && here.scrollIntoView) {
-      try { here.scrollIntoView({ block: 'nearest', behavior: 'smooth' }); } catch (e) {}
+      // Asked for by script, so the reduced-motion block's scroll-behavior
+      // never reaches it: the map travelled for half a second on a phone
+      // that asked for less motion (audit D-13).
+      const behavior = REDUCED_MOTION ? 'auto' : 'smooth';
+      try { here.scrollIntoView({ block: 'nearest', behavior }); } catch (e) {}
     }
   }
 

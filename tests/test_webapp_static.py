@@ -683,6 +683,20 @@ def test_a_phone_that_asks_for_less_motion_gets_no_confetti():
     assert body.lstrip().startswith("if (REDUCED_MOTION) return;")
 
 
+def test_a_scroll_asked_for_by_script_asks_about_motion_too():
+    """D-13: the reduced-motion block sets scroll-behavior, which a
+    `behavior: 'smooth'` passed from script overrides. The board's map
+    travelled for half a second on a phone that asked for less motion."""
+    html = INDEX.read_text(encoding="utf-8")
+    script = html.split("<script>", 1)[1]
+    asked = re.findall(r"behavior\s*=\s*([^;]+);|[{,]\s*behavior:\s*([^,}]+)", script)
+    values = [a or b for a, b in asked]
+    assert values, "the map's scrollIntoView should be found"
+    for value in values:
+        if "smooth" in value:
+            assert "REDUCED_MOTION" in value, value
+
+
 def test_the_launch_preload_is_quiet():
     """D-16: the preload at launch shows no loader and says nothing; «Играть»
     waits for the same request with the loader up."""
