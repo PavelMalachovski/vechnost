@@ -3,7 +3,6 @@
 import asyncio
 import logging
 from abc import ABC, abstractmethod
-from io import BytesIO
 from typing import Any
 
 from telegram import (
@@ -29,7 +28,6 @@ from .callback_models import (
     ToggleCallbackData,
 )
 from .config import settings
-from .hybrid_storage import get_redis_storage
 from .i18n import Language, format_number, get_text
 from .keyboards import (
     get_calendar_keyboard,
@@ -42,7 +40,7 @@ from .keyboards import (
 from .logic import load_game_data, localized_game_data
 from .models import ContentType, SessionState, Theme
 from .renderer import get_background_path, render_card_bytes
-from .storage import get_session, reset_session
+from .storage import get_session, save_session
 
 logger = logging.getLogger(__name__)
 
@@ -507,7 +505,13 @@ class QuestionHandler(CallbackHandler):
         # Get items
         items = localized_game_data.get_content(theme, session.level, content_type, session.language)
         if not items or callback_data.index >= len(items):
-            await query.edit_message_text("❌ Вопрос недоступен.")
+            # Through `_show_text`: the tap usually comes from under a card,
+            # which is a photo, and a photo has no text to edit.
+            await _show_text(
+                query,
+                get_text('errors.question_unavailable', session.language),
+                get_theme_keyboard(session.language),
+            )
             return
 
         # Freemium gate: cards past the free preview require payment
@@ -541,22 +545,25 @@ class QuestionHandler(CallbackHandler):
             footer = _card_footer(theme, callback_data.index, len(items), session.language)
             # In a thread and memoised: PTB handles updates one at a time,
             # so a composite on the loop held every other user's tap.
-            image_data = BytesIO(await asyncio.to_thread(
+            image = await asyncio.to_thread(
                 render_card_bytes, question, bg_path, footer, _card_watermark()
-            ))
-            logger.info(f"Card rendered successfully, size: {len(image_data.getvalue())} bytes")
+            )
+            logger.info(f"Card rendered successfully, size: {len(image)} bytes")
 
-            # Try to edit message to photo, fallback to new message if that fails
+            # Try to edit message to photo, fallback to new message if that fails.
+            # Bytes, not a BytesIO: InputMediaPhoto reads a file object to
+            # the end, and the fallback used to send what was left of it -
+            # an empty file, which Telegram refuses.
             try:
                 await query.edit_message_media(
-                    media=InputMediaPhoto(media=image_data),
+                    media=InputMediaPhoto(media=image),
                     reply_markup=keyboard
                 )
             except Exception as edit_error:
                 logger.warning(f"Could not edit message to photo: {edit_error}, sending new message")
                 # Fallback: send new photo message
                 await query.message.reply_photo(
-                    photo=image_data,
+                    photo=image,
                     reply_markup=keyboard
                 )
         except Exception as e:
@@ -604,7 +611,13 @@ class NavigationHandler(CallbackHandler):
         # Get items
         items = localized_game_data.get_content(theme, session.level, content_type, session.language)
         if not items or callback_data.index >= len(items):
-            await query.edit_message_text("❌ Вопрос недоступен.")
+            # Through `_show_text`: the tap usually comes from under a card,
+            # which is a photo, and a photo has no text to edit.
+            await _show_text(
+                query,
+                get_text('errors.question_unavailable', session.language),
+                get_theme_keyboard(session.language),
+            )
             return
 
         # Freemium gate: cards past the free preview require payment
@@ -638,22 +651,25 @@ class NavigationHandler(CallbackHandler):
             footer = _card_footer(theme, callback_data.index, len(items), session.language)
             # In a thread and memoised: PTB handles updates one at a time,
             # so a composite on the loop held every other user's tap.
-            image_data = BytesIO(await asyncio.to_thread(
+            image = await asyncio.to_thread(
                 render_card_bytes, question, bg_path, footer, _card_watermark()
-            ))
-            logger.info(f"Card rendered successfully, size: {len(image_data.getvalue())} bytes")
+            )
+            logger.info(f"Card rendered successfully, size: {len(image)} bytes")
 
-            # Try to edit message to photo, fallback to new message if that fails
+            # Try to edit message to photo, fallback to new message if that fails.
+            # Bytes, not a BytesIO: InputMediaPhoto reads a file object to
+            # the end, and the fallback used to send what was left of it -
+            # an empty file, which Telegram refuses.
             try:
                 await query.edit_message_media(
-                    media=InputMediaPhoto(media=image_data),
+                    media=InputMediaPhoto(media=image),
                     reply_markup=keyboard
                 )
             except Exception as edit_error:
                 logger.warning(f"Could not edit message to photo: {edit_error}, sending new message")
                 # Fallback: send new photo message
                 await query.message.reply_photo(
-                    photo=image_data,
+                    photo=image,
                     reply_markup=keyboard
                 )
         except Exception as e:
@@ -923,8 +939,15 @@ class SimpleActionHandler(CallbackHandler):
         )
 
     async def _handle_reset_confirmation(self, query: Any, session: SessionState) -> None:
-        """Handle reset confirmation."""
-        await reset_session(query.message.chat.id)
+        """Handle reset confirmation.
+
+        Resets the session it was handed, which is the one the registry saves
+        once the handler returns. It used to reset a second copy read from
+        storage and save that, and the registry then saved its own copy over
+        it: invisible in memory, where both copies were one object, and a
+        reset that changed nothing wherever the store serializes.
+        """
+        session.reset()
         await query.edit_message_text(
             get_text('reset.completed', session.language),
             reply_markup=get_theme_keyboard(session.language)
@@ -1043,11 +1066,25 @@ class CallbackHandlerRegistry:
         }
 
     async def handle_callback(self, query: Any, data: str) -> None:
-        """Handle a callback query with the appropriate handler."""
-        try:
-            # Parse callback data
-            callback_data = CallbackData.parse(data)
+        """Handle a callback query with the appropriate handler.
 
+        Two failures, two answers. Data the bot cannot parse is a button it
+        does not know (an old keyboard, a garbled payload): «Неизвестная
+        команда». Anything that goes wrong after that - the session store,
+        the database, Telegram - is a known button that did not work, and
+        saying «unknown command» there sent people looking for a mistake of
+        their own. Parsing is kept apart for that reason: pydantic's
+        ValidationError is a ValueError too, so one `except ValueError`
+        around everything filed a handler's failure under the first case.
+        """
+        try:
+            callback_data = CallbackData.parse(data)
+        except ValueError as e:
+            logger.warning(f"Invalid callback data: {data}, error: {e}")
+            await self._say_it_went_wrong(query, 'errors.unknown_callback')
+            return
+
+        try:
             # Get session
             chat_id = query.message.chat.id
             session = await get_session(chat_id)
@@ -1056,40 +1093,29 @@ class CallbackHandlerRegistry:
             handler = self._handlers.get(callback_data.action)
             if not handler:
                 logger.warning(f"No handler found for action: {callback_data.action}")
-                await query.edit_message_text(get_text('errors.unknown_callback', session.language))
+                await self._say_it_went_wrong(query, 'errors.unknown_callback')
                 return
 
             # Handle the callback
             await handler.handle(query, callback_data, session)
 
             # Save session after handler modifies it
-            storage = await get_redis_storage()
-            await storage.save_session(chat_id, session)
+            await save_session(chat_id, session)
 
-        except ValueError as e:
-            logger.warning(f"Invalid callback data: {data}, error: {e}")
-            await self._say_it_went_wrong(query)
         except Exception as e:
             logger.error(f"Error handling callback query {data}: {e}", exc_info=True)
-            await self._say_it_went_wrong(query)
+            await self._say_it_went_wrong(query, 'errors.callback_failed')
 
-    async def _say_it_went_wrong(self, query: Any) -> None:
+    async def _say_it_went_wrong(self, query: Any, key: str) -> None:
         """Tell the user something failed, even when storage is what failed.
 
-        The language used to be read from the session — so when the original
-        failure *was* storage, the error path failed the same way and the user
-        was left with a tapped button and silence. Russian is the only
-        language the app ships, so falling back to it costs nothing and is
-        always better than saying nothing.
+        The language used to be read from the session, so when storage was
+        what had failed the apology failed the same way and the player was
+        left with a tapped button and silence. Russian is the only language
+        the app ships, so the session is not consulted at all.
         """
-        language = Language.RUSSIAN
         try:
-            language = (await get_session(query.message.chat.id)).language
-        except Exception as session_error:
-            logger.warning(f"Could not read the session for an error message: {session_error}")
-
-        try:
-            await _show_text(query, get_text('errors.unknown_callback', language))
+            await _show_text(query, get_text(key, Language.RUSSIAN))
         except Exception as edit_error:
             logger.error(f"Error editing message: {edit_error}")
 

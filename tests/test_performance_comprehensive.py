@@ -17,7 +17,7 @@ class TestStoragePerformance:
 
     @pytest.mark.performance
     @pytest.mark.asyncio
-    async def test_session_save_performance(self, hybrid_storage_with_memory):
+    async def test_session_save_performance(self, memory_session_store):
         """Test session save performance."""
         session = SessionState(
             language=Language.RUSSIAN,
@@ -28,7 +28,7 @@ class TestStoragePerformance:
 
         # Measure save performance
         start_time = time.time()
-        await hybrid_storage_with_memory.save_session(12345, session)
+        await memory_session_store.save_session(12345, session)
         save_time = time.time() - start_time
 
         # Should complete within 100ms
@@ -36,18 +36,18 @@ class TestStoragePerformance:
 
     @pytest.mark.performance
     @pytest.mark.asyncio
-    async def test_session_get_performance(self, hybrid_storage_with_memory):
+    async def test_session_get_performance(self, memory_session_store):
         """Test session get performance."""
         session = SessionState(
             language=Language.RUSSIAN,
             theme=Theme.ACQUAINTANCE,
             level=1
         )
-        await hybrid_storage_with_memory.save_session(12345, session)
+        await memory_session_store.save_session(12345, session)
 
         # Measure get performance
         start_time = time.time()
-        retrieved_session = await hybrid_storage_with_memory.get_session(12345)
+        retrieved_session = await memory_session_store.get_session(12345)
         get_time = time.time() - start_time
 
         # Should complete within 50ms
@@ -56,7 +56,7 @@ class TestStoragePerformance:
 
     @pytest.mark.performance
     @pytest.mark.asyncio
-    async def test_concurrent_session_operations(self, hybrid_storage_with_memory):
+    async def test_concurrent_session_operations(self, memory_session_store):
         """Test concurrent session operations."""
         async def create_session(user_id: int):
             """Create a session for a user."""
@@ -65,8 +65,8 @@ class TestStoragePerformance:
                 theme=Theme.ACQUAINTANCE,
                 level=1
             )
-            await hybrid_storage_with_memory.save_session(user_id, session)
-            return await hybrid_storage_with_memory.get_session(user_id)
+            await memory_session_store.save_session(user_id, session)
+            return await memory_session_store.get_session(user_id)
 
         # Create 100 concurrent sessions
         start_time = time.time()
@@ -88,33 +88,33 @@ class TestStoragePerformance:
 
     @pytest.mark.performance
     @pytest.mark.asyncio
-    async def test_session_update_performance(self, hybrid_storage_with_memory):
+    async def test_session_update_performance(self, memory_session_store):
         """Test session update performance."""
         session = SessionState(
             language=Language.RUSSIAN,
             theme=Theme.ACQUAINTANCE,
             level=1
         )
-        await hybrid_storage_with_memory.save_session(12345, session)
+        await memory_session_store.save_session(12345, session)
 
         # Measure update performance
         start_time = time.time()
         session.level = 2
         session.theme = Theme.FOR_COUPLES
-        await hybrid_storage_with_memory.save_session(12345, session)
+        await memory_session_store.save_session(12345, session)
         update_time = time.time() - start_time
 
         # Should complete within 100ms
         assert update_time < 0.1
 
         # Verify update was successful
-        updated_session = await hybrid_storage_with_memory.get_session(12345)
+        updated_session = await memory_session_store.get_session(12345)
         assert updated_session.level == 2
         assert updated_session.theme == Theme.FOR_COUPLES
 
     @pytest.mark.performance
     @pytest.mark.asyncio
-    async def test_memory_usage_under_load(self, hybrid_storage_with_memory):
+    async def test_memory_usage_under_load(self, memory_session_store):
         """A thousand live sessions must not cost more than a few megabytes.
 
         Measured with `tracemalloc`, which reports what this block allocated,
@@ -133,8 +133,8 @@ class TestStoragePerformance:
                     theme=Theme.ACQUAINTANCE,
                     level=1,
                 )
-                await hybrid_storage_with_memory.save_session(i, session)
-                sessions.append(await hybrid_storage_with_memory.get_session(i))
+                await memory_session_store.save_session(i, session)
+                sessions.append(await memory_session_store.get_session(i))
 
             after = tracemalloc.get_traced_memory()[0]
         finally:
@@ -156,10 +156,10 @@ class TestCallbackHandlerPerformance:
         self,
         mock_update,
         mock_context,
-        hybrid_storage_with_memory
+        memory_session_store
     ):
         """Test callback processing performance."""
-        with patch('vechnost_bot.storage.get_redis_storage', return_value=hybrid_storage_with_memory):
+        with patch('vechnost_bot.storage.session_store', return_value=memory_session_store):
             from vechnost_bot.handlers import handle_callback_query
 
             callbacks = [
@@ -188,10 +188,10 @@ class TestCallbackHandlerPerformance:
         self,
         mock_update,
         mock_context,
-        hybrid_storage_with_memory
+        memory_session_store
     ):
         """Test rapid callback handling."""
-        with patch('vechnost_bot.storage.get_redis_storage', return_value=hybrid_storage_with_memory):
+        with patch('vechnost_bot.storage.session_store', return_value=memory_session_store):
             from vechnost_bot.handlers import handle_callback_query
 
             # Simulate rapid callbacks
@@ -220,10 +220,10 @@ class TestCallbackHandlerPerformance:
     @pytest.mark.asyncio
     async def test_concurrent_callback_handling(
         self,
-        hybrid_storage_with_memory
+        memory_session_store
     ):
         """Test concurrent callback handling."""
-        with patch('vechnost_bot.storage.get_redis_storage', return_value=hybrid_storage_with_memory):
+        with patch('vechnost_bot.storage.session_store', return_value=memory_session_store):
             from vechnost_bot.handlers import handle_callback_query
 
             async def handle_callback(user_id: int, callback_data: str):
@@ -337,7 +337,7 @@ class TestMemoryPerformance:
 
     @pytest.mark.performance
     @pytest.mark.asyncio
-    async def test_session_memory_usage(self, hybrid_storage_with_memory):
+    async def test_session_memory_usage(self, memory_session_store):
         """Cost per stored session stays flat as the store fills up.
 
         The earlier version measured process RSS and "cleared" between rounds
@@ -345,16 +345,16 @@ class TestMemoryPerformance:
         previous round's sessions as well and the bound it asserted was on the
         whole process rather than on the store.
         """
-        store = hybrid_storage_with_memory.memory_storage
+        store = memory_session_store
         per_session = []
 
         for count in (100, 200, 400, 800):
-            store.sessions.clear()
+            store.clear()
             tracemalloc.start()
             try:
                 before = tracemalloc.get_traced_memory()[0]
                 for i in range(count):
-                    await hybrid_storage_with_memory.save_session(
+                    await memory_session_store.save_session(
                         i,
                         SessionState(
                             language=Language.RUSSIAN,
@@ -366,7 +366,7 @@ class TestMemoryPerformance:
             finally:
                 tracemalloc.stop()
 
-            assert len(store.sessions) == count
+            assert len(store) == count
             per_session.append((after - before) / count)
 
         # Flat, not merely bounded: doubling the count four times must not
@@ -376,23 +376,23 @@ class TestMemoryPerformance:
 
     @pytest.mark.performance
     @pytest.mark.asyncio
-    async def test_deleted_sessions_are_released(self, hybrid_storage_with_memory):
+    async def test_deleted_sessions_are_released(self, memory_session_store):
         """Deleting a session removes it, rather than tombstoning it."""
-        store = hybrid_storage_with_memory.memory_storage
-        store.sessions.clear()
+        store = memory_session_store
+        store.clear()
 
         for i in range(500):
-            await hybrid_storage_with_memory.save_session(i, SessionState())
-        assert len(store.sessions) == 500
+            await memory_session_store.save_session(i, SessionState())
+        assert len(store) == 500
 
         for i in range(500):
-            await hybrid_storage_with_memory.delete_session(i)
+            await memory_session_store.delete_session(i)
 
-        assert store.sessions == {}
+        assert len(store) == 0
 
     @pytest.mark.performance
     @pytest.mark.asyncio
-    async def test_memory_cleanup_performance(self, hybrid_storage_with_memory):
+    async def test_memory_cleanup_performance(self, memory_session_store):
         """Test memory cleanup performance."""
         # Create many sessions
         for i in range(1000):
@@ -401,12 +401,12 @@ class TestMemoryPerformance:
                 theme=Theme.ACQUAINTANCE,
                 level=1
             )
-            await hybrid_storage_with_memory.save_session(i, session)
+            await memory_session_store.save_session(i, session)
 
         # Measure cleanup time
         start_time = time.time()
         for i in range(1000):
-            await hybrid_storage_with_memory.delete_session(i)
+            await memory_session_store.delete_session(i)
         cleanup_time = time.time() - start_time
 
         # Should complete within 1 second
@@ -461,7 +461,7 @@ class TestLoadTesting:
     @pytest.mark.performance
     @pytest.mark.slow
     @pytest.mark.asyncio
-    async def test_high_load_scenario(self, hybrid_storage_with_memory):
+    async def test_high_load_scenario(self, memory_session_store):
         """Test high load scenario."""
         async def simulate_user_session(user_id: int):
             """Simulate a user session."""
@@ -471,19 +471,19 @@ class TestLoadTesting:
                 theme=Theme.ACQUAINTANCE,
                 level=1
             )
-            await hybrid_storage_with_memory.save_session(user_id, session)
+            await memory_session_store.save_session(user_id, session)
 
             # Update session multiple times
             for level in range(1, 4):
                 session.level = level
-                await hybrid_storage_with_memory.save_session(user_id, session)
+                await memory_session_store.save_session(user_id, session)
 
             # Retrieve session
-            retrieved_session = await hybrid_storage_with_memory.get_session(user_id)
+            retrieved_session = await memory_session_store.get_session(user_id)
             assert retrieved_session is not None
 
             # Delete session
-            await hybrid_storage_with_memory.delete_session(user_id)
+            await memory_session_store.delete_session(user_id)
 
         # Simulate 500 concurrent users
         start_time = time.time()
@@ -499,7 +499,7 @@ class TestLoadTesting:
     @pytest.mark.performance
     @pytest.mark.slow
     @pytest.mark.asyncio
-    async def test_sustained_load_scenario(self, hybrid_storage_with_memory):
+    async def test_sustained_load_scenario(self, memory_session_store):
         """Storage survives a long run of write/read/delete without leaking.
 
         This used to spin for thirty seconds and then assert that thirty
@@ -519,10 +519,10 @@ class TestLoadTesting:
                     theme=Theme.ACQUAINTANCE,
                     level=1
                 )
-                await hybrid_storage_with_memory.save_session(chat_id, session)
-                restored = await hybrid_storage_with_memory.get_session(chat_id)
+                await memory_session_store.save_session(chat_id, session)
+                restored = await memory_session_store.get_session(chat_id)
                 assert restored is not None and restored.level == 1
-                await hybrid_storage_with_memory.delete_session(chat_id)
+                await memory_session_store.delete_session(chat_id)
 
         start_time = time.time()
         await asyncio.gather(*[sustained_operation(r) for r in range(rounds)])
@@ -530,7 +530,7 @@ class TestLoadTesting:
 
         # Nothing survives its own delete: a store that grows under load is
         # the failure this test exists to catch.
-        assert await hybrid_storage_with_memory.get_session(0) is None
+        assert await memory_session_store.get_session(0) is None
         assert elapsed < 10.0, f"{rounds * per_round} cycles took {elapsed:.1f}s"
 
 
@@ -621,7 +621,7 @@ class TestPerformanceBenchmarks:
     @pytest.mark.performance
     @pytest.mark.slow
     @pytest.mark.asyncio
-    async def test_benchmark_session_operations(self, hybrid_storage_with_memory):
+    async def test_benchmark_session_operations(self, memory_session_store):
         """Benchmark session operations."""
         session = SessionState(
             language=Language.RUSSIAN,
@@ -633,14 +633,14 @@ class TestPerformanceBenchmarks:
         save_times = []
         for _ in range(100):
             start_time = time.time()
-            await hybrid_storage_with_memory.save_session(12345, session)
+            await memory_session_store.save_session(12345, session)
             save_times.append(time.time() - start_time)
 
         # Benchmark get operation
         get_times = []
         for _ in range(100):
             start_time = time.time()
-            await hybrid_storage_with_memory.get_session(12345)
+            await memory_session_store.get_session(12345)
             get_times.append(time.time() - start_time)
 
         # Calculate statistics
@@ -658,9 +658,9 @@ class TestPerformanceBenchmarks:
     @pytest.mark.performance
     @pytest.mark.slow
     @pytest.mark.asyncio
-    async def test_benchmark_callback_processing(self, mock_update, mock_context, hybrid_storage_with_memory):
+    async def test_benchmark_callback_processing(self, mock_update, mock_context, memory_session_store):
         """Benchmark callback processing."""
-        with patch('vechnost_bot.storage.get_redis_storage', return_value=hybrid_storage_with_memory):
+        with patch('vechnost_bot.storage.session_store', return_value=memory_session_store):
             from vechnost_bot.handlers import handle_callback_query
 
             callback_times = []

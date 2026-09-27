@@ -29,7 +29,6 @@ from telegram import CallbackQuery, Chat, Message, Update, User
 from telegram.ext import ContextTypes
 
 from vechnost_bot.exceptions import ErrorCodes
-from vechnost_bot.hybrid_storage import HybridStorage, InMemoryStorage
 from vechnost_bot.models import ContentType, Language, SessionState, Theme
 from vechnost_bot.payments import throttle as _throttle
 
@@ -53,30 +52,23 @@ def _reset_request_throttle():
 
 @pytest.fixture(autouse=True)
 def _storage_stays_in_memory(request):
-    """Never let a test try to start a real Redis server.
+    """Every test gets a session store of its own, in memory.
 
-    `HybridStorage` auto-starts Redis on first use and waits for it to come
-    up before falling back to memory. On a machine without Redis that wait is
-    around a minute and a half, and it is paid by whichever test happens to
-    touch storage first — so the suite's runtime, and which test looked slow,
-    depended on collection order. It also cached the answer process-wide,
-    which under `-n auto` means every worker pays it again.
-
-    Each test gets its own storage with the fallback already decided, so the
-    cost is zero and no state leaks between tests. Tests that genuinely need
-    a server carry the `redis` marker and are left alone.
+    The store is chosen from REDIS_URL on first use and then kept for the
+    life of the process, so without this a machine (or a CI job) that
+    exports REDIS_URL would send every test's sessions to that server, and
+    whichever test ran first would decide for all the rest in its worker.
+    A fresh store per test also means no session leaks from one test into
+    the next. Tests that genuinely need a server carry the `redis` marker,
+    build their own store, and are left alone here.
     """
     if request.node.get_closest_marker("redis"):
         yield
         return
 
-    from vechnost_bot import hybrid_storage as _hybrid
+    from vechnost_bot import storage as _storage
 
-    storage = HybridStorage()
-    storage._redis_available = False
-    storage._redis_checked = True
-    storage._initialized = True
-    with patch.object(_hybrid, "hybrid_storage", storage):
+    with patch.object(_storage, "_store", _storage.MemorySessionStore(ttl=3600)):
         yield
 
 
@@ -130,19 +122,11 @@ async def mock_application(mock_telegram_bot):
 # ============================================================================
 
 @pytest_asyncio.fixture
-async def in_memory_storage():
-    """In-memory storage for testing."""
-    return InMemoryStorage()
+async def memory_session_store():
+    """A session store of the test's own, in memory, as production runs."""
+    from vechnost_bot.storage import MemorySessionStore
 
-
-@pytest_asyncio.fixture
-async def hybrid_storage_with_memory():
-    """Hybrid storage that uses in-memory storage."""
-    storage = HybridStorage()
-    # Force use of memory storage
-    storage._redis_available = False
-    storage._redis_checked = True
-    return storage
+    return MemorySessionStore(ttl=3600)
 
 
 @pytest_asyncio.fixture
@@ -588,7 +572,7 @@ def sample_callback_data():
 async def complete_test_session():
     """Complete test session with all components."""
     session = {
-        "storage": await hybrid_storage_with_memory(),
+        "storage": await memory_session_store(),
         "bot": await mock_telegram_bot(),
         "app": await mock_application(await mock_telegram_bot()),
         "user": mock_user(),
