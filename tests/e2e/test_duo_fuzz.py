@@ -188,8 +188,6 @@ class TwoUsers(RuleBasedStateMachine):
         self.people: dict[str, Player] = {
             name: server.player(name.capitalize(), paid=PAID[name]) for name in PAID
         }
-        # Who has access now: Bob may buy it in the middle of a run.
-        self.paid = dict(PAID)
         self.room_models: dict[str, RoomModel] = {}
         self.test_models: dict[str, CompatModel] = {}
         self.game_models: dict[str, GameModel] = {}
@@ -200,6 +198,7 @@ class TwoUsers(RuleBasedStateMachine):
         # access happened; the purchases above happened just before
         # `started`, and a person nobody has paid for has none on file.
         self.started = datetime.now(UTC)
+        # Who has access now: Bob may buy it in the middle of a run.
         self.paid = dict(PAID)
         self.decided: dict[str, datetime | None] = {
             name: self.started if PAID[name] else None for name in PAID
@@ -324,9 +323,19 @@ class TwoUsers(RuleBasedStateMachine):
     def bob_buys_access(self) -> None:
         """The one who had not paid, paying in the middle of a game: every
         room he sits in holds the whole deck from the next request on, for
-        both players, and what he creates from now on is paid."""
-        self.SERVER.grant(self.people["bob"])
+        both players, and what he creates from now on is paid.
+
+        On the model's clock, like every other delivery here: dated by the
+        wall clock, the purchase could land "before" a refund the model had
+        already dated a few ticks ahead, and the server - rightly - ignored
+        it as stale."""
+        happened = self.moment(late=False)
+        body = self.SERVER.webhook_body("new_digital_product", self.people["bob"], created_at=happened)
+        self.sent["bob"].append(body)
+        answer = self.deliver(body)
+        assert answer["action"] == "grant", answer
         self.paid["bob"] = True
+        self.decided["bob"] = happened
         event("bob bought access in the middle of a game")
 
     @rule(actor=ACTORS, code=rooms)
