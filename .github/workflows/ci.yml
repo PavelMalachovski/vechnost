@@ -201,3 +201,41 @@ jobs:
         curl -sf http://127.0.0.1:8000/app/ > /dev/null
         docker logs web
         docker rm -f web
+
+  # A red nightly run has no commit behind it and so no author to tell: GitHub
+  # mails only whoever last edited the cron line. File it where it is seen.
+  report-nightly-failure:
+    name: File the nightly failure
+    if: failure() && github.event_name == 'schedule'
+    needs: [lint, test, install-smoke, docker]
+    runs-on: ubuntu-latest
+    permissions:
+      issues: write
+    steps:
+    - uses: actions/github-script@v7
+      with:
+        script: |
+          const label = 'ci-nightly';
+          const run = `${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`;
+          const body = `The nightly CI run failed on ${context.sha.slice(0, 7)}: ${run}\n\n` +
+                       'With no new commit the likely cause is a release on PyPI: compare this ' +
+                       'run\'s runtime-freeze artifact with the last green night\'s.';
+          try {
+            await github.rest.issues.createLabel({
+              owner: context.repo.owner, repo: context.repo.repo, name: label, color: 'b60205',
+            });
+          } catch (e) { /* already there */ }
+          const { data: open } = await github.rest.issues.listForRepo({
+            owner: context.repo.owner, repo: context.repo.repo, state: 'open', labels: label,
+          });
+          if (open.length) {
+            await github.rest.issues.createComment({
+              owner: context.repo.owner, repo: context.repo.repo,
+              issue_number: open[0].number, body,
+            });
+          } else {
+            await github.rest.issues.create({
+              owner: context.repo.owner, repo: context.repo.repo,
+              title: 'Nightly CI failed on today\'s PyPI', body, labels: [label],
+            });
+          }

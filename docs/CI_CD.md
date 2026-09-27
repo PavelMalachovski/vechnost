@@ -39,13 +39,18 @@ The two-user harness is described in [`tests/e2e/README.md`](../tests/e2e/README
    Actions → Variables → New repository variable*: `PRODUCTION_URL` =
    the public base URL of the web process (e.g.
    `https://your-app.up.railway.app`). Without it the smoke workflow skips
-   itself. No secret is needed: the smoke only reads.
+   itself. No secret is needed: the smoke only reads. The smoke runs only
+   for a deployment whose GitHub environment ends in `production`, so a PR
+   or staging environment never sends it waiting for a commit production
+   does not have; if Railway reports yours under another name, set
+   `PRODUCTION_ENVIRONMENT` to that exact name as well.
 4. **GitHub: protect `master`** (recommended). *Settings → Branches → Add
-   rule* for `master`: require a pull request, and require the checks
-   `lint`, `test`, `install-smoke`, `Two users on PostgreSQL`,
-   `Three people doing anything` and `Two phones in Chromium` to pass. Then
-   a red PR cannot be merged at all, and "Wait for CI" is the second lock
-   rather than the only one.
+   rule* for `master`: require a pull request, and require these checks to
+   pass. A check is named after its job's `name:` where it has one, so the
+   list is `lint`, `test`, `Fresh install, the way Railway builds it`,
+   `docker`, `Two users on PostgreSQL`, `Three people doing anything` and
+   `Two phones in Chromium`. Then a red PR cannot be merged at all, and
+   "Wait for CI" is the second lock rather than the only one.
 
 ## Why the smoke does not run on push
 
@@ -77,8 +82,10 @@ E2E_DATABASE_URL=postgresql+asyncpg://postgres@localhost:5432/vechnost_e2e pytes
 
 ## When the nightly run fails
 
-`e2e.yml` opens an issue labelled `e2e-nightly` (or comments on the open
-one) with a link to the run. A nightly failure with no new commit is either
+Each workflow opens an issue with a link to the run, or comments on the
+open one: `ci-nightly` for `ci.yml`, `e2e-nightly` for `e2e.yml`. GitHub
+itself mails a failed scheduled run only to whoever last edited its cron
+line. A nightly failure with no new commit is either
 an upstream release — compare the `runtime-freeze` artifact of `ci.yml`
 with the last green night — or a bug the long fuzz reached for the first
 time, in which case the job log ends with the shortest sequence of steps
