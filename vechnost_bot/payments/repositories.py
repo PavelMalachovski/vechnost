@@ -824,7 +824,9 @@ class Steps69Repository:
         list, and both partners' clients poll the same row. Without it, two
         rolls landing together on READ COMMITTED would each read the same
         starting square and the second would overwrite the first, losing a
-        move. SQLite ignores the clause; it has no concurrent writers.
+        move. SQLite ignores the clause; there every transaction begins
+        IMMEDIATE instead (`database._sqlite_file_engine`), which takes the
+        same turns over the whole file.
         """
         stmt = select(Steps69Game).where(Steps69Game.code == code)
         if for_update:
@@ -1028,8 +1030,9 @@ class CompatTestRepository:
         tapper has several POSTs in flight at once. Without the lock, on
         READ COMMITTED the second transaction reads the pre-update array and
         writes back a stale copy of everything but its own index — one answer
-        silently vanishes. SQLite ignores the clause; it has no concurrent
-        writers to protect against.
+        silently vanishes. SQLite ignores the clause; there every transaction
+        begins IMMEDIATE instead (`database._sqlite_file_engine`), which takes
+        the same turns over the whole file.
         """
         stmt = select(CompatTest).where(CompatTest.code == code)
         if for_update:

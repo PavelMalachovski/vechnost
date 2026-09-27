@@ -8,10 +8,11 @@ row, and the only thing between it and a lost move or two seated guests is
 a row lock or a conditional UPDATE.
 
 In-process, one client sends one request after another, so these can only
-be tested against a live server — and they mean something only on the
-database production runs. CI runs them on PostgreSQL (see
-`.github/workflows/e2e.yml`); SQLite's single shared connection cannot keep
-any of these promises (backend audit B-13), so they are not run there.
+be tested against a live server. CI runs them on PostgreSQL, the database
+production runs (see `.github/workflows/e2e.yml`). They pass against a
+server on a SQLite file too, since every transaction there begins
+IMMEDIATE (`payments/database.py`). Nine of the ten used to fail there,
+when every request shared SQLite's one connection (backend audit B-13).
 """
 
 from __future__ import annotations
