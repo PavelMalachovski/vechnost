@@ -15,6 +15,16 @@ import pytest_asyncio
 # nothing here talks to Telegram.
 os.environ.setdefault("TELEGRAM_BOT_TOKEN", "1234567890:TEST_TOKEN_FOR_UNIT_TESTS")
 
+# And no test may reach a real database. Suites that need one patch
+# `settings.database_url` themselves, but a test that simply calls code which
+# calls `get_db()` - /start registering the user, for one - used whatever
+# DATABASE_URL said: a stray ./vechnost.db in the checkout, or production's
+# database for anyone running the suite under `railway run`. Overridden, not
+# defaulted, for exactly that reason; one throwaway file per test process.
+# (E2E_DATABASE_URL and POSTGRES_TEST_URL are separate, deliberate opt-ins.)
+_TEST_DB_DIR = tempfile.mkdtemp(prefix="vechnost-tests-")
+os.environ["DATABASE_URL"] = f"sqlite:///{_TEST_DB_DIR}/tests.db"
+
 from telegram import CallbackQuery, Chat, Message, Update, User
 from telegram.ext import ContextTypes
 
