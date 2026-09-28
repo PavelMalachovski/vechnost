@@ -26,6 +26,10 @@ def first_row_top(phone, selector: str) -> float:
     return float(phone.page.evaluate(TOP_OF, selector))
 
 
+def px(value: str) -> float:
+    return float(value.removesuffix("px"))
+
+
 def press_back(phone) -> None:
     phone.page.evaluate("() => window.Telegram.WebApp.BackButton._cb()")
 
@@ -44,9 +48,10 @@ def test_a_paragraph_keeps_its_own_class(server: Server, phones) -> None:
                 intro: cs('.s69-intro').lineHeight, introSize: cs('.s69-intro').fontSize,
                 box: box.fontSize, boxColor: box.color};
     }""")
-    assert got["age"] == "12.5px", got
+    # As numbers: WebKit reports 14 x 1.55 as 21.699999px, Chromium as 21.7px.
+    assert abs(px(got["age"]) - 12.5) < 0.01, got
     assert got["ageColor"] != got["boxColor"], "the 18+ line is the box's grey"
-    assert got["intro"] == f"{14 * 1.55:g}px", got
+    assert abs(px(got["intro"]) - 14 * 1.55) < 0.01, got
 
 
 def test_a_buttons_glow_reaches_the_edge_of_the_phone(server: Server, phones) -> None:
