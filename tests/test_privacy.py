@@ -212,11 +212,26 @@ async def test_a_tap_by_someone_else_is_ignored(mock_update, mock_callback_query
 
 
 def test_the_command_is_wired_ahead_of_the_catch_all():
-    """A pattern handler after the catch-all is never reached."""
-    from pathlib import Path
+    """A pattern handler after the catch-all is never reached.
 
-    source = Path("vechnost_bot/bot.py").read_text(encoding="utf-8")
-    assert source.index("delete_me_callback, pattern=DELETE_ME_PATTERN") < source.index(
-        "CallbackQueryHandler(handle_callback_query)"
-    )
-    assert 'BotCommand("delete_me"' in source
+    Read from the application the bot really builds, not from the text of
+    bot.py: the text changes with the layout, the order does not."""
+    from telegram.ext import CallbackQueryHandler
+
+    from vechnost_bot.bot import create_application
+    from vechnost_bot.handlers import handle_callback_query
+
+    handlers = create_application().handlers[0]
+    callbacks = [h.callback for h in handlers if isinstance(h, CallbackQueryHandler)]
+    assert callbacks.index(privacy.delete_me_callback) < callbacks.index(handle_callback_query)
+
+
+async def test_the_command_is_in_the_slash_menu():
+    """A command missing from the "/" menu is one nobody finds."""
+    from vechnost_bot.bot import _publish_entry_points
+
+    application = MagicMock()
+    application.bot = AsyncMock()
+    await _publish_entry_points(application)
+    everyone = application.bot.set_my_commands.await_args_list[0].args[0]
+    assert "delete_me" in [command.command for command in everyone]
