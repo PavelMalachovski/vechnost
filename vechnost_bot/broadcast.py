@@ -21,6 +21,7 @@ import asyncio
 import logging
 from collections.abc import Awaitable, Callable
 from dataclasses import dataclass, field
+from datetime import timedelta
 from typing import Any
 
 from telegram import (
@@ -135,6 +136,12 @@ async def _cannot_message(user_id: int) -> None:
         logger.warning(f"Broadcast: could not mark {user_id} unreachable: {e}")
 
 
+def _seconds(wait: timedelta | float) -> float:
+    """A RetryAfter's wait in seconds: a timedelta under PTB_TIMEDELTA, which
+    the package opts into, or a number where the environment says false."""
+    return wait.total_seconds() if isinstance(wait, timedelta) else float(wait)
+
+
 async def deliver(send: Callable[[int], Awaitable[Any]], user_id: int) -> str:
     """One recipient, with the retries that make a bulk send survivable.
 
@@ -152,13 +159,14 @@ async def deliver(send: Callable[[int], Awaitable[Any]], user_id: int) -> str:
         except RetryAfter as e:
             # Told exactly how long to wait: wait, then give this user
             # another try rather than dropping them for being unlucky.
+            wait = _seconds(e.retry_after)
             logger.warning(
-                f"Broadcast: rate limited, sleeping {e.retry_after}s "
+                f"Broadcast: rate limited, sleeping {wait:g}s "
                 f"(attempt {attempt}, recipient {user_id})"
             )
             if attempt == SEND_ATTEMPTS:
                 return FAILED
-            await asyncio.sleep(e.retry_after + 1)
+            await asyncio.sleep(wait + 1)
         except Forbidden as e:
             if "initiate conversation" in str(e).lower():
                 # Never opened a chat with the bot: not a choice about the

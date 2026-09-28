@@ -160,6 +160,12 @@ class _FakeRequest(BaseRequest):
     async def shutdown(self) -> None:
         return None
 
+    @property
+    def read_timeout(self) -> float | None:
+        # Abstract since python-telegram-bot 22; long polling reads it to
+        # size its own wait. Nothing here waits: every answer is immediate.
+        return None
+
     async def do_request(
         self,
         url: str,
