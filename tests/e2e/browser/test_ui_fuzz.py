@@ -66,7 +66,7 @@ LOADER_LIMIT_MS = 10_000
 INVITE_EVERY_S = 30.0
 SETTLE_S = 9.0  # three or four polls
 POLL = 15_000
-YOUR_TURN = "✨ Твой ход"
+YOUR_TURN = "✨ Ваш ход"
 # A state poll: GET /api/<feature>/<CODE>, which only a participant sends.
 STATE_POLL = re.compile(r"^/api/(rooms|steps69|compat)/([A-Z2-9]{6,16})(?:\?|$)")
 CODE = r"[A-Z2-9]{6,16}"

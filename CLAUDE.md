@@ -599,7 +599,7 @@ python scripts/smoke_production.py $URL --deep  # ...and its database and bot he
   each screen. The greeting itself is short on purpose - two sentences, the
   decks in one line, that block, the button (`tests/test_welcome.py` caps
   it): it once ran to 1 900 characters of manifesto before its only button,
-  and the long copy lives behind «Что тебя ждёт внутри?» instead.
+  and the long copy lives behind «Что вас ждёт внутри?» instead.
 - **Every button in the bot does something.** A count is text, not a
   button: the calendar's page is a line of its message (`_calendar_text`)
   and a card's number is printed on the card; the calendar shows only its
@@ -844,6 +844,15 @@ python scripts/smoke_production.py $URL --deep  # ...and its database and bot he
   reader's partner: «партнёр», never «партнёрша», and no «он/она» – rewrite
   the sentence so it needs no pronoun. `data/questions.yaml`,
   `data/library/*.yaml` and the interface copy carry none.
+- **The interface says «вы»; only a partner says «ты».** Buttons, titles,
+  statuses, toasts and every message the bot sends address the reader as
+  «вы» – nine strings in ten already did, and it reads right when two people
+  share one phone. «Ты» belongs to what one partner says to the other: the
+  cards, the board and the Joker (content, not interface) and the invitation
+  a player sends from the app (`coopInviteMsg`, `compatInviteMsg`,
+  `s69InviteMsg`). A bot button is written in ordinary case, never in
+  capitals, and «Войти в VECHNOST →» points forward. `tests/test_address.py`
+  holds the interface to it (audit D-32).
 - **No em dash in user-facing text.** `data/questions.yaml`,
   `data/steps69_ru.yaml` and `data/library/*.yaml` hold zero long dashes;
   use an en dash `–` or rewrite the sentence. `tests/test_no_em_dash.py`
