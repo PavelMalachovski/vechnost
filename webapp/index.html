@@ -123,6 +123,7 @@
     --space-1: 4px; --space-2: 8px; --space-3: 12px; --space-4: 16px;
     --space-5: 20px; --space-6: 24px; --space-8: 32px; --space-10: 40px;
     --gutter: 16px;
+    --screen-x: 18px;   /* the screen's side margin; the scrollers bleed across it */
     --tap-min: 44px;
     --btn-h: 52px; --btn-h-sm: 44px; --btn-pad-x: 20px;
     --card-max-w: 420px;
@@ -189,7 +190,7 @@
   .screen {
     position: absolute; inset: 0;
     display: flex; flex-direction: column;
-    padding: calc(var(--safe-top) + 14px) 18px calc(var(--safe-bottom) + 18px);
+    padding: calc(var(--safe-top) + 14px) var(--screen-x) calc(var(--safe-bottom) + 18px);
     opacity: 0; pointer-events: none;
     transform: translateY(12px);
     transition: opacity .28s ease, transform .28s ease;
@@ -219,13 +220,26 @@
     -webkit-overflow-scrolling: touch; touch-action: pan-y;
     scrollbar-width: none;
   }
+  /* That clip ran down both sides of a list 18px in from the phone's edge,
+     and a full-width button's glow ended there in two straight lines («Создать
+     игру», «Начать тест»; audit D-27). So a list inside a screen reaches out
+     to the edges and takes its content back in: the clip is where the phone
+     ends. #home is a screen itself and already reaches them. Left and right
+     rather than margin-inline, which older iPhones' WebViews do not know. */
+  #themeList, #levelList, .coop-box {
+    margin-left: calc(-1 * var(--screen-x)); margin-right: calc(-1 * var(--screen-x));
+    padding-left: var(--screen-x); padding-right: var(--screen-x);
+  }
   #home::-webkit-scrollbar, #themeList::-webkit-scrollbar,
   #levelList::-webkit-scrollbar, .coop-box::-webkit-scrollbar { display: none; }
   #home > *, #themeList > *, #levelList > *, .coop-box > * { flex-shrink: 0; }
-  #home > :first-child, #themeList > :first-child,
-  #levelList > :first-child, .coop-box > :first-child { margin-top: auto; }
-  #home > :last-child, #themeList > :last-child,
-  #levelList > :last-child, .coop-box > :last-child { margin-bottom: auto; }
+  /* The home screen and a door (a room, the test, the board: a few lines and
+     one thing to press) sit in the middle of the phone. A list starts at the
+     top, under its title, like the Library's (audit D-28): the themes and the
+     levels were centred and the Library was not, so the same kind of screen
+     started its first row in two different places. */
+  #home > :first-child, .coop-box > :first-child { margin-top: auto; }
+  #home > :last-child, .coop-box > :last-child { margin-bottom: auto; }
 
   /* ---------- home ---------- */
   #home { align-items: center; text-align: center; gap: 10px; }
@@ -322,6 +336,11 @@
   #homeModules .home-mod { margin-top: 12px; }
 
   .coop-box { display: flex; flex-direction: column; gap: 12px; }
+  /* The default for a paragraph in a box, and only a default: a paragraph
+     with a class of its own (.s69-intro, .s69-age, .waiting-dots) is written
+     as p.class so that it wins. They were plain classes, (0,1,0) against this
+     rule's (0,1,1), and lost all three: the 18+ line was set at 14px in grey
+     instead of its own small pink (audit D-26). */
   .coop-box p { font-size: 14px; color: var(--muted-on-dark); text-align: center; line-height: 1.5; }
   /* The invite itself. It replaced a six-character code typed at one of
      three doors that take codes from the same alphabet — a code entered at
@@ -339,7 +358,7 @@
     padding: 12px 14px; margin: 6px 0 2px;
     overflow-wrap: anywhere; word-break: break-all; user-select: all;
   }
-  .waiting-dots { text-align: center; font-size: 13.5px; color: var(--muted-on-dark); }
+  p.waiting-dots { text-align: center; font-size: 13.5px; color: var(--muted-on-dark); }
 
   #turnChip { display: flex; justify-content: center; margin-bottom: 8px; }
   #turnChip .chip { cursor: default; }
@@ -368,7 +387,7 @@
     padding: 8px 16px; border-radius: 999px; font-size: 13px; font-weight: 600;
     color: var(--muted-on-dark); background: rgba(255,255,255,.07);
     border: 1px solid rgba(255,255,255,.12); cursor: pointer;
-    transition: all .15s ease;
+    transition: color .15s ease, background-color .15s ease, border-color .15s ease;
   }
   .chip.on { color: #fff; background: rgba(232,107,181,.28); border-color: rgba(232,107,181,.8); }
   /* A chip you can press is a button, and a button is at least a thumb. */
@@ -408,7 +427,7 @@
   /* The emoji is positioned out of flow against the right edge, so the text
      has to reserve room for it by hand: 16px of offset plus its ~48px box.
      Without this, "36 вопросов, чтобы влюбиться" wraps straight under it. */
-  .theme-card .t-name { font-size: 20px; font-weight: 800; letter-spacing: .01em; padding-right: 56px; }
+  .theme-card .t-name { font-size: 20px; font-weight: var(--fw-bold); letter-spacing: .01em; padding-right: 56px; }
   .theme-card .t-desc { font-size: 13px; line-height: 1.35; padding-right: 56px; }
   .theme-card .t-emoji {
     position: absolute; right: 16px; top: 50%; transform: translateY(-50%);
@@ -440,7 +459,7 @@
   .level-card:active { transform: scale(.97); }
   .level-num {
     width: 52px; height: 52px; border-radius: 16px; flex: none;
-    display: grid; place-items: center; font-size: 22px; font-weight: 800;
+    display: grid; place-items: center; font-size: 22px; font-weight: var(--fw-bold);
     background: linear-gradient(135deg, #C4256E, #7A1147);
     box-shadow: 0 6px 18px rgba(196,37,110,.4);
   }
@@ -450,6 +469,9 @@
   /* ---------- library ---------- */
   #libraryList { display: flex; flex-direction: column; gap: 12px; flex: 1; overflow-y: auto; -webkit-overflow-scrolling: touch; }
   #libDetailBody { flex: 1; overflow-y: auto; -webkit-overflow-scrolling: touch; }
+  /* Its rows keep 10px apart, but the first starts where every list does,
+     under the title (audit D-28), not 10px lower. */
+  #libDetailBody > :first-child { margin-top: 0; }
   .theme-card.lib-mod { background: rgba(255,255,255,.07); border: 1px solid rgba(255,255,255,.12); }
   .lib-card{background:rgba(255,255,255,.05);border-radius:16px;padding:14px 16px;margin:10px 0}
   .lib-card-title{font-weight:700;margin-bottom:6px}
@@ -463,7 +485,7 @@
   .lib-locked{text-align:center;padding:20px;opacity:.9}
   /* The secondary lines of a practice card: "why" and "outcome" sit under the
      title, small enough that the three read as one card. */
-  .q-sub{font-size:.82em;font-weight:500;opacity:.85}
+  .q-sub{font-size:.82em;font-weight:var(--fw-regular);opacity:.85}
   /* The last card of a truncated deck: the note and the way out of it. */
   .q-lock{display:block;margin:14px auto 0;padding:11px 22px;font-size:14px}
 
@@ -792,10 +814,10 @@
   .guide-num {
     flex: 0 0 auto; width: 26px; height: 26px; border-radius: 50%;
     background: linear-gradient(135deg,#7F2BFF,#E100C7); color: #fff;
-    font-size: 13px; font-weight: 800; display: grid; place-items: center;
+    font-size: 13px; font-weight: var(--fw-bold); display: grid; place-items: center;
     align-self: center;
   }
-  .guide-step-title { font-size: 19px; font-weight: 800; }
+  .guide-step-title { font-size: 19px; font-weight: var(--fw-bold); }
   .guide-lead { font-size: 13.5px; line-height: 1.55; color: var(--muted-on-dark); margin: 0 0 12px 36px; }
 
   .guide-item {
@@ -908,8 +930,8 @@
      arrow and the suit of whoever is standing on it — the same four suits
      the deck is printed with. */
   #s69Board { padding-left: 12px; padding-right: 12px; }
-  .s69-intro { font-size: 14px; color: var(--muted-on-dark); line-height: 1.55; text-align: center; }
-  .s69-age { font-size: 12.5px; color: rgba(255,150,190,.85); text-align: center; margin-top: 10px; }
+  p.s69-intro { font-size: 14px; color: var(--muted-on-dark); line-height: 1.55; text-align: center; }
+  p.s69-age { font-size: 12.5px; color: rgba(255,150,190,.85); text-align: center; margin-top: 10px; }
 
   /* Twelve rows of six do not fit above the dice on a phone, and the dice is
      the one button that has to be pressable. So the map is capped and
@@ -958,7 +980,7 @@
   .s69-mark {
     position: absolute; top: 2px; right: 3px;
     display: flex; align-items: center; gap: 1px;
-    font-size: 11px; font-weight: 800; letter-spacing: -.02em; line-height: 1;
+    font-size: 11px; font-weight: var(--fw-bold); letter-spacing: -.02em; line-height: 1;
   }
   .s69-mark i {
     width: 0; height: 0; display: block;
@@ -1016,7 +1038,7 @@
     display: flex; flex-direction: column; gap: 10px;
   }
   .s69-card::-webkit-scrollbar { display: none; }
-  .s69-title { font-size: 22px; font-weight: 800; line-height: 1.2; }
+  .s69-title { font-size: 22px; font-weight: var(--fw-bold); line-height: 1.2; }
   .s69-text { font-size: 15.5px; line-height: 1.55; }
   .s69-note {
     margin-top: 4px; padding: 10px 12px; border-radius: 12px; font-size: 13.5px;
@@ -1051,7 +1073,7 @@
   .s69-dice { flex: 0 0 auto; }
   .s69-dice {
     width: 100%; margin-top: 10px; border: 0; border-radius: 18px; padding: 16px;
-    font: inherit; font-size: 17px; font-weight: 800; color: #fff; cursor: pointer;
+    font: inherit; font-size: 17px; font-weight: var(--fw-bold); color: #fff; cursor: pointer;
     background: linear-gradient(135deg, #7F2BFF 0%, #E100C7 100%);
     display: flex; align-items: center; justify-content: center; gap: 10px;
   }
@@ -1061,7 +1083,7 @@
      emoji, so it can show what actually came up. */
   .s69-die {
     width: 26px; height: 26px; border-radius: 6px; background: #fff; color: #350027;
-    display: grid; place-items: center; font-size: 15px; font-weight: 800;
+    display: grid; place-items: center; font-size: 15px; font-weight: var(--fw-bold);
   }
   .s69-dice.rolling .s69-die { animation: s69-tumble .45s linear infinite; }
   @keyframes s69-tumble { to { transform: rotate(360deg); } }
