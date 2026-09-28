@@ -709,6 +709,17 @@ def test_every_weight_is_one_the_page_ships():
     assert weights <= allowed, weights - allowed
 
 
+def test_what_destroys_a_shared_thing_looks_dangerous():
+    """D-38: deleting the test's answers and restarting the board wipe what
+    two people share, and looked like every other quiet button."""
+    html = INDEX.read_text(encoding="utf-8")
+    for button in ("compatDeleteBtn", "btnS69Restart"):
+        tag = html.split(f'id="{button}"', 1)[0].rsplit("<button", 1)[1]
+        assert "btn-danger" in tag, button
+    rule = re.search(r"\.btn\.btn-danger\s*\{([^}]*)\}", html)
+    assert rule and "var(--danger)" in rule.group(1)
+
+
 def test_a_transition_names_what_it_animates():
     """D-26: `transition: all` animates whatever the next change happens to
     be, layout included, and hides which property the rule meant."""

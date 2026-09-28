@@ -82,9 +82,11 @@ STOPS = [
     ("compat-invite", "Compatibility test: waiting for the partner"),
     ("compat-question", "Compatibility test: a question"),
     ("compat-result", "Compatibility test: the result"),
+    ("compat-result-end", "Compatibility test: the result, scrolled to its end"),
     ("s69-entry", "69: its door"),
     ("s69-invite", "69: waiting for the partner"),
     ("s69-board", "69: the board"),
+    ("s69-resume", "69: its door, with a game under way"),
     ("s69-cell-info", "69: a square's action"),
     ("s69-finale", "69: the finale"),
     ("s69-done", "69: the path is walked"),
@@ -373,6 +375,16 @@ class Tour:
             )
         self.paid.screen("compatResult", timeout=POLL)
 
+    def stop_compat_result_end(self) -> None:
+        """Where «Удалить» is: the result is taller than any phone."""
+
+    def prepare_compat_result_end(self) -> None:
+        # At every size: how far the end is depends on the screen.
+        self.paid.page.evaluate(
+            "() => { const b = document.getElementById('compatResultBody');"
+            " b.scrollTop = b.scrollHeight; }"
+        )
+
     def stop_s69_entry(self) -> None:
         self._fresh(self.paid)
         self.paid.tap("#btnS69")
@@ -390,7 +402,17 @@ class Tour:
         self.pat.ok("POST", f"/api/steps69/{self.game}/join", {})
         self.paid.screen("s69Board", timeout=POLL)
 
+    def stop_s69_resume(self) -> None:
+        """The door once a game is under way: carry on, or start again."""
+        self._fresh(self.paid)
+        self.paid.tap("#btnS69")
+        self._age(self.paid)
+        self.paid.screen("s69")
+        self.paid.page.wait_for_selector("#btnS69Restart", state="visible")
+
     def stop_s69_cell_info(self) -> None:
+        self.paid.tap("#btnS69Resume")
+        self.paid.screen("s69Board", timeout=POLL)
         self.paid.tap('#s69Map [data-id="4"]')
         self.paid.page.wait_for_selector("#s69CellInfo.show")
 
