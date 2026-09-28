@@ -10,10 +10,10 @@ map:
     1: "assets/backgrounds/couples/couples_1.png"
     2: "assets/backgrounds/couples/couples_2.png"
     3: "assets/backgrounds/couples/couples_3.png"
+  # One face for questions and tasks alike (audit D-42).
   sex:
-    q: "assets/backgrounds/sex/questions.png"
-    t: "assets/backgrounds/sex/tasks.png"
     default: "assets/backgrounds/sex/sex.png"
   prov:
     default: "assets/backgrounds/prov/prov.png"
-default: "assets/backgrounds/default.png"
+# The neutral Library face, generated like the rest (audit D-43).
+default: "assets/backgrounds/library.png"

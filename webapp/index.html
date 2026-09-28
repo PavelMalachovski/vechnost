@@ -1206,7 +1206,7 @@
     <div class="deck-fan">
       <i style="background-image:url(/assets/suits/hearts.png),url(/assets/deck_art/acq/acq_1.png)"></i>
       <i style="background-image:url(/assets/suits/spades.png),url(/assets/deck_art/couples/couples_1.png)"></i>
-      <i style="background-image:url(/assets/suits/clubs.png),url(/assets/deck_art/sex/questions.png)"></i>
+      <i style="background-image:url(/assets/suits/clubs.png),url(/assets/deck_art/sex/sex.png)"></i>
       <i style="background-image:url(/assets/suits/diamonds.png),url(/assets/deck_art/prov/prov.png)"></i>
     </div>
     <button class="btn btn-play" id="btnPlay" data-i18n="play"></button>
@@ -1783,8 +1783,9 @@
   const CARD_ART = {
     'Acquaintance': { by: 'level', faces: { 1: 'acq/acq_1.png', 2: 'acq/acq_2.png', 3: 'acq/acq_3.png' } },
     'For Couples':  { by: 'level', faces: { 1: 'couples/couples_1.png', 2: 'couples/couples_2.png', 3: 'couples/couples_3.png' } },
-    // S.type is 'questions' / 'tasks' — the same words rooms.py serves.
-    'Sex':          { by: 'type',  faces: { questions: 'sex/questions.png', tasks: 'sex/tasks.png' } },
+    // One face for its questions and its tasks: the art is one picture
+    // (audit D-42), and by: 'type' can take two again the day it is not.
+    'Sex':          { by: 'deck',  faces: { deck: 'sex/sex.png' } },
     'Provocation':  { by: 'deck',  faces: { deck: 'prov/prov.png' } }
   };
 

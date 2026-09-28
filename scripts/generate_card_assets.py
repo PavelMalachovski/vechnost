@@ -48,8 +48,18 @@ CLUSTER_CX = MARGIN + SUIT_W // 2
 LETTER_CAP = 90  # cap height of the V/Λ
 GAP_BELOW_V = 65  # V cap bottom → emblem centre, per the deck
 
-WORDMARK_CY = CARD[1] // 2  # cap-height centre of VECHNOST
+WORDMARK_CY = CARD[1] // 2  # cap-height centre of VECHNOST on the back
 WORDMARK_W = 760  # how far the letter-spaced wordmark spans
+
+# On the Library face the wordmark lay across the middle, right under every
+# question of the day (audit D-36). It sits in the bottom third now, in the
+# band no text reaches: the longest prompt ends above y=1045 and the footer
+# starts at 1198 (renderer.FOOTER_BOTTOM_MARGIN), and the Mini App sets its
+# text inside 327-1023 and its footer from 1177. Narrower than on the back,
+# so its last letter clears the Λ in the corner (x from 882, y from 1152).
+LIBRARY_WORDMARK_CY = 1110
+LIBRARY_WORDMARK_W = 640
+LIBRARY_WORDMARK_SIZE = 80
 
 # Where the suit sits on each source card, as a fraction of that card's size.
 # Measured, not guessed: scanning the four deck cards for pixels that differ
@@ -70,7 +80,7 @@ SUIT_BOX = round(SUIT_W * 70 / 50)
 SUIT_SOURCES = {
     "hearts": "acq/acq_1.png",
     "spades": "couples/couples_1.png",
-    "clubs": "sex/tasks.png",
+    "clubs": "sex/sex.png",
     "diamonds": "prov/prov.png",
 }
 
@@ -89,9 +99,10 @@ DECK_FACES = {
     "couples/couples_2.png": "2",
     "couples/couples_3.png": "3",
     "prov/prov.png": "V",
-    "sex/questions.png": "V",
+    # One face for the Sex deck's questions and its tasks: the art was the
+    # same picture three times over, under three names (audit D-42). A deck
+    # that wants its own face gets its own art and its own line here.
     "sex/sex.png": "V",
-    "sex/tasks.png": "V",
 }
 
 _GROUND_TOL = 30  # channel-sum distance still counted as bare card
@@ -287,23 +298,35 @@ def _paste_centred(card: Image.Image, tile: Image.Image, cx: int, cy: int):
     card.paste(tile, (round(cx - tile.width / 2), round(cy - tile.height / 2)), tile)
 
 
-def _wordmark(card: Image.Image, size: int, fill):
+def _wordmark(card: Image.Image, size: int, fill, cy: float = WORDMARK_CY, width: int = WORDMARK_W):
     draw = ImageDraw.Draw(card)
     lora = _font("Lora-Regular.ttf", size)
     _centre_text(
         draw,
-        (CARD[0] / 2, WORDMARK_CY),
+        (CARD[0] / 2, cy),
         "VECHNOST",
         lora,
         fill,
-        tracking=_tracking_for(lora, "VECHNOST", WORDMARK_W),
+        tracking=_tracking_for(lora, "VECHNOST", width),
     )
 
 
 def build_library_card() -> Image.Image:
-    """Pale card: V top-left, Λ bottom-right, a whisper of VECHNOST across."""
+    """Pale card: V top-left, Λ bottom-right, a whisper of VECHNOST in the
+    bottom third, below where any text is set.
+
+    It is also the renderer's fallback face (`default:` in
+    assets/backgrounds.yml): neutral, and generated like every other face,
+    where default.png was a leftover of the old design (audit D-43).
+    """
     card = Image.new("RGB", CARD, PALE)
-    _wordmark(card, 96, PALE_WATERMARK)
+    _wordmark(
+        card,
+        LIBRARY_WORDMARK_SIZE,
+        PALE_WATERMARK,
+        cy=LIBRARY_WORDMARK_CY,
+        width=LIBRARY_WORDMARK_W,
+    )
 
     v = _letter("V", LETTER_CAP, INK)
     lam = _letter("V", LETTER_CAP, INK, rotate=180)
