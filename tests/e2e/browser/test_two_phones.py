@@ -18,7 +18,9 @@ from vechnost_bot import steps69
 from vechnost_bot.compat import TOTAL_QUESTIONS
 
 from ..harness import Server, code_from_invite
+from .app import S69_CHIP, s69_your_turn
 
+# The room's chip; the board's leads with the player's suit (app.s69_your_turn).
 YOUR_TURN = "✨ Ваш ход"
 POLL = 12_000  # the app polls every ~2.5 s and backs off on errors
 
@@ -182,14 +184,13 @@ def test_two_phones_climb_the_board(server: Server, phones) -> None:
     by_seat = {0: (a, alice), 1: (b, bob)}
     for roll in range(6):
         state = alice.ok("GET", f"/api/steps69/{code}")
+        piece = {state[p]["seat"]: state[p]["piece"] for p in ("you", "partner")}
         mover, mover_player = by_seat[state["turn"]]
         waiter, _ = by_seat[1 - state["turn"]]
         mover.page.wait_for_function(
-            "t => document.querySelector('#s69TurnChip')?.innerText.trim() === t",
-            arg=YOUR_TURN,
-            timeout=POLL,
+            S69_CHIP, arg=s69_your_turn(piece[state["turn"]]), timeout=POLL
         )
-        assert waiter.text("#s69TurnChip") != YOUR_TURN
+        assert "Ваш ход" not in waiter.text("#s69TurnChip")
         mover.page.click("#s69Dice")
         mover.page.wait_for_function(
             "() => !document.querySelector('#s69Dice')?.classList.contains('rolling')",
@@ -206,9 +207,7 @@ def test_two_phones_climb_the_board(server: Server, phones) -> None:
         mover.shot(f"roll{roll + 1}")
         # The waiting phone catches up, and never shows the mover's secret.
         waiter.page.wait_for_function(
-            "t => document.querySelector('#s69TurnChip')?.innerText.trim() === t",
-            arg=YOUR_TURN,
-            timeout=POLL,
+            S69_CHIP, arg=s69_your_turn(piece[1 - state["turn"]]), timeout=POLL
         ) if not after["partner"]["home"] else None
         secret = SECRETS.get(cell["id"])
         partner_pos = after["partner"]["position"]

@@ -50,7 +50,7 @@ from typing import Any
 import pytest
 
 from ..harness import Player, Server, code_from_invite
-from .app import PROGRESS_JS, wait_home
+from .app import PROGRESS_JS, s69_your_turn, wait_home
 from .phones import REPORT_DIR, ApiCall, Device, Phone
 
 pytestmark = [pytest.mark.browser, pytest.mark.ui_fuzz]
@@ -66,7 +66,6 @@ LOADER_LIMIT_MS = 10_000
 INVITE_EVERY_S = 30.0
 SETTLE_S = 9.0  # three or four polls
 POLL = 15_000
-YOUR_TURN = "✨ Ваш ход"
 # A state poll: GET /api/<feature>/<CODE>, which only a participant sends.
 STATE_POLL = re.compile(r"^/api/(rooms|steps69|compat)/([A-Z2-9]{6,16})(?:\?|$)")
 CODE = r"[A-Z2-9]{6,16}"
@@ -560,7 +559,8 @@ class UiFuzz:
                                       return p ? Number(p.closest('.s69-cell').dataset.id) : null; };
                 return {mine: at('.s69-piece.mine'), theirs: at('.s69-piece:not(.mine)'),
                         rolling: document.getElementById('s69Dice').classList.contains('rolling'),
-                        chip: document.getElementById('s69TurnChip').innerText.trim()};
+                        chip: document.getElementById('s69TurnChip').innerText
+                                .replace(/\\u00a0/g, ' ').trim()};
             }""")
             if got["rolling"]:
                 return f"{name}'s dice are still rolling"
@@ -577,7 +577,7 @@ class UiFuzz:
                 and not st["both_home"]
                 and not st["you"]["home"]
             )
-            if (got["chip"] == YOUR_TURN) != bool(yours):
+            if (got["chip"] == s69_your_turn(st["you"]["piece"])) != bool(yours):
                 return (
                     f"{name}'s turn chip reads {got['chip']!r}; the board says "
                     f"{'' if yours else 'not '}their turn"
