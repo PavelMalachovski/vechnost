@@ -237,10 +237,12 @@ def test_the_fade_marks_only_an_edge_that_actually_hides_something():
 
 
 def test_the_fade_never_masks_the_scroller_itself():
-    """A mask makes its element invisible to hit testing, so a mask on
-    .q-zone meant a finger drag on the card text found no scrollable
-    ancestor and scrolled nothing: readable by script, unreadable by hand.
-    The fade is an overlay on the face instead, and must stay one."""
+    """The fade is an overlay on the face, and must stay one. It replaced a
+    mask on .q-zone, taken off when long cards would not scroll under a
+    finger; the back face turned out to be the cause, and neither engine
+    drops a masked scroller from its hit test today (audit H-02). So real
+    input no longer catches a mask here: this check and the browser suite's
+    computed-style probe are what hold the rule."""
     html = INDEX.read_text(encoding="utf-8")
     assert "mask-image" not in _css_block(html, ".q-zone")
     fade = _css_block(html, ".card .front::before,\n  .card .front::after")

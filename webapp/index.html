@@ -659,11 +659,11 @@
      meant to prevent. markZoneEdges() sets cut-top/cut-bottom.
 
      The fade is painted on the face, not masked onto the scroller. It used
-     to be a mask-image on .q-zone, and a mask makes its element invisible to
-     hit testing: elementFromPoint in the middle of a card returned .front,
-     so a finger drag found no scrollable ancestor and scrolled nothing. The
-     text was reachable by script and unreadable by hand, on every card long
-     enough to need it. An overlay with pointer-events:none cannot do that. */
+     to be a mask-image on .q-zone, taken off when long cards would not
+     scroll under a finger. The back face taking the touch was the cause
+     (see .card .back), not the mask: neither engine drops a masked
+     scroller from its hit test today (audit H-02). The overlay with
+     pointer-events:none costs nothing and leaves the scroller alone. */
   .q-zone {
     flex: 1; display: grid; place-items: center;
     overflow-y: auto; overscroll-behavior: contain;

@@ -448,13 +448,21 @@ python scripts/smoke_production.py $URL --deep  # ...and its database and bot he
   returns `.q-text` and disagrees, so this is invisible to any check made
   from script: it takes real touch input to see. `tests/test_webapp_static.py`
   holds the rule.
-- **A fade must never be a mask on a scroller.** `.q-zone` used to carry a
-  `mask-image`, and a mask makes its element invisible to hit testing:
-  `elementFromPoint` in the middle of a card returned `.front`, so a finger
-  drag found no scrollable ancestor and long card text was readable by
-  script and unreadable by hand. The fade is an overlay on `.card .front`
-  with `pointer-events: none`, and `markZoneEdges` puts the `cut-*` flags on
-  the face for that reason. `tests/test_webapp_static.py` holds it.
+- **A fade is an overlay, never a mask on the scroller.** The fade is drawn
+  on `.card .front` with `pointer-events: none`, and `markZoneEdges` puts
+  the `cut-*` flags on the face. Until `1c68692` it was a `mask-image` on
+  `.q-zone`, taken off in the belief that a mask hides its element from hit
+  testing and was why long cards would not scroll under a finger. It was
+  not the cause: the back face was taking the touch (`37225a3`, the bullet
+  above), and neither engine drops a masked scroller from its hit test
+  today - in Chromium `elementFromPoint` answers `.q-text` and a CDP touch
+  scrolls it, and in WebKit a press and the arrow keys do (audit H-02). The
+  rule stays because the overlay costs nothing. No real input catches a
+  broken rule any more, so `tests/test_webapp_static.py` and the
+  computed-style probe in `tests/e2e/browser/test_touch.py` hold it, and
+  `test_the_probes_notice_each_rule_broken` writes to
+  `touch-canary-<phone>.json` which probe noticed each broken rule on which
+  engine.
 - **A certificate code is lifetime access to whoever reads it**, unless
   the gift it was bought as is refunded (see the Tribute bullet). Two
   things mint one: a gift bought through Tribute (`payments/gifts.py`) and
