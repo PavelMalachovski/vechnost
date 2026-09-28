@@ -36,6 +36,7 @@ pytest --cov                             # ...with coverage, as CI measures it
 pytest -m "not slow"                     # ...without the fuzzer and the subprocess tests
 pytest tests/test_freemium.py -q         # run one suite
 ruff check .                             # lint (CI gates on this)
+ruff format .                            # format (CI gates on `ruff format --check .`)
 ./scripts/typecheck.sh                   # types, strict, on the domain layer (CI gates on this)
 python scripts/mypy_ratchet.py           # types, the rest, against .mypy-baseline (CI gates on this)
 pytest tests/e2e -n0                     # the two-user suite, in-process
@@ -68,10 +69,10 @@ python scripts/smoke_production.py $URL --deep  # ...and its database and bot he
   with "Wait for CI". `docs/CI_CD.md` explains the pipeline.
 
 - **The CI gates are `pytest` (with a coverage floor), `ruff check .`,
-  `scripts/typecheck.sh` and `scripts/mypy_ratchet.py`, and all of them
-  pass.** Keep them passing. CI runs on pull requests, on `master`, and
-  nightly; it used to name `main` and `develop`, neither of which exists
-  here, so it had never run at all.
+  `ruff format --check .`, `scripts/typecheck.sh` and
+  `scripts/mypy_ratchet.py`, and all of them pass.** Keep them passing. CI
+  runs on pull requests, on `master`, and nightly; it used to name `main`
+  and `develop`, neither of which exists here, so it had never run at all.
   `e2e.yml` gates on the two-user suite the same way.
 - **Coverage has a floor that only rises.** CI's `pytest` measures it
   (`[tool.coverage]` in `pyproject.toml`: branches, greenlets and threads,
@@ -102,9 +103,15 @@ python scripts/smoke_production.py $URL --deep  # ...and its database and bot he
   error that is not listed and on a listed one that is fixed. Fix a new
   error rather than list it; after fixing old ones, run
   `python scripts/mypy_ratchet.py --update` and commit the smaller file.
-- **`ruff format` has never been applied.** CI checks it, advisory, until a
-  one-time reformat lands at a moment with no branches in flight; until then
-  do not reformat files you are not otherwise changing.
+- **`ruff format` gates.** The whole repository went through it once, in
+  one commit listed in `.git-blame-ignore-revs` (GitHub's blame skips it;
+  locally, `git config blame.ignoreRevsFile .git-blame-ignore-revs`), and CI
+  fails on any file it would change: run `ruff format .` before pushing. It
+  formats the Python blocks inside Markdown too; `docs/archive` is excluded
+  in `[tool.ruff.format]`, because nobody maintains it. A test that
+  searches source text fails on layout, not on behaviour: the one that
+  looked for a line of `bot.py` broke on the reformat, and now reads the
+  handlers the application registers.
 - Pytest config lives in `pyproject.toml` under `[tool.pytest.ini_options]`
   (`asyncio_mode = "auto"`). Do **not** re-add a `pytest.ini` — a
   `[tool:pytest]` header there silently disables the pyproject config.

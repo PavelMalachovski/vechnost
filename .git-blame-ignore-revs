@@ -1,0 +1,7 @@
+# Commits `git blame` looks through: whole-repository mechanical changes that
+# say nothing about why a line is what it is. GitHub's blame view reads this
+# file by itself; for a local `git blame`, run once:
+#   git config blame.ignoreRevsFile .git-blame-ignore-revs
+
+# Apply ruff format to the whole repository
+04d4688fc9761f7bad84bc7f36cef07ef37d6118
