@@ -25,9 +25,9 @@ JPEG_QUALITY = 92
 TEXT_AREA_WIDTH = int(CARD_WIDTH * 0.76)  # comfortable measure, ~30-38 chars/line
 TEXT_AREA_HEIGHT = int(CARD_HEIGHT * 0.56)  # central band clear of corner marks
 
-# Where the corner marks sit on the deck faces once scaled to the card: the
-# top-left V with its suit and the bottom-right Λ with its suit, measured on
-# every face in assets/backgrounds and given a few pixels of air, as
+# Where the corner marks sit on the deck faces: the top-left V with its suit
+# and the bottom-right Λ with its suit, measured on every face in
+# assets/backgrounds and given a few pixels of air, as
 # (left, top, right, bottom). The central band above never reaches them. A
 # text too long for the band uses the height beside them instead, with the
 # lines that pass a mark narrowed to clear it (audit D-17: four long
@@ -94,7 +94,10 @@ def _load_background_image(bg_path: str) -> Image.Image | None:
         if image.mode != "RGB":
             image = image.convert("RGB")
 
-        # Resize to target dimensions if needed
+        # Every face in assets/backgrounds is card-sized, and
+        # tests/test_card_assets.py keeps it so. This resize is a safety net,
+        # and a lossy one: it stretched the 2:3 deck art into the 4:5 card
+        # until the faces were generated at the card's size (audit D-18).
         if image.size != (CARD_WIDTH, CARD_HEIGHT):
             image = image.resize((CARD_WIDTH, CARD_HEIGHT), Image.Resampling.LANCZOS)
 

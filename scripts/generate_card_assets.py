@@ -1,15 +1,17 @@
-"""Generate the art the deck cards don't already provide.
+"""Generate every card face the bot composites onto and the Mini App shows.
 
+The deck faces — `acq/`, `couples/`, `sex/`, `prov/` — at the card's own
+1080×1350, from the hand-drawn 600×900 art in `assets/deck_art/`.
 `library.png` — the face every Library item and the daily prompt is set on.
 `card_back.png` — the shared back the Mini App flips.
 `suits/*.png` — the four emblems on their own, transparent, for anywhere a
 suit has to be shown at a size the corner mark cannot survive: the Mini App's
 home-screen fan renders them as an Ace's centre pip.
 
-The suits are *cropped from the existing deck cards* rather than redrawn:
-they are shaded illustrations, not glyphs, and any redraw would drift from
-the cards the bot already sends. Run this only when the art changes; the
-PNGs are committed.
+The suits are *cropped from the deck art* rather than redrawn: they are
+shaded illustrations, not glyphs, and any redraw would drift from the cards
+the bot already sends. Run this only when the art changes; the PNGs are
+committed.
 
     python scripts/generate_card_assets.py
 """
@@ -22,6 +24,7 @@ from PIL import Image, ImageDraw, ImageFont
 
 ROOT = Path(__file__).parent.parent
 BG = ROOT / "assets" / "backgrounds"
+DECK_ART = ROOT / "assets" / "deck_art"
 SUITS_DIR = ROOT / "assets" / "suits"
 FONTS = ROOT / "assets" / "fonts"
 
@@ -69,6 +72,26 @@ SUIT_SOURCES = {
     "spades": "couples/couples_1.png",
     "clubs": "sex/tasks.png",
     "diamonds": "prov/prov.png",
+}
+
+# The deck faces, and the rank each carries above its suit. The art is 2:3
+# and the card 4:5, so no single scale maps one onto the other: the bot used
+# to resize the art into the card, ×1.8 across and ×1.5 down, and so printed
+# every V, rank and suit a fifth wider than drawn (audit D-18). A face is now
+# drawn at the card's size instead, each mark centred where that resize put
+# it — so renderer.CORNER_MARKS and every card's text layout stay where they
+# were — and scaled ×1.5 both ways, the height the resize already gave it.
+DECK_FACES = {
+    "acq/acq_1.png": "V",
+    "acq/acq_2.png": "2",
+    "acq/acq_3.png": "3",
+    "couples/couples_1.png": "V",
+    "couples/couples_2.png": "2",
+    "couples/couples_3.png": "3",
+    "prov/prov.png": "V",
+    "sex/questions.png": "V",
+    "sex/sex.png": "V",
+    "sex/tasks.png": "V",
 }
 
 _GROUND_TOL = 30  # channel-sum distance still counted as bare card
@@ -138,7 +161,7 @@ def _suit(source: str, size: int) -> Image.Image:
     with a smooth edge instead of a jagged one, and the ramp is steepened
     afterwards so "smooth" doesn't turn into "blurred".
     """
-    with Image.open(BG / source) as img:
+    with Image.open(DECK_ART / source) as img:
         card = img.convert("RGB")
     w, h = card.size
     ground = card.getpixel((5, 5))
@@ -239,6 +262,27 @@ def _suit(source: str, size: int) -> Image.Image:
     return out
 
 
+def _ink_box(card: Image.Image, region: tuple[int, int, int, int]) -> tuple[int, int, int, int]:
+    """Where the ink is inside `region` of a deck card: the box of every
+    pixel that is not the card's bare ground."""
+    ground = card.getpixel((5, 5))
+    crop = card.crop(region)
+    px = crop.load()
+    hits = [
+        (x, y)
+        for y in range(crop.height)
+        for x in range(crop.width)
+        if sum(abs(px[x, y][i] - ground[i]) for i in range(3)) > _GROUND_TOL
+    ]
+    xs, ys = [x for x, _ in hits], [y for _, y in hits]
+    return (
+        region[0] + min(xs),
+        region[1] + min(ys),
+        region[0] + max(xs) + 1,
+        region[1] + max(ys) + 1,
+    )
+
+
 def _paste_centred(card: Image.Image, tile: Image.Image, cx: int, cy: int):
     card.paste(tile, (round(cx - tile.width / 2), round(cy - tile.height / 2)), tile)
 
@@ -265,6 +309,45 @@ def build_library_card() -> Image.Image:
     lam = _letter("V", LETTER_CAP, INK, rotate=180)
     _paste_centred(card, v, CLUSTER_CX, MARGIN + LETTER_CAP / 2)
     _paste_centred(card, lam, CARD[0] - CLUSTER_CX, CARD[1] - MARGIN - LETTER_CAP / 2)
+    return card
+
+
+def build_deck_face(source: str, rank: str) -> Image.Image:
+    """One deck face at the card's size: the art's ground, its rank and suit
+    redrawn in the top-left corner at their true proportions, and the pair
+    turned round in the bottom-right, as the art prints them.
+
+    The rank is set in Forum, the face it was drawn in, at the height the art
+    gives it. The suit is this card's own, lifted with the ground around it
+    and scaled as a square: the face has the same ground, so there is nothing
+    to cut out, and the art's own antialiasing survives. (`_suit` cuts the
+    emblem out for the dark back, and at this size its steepened edge reads
+    as a staircase on pale.) Where each goes is read off the art rather than
+    typed in, so a rank a pixel off on one card stays a pixel off.
+    """
+    with Image.open(DECK_ART / source) as img:
+        art = img.convert("RGB")
+    w, h = art.size
+    sx, sy = CARD[0] / w, CARD[1] / h
+    scale = sy
+
+    left, top, right, bottom = _SRC_SUIT
+    x0, y0, x1, y1 = _ink_box(art, (0, 0, round(w * right), round(h * top)))
+    letter = _letter(rank, round((y1 - y0) * scale), INK)
+    box = (int(w * left), int(h * top), int(w * right), int(h * bottom))
+    patch = art.crop(box)
+    suit = patch.resize(
+        (round(patch.width * scale), round(patch.height * scale)), Image.Resampling.LANCZOS
+    ).convert("RGBA")
+
+    card = Image.new("RGB", CARD, art.getpixel((5, 5)))
+    # The suit's square is opaque, so it goes down first and the rank over it.
+    for tile, cx, cy in (
+        (suit, (box[0] + box[2]) / 2 * sx, (box[1] + box[3]) / 2 * sy),
+        (letter, (x0 + x1) / 2 * sx, (y0 + y1) / 2 * sy),
+    ):
+        _paste_centred(card, tile, cx, cy)
+        _paste_centred(card, tile.transpose(Image.Transpose.ROTATE_180), CARD[0] - cx, CARD[1] - cy)
     return card
 
 
@@ -308,16 +391,23 @@ def build_suit_emblems() -> dict[str, Image.Image]:
 def main() -> None:
     argparse.ArgumentParser(
         description=__doc__.split("\n\n")[0],
-        epilog="Rewrites assets/backgrounds/library.png, card_back.png and "
-        "assets/suits/*.png; commit them with the change that needed them.",
+        epilog="Rewrites the deck faces in assets/backgrounds, library.png, "
+        "card_back.png and assets/suits/*.png; commit them with the change "
+        "that needed them.",
     ).parse_args()
+    for source, rank in DECK_FACES.items():
+        (BG / source).parent.mkdir(parents=True, exist_ok=True)
+        build_deck_face(source, rank).save(BG / source)
     build_library_card().save(BG / "library.png")
     build_card_back().save(BG / "card_back.png")
     SUITS_DIR.mkdir(parents=True, exist_ok=True)
     emblems = build_suit_emblems()
     for name, tile in emblems.items():
         tile.save(SUITS_DIR / f"{name}.png")
-    print("wrote library.png, card_back.png and " + ", ".join(f"suits/{n}.png" for n in emblems))
+    print(
+        f"wrote {len(DECK_FACES)} deck faces, library.png, card_back.png and "
+        + ", ".join(f"suits/{n}.png" for n in emblems)
+    )
 
 
 if __name__ == "__main__":

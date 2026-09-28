@@ -391,6 +391,8 @@ def test_every_fan_card_wears_its_own_suit_as_a_centre_pip():
     way an Ace carries a centre pip. Pairing matters: a card showing another
     deck's suit would be worse than showing none, so this checks each emblem
     against the card it belongs to rather than merely counting four of them.
+    The card is the deck's hand-drawn art, not the printed face: the tile is
+    the art's 2:3, and the 4:5 face would be cropped at its sides here.
     """
     html = INDEX.read_text(encoding="utf-8")
     for suit, card in (
@@ -399,8 +401,9 @@ def test_every_fan_card_wears_its_own_suit_as_a_centre_pip():
         ("clubs", "sex/questions.png"),
         ("diamonds", "prov/prov.png"),
     ):
-        pair = f"url(/assets/suits/{suit}.png),url(/assets/backgrounds/{card})"
+        pair = f"url(/assets/suits/{suit}.png),url(/assets/deck_art/{card})"
         assert pair in html, pair
+        assert (INDEX.parent.parent / "assets" / "deck_art" / card).exists(), card
 
 
 def test_no_screen_still_asks_for_a_typed_code():

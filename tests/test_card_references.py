@@ -44,7 +44,7 @@ from io import BytesIO
 from pathlib import Path
 
 import pytest
-from PIL import Image, ImageChops, ImageStat
+from PIL import Image, ImageChops, ImageDraw, ImageStat
 
 import vechnost_bot.renderer as renderer
 from vechnost_bot.renderer import CARD_HEIGHT, CARD_WIDTH, CORNER_MARKS, render_card
@@ -188,10 +188,26 @@ def test_the_card_looks_as_its_reference(name: str, face: str, footer: str, text
     )
 
 
+# How far JPEG rings past a corner mark: one 8x8 block.
+_RINGING = 8
+
+
 def _glyphs_moved(card: Image.Image, face: str, dx: int, dy: int) -> Image.Image:
-    """The card with every glyph a whole pixel away: more than any rasteriser differs."""
+    """The card with every glyph a whole pixel away: more than any rasteriser differs.
+
+    A glyph is what the renderer drew, so what differs around the face's own
+    corner marks is not one: the card is a JPEG and the face is not, and the
+    ringing JPEG leaves around a crisp mark would otherwise travel with the
+    text (a Λ's, moved down a pixel, lands in the watermark's band). No
+    renderer ink comes near a mark; `test_no_ink_falls_on_a_corner_mark`
+    holds that.
+    """
     face_image = bare(face)
     ink = ImageChops.difference(card, face_image).convert("L").point(lambda v: 255 if v > 8 else 0)
+    for left, top, right, bottom in CORNER_MARKS:
+        ImageDraw.Draw(ink).rectangle(
+            (left - _RINGING, top - _RINGING, right + _RINGING, bottom + _RINGING), fill=0
+        )
     moved, moved_ink = Image.new("RGB", card.size), Image.new("L", card.size)
     moved.paste(card, (dx, dy))
     moved_ink.paste(ink, (dx, dy))

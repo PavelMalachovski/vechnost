@@ -9,15 +9,18 @@ import hashlib
 from pathlib import Path
 
 import pytest
-from PIL import Image, ImageFont
+from PIL import Image, ImageChops, ImageFont
 
 REPO_ROOT = Path(__file__).parent.parent
 FONTS = REPO_ROOT / "assets" / "fonts"
 WEBAPP_FONTS = REPO_ROOT / "webapp" / "fonts"
 BACKGROUNDS = REPO_ROOT / "assets" / "backgrounds"
+DECK_ART = REPO_ROOT / "assets" / "deck_art"
 SUITS = REPO_ROOT / "assets" / "suits"
 CARD_SIZE = (1080, 1350)
 SUIT_NAMES = ["hearts", "spades", "clubs", "diamonds"]
+FACES = sorted(path.relative_to(BACKGROUNDS).as_posix() for path in BACKGROUNDS.rglob("*.png"))
+DECK_FACES = sorted(path.relative_to(DECK_ART).as_posix() for path in DECK_ART.rglob("*.png"))
 
 # One representative letter per alphabet the cards actually set.
 CYRILLIC = "Ж"
@@ -71,7 +74,7 @@ def test_webapp_font_is_present(name):
     assert path.stat().st_size > 1000, f"{name} looks like an error page"
 
 
-@pytest.mark.parametrize("name", ["library.png", "card_back.png"])
+@pytest.mark.parametrize("name", FACES)
 def test_generated_card_has_the_deck_geometry(name):
     """Every card the renderer composites onto must already be card-shaped;
     _load_background_image would otherwise resample it and soften the art."""
@@ -94,6 +97,17 @@ def test_generated_card_has_the_deck_geometry(name):
 CARD_SHA256 = {
     "library.png": "d2825d21ac1bf4f3b630e2d3332a3fc2b9c3d80afd92de0ae4f26eee92d0291e",
     "card_back.png": "125e5d7ba10c74fd6444af60b9970271cc78862d81288aa10a573931388bbc12",
+    # The three Sex faces print the same V and club, so they are one picture.
+    "acq/acq_1.png": "de0a84a94e80711c9a74faf60228847d14c3bdfcab8473d9a79013ccf7a3516a",
+    "acq/acq_2.png": "3ad8e2ee3ba4bc24273c24e63bdd5e528d2cc18b5c5270be1f15be75e306b1bc",
+    "acq/acq_3.png": "ce372938b560e6f407d6b6b5f5de076f55c395331e929ab7ba7ba317560db89e",
+    "couples/couples_1.png": "aec08f0f91a1463f95656dce67b92573d11d262a0b2f72963b1ed6684c1be246",
+    "couples/couples_2.png": "451a9ab1cf7c0f2d9d3b19717d56c42381db7d1ea9a55ce774351640360e8e75",
+    "couples/couples_3.png": "3fc1699027fb267f1ff9f090a3472de3e55e8dd19f3c81fc5bcdd423d516f3b3",
+    "prov/prov.png": "2d3468b4ce65ebcab65b10092bba9123149387f266d15129f86c45b86b6d229d",
+    "sex/questions.png": "6078c467400127f73846db9b94f0beb89fbcf90c305d3707a1e76b32e89f7ae7",
+    "sex/sex.png": "6078c467400127f73846db9b94f0beb89fbcf90c305d3707a1e76b32e89f7ae7",
+    "sex/tasks.png": "6078c467400127f73846db9b94f0beb89fbcf90c305d3707a1e76b32e89f7ae7",
 }
 
 # The same pinning, for the four emblems on their own. These carry no text at
@@ -109,7 +123,7 @@ SUIT_SHA256 = {
 }
 
 
-@pytest.mark.parametrize("name", ["library.png", "card_back.png"])
+@pytest.mark.parametrize("name", sorted(CARD_SHA256))
 def test_generated_card_is_the_art_the_generator_produces(name):
     digest = hashlib.sha256((BACKGROUNDS / name).read_bytes()).hexdigest()
     assert digest == CARD_SHA256[name], (
@@ -146,3 +160,55 @@ def test_suit_emblem_is_the_art_the_generator_produces(name):
         f"{name}.png is not the committed art. If you meant to change it, "
         f"regenerate and pin: {digest}"
     )
+
+
+def test_every_deck_face_is_generated_from_its_art():
+    """A face with no art behind it could not be regenerated, and art with
+    no face would be a deck the bot cannot print."""
+    assert DECK_FACES, "no deck art in assets/deck_art"
+    assert set(DECK_FACES) <= set(FACES)
+    assert set(DECK_FACES) <= set(CARD_SHA256)
+
+
+def _ink(image: Image.Image, box: tuple[int, int, int, int]) -> tuple[int, int, int, int]:
+    """The box of every pixel inside `box` that is not the card's bare ground."""
+    crop = image.crop(box)
+    bare = Image.new("RGB", crop.size, image.getpixel((5, 5)))
+    mask = ImageChops.difference(crop, bare).convert("L").point(lambda v: 255 if v > 10 else 0)
+    left, top, right, bottom = mask.getbbox()
+    return (box[0] + left, box[1] + top, box[0] + right, box[1] + bottom)
+
+
+def _ratio(box: tuple[int, int, int, int]) -> float:
+    return (box[2] - box[0]) / (box[3] - box[1])
+
+
+@pytest.mark.parametrize("face", DECK_FACES)
+def test_a_deck_face_draws_each_mark_as_the_art_does(face):
+    """Audit D-18. The art is 2:3 and the card 4:5, and the bot used to
+    resize one into the other: every V, rank and suit came out a fifth wider
+    than drawn. On the face each mark keeps the art's proportions, within a
+    rasteriser's hair (the stretched ones were 18-24 % off), and its centre
+    stays where that resize put it, which is what keeps CORNER_MARKS and the
+    text layout where they were. The bottom-right pair is the top-left one
+    turned round, as the art prints it."""
+    with Image.open(DECK_ART / face) as art_image, Image.open(BACKGROUNDS / face) as card_image:
+        art, card = art_image.convert("RGB"), card_image.convert("RGB")
+    sx, sy = card.width / art.width, card.height / art.height
+    for region in ((0, 0, 120, 127), (0, 127, 120, 200)):  # the rank, then the suit
+        drawn = _ink(art, region)
+        printed = _ink(
+            card, tuple(round(v * s) for v, s in zip(region, (sx, sy, sx, sy), strict=True))
+        )
+        assert _ratio(printed) == pytest.approx(_ratio(drawn), rel=0.06), (face, drawn, printed)
+        assert (printed[0] + printed[2]) / 2 == pytest.approx((drawn[0] + drawn[2]) / 2 * sx, abs=2)
+        assert (printed[1] + printed[3]) / 2 == pytest.approx((drawn[1] + drawn[3]) / 2 * sy, abs=2)
+    top_left = _ink(card, (0, 0, card.width // 2, card.height // 2))
+    bottom_right = _ink(card, (card.width // 2, card.height // 2, card.width, card.height))
+    turned = (
+        card.width - bottom_right[2],
+        card.height - bottom_right[3],
+        card.width - bottom_right[0],
+        card.height - bottom_right[1],
+    )
+    assert all(abs(a - b) <= 1 for a, b in zip(turned, top_left, strict=True)), (top_left, turned)
