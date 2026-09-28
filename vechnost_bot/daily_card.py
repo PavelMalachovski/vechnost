@@ -8,7 +8,6 @@ import asyncio
 import logging
 from datetime import UTC, date, datetime
 from io import BytesIO
-from pathlib import Path
 from typing import Any
 
 from telegram import Bot, InlineKeyboardButton, InlineKeyboardMarkup, WebAppInfo
@@ -17,6 +16,7 @@ from .config import settings
 from .i18n import Language, get_text
 from .jobs import Run
 from .library import REFLECTION_TOTAL, question_of_the_day
+from .paths import ASSETS
 from .renderer import render_card
 
 logger = logging.getLogger(__name__)
@@ -26,7 +26,7 @@ JOB_NAME = "daily_card"
 
 # The daily prompt belongs to no deck, so it rides the Library card: the
 # brand face with the V/Λ letters and the VECHNOST wordmark, and no suit.
-_BACKGROUND = str(Path(__file__).parent.parent / "assets" / "backgrounds" / "library.png")
+_BACKGROUND = str(ASSETS / "backgrounds" / "library.png")
 
 
 def _user_language(code: str | None) -> Language:
