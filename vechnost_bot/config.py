@@ -109,9 +109,6 @@ class Settings(BaseSettings):
 
     redis_db: int = Field(default=0, description="Redis database number, when REDIS_URL names none")
 
-    # Optional Configuration
-    chat_id: str | None = Field(default=None, description="Optional chat ID for notifications")
-
     # Sentry Configuration
     sentry_dsn: str | None = Field(default=None, description="Sentry DSN for error tracking")
 
@@ -392,11 +389,6 @@ class Settings(BaseSettings):
         return f"{base}&code={code}" if base else None
 
     @property
-    def webapp_library_url(self) -> str | None:
-        """The Mini App URL that opens straight on the Library screen."""
-        return self._webapp_screen_url("library")
-
-    @property
     def webapp_steps69_url(self) -> str | None:
         """The Mini App URL that opens straight on the 69 Steps board."""
         return self._webapp_screen_url("steps69")
@@ -428,13 +420,3 @@ def create_bot() -> Bot:
             pool_timeout=BOT_API_POOL_TIMEOUT,
         ),
     )
-
-
-def get_log_level() -> str:
-    """Get the log level from settings."""
-    return settings.log_level.upper()
-
-
-def get_chat_id() -> str | None:
-    """Get the chat ID from settings."""
-    return settings.chat_id
