@@ -27,6 +27,7 @@ from urllib.parse import urlsplit
 
 import pytest
 
+from ...wording import plain
 from ..harness import Player
 from .touch import Finger, finger_for
 
@@ -202,7 +203,10 @@ class Phone:
         self.page.screenshot(path=str(self.shots / f"{self.step:02d}-{self.name}-{label}.png"))
 
     def text(self, selector: str) -> str:
-        return str(self.page.locator(selector).first.inner_text()).strip()
+        """What the element says, its no-break spaces read as spaces: the app
+        keeps a short word with the next one (audit D-31), and a test about
+        the words should not have to spell where a line may break."""
+        return plain(str(self.page.locator(selector).first.inner_text()).strip())
 
     def tap(self, selector: str, timeout: float = 15_000) -> None:
         """A finger tap on an element, after Playwright's actionability checks.
