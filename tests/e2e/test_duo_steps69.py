@@ -173,7 +173,7 @@ def test_two_phones_play_to_the_finale(server: Server, round_: int) -> None:
     assert alice.status("POST", f"/api/steps69/{code}/finale", {"choice": other}) == 409
     assert alice.ok("POST", f"/api/steps69/{code}/finale", {"choice": choice_id})["finished"]
     for player in (alice, bob):
-        assert player.status("GET", "/api/steps69/mine") == 404, "a finished game is not resumable"
+        assert player.ok("GET", "/api/steps69/mine") is None, "a finished game is not resumable"
     assert_same_board(
         alice.ok("GET", f"/api/steps69/{code}"), bob.ok("GET", f"/api/steps69/{code}")
     )
@@ -233,7 +233,7 @@ def test_a_stranger_cannot_find_or_touch_the_board(server: Server) -> None:
         assert live.status_code == dead.status_code == 404, (method, suffix)
         assert live.json() == dead.json()
     assert carol.status("POST", f"/api/steps69/{code}/join", {}) == 409
-    assert carol.status("GET", "/api/steps69/mine") == 404
+    assert carol.ok("GET", "/api/steps69/mine") is None
     assert alice.ok("GET", f"/api/steps69/{code}")["partner"]["rolls"] == 0
 
 
@@ -247,7 +247,7 @@ def test_either_partner_can_erase_the_board(server: Server) -> None:
     for player in (alice, bob):
         assert player.status("GET", f"/api/steps69/{code}") == 404
         assert player.status("POST", f"/api/steps69/{code}/roll") == 404
-        assert player.status("GET", "/api/steps69/mine") == 404
+        assert player.ok("GET", "/api/steps69/mine") is None
 
 
 def test_one_phone_passed_back_and_forth(server: Server) -> None:

@@ -298,9 +298,9 @@ def test_delete_me_takes_the_shared_rows_for_both(server: Server, bot) -> None:
 
     assert bob.status("GET", f"/api/rooms/{room}") == 404
     assert bob.status("GET", f"/api/compat/{test}") == 404
-    assert bob.status("GET", "/api/compat/mine") == 404
+    assert bob.ok("GET", "/api/compat/mine") is None
     assert bob.status("GET", f"/api/steps69/{game}") == 404
-    assert bob.status("GET", "/api/steps69/mine") == 404
+    assert bob.ok("GET", "/api/steps69/mine") is None
     assert paid(bob) is True, "the partner keeps their own access"
     assert paid(alice) is False, "access does not come back after erasure"
 

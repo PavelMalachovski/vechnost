@@ -111,6 +111,33 @@ def test_back_from_the_invite_offers_the_board_already_started(server: Server, p
     phone.shot("resume-offered")
 
 
+def test_nothing_in_play_is_an_answer_not_an_error(server: Server, phones) -> None:
+    """D-37: the board's screen asks /api/steps69/mine on every visit, and
+    «Мой результат» asks /api/compat/mine. For someone with nothing in play
+    both answered 404, a red line in the console each time. Now it is 200
+    and null, and the screens read it as they read the 404."""
+    phone = phones(server.player("Alice", paid=True))
+    phone.screen("home")
+    phone.page.click("#btnS69")
+    with phone.page.expect_response(lambda r: "/api/steps69/mine" in r.url):
+        phone.page.click("#nsfwYes")
+    phone.screen("s69")
+    assert phone.page.is_hidden("#btnS69Resume") and phone.page.is_hidden("#btnS69Restart")
+
+    press_back(phone)
+    phone.screen("home")
+    phone.page.click("#btnCompat")
+    phone.screen("compat")
+    with phone.page.expect_response(lambda r: "/api/compat/mine" in r.url):
+        phone.page.click("#btnCompatMine")
+    phone.page.wait_for_selector("#toast.show")
+    assert phone.text("#toast") == "У вас пока нет пройденного теста"
+
+    asked = [call for call in phone.api if "/mine" in call.path]
+    assert {call.path.split("?")[0] for call in asked} == {"/api/steps69/mine", "/api/compat/mine"}
+    assert all(call.status == 200 for call in asked), [str(call) for call in asked]
+
+
 def test_a_phone_that_asked_for_less_motion_gets_it(server: Server, phones) -> None:
     """D-13: the home screen's fan floated forever and nothing asked the
     phone whether its owner wanted it to."""

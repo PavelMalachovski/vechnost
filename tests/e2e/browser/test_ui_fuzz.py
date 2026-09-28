@@ -76,8 +76,6 @@ CODE = r"[A-Z2-9]{6,16}"
 EXPECTED: list[tuple[str, re.Pattern[str], frozenset[int], str]] = [
     (m, re.compile(p), frozenset(s), why)
     for m, p, s, why in [
-        ("GET", r"^/api/steps69/mine\b", {404}, "no board in play (audit D-37)"),
-        ("GET", r"^/api/compat/mine\b", {404}, "no finished test yet"),
         ("POST", r"^/api/(steps69|compat)(\?|$)", {402}, "an unpaid partner starts a paid feature"),
         ("POST", rf"^/api/rooms/{CODE}/join\b", {403}, "an 18+ room, before the age answer"),
         (

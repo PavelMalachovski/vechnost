@@ -231,7 +231,10 @@ def test_a_second_guest_cannot_join(client):
 
 
 def test_mine_returns_the_latest_completed_session(client):
-    assert client.get("/api/compat/mine", headers=HEAD_C).status_code == 404
+    nothing = client.get("/api/compat/mine", headers=HEAD_C)
+    # Nothing finished is an answer, not a 404: a 404 was a red line in the
+    # console every time someone asked (audit D-37).
+    assert nothing.status_code == 200 and nothing.json() is None
 
     code = _create(client)["code"]
     client.post(f"/api/compat/{code}/join", headers=HEAD_B)
@@ -298,7 +301,7 @@ def test_either_participant_can_delete_the_test(client):
     # The guest, not the creator: consent to keep the answers is unanimous.
     assert client.delete(f"/api/compat/{code}", headers=HEAD_B).status_code == 200
     assert client.get(f"/api/compat/{code}", headers=HEAD_A).status_code == 404
-    assert client.get("/api/compat/mine", headers=HEAD_A).status_code == 404
+    assert client.get("/api/compat/mine", headers=HEAD_A).json() is None
 
 
 def test_a_third_party_cannot_delete_the_test(client):

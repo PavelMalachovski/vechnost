@@ -321,15 +321,18 @@ async def mine(
     lang: str = "ru",
     authorization: str | None = Header(default=None),
     x_guest_id: str | None = Header(default=None),
-) -> dict[str, Any]:
-    """The caller's game still in play, so the app can offer to continue it."""
+) -> dict[str, Any] | None:
+    """The caller's game still in play, so the app can offer to continue it,
+    or null. The app asks on every visit to the board's screen, and for most
+    people there is no game: that answer used to be a 404, a red line in the
+    console each time (audit D-37)."""
     user_id, _ = _caller(authorization, x_guest_id)
     language = _language(lang)
 
     async with get_db() as session:
         game = await Steps69Repository.latest_unfinished_for(session, user_id)
         if not game:
-            raise HTTPException(status_code=404, detail="no game in play")
+            return None
         return _state(game, user_id, language)
 
 

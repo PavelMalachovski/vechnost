@@ -209,7 +209,7 @@ def test_either_partner_can_erase_the_test_for_both(server: Server) -> None:
     for player in (alice, bob):
         assert player.status("GET", f"/api/compat/{code}") == 404
         assert player.status("GET", f"/api/compat/{code}/result") == 404
-        assert player.status("GET", "/api/compat/mine") == 404
+        assert player.ok("GET", "/api/compat/mine") is None
 
 
 def test_a_retake_replaces_the_previous_result(server: Server) -> None:
