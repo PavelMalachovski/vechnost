@@ -72,7 +72,7 @@ def test_two_phones_share_one_deck(server: Server, phones) -> None:
         assert mover.text("#turnChipText") == YOUR_TURN
         before = card_text(mover)
         waiter.page.wait_for_function(
-            "t => document.querySelector('#stage .card.top .q-text')?.innerText.trim() === t",
+            "t => document.querySelector('#stage .card.top .q-text')?.innerText.replace(/\\u00a0/g, ' ').trim() === t",
             arg=before,
             timeout=POLL,
         )
@@ -96,13 +96,13 @@ def test_two_phones_share_one_deck(server: Server, phones) -> None:
 
         mover.page.click("#btnNext")
         mover.page.wait_for_function(
-            "t => document.querySelector('#stage .card.top .q-text')?.innerText.trim() !== t",
+            "t => document.querySelector('#stage .card.top .q-text')?.innerText.replace(/\\u00a0/g, ' ').trim() !== t",
             arg=before,
             timeout=POLL,
         )
         after = card_text(mover)
         waiter.page.wait_for_function(
-            "t => document.querySelector('#stage .card.top .q-text')?.innerText.trim() === t",
+            "t => document.querySelector('#stage .card.top .q-text')?.innerText.replace(/\\u00a0/g, ' ').trim() === t",
             arg=after,
             timeout=POLL,
         )
@@ -199,7 +199,7 @@ def test_two_phones_climb_the_board(server: Server, phones) -> None:
         cell = after["you"]["cell"]
         # The mover's card is the square the server says they stand on.
         mover.page.wait_for_function(
-            "t => document.querySelector('#s69Cell')?.innerText.includes(t)",
+            "t => document.querySelector('#s69Cell')?.innerText.replace(/\\u00a0/g, ' ').includes(t)",
             arg=cell["title"],
             timeout=POLL,
         )

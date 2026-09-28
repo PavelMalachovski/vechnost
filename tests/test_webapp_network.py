@@ -53,7 +53,8 @@ def test_an_older_poll_answer_never_repaints_a_newer_move():
 
 
 def test_escape_html_survives_a_missing_field():
-    assert "String(s == null ? '' : s)" in _body("escapeHTML")
+    assert "(s == null ? '' : s)" in _body("escapeHTML")
+    assert "text = String(text)" in _body("bindShortWords"), "the coercion moved there"
 
 
 def test_copying_the_invite_reports_what_actually_happened():

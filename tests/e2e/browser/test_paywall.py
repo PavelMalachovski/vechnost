@@ -11,6 +11,7 @@ from __future__ import annotations
 
 import re
 
+from ...wording import plain
 from ..harness import Server, code_from_invite
 from .app import PROGRESS_JS, progress
 
@@ -68,7 +69,9 @@ def test_the_end_of_the_free_cards_says_what_a_payment_opens(server: Server, pho
 
     assert phone.text("#paywallTitle") == "Бесплатные карты закончились"
     assert re.fullmatch(r"Вы прошли 5 бесплатных карт из \d+\.", lead), lead
-    assert phone.page.locator("#paywallList li").all_inner_texts() == PAY_ITEMS
+    assert [
+        plain(item) for item in phone.page.locator("#paywallList li").all_inner_texts()
+    ] == PAY_ITEMS
     assert "доступ навсегда" in phone.text(".pay-promise")
     assert phone.text("#paywallBuy").startswith("💳 Открыть всё")
     assert phone.page.is_visible("#paywallRefresh")
@@ -83,7 +86,7 @@ def test_paying_carries_on_at_the_next_card_not_at_card_one(server: Server, phon
     # Asked before the money arrived: the paywall stays, and says why.
     phone.page.click("#paywallRefresh")
     phone.page.wait_for_function(
-        "() => document.getElementById('toast').innerText.includes('Оплата ещё не пришла')"
+        "() => document.getElementById('toast').innerText.replace(/\\u00a0/g, ' ').includes('Оплата ещё не пришла')"
     )
     assert phone.page.is_visible("#paywall")
 
@@ -118,7 +121,9 @@ def test_the_compatibility_test_without_access_opens_the_paywall(server: Server,
     phone.shot("compat-paywall")
     assert phone.text("#paywallTitle") == "Полный доступ"
     assert phone.text("#paywallLead") == "Тест совместимости входит в полный доступ."
-    assert phone.page.locator("#paywallList li").all_inner_texts() == PAY_ITEMS
+    assert [
+        plain(item) for item in phone.page.locator("#paywallList li").all_inner_texts()
+    ] == PAY_ITEMS
 
 
 def test_either_partner_paying_opens_a_free_room_for_both(server: Server, phones) -> None:

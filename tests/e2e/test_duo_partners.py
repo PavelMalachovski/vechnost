@@ -11,6 +11,8 @@ from __future__ import annotations
 
 import pytest
 
+from tests.wording import plain
+
 from .harness import Server
 
 pytestmark = pytest.mark.inprocess_only  # the pushes land in the fake Telegram
@@ -30,7 +32,7 @@ def test_the_creator_hears_the_partner_came_and_goes_straight_back(server: Serve
     bob.ok("POST", f"/api/rooms/{room['code']}/join")
 
     (push,) = server.telegram.to(alice.id)[before:]
-    assert push.text == "Bob в игре. Ваш ход!"
+    assert plain(push.text) == "Bob в игре. Ваш ход!"
     (button,) = push.buttons()
     assert "screen=coop" in button["web_app"]["url"]
     assert room["code"] in button["web_app"]["url"]
@@ -53,7 +55,7 @@ def test_the_two_know_each_other_and_the_invitation_counts(server: Server, bot) 
     assert bob.ok("POST", "/api/me")["partner"] == {"name": "Alice"}
 
     bot.send(alice, "/invite")
-    assert "Уже пришли по вашим приглашениям: 1" in server.telegram.texts_to(alice.id)[-1]
+    assert "Уже пришли по вашим приглашениям: 1" in plain(server.telegram.texts_to(alice.id)[-1])
 
 
 def test_an_invited_partner_pays_what_everyone_pays(server: Server) -> None:

@@ -173,6 +173,9 @@
     color: var(--text-on-dark);
     user-select: none;
     -webkit-user-select: none;
+    /* No lone word on a paragraph's last line (audit D-31); where a browser
+       does not know the value, lines break as before. */
+    text-wrap: pretty;
   }
 
   #shell {
@@ -1674,6 +1677,40 @@
       ariaProgress: 'Колода'
   };
 
+  // typography:start
+  // Where a line may not break (audit D-31): a short word stays with the
+  // word after it and a dash with the word before it, joined by a no-break
+  // space. The same rule, pattern for pattern, as vechnost_bot/typography.py:
+  // tests/test_typography.py runs the two on one list of lines. No
+  // lookbehind: Telegram's WebView on older iPhones has none, and a pattern
+  // with one would stop the whole script.
+  const PREPOSITIONS = ['без', 'для', 'над', 'под', 'при', 'про', 'изо', 'обо', 'ото'];
+  const SHORT_THEN_SPACE = /(^|[^A-Za-zА-Яа-яЁё0-9])([A-Za-zА-Яа-яЁё]{1,3}|[0-9]{1,3}) (?=\S)/g;
+  const SPACE_THEN_DASH = / (?=[–—](?:\s|$))/g;
+  function bindsNext(word) {
+    return /^[0-9]+$/.test(word) || word.length <= 2 || PREPOSITIONS.includes(word.toLowerCase());
+  }
+  function bindShortWords(text) {
+    text = String(text);
+    // Twice: in «а и в доме» the match for «а» takes the space «и» needs
+    // as its lead, so one pass binds every other short word.
+    for (let pass = 0; pass < 2; pass++) {
+      text = text.replace(SHORT_THEN_SPACE, (match, lead, word) =>
+        lead + word + (bindsNext(word) ? '\u00a0' : ' '));
+    }
+    return text.replace(SPACE_THEN_DASH, '\u00a0');
+  }
+  // typography:end
+
+  // Every string the app itself says, bound once here; what the server
+  // sends is bound where it is put on screen (escapeHTML).
+  (function bindCopy(node) {
+    for (const key of Object.keys(node)) {
+      if (typeof node[key] === 'string') node[key] = bindShortWords(node[key]);
+      else if (node[key] && typeof node[key] === 'object') bindCopy(node[key]);
+    }
+  })(I18N);
+
   const THEME_ORDER = ['Acquaintance', 'For Couples', 'Sex', 'Provocation'];
 
   // The card face each deck is printed on, same mapping the bot reads from
@@ -2445,8 +2482,10 @@
   function escapeHTML(s) {
     // Coerced first: an optional field the server left out reached this as
     // undefined, and `undefined.replace` blanked the whole screen behind a
-    // toast about the connection.
-    return String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+    // toast about the connection. Everything escaped here is put on screen
+    // (the few ids it escapes have no spaces), so it is also where the
+    // server's text gets its no-break spaces (audit D-31).
+    return bindShortWords(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
   }
 
   /* ---------------- long card text ---------------- */

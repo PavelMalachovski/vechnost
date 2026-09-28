@@ -15,6 +15,7 @@ about what the copy says. Assert the whole string, never a substring.
 
 import pytest
 
+from tests.wording import plain
 from vechnost_bot.callback_handlers import _calendar_header
 from vechnost_bot.i18n import Language, get_text
 from vechnost_bot.models import ContentType, SessionState, Theme
@@ -95,7 +96,7 @@ def _session(theme: Theme, level: int | None) -> SessionState:
 
 @pytest.mark.parametrize("_name,theme,level,content_type,remaining,expected", CASES, ids=IDS)
 def test_calendar_header_renders_each_shape(_name, theme, level, content_type, remaining, expected):
-    assert _calendar_header(_session(theme, level), content_type, remaining) == expected
+    assert plain(_calendar_header(_session(theme, level), content_type, remaining)) == expected
 
 
 @pytest.mark.parametrize("_name,theme,level,content_type,remaining,expected", CASES, ids=IDS)
@@ -109,7 +110,7 @@ def test_calendar_header_never_leaves_trailing_whitespace(
     look exactly the same, so check every line of every shape.
     """
     header = _calendar_header(_session(theme, level), content_type, remaining)
-    for line in header.split("\n"):
+    for line in plain(header).split("\n"):
         assert line == line.rstrip(), f"trailing whitespace in {header!r}"
     assert header == header.strip()
 
@@ -138,7 +139,7 @@ def test_the_levelless_header_does_not_name_a_level():
     header = _calendar_header(_session(Theme.FOR_COUPLES, None), ContentType.QUESTIONS, 30)
     assert "Уровень" not in header
     assert "·" not in header
-    assert header.split("\n") == ["♥️ Для Пар", "Осталось карточек: 30"]
+    assert plain(header).split("\n") == ["♥️ Для Пар", "Осталось карточек: 30"]
 
 
 def test_only_the_levelless_shape_carries_a_card_count():

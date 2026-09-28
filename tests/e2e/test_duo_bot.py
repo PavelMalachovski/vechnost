@@ -17,6 +17,7 @@ from urllib.parse import parse_qs, urlsplit
 
 import pytest
 
+from tests.wording import plain
 from vechnost_bot.compat import TOTAL_QUESTIONS
 from vechnost_bot.config import settings
 from vechnost_bot.i18n import get_text
@@ -114,7 +115,9 @@ def test_a_referral_passes_from_one_user_to_the_next(server: Server, bot) -> Non
         assert access["discount_percent"] == settings.referral_discount_percent
 
         bot.send(alice, "/invite")
-        assert "Уже пришли по вашим приглашениям: 1" in server.telegram.texts_to(alice.id)[-1]
+        assert "Уже пришли по вашим приглашениям: 1" in plain(
+            server.telegram.texts_to(alice.id)[-1]
+        )
 
 
 def referral_param(server: Server, bot, player) -> str:
@@ -191,7 +194,9 @@ def test_a_referral_link_changes_nothing_for_someone_already_here(
         assert access.get("payment_url") != discounted
         assert "discount_percent" not in access
         bot.send(alice, "/invite")
-        assert "Уже пришли по вашим приглашениям: 0" in server.telegram.texts_to(alice.id)[-1]
+        assert "Уже пришли по вашим приглашениям: 0" in plain(
+            server.telegram.texts_to(alice.id)[-1]
+        )
 
 
 def test_a_gift_bought_by_one_user_unlocks_the_other(server: Server, bot) -> None:

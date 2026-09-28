@@ -10,6 +10,7 @@ from babel import Locale
 from babel.support import Format
 
 from .paths import DATA
+from .typography import nbsp
 
 logger = logging.getLogger(__name__)
 
@@ -42,6 +43,17 @@ class Language(str, Enum):
             return cls.RUSSIAN
 
 
+def _bound(node: Any) -> Any:
+    """`node` with `typography.nbsp` applied to every string in it."""
+    if isinstance(node, str):
+        return nbsp(node)
+    if isinstance(node, dict):
+        return {key: _bound(value) for key, value in node.items()}
+    if isinstance(node, list):
+        return [_bound(value) for value in node]
+    return node
+
+
 class I18nManager:
     """Manages internationalization for the bot."""
 
@@ -69,7 +81,10 @@ class I18nManager:
                 # never existed under that name — the deck lives in
                 # `data/questions.yaml` and is loaded by `logic.py` — so the
                 # key was always empty, and its one reader is gone.
-                self.translations[language] = {"ui": ui_translations}
+                #
+                # Bound once, here: every message and button the bot sends
+                # keeps a short word with the next one (audit D-31).
+                self.translations[language] = {"ui": _bound(ui_translations)}
 
                 logger.info(f"Loaded translations for {language.value}")
 

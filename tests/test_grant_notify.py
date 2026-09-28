@@ -28,6 +28,7 @@ from telegram.error import Forbidden
 
 import vechnost_bot.payments.database as database
 import vechnost_bot.payments.web as web
+from tests.wording import plain
 from vechnost_bot.config import settings
 from vechnost_bot.i18n import Language, get_text
 from vechnost_bot.payments import grant_notify, throttle
@@ -66,7 +67,7 @@ def test_the_buyer_is_told_everything_is_open_for_good():
     text = sent["text"]
     assert text == get_text("grant.message", Language.RUSSIAN)
     assert "навсегда" in text
-    assert "партнёру платить не нужно" in text, "the question every couple asks next"
+    assert "партнёру платить не нужно" in plain(text), "the question every couple asks next"
 
 
 def test_a_subscription_is_not_called_forever():
@@ -74,7 +75,7 @@ def test_a_subscription_is_not_called_forever():
     text = bot.send_message.await_args.kwargs["text"]
     assert text == get_text("grant.message_subscription", Language.RUSSIAN)
     assert "навсегда" not in text
-    assert "партнёру платить не нужно" in text
+    assert "партнёру платить не нужно" in plain(text)
 
 
 def test_the_button_opens_the_mini_app_not_the_in_app_browser():
