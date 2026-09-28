@@ -107,7 +107,8 @@ async def collect(now: datetime | None = None) -> Report:
             new = [uid for uid, at in first_seen.items() if at >= since]
             window.new_people = len(new)
             window.activated = sum(
-                1 for uid in new
+                1
+                for uid in new
                 if uid in first_activation
                 and first_activation[uid] - first_seen[uid] <= timedelta(days=1)
             )
@@ -144,9 +145,7 @@ async def collect(now: datetime | None = None) -> Report:
         # ago, who was here again on their day 1 and on their day 7.
         cohort_from = now - timedelta(days=COHORT_FROM)
         cohort_to = now - timedelta(days=COHORT_TO)
-        cohort = {
-            uid: at for uid, at in first_seen.items() if cohort_from <= at < cohort_to
-        }
+        cohort = {uid: at for uid, at in first_seen.items() if cohort_from <= at < cohort_to}
         seen_on: set[tuple[int, int]] = set()
         if cohort:
             # Only the cohort, and only as far as its latest member's day 7.
@@ -195,8 +194,7 @@ def render(report: Report) -> str:
         "",
         f"Новые люди: {pair(lambda w: w.new_people)}",
         f"Активные: {pair(lambda w: w.active_people)}",
-        "Активация в первый день: "
-        + pair(lambda w: _pct(w.activated, w.new_people)),
+        "Активация в первый день: " + pair(lambda w: _pct(w.activated, w.new_people)),
         "",
         "Откуда пришли (30 дней):",
     ]
@@ -233,9 +231,10 @@ def render(report: Report) -> str:
         f" возвратов: {pair(lambda w: w.events('refund'))}",
     ]
     if month.doors:
-        lines.append("  где видели пейвол (30 дней): " + ", ".join(
-            f"{DOOR_NAMES.get(door, door)} {count}" for door, count in month.doors
-        ))
+        lines.append(
+            "  где видели пейвол (30 дней): "
+            + ", ".join(f"{DOOR_NAMES.get(door, door)} {count}" for door, count in month.doors)
+        )
     lines += [
         "",
         f"Вернулись (пришли {COHORT_FROM}–{COHORT_TO} дней назад, {report.cohort} чел.):",

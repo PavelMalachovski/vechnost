@@ -22,7 +22,7 @@ JPEG_QUALITY = 92
 # Text block geometry.
 # The card backgrounds have suit marks in the top-left and bottom-right corners,
 # so the text lives in a central column that never touches them.
-TEXT_AREA_WIDTH = int(CARD_WIDTH * 0.76)   # comfortable measure, ~30-38 chars/line
+TEXT_AREA_WIDTH = int(CARD_WIDTH * 0.76)  # comfortable measure, ~30-38 chars/line
 TEXT_AREA_HEIGHT = int(CARD_HEIGHT * 0.56)  # central band clear of corner marks
 
 # Where the corner marks sit on the deck faces once scaled to the card: the
@@ -45,8 +45,8 @@ MIN_FONT_SIZE = 44
 # The floor for the few texts too long for the central band even at
 # MIN_FONT_SIZE: still about 13 pt on a phone, which beats a line on a suit.
 LONG_TEXT_MIN_FONT_SIZE = 36
-LINE_SPACING = 1.32          # multiple of (ascent + descent)
-TEXT_COLOR = (53, 0, 39)     # dark maroon #350027, ~13:1 contrast on the pale pink
+LINE_SPACING = 1.32  # multiple of (ascent + descent)
+TEXT_COLOR = (53, 0, 39)  # dark maroon #350027, ~13:1 contrast on the pale pink
 FOOTER_COLOR = (122, 63, 100)  # muted plum, readable but secondary
 FOOTER_FONT_SIZE = 30
 # The Library card (library.png, used by the daily push) carries its Λ letter
@@ -91,8 +91,8 @@ def _load_background_image(bg_path: str) -> Image.Image | None:
 
         image = Image.open(path)
         # Convert to RGB if necessary (for JPEG output)
-        if image.mode != 'RGB':
-            image = image.convert('RGB')
+        if image.mode != "RGB":
+            image = image.convert("RGB")
 
         # Resize to target dimensions if needed
         if image.size != (CARD_WIDTH, CARD_HEIGHT):
@@ -108,7 +108,7 @@ def _load_background_image(bg_path: str) -> Image.Image | None:
 def _notdef_mask(font_path: str) -> bytes:
     """Bitmap of the font's .notdef (tofu) glyph, for coverage checks."""
     font = ImageFont.truetype(font_path, 48)
-    return bytes(font.getmask('￾'))
+    return bytes(font.getmask("￾"))
 
 
 @lru_cache(maxsize=4096)
@@ -193,8 +193,9 @@ def _wrap_text(text: str, font: ImageFont.FreeTypeFont, max_width: int) -> list[
     return _wrap_lines(text, font, lambda _line: max_width)
 
 
-def _wrap_lines(text: str, font: ImageFont.FreeTypeFont,
-                width_of: Callable[[int], int]) -> list[str]:
+def _wrap_lines(
+    text: str, font: ImageFont.FreeTypeFont, width_of: Callable[[int], int]
+) -> list[str]:
     """Wrap text with a width per line (`width_of(line index)`), breaking
     overlong words with hyphens. The same greedy wrap as always; a line that
     passes a corner mark simply gets less room."""
@@ -206,29 +207,30 @@ def _wrap_lines(text: str, font: ImageFont.FreeTypeFont,
         if _text_width(word, font) > max_width:
             # Flush the current line, then split the long word across lines
             if current_line:
-                lines.append(' '.join(current_line))
+                lines.append(" ".join(current_line))
                 current_line = []
             pieces = _break_long_word(word, font, width_of(len(lines)))
             lines.extend(pieces[:-1])
             current_line = [pieces[-1]]
             continue
 
-        test_line = ' '.join(current_line + [word])
+        test_line = " ".join(current_line + [word])
         if _text_width(test_line, font) <= max_width:
             current_line.append(word)
         else:
             if current_line:
-                lines.append(' '.join(current_line))
+                lines.append(" ".join(current_line))
             current_line = [word]
 
     if current_line:
-        lines.append(' '.join(current_line))
+        lines.append(" ".join(current_line))
 
     return lines
 
 
-def _balance_last_line(text: str, font: ImageFont.FreeTypeFont, max_width: int,
-                       lines: list[str]) -> list[str]:
+def _balance_last_line(
+    text: str, font: ImageFont.FreeTypeFont, max_width: int, lines: list[str]
+) -> list[str]:
     """Avoid a lonely short word on the last line by re-wrapping slightly narrower."""
     if len(lines) < 2:
         return lines
@@ -249,9 +251,9 @@ def _line_height(font: ImageFont.FreeTypeFont) -> int:
     return int((ascent + descent) * LINE_SPACING)
 
 
-def _fit_text(text: str, max_width: int, max_height: int,
-              font_path: str | None,
-              single_line: bool = False) -> tuple[ImageFont.FreeTypeFont, list[str]]:
+def _fit_text(
+    text: str, max_width: int, max_height: int, font_path: str | None, single_line: bool = False
+) -> tuple[ImageFont.FreeTypeFont, list[str]]:
     """
     Pick the largest font size (MIN..MAX) whose wrapped text fits the area.
 
@@ -327,8 +329,9 @@ def _width_beside_marks(top: float, bottom: float) -> int:
     return width
 
 
-def _around_the_marks(text: str, font: ImageFont.FreeTypeFont,
-                      has_footer: bool) -> TextLayout | None:
+def _around_the_marks(
+    text: str, font: ImageFont.FreeTypeFont, has_footer: bool
+) -> TextLayout | None:
     """The card's full height, lines beside a corner mark narrowed to
     clear it; None when the text does not fit even so.
 
@@ -352,20 +355,21 @@ def _around_the_marks(text: str, font: ImageFont.FreeTypeFont,
         lines = _wrap_lines(text, font, width_of)
         if len(lines) > count:
             continue
-        layout = TextLayout(font, lines, _centred_top(len(lines) * line_height, has_footer),
-                            line_height)
+        layout = TextLayout(
+            font, lines, _centred_top(len(lines) * line_height, has_footer), line_height
+        )
         boxes = layout.line_boxes()
         if boxes[0][1] < TEXT_TOP_LIMIT or boxes[-1][3] > _text_floor(has_footer):
             return None
         # Fewer lines than planned moves the block; it must still clear.
-        if all(right - left <= _width_beside_marks(y0, y1) + 0.5
-               for left, y0, right, y1 in boxes):
+        if all(right - left <= _width_beside_marks(y0, y1) + 0.5 for left, y0, right, y1 in boxes):
             return layout
     return None
 
 
-def layout_text(text: str, font_path: str | None, *, has_footer: bool,
-                single_line: bool = False) -> TextLayout:
+def layout_text(
+    text: str, font_path: str | None, *, has_footer: bool, single_line: bool = False
+) -> TextLayout:
     """Where `render_card` puts `text`.
 
     The central band first, at the largest size that fits, exactly as
@@ -374,12 +378,14 @@ def layout_text(text: str, font_path: str | None, *, has_footer: bool,
     beside the corner marks, down to LONG_TEXT_MIN_FONT_SIZE, rather than
     running tall over them.
     """
-    font, lines = _fit_text(text, TEXT_AREA_WIDTH, TEXT_AREA_HEIGHT, font_path,
-                            single_line=single_line)
+    font, lines = _fit_text(
+        text, TEXT_AREA_WIDTH, TEXT_AREA_HEIGHT, font_path, single_line=single_line
+    )
     line_height = _line_height(font)
     if single_line or len(lines) * line_height <= TEXT_AREA_HEIGHT:
-        return TextLayout(font, lines, _centred_top(len(lines) * line_height, has_footer),
-                          line_height)
+        return TextLayout(
+            font, lines, _centred_top(len(lines) * line_height, has_footer), line_height
+        )
 
     for size in range(MIN_FONT_SIZE, LONG_TEXT_MIN_FONT_SIZE - 1, -2):
         smaller = _load_font(size, font_path)
@@ -390,8 +396,7 @@ def layout_text(text: str, font_path: str | None, *, has_footer: bool,
             return layout
 
     # Nothing fits: the last resort it has always been, running tall.
-    return TextLayout(font, lines, _centred_top(len(lines) * line_height, has_footer),
-                      line_height)
+    return TextLayout(font, lines, _centred_top(len(lines) * line_height, has_footer), line_height)
 
 
 @track_performance("render_card")
@@ -431,8 +436,9 @@ def render_card(
         # Fit text clear of the corner marks, with a font that covers its
         # alphabet, centred on the card but never under the footer
         font_path = _pick_font_path(text + (footer or "") + (watermark or ""))
-        layout = layout_text(text, font_path, has_footer=bool(footer or watermark),
-                             single_line=single_line)
+        layout = layout_text(
+            text, font_path, has_footer=bool(footer or watermark), single_line=single_line
+        )
         for line, (x, y, _, _) in zip(layout.lines, layout.line_boxes(), strict=True):
             draw.text((x, y), line, font=layout.font, fill=TEXT_COLOR)
 
@@ -456,7 +462,7 @@ def render_card(
 
         # Convert to JPEG and return as BytesIO
         output = BytesIO()
-        card.save(output, format='JPEG', quality=JPEG_QUALITY, optimize=True)
+        card.save(output, format="JPEG", quality=JPEG_QUALITY, optimize=True)
         output.seek(0)
 
         success = True
@@ -468,10 +474,7 @@ def render_card(
     finally:
         duration = time.time() - start_time
         log_image_rendering_event(
-            success=success,
-            duration=duration,
-            text_length=len(text),
-            bg_path=bg_path
+            success=success, duration=duration, text_length=len(text), bg_path=bg_path
         )
 
 
@@ -519,34 +522,34 @@ def get_background_path(topic: str, level_or_0: int, category: str) -> str:
         config_path = Path(__file__).parent.parent / "assets" / "backgrounds.yml"
 
         if config_path.exists():
-            with open(config_path, encoding='utf-8') as f:
+            with open(config_path, encoding="utf-8") as f:
                 config = yaml.safe_load(f)
         else:
             config = {}
 
         # Get map from config or use empty dict
-        map_config = config.get('map', {})
-        default_path = config.get('default', 'assets/backgrounds/default.png')
+        map_config = config.get("map", {})
+        default_path = config.get("default", "assets/backgrounds/default.png")
 
         # Resolve path based on topic
-        if topic == 'sex':
+        if topic == "sex":
             # Sex has special handling for questions/tasks
-            if category in ['q', 't'] and category in map_config.get('sex', {}):
-                path = map_config['sex'][category]
-            elif 'default' in map_config.get('sex', {}):
-                path = map_config['sex']['default']
+            if category in ["q", "t"] and category in map_config.get("sex", {}):
+                path = map_config["sex"][category]
+            elif "default" in map_config.get("sex", {}):
+                path = map_config["sex"]["default"]
             else:
                 path = "assets/backgrounds/sex/sex.png"
-        elif topic in ['acq', 'couples']:
+        elif topic in ["acq", "couples"]:
             # Topics with levels
             if level_or_0 > 0 and str(level_or_0) in map_config.get(topic, {}):
                 path = map_config[topic][str(level_or_0)]
             else:
                 path = f"assets/backgrounds/{topic}/{topic}_{level_or_0}.png"
-        elif topic == 'prov':
+        elif topic == "prov":
             # Provocation has no levels
-            if 'default' in map_config.get('prov', {}):
-                path = map_config['prov']['default']
+            if "default" in map_config.get("prov", {}):
+                path = map_config["prov"]["default"]
             else:
                 path = "assets/backgrounds/prov/prov.png"
         else:

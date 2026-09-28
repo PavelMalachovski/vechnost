@@ -46,21 +46,15 @@ async def sweep(now: datetime | None = None) -> dict[str, int]:
     now = now or datetime.utcnow()
     async with get_db() as session:
         removed = {
-            "events": await RetentionRepository.delete_old_events(
-                session, now - EVENTS_KEEP
-            ),
-            "rooms": await RetentionRepository.delete_expired_rooms(
-                session, now - ROOM_KEEP
-            ),
+            "events": await RetentionRepository.delete_old_events(session, now - EVENTS_KEEP),
+            "rooms": await RetentionRepository.delete_expired_rooms(session, now - ROOM_KEEP),
             "compat_tests": await RetentionRepository.delete_abandoned_compat_tests(
                 session, now - ABANDONED_KEEP
             ),
             "games": await RetentionRepository.delete_abandoned_games(
                 session, now - ABANDONED_KEEP
             ),
-            "job_runs": await RetentionRepository.delete_old_job_runs(
-                session, now - JOB_RUNS_KEEP
-            ),
+            "job_runs": await RetentionRepository.delete_old_job_runs(session, now - JOB_RUNS_KEEP),
         }
 
     if any(removed.values()):

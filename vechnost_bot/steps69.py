@@ -111,8 +111,8 @@ class Move(BaseModel):
 
     start: int
     roll: int
-    landed: int          # where the dice put the piece, before any portal
-    position: int        # where it ended up
+    landed: int  # where the dice put the piece, before any portal
+    position: int  # where it ended up
     event: Literal["ladder", "snake"] | None = None
     message: str | None = None
 
@@ -190,13 +190,12 @@ def joker_task(task_id: str, language: Language = Language.RUSSIAN) -> JokerTask
 # Movement
 # ---------------------------------------------------------------------------
 
+
 def roll_dice(rng: random.Random | None = None) -> int:
     return (rng or random).randint(1, DICE_SIDES)
 
 
-def resolve_move(
-    start: int, roll: int, language: Language = Language.RUSSIAN
-) -> Move:
+def resolve_move(start: int, roll: int, language: Language = Language.RUSSIAN) -> Move:
     """Where one roll leaves the piece, portal included.
 
     Overshooting 69 lands on 69 rather than bouncing back: see the module
@@ -226,6 +225,7 @@ def resolve_move(
 # ---------------------------------------------------------------------------
 # The Joker
 # ---------------------------------------------------------------------------
+
 
 def stage_of(position: int) -> Stage:
     """Which third of the board a position sits in."""
@@ -270,6 +270,7 @@ def pick_joker(
 # ---------------------------------------------------------------------------
 # What each player is allowed to see
 # ---------------------------------------------------------------------------
+
 
 def board_view(language: Language = Language.RUSSIAN) -> dict:
     """The map: 69 squares, each saying what it does.
@@ -345,9 +346,7 @@ def cell_view(
 
     if here.kind == "joker":
         task = joker_task(joker_task_id, language) if joker_task_id else None
-        view["joker"] = (
-            task.model_dump() if task and audience != "partner" else None
-        )
+        view["joker"] = task.model_dump() if task and audience != "partner" else None
 
     if here.kind == "final":
         view["finale"] = load_finale(language).model_dump()

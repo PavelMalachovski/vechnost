@@ -33,8 +33,14 @@ def db(tmp_path):
 async def _room(code, age):
     async with get_db() as session:
         room = await RoomRepository.create(
-            session, code=code, creator_telegram_user_id=1, creator_name="A",
-            theme="Acquaintance", level=1, content_type="questions", card_order=[0, 1],
+            session,
+            code=code,
+            creator_telegram_user_id=1,
+            creator_name="A",
+            theme="Acquaintance",
+            level=1,
+            content_type="questions",
+            card_order=[0, 1],
         )
         room.updated_at = datetime.utcnow() - age
 
@@ -42,7 +48,10 @@ async def _room(code, age):
 async def _compat(code, age, finished=False):
     async with get_db() as session:
         test = await CompatTestRepository.create(
-            session, code=code, creator_telegram_user_id=1, creator_name="A",
+            session,
+            code=code,
+            creator_telegram_user_id=1,
+            creator_name="A",
         )
         test.updated_at = datetime.utcnow() - age
         if finished:
@@ -52,8 +61,12 @@ async def _compat(code, age, finished=False):
 async def _game(code, age, finished=False):
     async with get_db() as session:
         game = await Steps69Repository.create(
-            session, code=code, creator_telegram_user_id=1, creator_name="A",
-            mode="duo", creator_piece="hearts",
+            session,
+            code=code,
+            creator_telegram_user_id=1,
+            creator_name="A",
+            mode="duo",
+            creator_piece="hearts",
         )
         game.updated_at = datetime.utcnow() - age
         game.finished = finished
@@ -67,6 +80,7 @@ async def _alive(repo, code):
 # ---------------------------------------------------------------------------
 # What goes
 # ---------------------------------------------------------------------------
+
 
 async def test_a_room_past_its_ttl_is_deleted(db):
     """It already answers 410 on read; the row was simply never removed."""
@@ -90,6 +104,7 @@ async def test_an_abandoned_board_is_deleted(db):
 # ---------------------------------------------------------------------------
 # What stays, which matters more
 # ---------------------------------------------------------------------------
+
 
 async def test_a_finished_compatibility_test_is_kept_however_old(db):
     """Eighty questions produced that result and it has no TTL on purpose:
@@ -128,9 +143,13 @@ async def _event(age: timedelta) -> None:
     from vechnost_bot.payments.models import AnalyticsEvent
 
     async with get_db() as session:
-        session.add(AnalyticsEvent(
-            telegram_user_id=1, name="deck_open", created_at=datetime.utcnow() - age,
-        ))
+        session.add(
+            AnalyticsEvent(
+                telegram_user_id=1,
+                name="deck_open",
+                created_at=datetime.utcnow() - age,
+            )
+        )
 
 
 async def test_a_sweep_with_nothing_to_do_deletes_nothing(db):
@@ -139,7 +158,11 @@ async def test_a_sweep_with_nothing_to_do_deletes_nothing(db):
     await _game("LIVEGAM1", timedelta(minutes=1))
     await _event(timedelta(days=30))
     assert await sweep() == {
-        "events": 0, "rooms": 0, "compat_tests": 0, "games": 0, "job_runs": 0,
+        "events": 0,
+        "rooms": 0,
+        "compat_tests": 0,
+        "games": 0,
+        "job_runs": 0,
     }
 
 
@@ -153,7 +176,11 @@ async def test_one_sweep_clears_all_four_kinds(db):
     await _event(KEEP + timedelta(days=1))
     await _event(KEEP - timedelta(days=1))
     assert await sweep() == {
-        "events": 1, "rooms": 1, "compat_tests": 1, "games": 1, "job_runs": 0,
+        "events": 1,
+        "rooms": 1,
+        "compat_tests": 1,
+        "games": 1,
+        "job_runs": 0,
     }
 
 

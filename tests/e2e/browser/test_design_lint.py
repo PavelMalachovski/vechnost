@@ -42,14 +42,25 @@ def test_the_design_lint_finds_nothing_new_and_nothing_fixed(atlas: Atlas) -> No
 
     report = REPORT_DIR / "screens" / f"design-{phone}.json"
     report.parent.mkdir(parents=True, exist_ok=True)
-    report.write_text(json.dumps({
-        "phone": phone, "new": new, "gone": gone, "findings": found,
-        "skipped_on_pictures": design.picture_notes(atlas),
-    }, ensure_ascii=False, indent=2), encoding="utf-8")
+    report.write_text(
+        json.dumps(
+            {
+                "phone": phone,
+                "new": new,
+                "gone": gone,
+                "findings": found,
+                "skipped_on_pictures": design.picture_notes(atlas),
+            },
+            ensure_ascii=False,
+            indent=2,
+        ),
+        encoding="utf-8",
+    )
     counts = {rule: sum(1 for key in found if key.startswith(rule + " |")) for rule in design.RULES}
-    summary = [f"### Design lint: {phone}", "",
-               "| Rule | Audit | Findings |", "|---|---|---|"]
-    summary += [f"| `{rule}` | {design.AUDIT.get(rule, '')} | {counts[rule]} |" for rule in design.RULES]
+    summary = [f"### Design lint: {phone}", "", "| Rule | Audit | Findings |", "|---|---|---|"]
+    summary += [
+        f"| `{rule}` | {design.AUDIT.get(rule, '')} | {counts[rule]} |" for rule in design.RULES
+    ]
     summary += ["", f"{len(new)} new, {len(gone)} fixed and still in the baseline."]
     summary += [f"- new: `{key}`: {found[key]['detail']}" for key in new]
     summary += [f"- fixed: `{key}`" for key in gone]
@@ -68,6 +79,7 @@ def test_the_design_lint_finds_nothing_new_and_nothing_fixed(atlas: Atlas) -> No
     if problems:
         problems.append(
             f"The {phone}'s list as found now (paste it over the baseline's \"{phone}\" once every "
-            "new finding is deliberate):\n" + json.dumps(sorted(found), ensure_ascii=False, indent=2)
+            "new finding is deliberate):\n"
+            + json.dumps(sorted(found), ensure_ascii=False, indent=2)
         )
     assert not problems, "\n".join(problems)

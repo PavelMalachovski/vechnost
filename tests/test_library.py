@@ -101,7 +101,11 @@ def test_the_nude_guide_is_five_numbered_steps():
     assert [s.number for s in steps] == [1, 2, 3, 4, 5]
     assert [s.id for s in steps] == ["light", "camera", "her", "him", "edit"]
     assert {s.id: len(s.items) for s in steps} == {
-        "light": 4, "camera": 3, "her": 10, "him": 10, "edit": 2
+        "light": 4,
+        "camera": 3,
+        "her": 10,
+        "him": 10,
+        "edit": 2,
     }
 
 
@@ -174,9 +178,7 @@ def test_leap_day_wraps_to_the_first_question():
 
 
 def test_question_of_the_day_is_deterministic():
-    assert question_of_the_day(200, Language.RUSSIAN) == question_of_the_day(
-        200, Language.RUSSIAN
-    )
+    assert question_of_the_day(200, Language.RUSSIAN) == question_of_the_day(200, Language.RUSSIAN)
 
 
 def test_no_duplicate_reflection_questions():

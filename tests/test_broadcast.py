@@ -25,6 +25,7 @@ def _run(coro):
 
 # ── ADMIN_IDS ────────────────────────────────────────────────────────
 
+
 class TestAdminIds:
     def test_unset_means_nobody(self):
         with patch.dict(os.environ, {"TELEGRAM_BOT_TOKEN": "t"}, clear=True):
@@ -48,6 +49,7 @@ class TestAdminIds:
 
 
 # ── Delivery ─────────────────────────────────────────────────────────
+
 
 class TestDeliver:
     def test_a_plain_send_is_sent(self):
@@ -102,6 +104,7 @@ class TestDeliver:
 
 # ── The run loop ─────────────────────────────────────────────────────
 
+
 def _people(*ids):
     return [(i, f"name{i}") for i in ids]
 
@@ -115,9 +118,11 @@ class TestRun:
             if error:
                 raise error
 
-        with patch.object(bc, "recipients", new=AsyncMock(return_value=_people(1, 2, 3))), \
-             patch.object(bc, "_opt_out", new=AsyncMock()), \
-             patch.object(bc, "SECONDS_BETWEEN_SENDS", 0):
+        with (
+            patch.object(bc, "recipients", new=AsyncMock(return_value=_people(1, 2, 3))),
+            patch.object(bc, "_opt_out", new=AsyncMock()),
+            patch.object(bc, "SECONDS_BETWEEN_SENDS", 0),
+        ):
             report = _run(bc.run(send))
 
         assert report.total == 3
@@ -135,8 +140,10 @@ class TestRun:
                 raise Exception("something nobody predicted")
             sent.append(user_id)
 
-        with patch.object(bc, "recipients", new=AsyncMock(return_value=_people(1, 2, 3))), \
-             patch.object(bc, "SECONDS_BETWEEN_SENDS", 0):
+        with (
+            patch.object(bc, "recipients", new=AsyncMock(return_value=_people(1, 2, 3))),
+            patch.object(bc, "SECONDS_BETWEEN_SENDS", 0),
+        ):
             report = _run(bc.run(send))
 
         assert sent == [1, 3]
@@ -145,24 +152,32 @@ class TestRun:
 
     def test_limit_is_a_rehearsal_not_a_full_send(self):
         seen = []
-        with patch.object(bc, "recipients", new=AsyncMock(return_value=_people(1, 2, 3, 4))), \
-             patch.object(bc, "SECONDS_BETWEEN_SENDS", 0):
+        with (
+            patch.object(bc, "recipients", new=AsyncMock(return_value=_people(1, 2, 3, 4))),
+            patch.object(bc, "SECONDS_BETWEEN_SENDS", 0),
+        ):
             report = _run(bc.run(AsyncMock(side_effect=lambda i: seen.append(i)), limit=2))
         assert report.total == 2
         assert len(seen) == 2
 
     def test_a_failing_progress_callback_does_not_stop_the_send(self):
-        with patch.object(bc, "recipients",
-                          new=AsyncMock(return_value=_people(*range(bc.PROGRESS_EVERY + 5)))), \
-             patch.object(bc, "SECONDS_BETWEEN_SENDS", 0):
-            report = _run(bc.run(
-                AsyncMock(),
-                on_progress=AsyncMock(side_effect=Exception("edit failed")),
-            ))
+        with (
+            patch.object(
+                bc, "recipients", new=AsyncMock(return_value=_people(*range(bc.PROGRESS_EVERY + 5)))
+            ),
+            patch.object(bc, "SECONDS_BETWEEN_SENDS", 0),
+        ):
+            report = _run(
+                bc.run(
+                    AsyncMock(),
+                    on_progress=AsyncMock(side_effect=Exception("edit failed")),
+                )
+            )
         assert report.sent == bc.PROGRESS_EVERY + 5
 
 
 # ── The bot command ──────────────────────────────────────────────────
+
 
 def _update(user_id=111, text="hello"):
     update = MagicMock()
@@ -202,8 +217,10 @@ class TestCommand:
     def test_the_next_message_becomes_the_preview(self):
         update, context = _update(), _context()
         context.user_data[bc._AWAITING] = True
-        with patch.object(settings, "admin_ids", "111"), \
-             patch.object(bc, "recipients", new=AsyncMock(return_value=_people(1, 2))):
+        with (
+            patch.object(settings, "admin_ids", "111"),
+            patch.object(bc, "recipients", new=AsyncMock(return_value=_people(1, 2))),
+        ):
             _run(bc.broadcast_message(update, context))
 
         # Copied, never re-typed: whatever the draft is made of survives.
@@ -224,8 +241,10 @@ class TestCommand:
         here is a failure of the whole thing. Say so before the confirm."""
         update, context = _update(), _context()
         context.user_data[bc._AWAITING] = True
-        with patch.object(settings, "admin_ids", "111"), \
-             patch.object(bc, "recipients", new=AsyncMock(side_effect=Exception("db down"))):
+        with (
+            patch.object(settings, "admin_ids", "111"),
+            patch.object(bc, "recipients", new=AsyncMock(side_effect=Exception("db down"))),
+        ):
             _run(bc.broadcast_message(update, context))
         assert bc._PREVIEW not in context.user_data
         update.message.reply_text.assert_awaited_once()
@@ -264,8 +283,10 @@ class TestCallback:
         query = _query()
         context = _context()
         context.user_data[bc._PREVIEW] = (500, 42)
-        with patch.object(settings, "admin_ids", "111"), \
-             patch.object(bc, "run", new=AsyncMock()) as run:
+        with (
+            patch.object(settings, "admin_ids", "111"),
+            patch.object(bc, "run", new=AsyncMock()) as run,
+        ):
             _run(bc.broadcast_callback(_callback_update(query, user_id=999), context))
         run.assert_not_awaited()
         assert context.user_data[bc._PREVIEW] == (500, 42)
@@ -273,9 +294,11 @@ class TestCallback:
     def test_confirm_copies_the_draft_to_everybody(self):
         query, context = _query(), _context()
         context.user_data[bc._PREVIEW] = (500, 42)
-        with patch.object(settings, "admin_ids", "111"), \
-             patch.object(bc, "recipients", new=AsyncMock(return_value=_people(1, 2))), \
-             patch.object(bc, "SECONDS_BETWEEN_SENDS", 0):
+        with (
+            patch.object(settings, "admin_ids", "111"),
+            patch.object(bc, "recipients", new=AsyncMock(return_value=_people(1, 2))),
+            patch.object(bc, "SECONDS_BETWEEN_SENDS", 0),
+        ):
             _run(bc.broadcast_callback(_callback_update(query), context))
 
         assert context.bot.copy_message.await_count == 2
@@ -288,8 +311,10 @@ class TestCallback:
     def test_cancel_sends_nothing(self):
         query, context = _query(bc.CANCEL), _context()
         context.user_data[bc._PREVIEW] = (500, 42)
-        with patch.object(settings, "admin_ids", "111"), \
-             patch.object(bc, "run", new=AsyncMock()) as run:
+        with (
+            patch.object(settings, "admin_ids", "111"),
+            patch.object(bc, "run", new=AsyncMock()) as run,
+        ):
             _run(bc.broadcast_callback(_callback_update(query), context))
         run.assert_not_awaited()
         assert bc._PREVIEW not in context.user_data
@@ -299,8 +324,10 @@ class TestCallback:
         sit there doing nothing, which reads as a broadcast that silently
         did not go."""
         query, context = _query(), _context()
-        with patch.object(settings, "admin_ids", "111"), \
-             patch.object(bc, "run", new=AsyncMock()) as run:
+        with (
+            patch.object(settings, "admin_ids", "111"),
+            patch.object(bc, "run", new=AsyncMock()) as run,
+        ):
             _run(bc.broadcast_callback(_callback_update(query), context))
         run.assert_not_awaited()
         query.edit_message_text.assert_awaited_once()
@@ -311,9 +338,11 @@ class TestCallback:
         and nothing else. The admin still has to be told what happened."""
         query, context = _query(accessible=False), _context()
         context.user_data[bc._PREVIEW] = (500, 42)
-        with patch.object(settings, "admin_ids", "111"), \
-             patch.object(bc, "recipients", new=AsyncMock(return_value=_people(1))), \
-             patch.object(bc, "SECONDS_BETWEEN_SENDS", 0):
+        with (
+            patch.object(settings, "admin_ids", "111"),
+            patch.object(bc, "recipients", new=AsyncMock(return_value=_people(1))),
+            patch.object(bc, "SECONDS_BETWEEN_SENDS", 0),
+        ):
             _run(bc.broadcast_callback(_callback_update(query), context))
         assert context.bot.send_message.await_args.kwargs["chat_id"] == 111
 
@@ -322,15 +351,18 @@ class TestCallback:
         not put the message out a second time."""
         query, context = _query(), _context()
         context.user_data[bc._PREVIEW] = (500, 42)
-        with patch.object(settings, "admin_ids", "111"), \
-             patch.object(bc, "recipients", new=AsyncMock(return_value=_people(1))), \
-             patch.object(bc, "SECONDS_BETWEEN_SENDS", 0):
+        with (
+            patch.object(settings, "admin_ids", "111"),
+            patch.object(bc, "recipients", new=AsyncMock(return_value=_people(1))),
+            patch.object(bc, "SECONDS_BETWEEN_SENDS", 0),
+        ):
             _run(bc.broadcast_callback(_callback_update(query), context))
             _run(bc.broadcast_callback(_callback_update(query), context))
         assert context.bot.copy_message.await_count == 1
 
 
 # ── Registration ─────────────────────────────────────────────────────
+
 
 class TestRegistration:
     def test_no_admin_ids_means_the_command_does_not_exist(self):
@@ -352,8 +384,7 @@ class TestRegistration:
         assert {"broadcast", "cancel"} <= _command_names(app)
 
         handlers = app.handlers[0]
-        callbacks = [i for i, h in enumerate(handlers)
-                     if isinstance(h, CallbackQueryHandler)]
+        callbacks = [i for i, h in enumerate(handlers) if isinstance(h, CallbackQueryHandler)]
         # The patterned admin handler first, the game's catch-all after it:
         # the other order routes `broadcast_confirm` into the callback
         # registry, which has no idea what it is.
@@ -372,8 +403,11 @@ class TestRegistration:
             app = create_application()
         # The send itself; a quick button such as the gift's «Активировать»
         # stays in its chat's order instead.
-        [confirm] = [h for h in app.handlers[0]
-                     if isinstance(h, CallbackQueryHandler) and h.callback is bc.broadcast_callback]
+        [confirm] = [
+            h
+            for h in app.handlers[0]
+            if isinstance(h, CallbackQueryHandler) and h.callback is bc.broadcast_callback
+        ]
         assert confirm.block is False
 
 

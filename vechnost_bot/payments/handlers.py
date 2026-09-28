@@ -62,6 +62,4 @@ async def handle_check_payment(update: Update, context: ContextTypes.DEFAULT_TYP
         keyboard = await get_payment_keyboard(
             language.value, telegram_user_id=update.effective_user.id
         )
-        await query.edit_message_text(
-            no_access_text, parse_mode="HTML", reply_markup=keyboard
-        )
+        await query.edit_message_text(no_access_text, parse_mode="HTML", reply_markup=keyboard)

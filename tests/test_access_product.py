@@ -59,12 +59,18 @@ def shop(tmp_path) -> Iterator[TestClient]:
         patch.object(settings, "access_product_id", None),
         TestClient(app) as client,
     ):
+
         async def sync() -> None:
             async with database.get_db() as session:
                 for product_id, name, amount, link in CATALOGUE:
                     await ProductRepository.upsert(
-                        session, product_id=product_id, type="digital", name=name,
-                        amount=amount, currency="eur", t_link=link,
+                        session,
+                        product_id=product_id,
+                        type="digital",
+                        name=name,
+                        amount=amount,
+                        currency="eur",
+                        t_link=link,
                     )
 
         client.portal.call(sync)
@@ -87,6 +93,7 @@ def paywall(client: TestClient, user_id: int | None = None) -> dict:
 
 def bot_urls(client: TestClient, user_id: int | None = None) -> list[str]:
     """The URL buttons under the bot's paywall, after checking the other one."""
+
     async def keyboard():
         return await get_payment_keyboard("ru", telegram_user_id=user_id)
 
@@ -167,6 +174,7 @@ def test_with_nothing_synced_both_paywalls_link_the_payment_page(shop):
 # ---------------------------------------------------------------------------
 # The gift, in the Mini App
 # ---------------------------------------------------------------------------
+
 
 def test_the_gift_is_offered_to_everyone_at_its_own_price(shop):
     """The gift rides outside the unpaid branch: a couple who has paid is who

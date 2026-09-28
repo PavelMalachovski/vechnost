@@ -26,9 +26,7 @@ JOB_NAME = "daily_card"
 
 # The daily prompt belongs to no deck, so it rides the Library card: the
 # brand face with the V/Λ letters and the VECHNOST wordmark, and no suit.
-_BACKGROUND = str(
-    Path(__file__).parent.parent / "assets" / "backgrounds" / "library.png"
-)
+_BACKGROUND = str(Path(__file__).parent.parent / "assets" / "backgrounds" / "library.png")
 
 
 def _user_language(code: str | None) -> Language:
@@ -49,33 +47,40 @@ def _daily_keyboard(language: Language) -> InlineKeyboardMarkup:
     """
     rows = []
     if settings.webapp_url:
-        rows.append([InlineKeyboardButton(
-            get_text('daily.open_app_button', language),
-            web_app=WebAppInfo(url=settings.webapp_url)
-        )])
+        rows.append(
+            [
+                InlineKeyboardButton(
+                    get_text("daily.open_app_button", language),
+                    web_app=WebAppInfo(url=settings.webapp_url),
+                )
+            ]
+        )
     else:
-        rows.append([InlineKeyboardButton(
-            get_text('daily.open_app_button', language),
-            callback_data="start_game"
-        )])
-    rows.append([InlineKeyboardButton(
-        get_text('daily.unsubscribe_button', language),
-        callback_data="daily_off"
-    )])
+        rows.append(
+            [
+                InlineKeyboardButton(
+                    get_text("daily.open_app_button", language), callback_data="start_game"
+                )
+            ]
+        )
+    rows.append(
+        [
+            InlineKeyboardButton(
+                get_text("daily.unsubscribe_button", language), callback_data="daily_off"
+            )
+        ]
+    )
     return InlineKeyboardMarkup(rows)
 
 
 def render_daily_card(day: date, language: Language) -> tuple[BytesIO, str]:
     """Rendered prompt image + caption for the given date and language."""
     text, number = question_of_the_day(day.timetuple().tm_yday, language)
-    watermark = (
-        f"VECHNOST · @{settings.bot_username}" if settings.bot_username else "VECHNOST"
-    )
+    watermark = f"VECHNOST · @{settings.bot_username}" if settings.bot_username else "VECHNOST"
     image = render_card(
         text,
         _BACKGROUND,
-        footer=get_text('daily.card_footer', language, day=number,
-                        total=REFLECTION_TOTAL),
+        footer=get_text("daily.card_footer", language, day=number, total=REFLECTION_TOTAL),
         watermark=watermark,
     )
     caption = (

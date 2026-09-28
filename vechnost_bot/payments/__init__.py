@@ -16,4 +16,3 @@ __all__ = [
     "apply_webhook_event",
     "sync_products_from_tribute",
 ]
-

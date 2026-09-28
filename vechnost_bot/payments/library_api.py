@@ -38,14 +38,9 @@ def _language(lang: str) -> Language:
     return Language.coerce(lang)
 
 
-def _visible_categories(
-    module_id: str, language: Language, nsfw: int
-) -> list[LibraryCategory]:
+def _visible_categories(module_id: str, language: Language, nsfw: int) -> list[LibraryCategory]:
     """A module's categories, minus any withheld because they are nsfw."""
-    return [
-        c for c in load_categories(module_id, language)
-        if not c.nsfw or nsfw == 1
-    ]
+    return [c for c in load_categories(module_id, language) if not c.nsfw or nsfw == 1]
 
 
 def _visible_steps(module_id: str, language: Language, nsfw: int) -> list[GuideStep]:
@@ -67,9 +62,7 @@ def _module_count(module: LibraryModule, language: Language, nsfw: int) -> int:
         return len(load_practices(module.id, language))
     if module.type == "guide":
         return sum(len(s.items) for s in _visible_steps(module.id, language, nsfw))
-    return sum(
-        len(c.items) for c in _visible_categories(module.id, language, nsfw)
-    )
+    return sum(len(c.items) for c in _visible_categories(module.id, language, nsfw))
 
 
 async def _caller_is_paid(authorization: str | None) -> bool:
@@ -136,25 +129,27 @@ async def library_module(
     }
 
     if module.type == "daily":
-        text, day = question_of_the_day(
-            date.today().timetuple().tm_yday, language
+        text, day = question_of_the_day(date.today().timetuple().tm_yday, language)
+        payload.update(
+            {
+                "question": text,
+                "day": day,
+                "total": _module_count(module, language, nsfw),
+            }
         )
-        payload.update({
-            "question": text,
-            "day": day,
-            "total": _module_count(module, language, nsfw),
-        })
         return payload
 
     if module.type == "practice":
         items = load_practices(module_id, language)
-        payload.update({
-            "items": [i.model_dump() for i in (
-                free_library_slice(items) if locked else items
-            )],
-            "total": _module_count(module, language, nsfw),
-            "free_count": min(FREE_LIBRARY_ITEMS_PER_LIST, len(items)) if locked else len(items),
-        })
+        payload.update(
+            {
+                "items": [i.model_dump() for i in (free_library_slice(items) if locked else items)],
+                "total": _module_count(module, language, nsfw),
+                "free_count": min(FREE_LIBRARY_ITEMS_PER_LIST, len(items))
+                if locked
+                else len(items),
+            }
+        )
         return payload
 
     if module.type == "guide":
@@ -164,16 +159,19 @@ async def library_module(
         # is genuinely useful on its own.
         steps = _visible_steps(module_id, language, nsfw)
         shown = steps[:1] if locked else steps
-        payload.update({
-            "intro": guide_intro(module_id, language),
-            "steps": [s.model_dump() for s in shown],
-            "nsfw_withheld": [
-                {"id": s.id, "title": s.title, "total": len(s.items)}
-                for s in load_guide(module_id, language) if s.nsfw and nsfw != 1
-            ],
-            "total": _module_count(module, language, nsfw),
-            "free_count": sum(len(s.items) for s in shown),
-        })
+        payload.update(
+            {
+                "intro": guide_intro(module_id, language),
+                "steps": [s.model_dump() for s in shown],
+                "nsfw_withheld": [
+                    {"id": s.id, "title": s.title, "total": len(s.items)}
+                    for s in load_guide(module_id, language)
+                    if s.nsfw and nsfw != 1
+                ],
+                "total": _module_count(module, language, nsfw),
+                "free_count": sum(len(s.items) for s in shown),
+            }
+        )
         return payload
 
     categories = _visible_categories(module_id, language, nsfw)
@@ -196,7 +194,5 @@ async def library_module(
         for c in categories
     ]
     payload["total"] = sum(len(c.items) for c in categories)
-    payload["free_count"] = sum(
-        len(entry["items"]) for entry in payload["categories"]
-    )
+    payload["free_count"] = sum(len(entry["items"]) for entry in payload["categories"])
     return payload

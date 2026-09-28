@@ -137,18 +137,19 @@ class CompatModel:
     creator: str
     created: int = 0  # creation order: a completed test supersedes older ones only
     guest: str | None = None
-    answers: dict[str, list[int | None]] = field(default_factory=lambda: {
-        "creator": [None] * TOTAL_QUESTIONS, "guest": [None] * TOTAL_QUESTIONS,
-    })
+    answers: dict[str, list[int | None]] = field(
+        default_factory=lambda: {
+            "creator": [None] * TOTAL_QUESTIONS,
+            "guest": [None] * TOTAL_QUESTIONS,
+        }
+    )
     finished: int | None = None  # completion order, for /mine
 
     def seats(self) -> tuple[str, str | None]:
         return self.creator, self.guest
 
     def complete(self) -> bool:
-        return all(
-            value is not None for side in self.answers.values() for value in side
-        )
+        return all(value is not None for side in self.answers.values() for value in side)
 
 
 @dataclass
@@ -207,9 +208,7 @@ class TwoUsers(RuleBasedStateMachine):
 
     # -- plumbing -----------------------------------------------------------
 
-    def call(
-        self, actor: str, method: str, path: str, body: Any = None, *, expect: int
-    ) -> Any:
+    def call(self, actor: str, method: str, path: str, body: Any = None, *, expect: int) -> Any:
         """One request by one person; the status must be what the model says."""
         throttle.reset()  # budgets are the throttle suite's business, not this one's
         response = self.people[actor].call(method, path, json_body=body)
@@ -283,8 +282,13 @@ class TwoUsers(RuleBasedStateMachine):
     @rule(target=rooms, actor=ACTORS, deck=st.sampled_from(sorted(DECKS, key=str)))
     def create_room(self, actor: str, deck: tuple[str, int | None, str]) -> Any:
         theme, level, kind = deck
-        state = self.call(actor, "POST", "/api/rooms?lang=ru",
-                          {"theme": theme, "level": level, "type": kind}, expect=200)
+        state = self.call(
+            actor,
+            "POST",
+            "/api/rooms?lang=ru",
+            {"theme": theme, "level": level, "type": kind},
+            expect=200,
+        )
         size = DECKS[deck]
         total = size if self.paid[actor] else min(FREE_CARDS_PER_DECK, size)
         model = RoomModel(creator=actor, total=total, full=size, adult=theme == "Sex")
@@ -316,9 +320,12 @@ class TwoUsers(RuleBasedStateMachine):
             self.check_room(state, model, actor)
         self.last["room"] = code
 
-    @precondition(lambda self: not self.paid["bob"] and any(
-        m.total < m.full and "bob" in m.seats() for m in self.room_models.values()
-    ))
+    @precondition(
+        lambda self: (
+            not self.paid["bob"]
+            and any(m.total < m.full and "bob" in m.seats() for m in self.room_models.values())
+        )
+    )
     @rule()
     def bob_buys_access(self) -> None:
         """The one who had not paid, paying in the middle of a game: every
@@ -330,7 +337,9 @@ class TwoUsers(RuleBasedStateMachine):
         already dated a few ticks ahead, and the server - rightly - ignored
         it as stale."""
         happened = self.moment(late=False)
-        body = self.SERVER.webhook_body("new_digital_product", self.people["bob"], created_at=happened)
+        body = self.SERVER.webhook_body(
+            "new_digital_product", self.people["bob"], created_at=happened
+        )
         self.sent["bob"].append(body)
         answer = self.deliver(body)
         assert answer["action"] == "grant", answer
@@ -425,13 +434,17 @@ class TwoUsers(RuleBasedStateMachine):
             self.check_test(state, model, actor)
         self.last["test"] = code
 
-    @rule(actor=ACTORS, code=tests,
-          index=st.integers(0, TOTAL_QUESTIONS - 1), value=st.integers(1, 5))
+    @rule(
+        actor=ACTORS, code=tests, index=st.integers(0, TOTAL_QUESTIONS - 1), value=st.integers(1, 5)
+    )
     def answer(self, actor: str, code: str, index: int, value: int) -> None:
         self.give_answer(actor, code, index, value)
 
-    @rule(code=tests, count=st.integers(1, TOTAL_QUESTIONS),
-          values=st.lists(st.integers(1, 5), min_size=1, max_size=8))
+    @rule(
+        code=tests,
+        count=st.integers(1, TOTAL_QUESTIONS),
+        values=st.lists(st.integers(1, 5), min_size=1, max_size=8),
+    )
     def both_answer_a_stretch(self, code: str, count: int, values: list[int]) -> None:
         """Both partners answering in earnest, from their first gap."""
         model = self.test_models.get(code)
@@ -464,8 +477,12 @@ class TwoUsers(RuleBasedStateMachine):
             # a newer one still being answered is left alone.
             pair = {model.creator, model.guest}
             for other_code, other in list(self.test_models.items()):
-                if (other is not model and other.guest and other.created < model.created
-                        and {other.creator, other.guest} == pair):
+                if (
+                    other is not model
+                    and other.guest
+                    and other.created < model.created
+                    and {other.creator, other.guest} == pair
+                ):
                     del self.test_models[other_code]
                     event("compat: a retake superseded another test")
         self.check_test(self.call(actor, "POST", path, body, expect=200), model, actor)
@@ -495,7 +512,8 @@ class TwoUsers(RuleBasedStateMachine):
     @rule(actor=ACTORS)
     def my_last_result(self, actor: str) -> None:
         mine = [
-            (model.finished, code, model) for code, model in self.test_models.items()
+            (model.finished, code, model)
+            for code, model in self.test_models.items()
             if model.finished is not None and actor in model.seats()
         ]
         if not mine:
@@ -536,8 +554,12 @@ class TwoUsers(RuleBasedStateMachine):
 
     # -- «69 ступеней» -------------------------------------------------------
 
-    @rule(target=games, actor=ACTORS, mode=st.sampled_from(["duo", "duo", "solo"]),
-          piece=st.sampled_from([*PIECES, "unicorn"]))
+    @rule(
+        target=games,
+        actor=ACTORS,
+        mode=st.sampled_from(["duo", "duo", "solo"]),
+        piece=st.sampled_from([*PIECES, "unicorn"]),
+    )
     def create_game(self, actor: str, mode: str, piece: str) -> Any:
         body = {"mode": mode, "piece": piece}
         if not self.paid[actor]:
@@ -568,7 +590,8 @@ class TwoUsers(RuleBasedStateMachine):
             model.guest = actor
             taken = model.pieces[0]
             model.pieces[1] = (
-                piece if piece in PIECES and piece != taken
+                piece
+                if piece in PIECES and piece != taken
                 else next(p for p in PIECES if p != taken)
             )
             model.touched = self.tick()
@@ -631,7 +654,11 @@ class TwoUsers(RuleBasedStateMachine):
             event("steps69: a secret dealt")
         last = state["last"]
         assert (last["seat"], last["from"], last["roll"], last["landed"], last["to"]) == (
-            mover, move.start, die, move.landed, move.position
+            mover,
+            move.start,
+            die,
+            move.landed,
+            move.position,
         )
         assert last["event"] == move.event
         mover_cell = state["you"]["cell"] if state["you"]["seat"] == mover else None
@@ -673,7 +700,9 @@ class TwoUsers(RuleBasedStateMachine):
         if model is None or actor not in model.seats():
             self.call(actor, "GET", f"/api/steps69/{code}", expect=404)
             return
-        self.check_game(self.call(actor, "GET", f"/api/steps69/{code}?lang=ru", expect=200), model, actor)
+        self.check_game(
+            self.call(actor, "GET", f"/api/steps69/{code}?lang=ru", expect=200), model, actor
+        )
 
     @rule(actor=ACTORS, code=games)
     def look_at_the_board(self, actor: str, code: str) -> None:
@@ -681,8 +710,9 @@ class TwoUsers(RuleBasedStateMachine):
         if model is None or actor not in model.seats():
             self.call(actor, "GET", f"/api/steps69/{code}/board", expect=404)
             return
-        text = json.dumps(self.call(actor, "GET", f"/api/steps69/{code}/board", expect=200),
-                          ensure_ascii=False)
+        text = json.dumps(
+            self.call(actor, "GET", f"/api/steps69/{code}/board", expect=200), ensure_ascii=False
+        )
         for secret in SECRETS.values():
             if secret in text:
                 raise LeakDetected("a secret is printed on the board")
@@ -693,7 +723,8 @@ class TwoUsers(RuleBasedStateMachine):
     @rule(actor=ACTORS)
     def resume_my_game(self, actor: str) -> None:
         mine = [
-            (model.touched, code) for code, model in self.game_models.items()
+            (model.touched, code)
+            for code, model in self.game_models.items()
             if not model.finished and actor in model.seats()
         ]
         if not mine:
@@ -806,7 +837,8 @@ class TwoUsers(RuleBasedStateMachine):
             for person in model.seats():
                 self.check_game(
                     self.call(person or "", "GET", f"/api/steps69/{code}?lang=ru", expect=200),
-                    model, person or "",
+                    model,
+                    person or "",
                 )
         code = self.last.get("room")
         room = self.room_models.get(code or "")

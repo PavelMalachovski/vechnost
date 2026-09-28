@@ -201,9 +201,7 @@ def _webapp_cache_control(path: Path) -> str:
 # is same-origin with this server and needs no allowance at all, so the
 # allowlist is empty unless a deployment sets one.
 _ALLOWED_ORIGINS = [
-    origin.strip()
-    for origin in (settings.cors_allow_origins or "").split(",")
-    if origin.strip()
+    origin.strip() for origin in (settings.cors_allow_origins or "").split(",") if origin.strip()
 ]
 if _ALLOWED_ORIGINS:
     app.add_middleware(
@@ -220,9 +218,7 @@ if _ALLOWED_ORIGINS:
 # here; set ALLOWED_HOSTS in production and a host-header forgery stops being
 # able to poison a link the bot builds.
 _ALLOWED_HOSTS = [
-    host.strip()
-    for host in (settings.allowed_hosts or "").split(",")
-    if host.strip()
+    host.strip() for host in (settings.allowed_hosts or "").split(",") if host.strip()
 ]
 if _ALLOWED_HOSTS:
     app.add_middleware(TrustedHostMiddleware, allowed_hosts=_ALLOWED_HOSTS)
@@ -516,15 +512,18 @@ async def get_card_image(
 
     language = Language.coerce(lang)
 
-    items = localized_game_data.get_content(
-        theme_enum, level or None, content_type, language
-    )
+    items = localized_game_data.get_content(theme_enum, level or None, content_type, language)
     if not items or idx < 0 or idx >= len(items):
         raise HTTPException(status_code=404, detail="card not found")
 
-    if not is_index_free(idx) and not await _request_is_paid(authorization) and not (
-        room and await room_dealt_card(
-            room, authorization, theme_enum, level or None, content_type, idx
+    if (
+        not is_index_free(idx)
+        and not await _request_is_paid(authorization)
+        and not (
+            room
+            and await room_dealt_card(
+                room, authorization, theme_enum, level or None, content_type, idx
+            )
         )
     ):
         raise HTTPException(status_code=403, detail="payment_required")
@@ -535,19 +534,13 @@ async def get_card_image(
         "q" if content_type == ContentType.QUESTIONS else "t",
     )
     theme_label = get_text(f"themes.{theme_enum.value}", language)
-    plain_label = "".join(
-        ch for ch in theme_label if ch.isalpha() or ch.isspace()
-    ).strip()
+    plain_label = "".join(ch for ch in theme_label if ch.isalpha() or ch.isspace()).strip()
     footer = f"{plain_label} · {idx + 1}/{len(items)}"
-    watermark = (
-        f"VECHNOST · @{settings.bot_username}" if settings.bot_username else "VECHNOST"
-    )
+    watermark = f"VECHNOST · @{settings.bot_username}" if settings.bot_username else "VECHNOST"
 
     # Off the loop, and memoised per card: a composite is ~25 ms of Pillow,
     # and running it inline here stalled the webhook and every game.
-    image = await asyncio.to_thread(
-        render_card_bytes, items[idx], bg_path, footer, watermark
-    )
+    image = await asyncio.to_thread(render_card_bytes, items[idx], bg_path, footer, watermark)
     return Response(
         content=image,
         media_type="image/jpeg",
@@ -645,8 +638,10 @@ async def tribute_webhook(request: Request, background: BackgroundTasks) -> JSON
         # hear that we have the money.
         buyer = result.get("telegram_user_id")
         if (
-            result.get("action") == "grant" and buyer
-            and not result.get("gift") and not result.get("renewal")
+            result.get("action") == "grant"
+            and buyer
+            and not result.get("gift")
+            and not result.get("renewal")
         ):
             background.add_task(
                 notify_access_granted, int(buyer), bool(result.get("lifetime", True))
@@ -658,7 +653,9 @@ async def tribute_webhook(request: Request, background: BackgroundTasks) -> JSON
             background.add_task(analytics.track, "gift_purchase", int(buyer))
         elif buyer and result.get("action") == "grant" and not result.get("renewal"):
             background.add_task(
-                analytics.track, "purchase", int(buyer),
+                analytics.track,
+                "purchase",
+                int(buyer),
                 "lifetime" if result.get("lifetime", True) else "period",
             )
         elif buyer and result.get("action") == "revoke":
@@ -754,7 +751,9 @@ async def root() -> dict[str, str]:
 if WEBAPP_DIR.exists():
     app.mount(
         "/app",
-        CachedStaticFiles(directory=str(WEBAPP_DIR), html=True, cache_control=_webapp_cache_control),
+        CachedStaticFiles(
+            directory=str(WEBAPP_DIR), html=True, cache_control=_webapp_cache_control
+        ),
         name="webapp",
     )
 else:
@@ -783,4 +782,3 @@ if __name__ == "__main__":
         reload=True,
         log_level="info",
     )
-

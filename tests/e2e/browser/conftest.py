@@ -110,9 +110,19 @@ def live_url(tmp_path_factory: pytest.TempPathFactory) -> Iterator[str]:
     env.pop("SENTRY_DSN", None)
     log = open(tmp_path_factory.mktemp("browser-log") / "uvicorn.log", "w")  # noqa: SIM115
     process = subprocess.Popen(
-        [sys.executable, "-m", "uvicorn", "vechnost_bot.payments.web:app",
-         "--host", "127.0.0.1", "--port", str(port)],
-        env=env, stdout=log, stderr=subprocess.STDOUT,
+        [
+            sys.executable,
+            "-m",
+            "uvicorn",
+            "vechnost_bot.payments.web:app",
+            "--host",
+            "127.0.0.1",
+            "--port",
+            str(port),
+        ],
+        env=env,
+        stdout=log,
+        stderr=subprocess.STDOUT,
     )
     try:
         deadline = time.monotonic() + 30
@@ -163,7 +173,10 @@ def atlas(request: pytest.FixtureRequest, engines: Engines, live_url: str) -> It
     engines.get(device.engine)
     with httpx.Client(base_url=live_url, timeout=30) as http:
         tour = Tour(
-            engines, live_url, Server(http, live=True, bot_token=bot_token()), device,
+            engines,
+            live_url,
+            Server(http, live=True, bot_token=bot_token()),
+            device,
             visitors=[design.visitor],
         )
         found = tour.run()

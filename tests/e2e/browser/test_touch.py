@@ -85,7 +85,8 @@ def scroll_probe(phone: Phone, band: dict[str, float]) -> None:
     try:
         phone.page.wait_for_function(
             "(sel) => document.querySelector(sel + ' .q-zone').scrollTop > 20",
-            arg=TOP_CARD, timeout=3_000,
+            arg=TOP_CARD,
+            timeout=3_000,
         )
     except Exception as e:
         raise AssertionError(
@@ -95,7 +96,9 @@ def scroll_probe(phone: Phone, band: dict[str, float]) -> None:
         ) from e
 
 
-def test_a_finger_scrolls_a_long_card_from_its_middle(server: Server, phones, device: Device) -> None:
+def test_a_finger_scrolls_a_long_card_from_its_middle(
+    server: Server, phones, device: Device
+) -> None:
     """Android: a CDP touch drag, scrolled by Chromium's compositor - the test
     that fails when the card's back face takes the touch again. iPhone: a
     press at the same point, hit-tested by WebKit, then the arrow keys."""
@@ -158,7 +161,8 @@ def test_a_horizontal_swipe_turns_the_card(server: Server, phones, device: Devic
     phone.finger.drag((x - width * 0.3, y), (x + width * 0.45, y + 8))
     phone.page.wait_for_function(
         "(t) => document.querySelector('#progressNum').innerText.trim() !== t",
-        arg=before, timeout=5_000,
+        arg=before,
+        timeout=5_000,
     )
     phone.shot("next")
     assert phone.text(f"{TOP_CARD} .q-text") != text
@@ -168,13 +172,16 @@ def test_a_horizontal_swipe_turns_the_card(server: Server, phones, device: Devic
     phone.finger.drag((band["x"] + width * 0.3, band["y"]), (band["x"] - width * 0.45, band["y"]))
     phone.page.wait_for_function(
         "(t) => document.querySelector('#progressNum').innerText.trim() !== t",
-        arg=after, timeout=5_000,
+        arg=after,
+        timeout=5_000,
     )
     assert progress(phone) == before
     assert phone.text(f"{TOP_CARD} .q-text") == text
 
 
-def test_a_tap_in_the_middle_of_a_card_lands_on_its_front(server: Server, phones, device: Device) -> None:
+def test_a_tap_in_the_middle_of_a_card_lands_on_its_front(
+    server: Server, phones, device: Device
+) -> None:
     phone, band = on_a_long_card(server, phones, device)
     phone.page.evaluate(HITS)
     phone.finger.tap(band["x"], band["y"])
@@ -215,7 +222,9 @@ def style_probe(phone: Phone) -> None:
     assert found["fades"] == ["none", "none"], "a fade over the text takes touches"
 
 
-def test_no_fade_is_a_mask_and_no_back_takes_a_touch(server: Server, phones, device: Device) -> None:
+def test_no_fade_is_a_mask_and_no_back_takes_a_touch(
+    server: Server, phones, device: Device
+) -> None:
     """Computed styles, not the stylesheet's text: a mask or a touchable
     back from any rule counts. The backstop for what real input can only
     show on one engine (see the canary below)."""
@@ -229,7 +238,7 @@ class Fault:
 
     name: str
     rule: str
-    css: str                      # laid over the page's own styles
+    css: str  # laid over the page's own styles
     caught_by_touch: tuple[str, ...]  # engines whose real input must notice
 
 
@@ -272,8 +281,10 @@ def test_the_probes_notice_each_rule_broken(
     phone.page.add_style_tag(content=fault.css)
     phone.page.wait_for_timeout(100)
     seen: dict[str, str] = {}
-    for name, probe in (("touch", lambda: scroll_probe(phone, band)),
-                        ("style", lambda: style_probe(phone))):
+    for name, probe in (
+        ("touch", lambda: scroll_probe(phone, band)),
+        ("style", lambda: style_probe(phone)),
+    ):
         try:
             probe()
             seen[name] = "missed"

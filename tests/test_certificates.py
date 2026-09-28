@@ -41,10 +41,11 @@ class TestCertificateActivation:
     async def test_activate_certificate_success(self):
         """Test successful certificate activation."""
         # Mock database session and repositories
-        with patch('vechnost_bot.payments.services.get_db') as mock_get_db, \
-             patch('vechnost_bot.payments.services.CertificateRepository') as mock_cert_repo, \
-             patch('vechnost_bot.payments.services.UserRepository') as mock_user_repo:
-
+        with (
+            patch("vechnost_bot.payments.services.get_db") as mock_get_db,
+            patch("vechnost_bot.payments.services.CertificateRepository") as mock_cert_repo,
+            patch("vechnost_bot.payments.services.UserRepository") as mock_user_repo,
+        ):
             # Setup mocks
             mock_session = AsyncMock()
             mock_get_db.return_value.__aenter__.return_value = mock_session
@@ -74,24 +75,23 @@ class TestCertificateActivation:
                 telegram_user_id=123456789,
                 username="testuser",
                 first_name="Test",
-                last_name="User"
+                last_name="User",
             )
 
             # Verify
             assert result["status"] == "success"
             assert result["certificate_id"] == 1
             mock_user_repo.create_or_update.assert_called_once()
-            mock_cert_repo.claim.assert_called_once_with(
-                mock_session, "VECH-TEST-1234", 123456789
-            )
+            mock_cert_repo.claim.assert_called_once_with(mock_session, "VECH-TEST-1234", 123456789)
             mock_session.commit.assert_called_once()
 
     async def test_a_claim_lost_to_a_simultaneous_redemption_is_a_409(self):
         """Both callers passed the `is_used` check; the UPDATE seated one."""
-        with patch('vechnost_bot.payments.services.get_db') as mock_get_db, \
-             patch('vechnost_bot.payments.services.CertificateRepository') as mock_cert_repo, \
-             patch('vechnost_bot.payments.services.UserRepository') as mock_user_repo:
-
+        with (
+            patch("vechnost_bot.payments.services.get_db") as mock_get_db,
+            patch("vechnost_bot.payments.services.CertificateRepository") as mock_cert_repo,
+            patch("vechnost_bot.payments.services.UserRepository") as mock_user_repo,
+        ):
             mock_session = AsyncMock()
             mock_get_db.return_value.__aenter__.return_value = mock_session
             mock_cert = MagicMock(spec=Certificate)
@@ -110,17 +110,15 @@ class TestCertificateActivation:
 
     async def test_activate_certificate_not_found(self):
         """Test activation with non-existent certificate (404)."""
-        with patch('vechnost_bot.payments.services.get_db') as mock_get_db, \
-             patch('vechnost_bot.payments.services.CertificateRepository') as mock_cert_repo:
-
+        with (
+            patch("vechnost_bot.payments.services.get_db") as mock_get_db,
+            patch("vechnost_bot.payments.services.CertificateRepository") as mock_cert_repo,
+        ):
             mock_session = AsyncMock()
             mock_get_db.return_value.__aenter__.return_value = mock_session
             mock_cert_repo.get_by_code = AsyncMock(return_value=None)
 
-            result = await activate_certificate(
-                code="NONEXISTENT",
-                telegram_user_id=123456789
-            )
+            result = await activate_certificate(code="NONEXISTENT", telegram_user_id=123456789)
 
             assert result["status"] == "error"
             assert result["code"] == 404
@@ -128,9 +126,10 @@ class TestCertificateActivation:
 
     async def test_activate_certificate_already_used(self):
         """Test activation of already used certificate (409) - one-time use enforcement."""
-        with patch('vechnost_bot.payments.services.get_db') as mock_get_db, \
-             patch('vechnost_bot.payments.services.CertificateRepository') as mock_cert_repo:
-
+        with (
+            patch("vechnost_bot.payments.services.get_db") as mock_get_db,
+            patch("vechnost_bot.payments.services.CertificateRepository") as mock_cert_repo,
+        ):
             mock_session = AsyncMock()
             mock_get_db.return_value.__aenter__.return_value = mock_session
 
@@ -145,7 +144,7 @@ class TestCertificateActivation:
 
             result = await activate_certificate(
                 code="VECH-TEST-1234",
-                telegram_user_id=123456789  # Different user trying to use
+                telegram_user_id=123456789,  # Different user trying to use
             )
 
             assert result["status"] == "error"
@@ -154,9 +153,10 @@ class TestCertificateActivation:
 
     async def test_activate_certificate_different_user_cannot_reuse(self):
         """Test that different user cannot reuse certificate (requirement #3)."""
-        with patch('vechnost_bot.payments.services.get_db') as mock_get_db, \
-             patch('vechnost_bot.payments.services.CertificateRepository') as mock_cert_repo:
-
+        with (
+            patch("vechnost_bot.payments.services.get_db") as mock_get_db,
+            patch("vechnost_bot.payments.services.CertificateRepository") as mock_cert_repo,
+        ):
             mock_session = AsyncMock()
             mock_get_db.return_value.__aenter__.return_value = mock_session
 
@@ -168,20 +168,18 @@ class TestCertificateActivation:
             mock_cert_repo.get_by_code = AsyncMock(return_value=mock_cert)
 
             # User 222 tries to activate
-            result = await activate_certificate(
-                code="VECH-TEST-1234",
-                telegram_user_id=222
-            )
+            result = await activate_certificate(code="VECH-TEST-1234", telegram_user_id=222)
 
             assert result["status"] == "error"
             assert result["code"] == 409
 
     async def test_activate_certificate_creates_user(self):
         """Test that certificate activation creates user in database (requirement #1)."""
-        with patch('vechnost_bot.payments.services.get_db') as mock_get_db, \
-             patch('vechnost_bot.payments.services.CertificateRepository') as mock_cert_repo, \
-             patch('vechnost_bot.payments.services.UserRepository') as mock_user_repo:
-
+        with (
+            patch("vechnost_bot.payments.services.get_db") as mock_get_db,
+            patch("vechnost_bot.payments.services.CertificateRepository") as mock_cert_repo,
+            patch("vechnost_bot.payments.services.UserRepository") as mock_user_repo,
+        ):
             mock_session = AsyncMock()
             mock_get_db.return_value.__aenter__.return_value = mock_session
 
@@ -202,7 +200,7 @@ class TestCertificateActivation:
                 telegram_user_id=123456789,
                 username="testuser",
                 first_name="Test",
-                last_name="User"
+                last_name="User",
             )
 
             # Verify user was created with full info
@@ -211,7 +209,7 @@ class TestCertificateActivation:
                 telegram_user_id=123456789,
                 username="testuser",
                 first_name="Test",
-                last_name="User"
+                last_name="User",
             )
 
 
@@ -221,12 +219,13 @@ class TestUserAccess:
 
     async def test_user_has_access_with_activated_certificate(self):
         """Test that user has access after activating certificate (requirement #4)."""
-        with patch('vechnost_bot.payments.services.get_db') as mock_get_db, \
-             patch('vechnost_bot.payments.services.UserRepository') as mock_user_repo, \
-             patch('vechnost_bot.payments.services.CertificateRepository') as mock_cert_repo, \
-             patch('vechnost_bot.payments.services.SubscriptionRepository') as mock_sub_repo, \
-             patch('vechnost_bot.payments.services.settings') as mock_settings:
-
+        with (
+            patch("vechnost_bot.payments.services.get_db") as mock_get_db,
+            patch("vechnost_bot.payments.services.UserRepository") as mock_user_repo,
+            patch("vechnost_bot.payments.services.CertificateRepository") as mock_cert_repo,
+            patch("vechnost_bot.payments.services.SubscriptionRepository") as mock_sub_repo,
+            patch("vechnost_bot.payments.services.settings") as mock_settings,
+        ):
             mock_settings.enable_payment = True
             mock_session = AsyncMock()
             mock_get_db.return_value.__aenter__.return_value = mock_session
@@ -254,12 +253,13 @@ class TestUserAccess:
 
     async def test_user_no_access_without_certificate(self):
         """Test that user has no access without certificate."""
-        with patch('vechnost_bot.payments.services.get_db') as mock_get_db, \
-             patch('vechnost_bot.payments.services.UserRepository') as mock_user_repo, \
-             patch('vechnost_bot.payments.services.CertificateRepository') as mock_cert_repo, \
-             patch('vechnost_bot.payments.services.SubscriptionRepository') as mock_sub_repo, \
-             patch('vechnost_bot.payments.services.settings') as mock_settings:
-
+        with (
+            patch("vechnost_bot.payments.services.get_db") as mock_get_db,
+            patch("vechnost_bot.payments.services.UserRepository") as mock_user_repo,
+            patch("vechnost_bot.payments.services.CertificateRepository") as mock_cert_repo,
+            patch("vechnost_bot.payments.services.SubscriptionRepository") as mock_sub_repo,
+            patch("vechnost_bot.payments.services.settings") as mock_settings,
+        ):
             mock_settings.enable_payment = True
             mock_session = AsyncMock()
             mock_get_db.return_value.__aenter__.return_value = mock_session
@@ -368,4 +368,3 @@ class TestCertificateIntegration:
         assert winner is not None and winner.used_by_telegram_user_id == 111
         assert winner.is_used is True and isinstance(winner.used_at, datetime)
         assert loser is None
-

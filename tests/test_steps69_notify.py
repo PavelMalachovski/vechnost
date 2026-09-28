@@ -32,13 +32,18 @@ def db(tmp_path):
         yield
 
 
-async def _game(code, *, position, idle, turns=4, finished=False, notified=None,
-                partner_position=None):
+async def _game(
+    code, *, position, idle, turns=4, finished=False, notified=None, partner_position=None
+):
     """A game in whatever state the test needs, aged by hand."""
     async with get_db() as session:
         game = await Steps69Repository.create(
-            session, code=code, creator_telegram_user_id=11,
-            creator_name="A", mode="duo", creator_piece="hearts",
+            session,
+            code=code,
+            creator_telegram_user_id=11,
+            creator_name="A",
+            mode="duo",
+            creator_piece="hearts",
         )
         game.guest_telegram_user_id = 22
         game.guest_name = "B"
@@ -93,8 +98,7 @@ async def test_a_game_that_was_never_rolled_is_not_stalled(db):
 async def test_each_partner_hears_about_their_own_piece(db):
     """They walk the board separately, so one shared cell number would be
     wrong for at least one of them."""
-    await _game("JJJJJJ", position=45, partner_position=12,
-                idle=IDLE_BEFORE_NUDGE * 2)
+    await _game("JJJJJJ", position=45, partner_position=12, idle=IDLE_BEFORE_NUDGE * 2)
     bot = _bot()
     assert await nudge_stalled_games(bot) == 1
 
@@ -165,7 +169,9 @@ async def test_rolling_again_makes_a_game_eligible_for_a_later_nudge(db):
     """The flag records "we nudged about this stall", not "this game is
     spent": a pair who come back, play on and stall again deserve another."""
     await _game(
-        "IIIIII", position=45, idle=IDLE_BEFORE_NUDGE * 2,
+        "IIIIII",
+        position=45,
+        idle=IDLE_BEFORE_NUDGE * 2,
         notified=datetime.utcnow() - timedelta(days=1),
     )
     bot = _bot()
@@ -173,7 +179,7 @@ async def test_rolling_again_makes_a_game_eligible_for_a_later_nudge(db):
 
     async with get_db() as session:
         game = await Steps69Repository.get_by_code(session, "IIIIII")
-        game.resume_notified_at = None          # what /roll does
+        game.resume_notified_at = None  # what /roll does
         game.updated_at = datetime.utcnow() - IDLE_BEFORE_NUDGE * 2
 
     assert await nudge_stalled_games(bot) == 1
@@ -208,14 +214,22 @@ async def test_a_nudge_run_cut_short_is_resumed_without_repeating_itself(db):
     await _game("RUN00002", position=20, idle=IDLE_BEFORE_NUDGE * 2)
     await _game("RUN00003", position=30, idle=IDLE_BEFORE_NUDGE * 2)
     async with get_db() as session:
-        ids = [g.id for g in await Steps69Repository.stalled(
-            session, datetime.utcnow(), datetime.utcnow() - GIVE_UP_AFTER)]
+        ids = [
+            g.id
+            for g in await Steps69Repository.stalled(
+                session, datetime.utcnow(), datetime.utcnow() - GIVE_UP_AFTER
+            )
+        ]
 
     bot = _bot()
     # Game 1 reached; game 2's pair cannot be reached; the process dies on
     # game 3's first message.
     bot.send_message.side_effect = [
-        None, None, Forbidden("no chat"), Forbidden("no chat"), asyncio.CancelledError(),
+        None,
+        None,
+        Forbidden("no chat"),
+        Forbidden("no chat"),
+        asyncio.CancelledError(),
     ]
     run = Run.detached_for("steps69_nudge")
     try:

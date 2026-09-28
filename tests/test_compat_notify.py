@@ -25,6 +25,7 @@ def _users(languages):
     both are patched where they are defined, not on `compat_notify`.
     `languages` maps telegram user id to the stored language code.
     """
+
     async def _get(_session, telegram_user_id):
         if telegram_user_id not in languages:
             return None
@@ -41,9 +42,7 @@ def _send(user_ids, languages=None, bot=None, code="ABC123"):
     if bot is None:
         bot = MagicMock()
         bot.send_message = AsyncMock()
-    with _users(languages or {}), patch(
-        "vechnost_bot.compat_notify._bot", return_value=bot
-    ):
+    with _users(languages or {}), patch("vechnost_bot.compat_notify._bot", return_value=bot):
         asyncio.run(notify_result_ready(user_ids, code=code))
     return bot
 

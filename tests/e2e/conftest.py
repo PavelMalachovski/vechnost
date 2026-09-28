@@ -90,15 +90,15 @@ def _inprocess_server(tmp_path: Any) -> Iterator[Any]:
         stack.enter_context(patch.object(database, "async_session_maker", None))
         stack.enter_context(patch.object(database, "_tables_created", False))
         # Pushes go to the fake Telegram, where a scenario can read them.
-        stack.enter_context(patch.object(
-            compat_notify, "_bot", lambda: telegram.bot(settings.telegram_bot_token)
-        ))
-        stack.enter_context(patch.object(
-            grant_notify, "_bot", lambda: telegram.bot(settings.telegram_bot_token)
-        ))
-        stack.enter_context(patch.object(
-            partner_notify, "_bot", lambda: telegram.bot(settings.telegram_bot_token)
-        ))
+        stack.enter_context(
+            patch.object(compat_notify, "_bot", lambda: telegram.bot(settings.telegram_bot_token))
+        )
+        stack.enter_context(
+            patch.object(grant_notify, "_bot", lambda: telegram.bot(settings.telegram_bot_token))
+        )
+        stack.enter_context(
+            patch.object(partner_notify, "_bot", lambda: telegram.bot(settings.telegram_bot_token))
+        )
         stack.enter_context(patch.object(gifts, "Bot", lambda token: telegram.bot(token)))
         client = stack.enter_context(TestClient(app, base_url="http://e2e.test"))
         server = Server(

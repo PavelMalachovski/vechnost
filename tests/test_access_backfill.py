@@ -68,7 +68,9 @@ async def _subscriptions(telegram_user_id: int) -> int:
 
     async with database.get_db() as session:
         result = await session.execute(
-            select(func.count()).select_from(Subscription).join(User)
+            select(func.count())
+            .select_from(Subscription)
+            .join(User)
             .where(User.telegram_user_id == telegram_user_id)
         )
         return int(result.scalar_one())

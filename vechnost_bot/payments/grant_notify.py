@@ -42,12 +42,16 @@ def _keyboard(language: Language) -> InlineKeyboardMarkup | None:
     """
     if not settings.webapp_url:
         return None
-    return InlineKeyboardMarkup([[
-        InlineKeyboardButton(
-            get_text("grant.open_button", language),
-            web_app=WebAppInfo(url=settings.webapp_url),
-        )
-    ]])
+    return InlineKeyboardMarkup(
+        [
+            [
+                InlineKeyboardButton(
+                    get_text("grant.open_button", language),
+                    web_app=WebAppInfo(url=settings.webapp_url),
+                )
+            ]
+        ]
+    )
 
 
 async def _language(telegram_user_id: int) -> Language:
@@ -83,7 +87,9 @@ async def notify_access_granted(telegram_user_id: int, lifetime: bool = True) ->
             try:
                 await bot.send_message(
                     chat_id=telegram_user_id,
-                    text=get_text("grant.message" if lifetime else "grant.message_subscription", language),
+                    text=get_text(
+                        "grant.message" if lifetime else "grant.message_subscription", language
+                    ),
                     reply_markup=_keyboard(language),
                 )
             except Forbidden:

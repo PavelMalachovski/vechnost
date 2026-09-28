@@ -33,6 +33,7 @@ from vechnost_bot.payments import throttle as _throttle
 # Autouse fixtures
 # ============================================================================
 
+
 @pytest.fixture(autouse=True)
 def _reset_request_throttle():
     """Give every test a fresh rate-limit budget.
@@ -118,6 +119,7 @@ def _database_engines_are_disposed():
 # Sessions
 # ============================================================================
 
+
 @pytest.fixture
 def memory_session_store():
     """A session store of the test's own, in memory, as production runs."""
@@ -129,6 +131,7 @@ def memory_session_store():
 # ============================================================================
 # Telegram doubles
 # ============================================================================
+
 
 @pytest.fixture
 def mock_user():
@@ -208,10 +211,12 @@ def mock_context():
 # Failures to inject
 # ============================================================================
 
+
 @pytest.fixture
 def mock_redis_error():
     """What redis-py raises when the server is not there."""
     from redis.exceptions import ConnectionError as RedisConnectionError
+
     return RedisConnectionError("Error 22 connecting to localhost:6379")
 
 
@@ -219,12 +224,14 @@ def mock_redis_error():
 def mock_telegram_error():
     """What python-telegram-bot raises when the Bot API refuses a call."""
     from telegram.error import TelegramError
+
     return TelegramError("Telegram API error")
 
 
 # ============================================================================
 # Collection
 # ============================================================================
+
 
 def _redis_is_reachable() -> bool:
     import socket

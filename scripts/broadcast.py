@@ -54,8 +54,7 @@ async def broadcast(text: str, confirm: bool, limit: int | None) -> int:
 
     report = await run(send, limit=limit, on_progress=progress)
     logger.info(
-        f"Done: {report.sent} sent, {report.blocked} blocked the bot, "
-        f"{len(report.failed)} failed"
+        f"Done: {report.sent} sent, {report.blocked} blocked the bot, {len(report.failed)} failed"
     )
     if report.failed:
         logger.info(f"Failed ids: {', '.join(str(i) for i in report.failed)}")
@@ -67,18 +66,19 @@ def main() -> None:
     source = parser.add_mutually_exclusive_group(required=True)
     source.add_argument("--message-file", type=Path, help="UTF-8 file holding the message")
     source.add_argument("--message", help="the message itself")
-    parser.add_argument("--confirm", action="store_true",
-                        help="actually send. Without it this is a dry run.")
-    parser.add_argument("--dry-run", action="store_true",
-                        help="show what would be sent and stop. The default, "
-                             "but say it out loud when you mean it.")
-    parser.add_argument("--limit", type=int,
-                        help="send to at most N users, for a rehearsal")
+    parser.add_argument(
+        "--confirm", action="store_true", help="actually send. Without it this is a dry run."
+    )
+    parser.add_argument(
+        "--dry-run",
+        action="store_true",
+        help="show what would be sent and stop. The default, but say it out loud when you mean it.",
+    )
+    parser.add_argument("--limit", type=int, help="send to at most N users, for a rehearsal")
     args = parser.parse_args()
 
     text = (
-        args.message_file.read_text(encoding="utf-8").strip()
-        if args.message_file else args.message
+        args.message_file.read_text(encoding="utf-8").strip() if args.message_file else args.message
     )
     if not text:
         parser.error("the message is empty")

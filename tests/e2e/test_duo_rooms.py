@@ -38,9 +38,22 @@ def open_room(creator: Player, deck: dict[str, Any] = DECK) -> str:
 
 def assert_same_table(a: dict[str, Any], b: dict[str, Any]) -> None:
     """Two phones looking at one room must agree on everything but whose they are."""
-    for key in ("code", "idx", "total", "full_total", "trimmed", "card_index",
-                "card_text", "finished", "started", "turn_name", "players",
-                "theme", "level", "type"):
+    for key in (
+        "code",
+        "idx",
+        "total",
+        "full_total",
+        "trimmed",
+        "card_index",
+        "card_text",
+        "finished",
+        "started",
+        "turn_name",
+        "players",
+        "theme",
+        "level",
+        "type",
+    ):
         assert a[key] == b[key], f"the partners disagree on {key!r}: {a[key]!r} vs {b[key]!r}"
     assert {a["your_role"], b["your_role"]} == {"creator", "guest"}
     if a["started"] and not a["finished"]:
@@ -69,7 +82,9 @@ def test_paid_creator_and_unpaid_guest_play_the_whole_deck(server: Server) -> No
         shown.append(a["card_index"])
 
         mover, waiter = (alice, bob) if a["your_turn"] else (bob, alice)
-        assert mover is (alice if step % 2 == 0 else bob), "the creator turns first, then they alternate"
+        assert mover is (alice if step % 2 == 0 else bob), (
+            "the creator turns first, then they alternate"
+        )
         # Out of turn: refused, and nothing moves.
         assert waiter.status("POST", f"/api/rooms/{code}/advance") == 403
         assert alice.ok("GET", f"/api/rooms/{code}")["idx"] == step
@@ -223,13 +238,20 @@ def test_the_partner_who_did_not_pay_can_share_the_card_on_the_table(server: Ser
 
     # Only what the room has dealt, only to who sits in it, only that deck.
     undealt = next(i for i in range(FREE_CARDS_PER_DECK, DECK_SIZE) if i not in dealt)
-    assert bob.status(
-        "GET", f"/api/card?theme=Acquaintance&level=1&type=questions&idx={undealt}&room={code}"
-    ) == 403
+    assert (
+        bob.status(
+            "GET", f"/api/card?theme=Acquaintance&level=1&type=questions&idx={undealt}&room={code}"
+        )
+        == 403
+    )
     assert carol.status("GET", f"{card}&room={code}") == 403
-    assert bob.status(
-        "GET", f"/api/card?theme=Acquaintance&level=2&type=questions&idx={dealt[-1]}&room={code}"
-    ) == 403
+    assert (
+        bob.status(
+            "GET",
+            f"/api/card?theme=Acquaintance&level=2&type=questions&idx={dealt[-1]}&room={code}",
+        )
+        == 403
+    )
     assert bob.status("GET", f"{card}&room={invites.new_code()}") == 403
 
 
@@ -311,8 +333,9 @@ def test_a_stranger_behind_the_same_carrier_nat_does_not_lock_the_partner_out(
     code = open_room(alice)
 
     limit, _ = throttle.LIMITS["join"]
-    guesses = [carol.status("POST", f"/api/rooms/{invites.new_code()}/join")
-               for _ in range(limit + 1)]
+    guesses = [
+        carol.status("POST", f"/api/rooms/{invites.new_code()}/join") for _ in range(limit + 1)
+    ]
     assert guesses[:limit] == [404] * limit and guesses[-1] == 429
 
     joined = bob.ok("POST", f"/api/rooms/{code}/join")
@@ -325,11 +348,14 @@ def test_stale_initdata_is_refused(server: Server) -> None:
     assert stale.status("POST", "/api/rooms", DECK) == 401
 
 
-@pytest.mark.parametrize("deck", [
-    {"theme": "For Couples", "level": 3, "type": "questions"},
-    {"theme": "Sex", "type": "tasks"},
-    {"theme": "Provocation", "type": "questions"},
-])
+@pytest.mark.parametrize(
+    "deck",
+    [
+        {"theme": "For Couples", "level": 3, "type": "questions"},
+        {"theme": "Sex", "type": "tasks"},
+        {"theme": "Provocation", "type": "questions"},
+    ],
+)
 def test_every_deck_opens_for_two(server: Server, deck: dict[str, Any]) -> None:
     alice = server.player("Alice", paid=True)
     bob = server.player("Bob")

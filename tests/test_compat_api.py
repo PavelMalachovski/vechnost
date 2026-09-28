@@ -30,9 +30,7 @@ def notifier():
     suite passes either way — until CI has no network and they become
     connect timeouts.
     """
-    with patch.object(
-        compat_api, "notify_result_ready", new_callable=AsyncMock
-    ) as mock:
+    with patch.object(compat_api, "notify_result_ready", new_callable=AsyncMock) as mock:
         yield mock
 
 
@@ -129,9 +127,7 @@ def test_result_carries_no_sphere_score(client):
     _answer_all(client, code, HEAD_A, 4)
     _answer_all(client, code, HEAD_B, 2)
 
-    assert "score" not in client.get(
-        f"/api/compat/{code}/result", headers=HEAD_A
-    ).text
+    assert "score" not in client.get(f"/api/compat/{code}/result", headers=HEAD_A).text
     assert "score" not in client.get("/api/compat/mine", headers=HEAD_A).text
 
 
@@ -148,14 +144,16 @@ def test_a_partner_cannot_reconstruct_the_others_sphere_sums(client):
     mine = [(i % 5) + 1 for i in range(40)]
     theirs = [((i * 3) % 5) + 1 for i in range(40)]
     for index, value in enumerate(mine):
-        client.post(f"/api/compat/{code}/answer", headers=HEAD_A,
-                    json={"index": index, "value": value})
+        client.post(
+            f"/api/compat/{code}/answer", headers=HEAD_A, json={"index": index, "value": value}
+        )
     for index, value in enumerate(theirs):
-        client.post(f"/api/compat/{code}/answer", headers=HEAD_B,
-                    json={"index": index, "value": value})
+        client.post(
+            f"/api/compat/{code}/answer", headers=HEAD_B, json={"index": index, "value": value}
+        )
 
     payload = client.get(f"/api/compat/{code}/result", headers=HEAD_A).json()
-    secret_sums = [sum(theirs[s * 5:s * 5 + 5]) for s in range(8)]
+    secret_sums = [sum(theirs[s * 5 : s * 5 + 5]) for s in range(8)]
 
     # Every number anywhere in the payload, however nested.
     def numbers(node):
@@ -172,11 +170,11 @@ def test_a_partner_cannot_reconstruct_the_others_sphere_sums(client):
 
     found = set(numbers(payload))
     for sphere_index, secret in enumerate(secret_sums):
-        mine_sum = sum(mine[sphere_index * 5:sphere_index * 5 + 5])
+        mine_sum = sum(mine[sphere_index * 5 : sphere_index * 5 + 5])
         # No number the payload carries inverts to the partner's sphere sum.
-        assert not any(
-            abs(10 * n - mine_sum - secret) < 1e-9 for n in found
-        ), f"sphere {sphere_index}: partner's sum recoverable from the payload"
+        assert not any(abs(10 * n - mine_sum - secret) < 1e-9 for n in found), (
+            f"sphere {sphere_index}: partner's sum recoverable from the payload"
+        )
 
 
 def test_the_result_carries_the_text_of_every_divergent_question(client):
@@ -210,17 +208,19 @@ def test_unknown_code_is_404(client):
 def test_answer_validates_its_input(client):
     code = _create(client)["code"]
     client.post(f"/api/compat/{code}/join", headers=HEAD_B)
-    for payload in ({"index": 40, "value": 3}, {"index": 0, "value": 6},
-                    {"index": -1, "value": 3}, {"index": 0, "value": 0}):
+    for payload in (
+        {"index": 40, "value": 3},
+        {"index": 0, "value": 6},
+        {"index": -1, "value": 3},
+        {"index": 0, "value": 0},
+    ):
         res = client.post(f"/api/compat/{code}/answer", headers=HEAD_A, json=payload)
         assert res.status_code == 422, payload
 
 
 def test_answering_before_a_partner_joins_is_refused(client):
     code = _create(client)["code"]
-    res = client.post(
-        f"/api/compat/{code}/answer", headers=HEAD_A, json={"index": 0, "value": 3}
-    )
+    res = client.post(f"/api/compat/{code}/answer", headers=HEAD_A, json={"index": 0, "value": 3})
     assert res.status_code == 409
 
 
@@ -251,9 +251,7 @@ def test_answering_after_completion_is_refused_and_result_is_unchanged(client):
 
     before = client.get(f"/api/compat/{code}/result", headers=HEAD_A).json()
 
-    res = client.post(
-        f"/api/compat/{code}/answer", headers=HEAD_A, json={"index": 0, "value": 1}
-    )
+    res = client.post(f"/api/compat/{code}/answer", headers=HEAD_A, json={"index": 0, "value": 1})
     assert res.status_code == 409
 
     after = client.get(f"/api/compat/{code}/result", headers=HEAD_A).json()
@@ -284,14 +282,11 @@ def test_state_returns_only_the_callers_own_answered_indices(client):
     code = _create(client)["code"]
     client.post(f"/api/compat/{code}/join", headers=HEAD_B)
     for index in (0, 1, 7):
-        client.post(f"/api/compat/{code}/answer", headers=HEAD_A,
-                    json={"index": index, "value": 3})
+        client.post(f"/api/compat/{code}/answer", headers=HEAD_A, json={"index": index, "value": 3})
 
-    assert client.get(f"/api/compat/{code}", headers=HEAD_A).json()[
-        "answered_indices"] == [0, 1, 7]
+    assert client.get(f"/api/compat/{code}", headers=HEAD_A).json()["answered_indices"] == [0, 1, 7]
     # The partner sees their own empty list, not A's three.
-    assert client.get(f"/api/compat/{code}", headers=HEAD_B).json()[
-        "answered_indices"] == []
+    assert client.get(f"/api/compat/{code}", headers=HEAD_B).json()["answered_indices"] == []
 
 
 def test_either_participant_can_delete_the_test(client):
@@ -323,8 +318,7 @@ def test_an_unfinished_test_can_be_deleted_too(client):
     code = _create(client)["code"]
     client.post(f"/api/compat/{code}/join", headers=HEAD_B)
     for index in range(20):
-        client.post(f"/api/compat/{code}/answer", headers=HEAD_A,
-                    json={"index": index, "value": 4})
+        client.post(f"/api/compat/{code}/answer", headers=HEAD_A, json={"index": index, "value": 4})
 
     assert client.delete(f"/api/compat/{code}", headers=HEAD_A).status_code == 200
     assert client.get(f"/api/compat/{code}", headers=HEAD_A).status_code == 404

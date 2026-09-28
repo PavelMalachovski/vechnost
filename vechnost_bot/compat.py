@@ -146,9 +146,7 @@ def _framing(result: SphereResult, framings: dict[str, str]) -> str | None:
     return None
 
 
-def build_result(
-    a: list[int], b: list[int], language: Language = Language.RUSSIAN
-) -> CompatResult:
+def build_result(a: list[int], b: list[int], language: Language = Language.RUSSIAN) -> CompatResult:
     """Compare two completed answer sets. Raises ValueError on bad input."""
     if len(a) != TOTAL_QUESTIONS or len(b) != TOTAL_QUESTIONS:
         raise ValueError(f"both answer sets must hold {TOTAL_QUESTIONS} answers")
@@ -165,8 +163,8 @@ def build_result(
 
     for index, sphere in enumerate(spheres):
         start = index * QUESTIONS_PER_SPHERE
-        slice_a = a[start:start + QUESTIONS_PER_SPHERE]
-        slice_b = b[start:start + QUESTIONS_PER_SPHERE]
+        slice_a = a[start : start + QUESTIONS_PER_SPHERE]
+        slice_b = b[start : start + QUESTIONS_PER_SPHERE]
         avg_a = sum(slice_a) / QUESTIONS_PER_SPHERE
         avg_b = sum(slice_b) / QUESTIONS_PER_SPHERE
         gaps = [abs(x - y) for x, y in zip(slice_a, slice_b, strict=True)]
@@ -176,14 +174,16 @@ def build_result(
             "growth": sphere.imbalance,
             "crisis": sphere.crisis,
         }[zone]
-        results.append(SphereResult(
-            id=sphere.id,
-            title=sphere.title,
-            zone=zone,
-            verdict=verdict,
-            # 1-based and global: sphere 8's questions are 36..40.
-            divergent=[start + i + 1 for i, gap in enumerate(gaps) if gap >= 3],
-        ))
+        results.append(
+            SphereResult(
+                id=sphere.id,
+                title=sphere.title,
+                zone=zone,
+                verdict=verdict,
+                # 1-based and global: sphere 8's questions are 36..40.
+                divergent=[start + i + 1 for i, gap in enumerate(gaps) if gap >= 3],
+            )
+        )
         scores.append((avg_a + avg_b) / 2)
 
     percent = round((sum(scores) / len(scores) - 1) / 4 * 100)
@@ -225,6 +225,7 @@ def build_result(
                 sphere=r.title,
                 numbers=", ".join(str(n) for n in r.divergent) or "—",
             )
-            for r in results if r.zone == "crisis"
+            for r in results
+            if r.zone == "crisis"
         ],
     )

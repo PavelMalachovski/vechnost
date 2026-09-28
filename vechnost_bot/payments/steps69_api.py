@@ -132,9 +132,7 @@ async def _require_access(user_id: int) -> None:
         raise HTTPException(status_code=402, detail="payment required")
 
 
-async def _find(
-    session: AsyncSession, code: str, for_update: bool = False
-) -> Steps69Game | None:
+async def _find(session: AsyncSession, code: str, for_update: bool = False) -> Steps69Game | None:
     """The game behind a code, or None - without asking the database about a
     code that could never have been minted (see rooms._load_room)."""
     code = code.strip().upper()
@@ -211,9 +209,7 @@ def _player_view(
     }
 
 
-def _state(
-    game: Steps69Game, user_id: int, language: Language
-) -> dict[str, Any]:
+def _state(game: Steps69Game, user_id: int, language: Language) -> dict[str, Any]:
     """The game as one caller may see it."""
     solo = game.mode == "solo"
     started = solo or game.guest_telegram_user_id is not None
@@ -249,9 +245,7 @@ def _state(
         "you": _player_view(game, me, "shared" if solo else "mover", language),
         "partner": _player_view(game, them, "shared" if solo else "partner", language),
         "both_home": _both_home(game),
-        "finale": (
-            steps69.load_finale(language).model_dump() if _both_home(game) else None
-        ),
+        "finale": (steps69.load_finale(language).model_dump() if _both_home(game) else None),
         "finale_choice": game.finale_choice,
         "pieces_taken": [p for p in (game.creator_piece, game.guest_piece) if p],
         # The link the creator sends. Composed here rather than in the client
@@ -280,6 +274,7 @@ def _state(
 # ---------------------------------------------------------------------------
 # Routes. `/mine` is declared before `/{code}` so it is not read as a code.
 # ---------------------------------------------------------------------------
+
 
 @router.get("/pieces")
 async def pieces() -> dict[str, Any]:
@@ -363,16 +358,23 @@ async def join(
         elif game.guest_telegram_user_id is None:
             # Conditional UPDATE: see RoomRepository.seat_guest.
             await Steps69Repository.seat_guest(
-                session, game, user_id, name,
+                session,
+                game,
+                user_id,
+                name,
                 piece=_free_piece(body.piece, game.creator_piece),
             )
             if game.guest_telegram_user_id != user_id:
                 raise HTTPException(status_code=409, detail="game is full")
             analytics.record(session, "s69_join", user_id)
             seated = await partners.seat_taken(
-                session, screen="steps69", code=game.code,
-                creator_id=game.creator_telegram_user_id, creator_name=game.creator_name,
-                guest_id=user_id, guest_name=name,
+                session,
+                screen="steps69",
+                code=game.code,
+                creator_id=game.creator_telegram_user_id,
+                creator_name=game.creator_name,
+                guest_id=user_id,
+                guest_name=name,
             )
         elif game.guest_telegram_user_id != user_id:
             raise HTTPException(status_code=409, detail="game is full")
@@ -455,9 +457,7 @@ async def roll(
         if not solo and game.turn != mover:
             raise HTTPException(status_code=403, detail="not your turn")
 
-        move = steps69.resolve_move(
-            _position(game, mover), steps69.roll_dice(), language
-        )
+        move = steps69.resolve_move(_position(game, mover), steps69.roll_dice(), language)
 
         game.last_seat = mover
         game.last_from = move.start

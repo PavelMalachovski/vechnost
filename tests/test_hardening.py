@@ -38,6 +38,7 @@ def client(tmp_path):
 # S1: a webhook with no secret configured
 # --------------------------------------------------------------------------
 
+
 def test_an_unsigned_webhook_is_refused_when_payments_are_on():
     """The whole paywall rests on this. A Tribute webhook grants lifetime
     access, so accepting one nobody signed means anyone who can reach the
@@ -74,8 +75,10 @@ def test_an_unsigned_grant_before_launch_is_not_access_after_it(client):
     ):
         response = client.post(
             "/webhooks/tribute",
-            json={"name": "new_digital_product",
-                  "payload": {"telegram_user_id": 515151, "amount": 0}},
+            json={
+                "name": "new_digital_product",
+                "payload": {"telegram_user_id": 515151, "amount": 0},
+            },
         )
     assert response.status_code == 200
     assert response.json()["action"] == "ignore"
@@ -85,9 +88,7 @@ def test_an_unsigned_grant_before_launch_is_not_access_after_it(client):
 
 def test_a_forged_signature_is_refused():
     with patch.object(settings, "webhook_secret", "s3cret"):
-        assert verify_tribute_signature(
-            {"X-Tribute-Signature": "0" * 64}, b'{"name":"x"}'
-        ) is False
+        assert verify_tribute_signature({"X-Tribute-Signature": "0" * 64}, b'{"name":"x"}') is False
 
 
 def test_a_real_signature_is_accepted():
@@ -97,9 +98,7 @@ def test_a_real_signature_is_accepted():
     body = b'{"name":"new_digital_product"}'
     signature = hmac.new(b"s3cret", body, hashlib.sha256).hexdigest()
     with patch.object(settings, "webhook_secret", "s3cret"):
-        assert verify_tribute_signature(
-            {"X-Tribute-Signature": signature}, body
-        ) is True
+        assert verify_tribute_signature({"X-Tribute-Signature": signature}, body) is True
 
 
 def test_the_endpoint_rejects_the_forged_grant_end_to_end(client):
@@ -121,6 +120,7 @@ def test_the_endpoint_rejects_the_forged_grant_end_to_end(client):
 # --------------------------------------------------------------------------
 # S2: rate limiting
 # --------------------------------------------------------------------------
+
 
 def test_the_join_budget_runs_out():
     throttle.reset()
@@ -209,7 +209,9 @@ def test_the_forwarded_address_wins_over_the_socket_peer():
     """Behind a platform proxy every request arrives from the proxy, so
     keying on the peer would put every user of the product in one bucket."""
     with patch.object(settings, "trusted_proxy_hops", 1):
-        assert throttle.client_key(_request({"x-forwarded-for": "1.2.3.4"}, "10.0.0.1")) == "1.2.3.4"
+        assert (
+            throttle.client_key(_request({"x-forwarded-for": "1.2.3.4"}, "10.0.0.1")) == "1.2.3.4"
+        )
         assert throttle.client_key(_request({}, "10.0.0.1")) == "10.0.0.1"
 
 
@@ -327,22 +329,19 @@ def test_every_bucket_that_costs_the_box_has_a_global_ceiling():
 # S3: the admin token
 # --------------------------------------------------------------------------
 
+
 def test_admin_is_closed_when_no_secret_is_configured(client):
     with (
         patch.object(settings, "admin_token", None),
         patch.object(settings, "tribute_api_key", None),
     ):
-        response = client.post(
-            "/admin/sync-products", headers={"Authorization": "Bearer anything"}
-        )
+        response = client.post("/admin/sync-products", headers={"Authorization": "Bearer anything"})
     assert response.status_code == 503
 
 
 def test_admin_rejects_a_wrong_token(client):
     with patch.object(settings, "admin_token", "right"):
-        response = client.post(
-            "/admin/sync-products", headers={"Authorization": "Bearer wrong"}
-        )
+        response = client.post("/admin/sync-products", headers={"Authorization": "Bearer wrong"})
     assert response.status_code == 401
 
 
@@ -351,9 +350,7 @@ def test_admin_falls_back_to_the_tribute_key_for_existing_deployments(client):
         patch.object(settings, "admin_token", None),
         patch.object(settings, "tribute_api_key", "legacy-key"),
     ):
-        response = client.post(
-            "/admin/sync-products", headers={"Authorization": "Bearer wrong"}
-        )
+        response = client.post("/admin/sync-products", headers={"Authorization": "Bearer wrong"})
     assert response.status_code == 401  # reached the comparison, not the 503
 
 
@@ -386,6 +383,7 @@ def test_admin_guesses_are_throttled(client):
 # S4: what the caller is told about a failure
 # --------------------------------------------------------------------------
 
+
 def test_a_crash_inside_the_webhook_tells_the_caller_nothing(client):
     """The detail field goes to whoever sent the request; an unhandled
     exception carries SQL, driver and filesystem fragments."""
@@ -414,9 +412,7 @@ def test_a_failed_product_sync_tells_the_caller_nothing(client):
             side_effect=RuntimeError("bearer tok_live_abc123 rejected"),
         ),
     ):
-        response = client.post(
-            "/admin/sync-products", headers={"Authorization": "Bearer right"}
-        )
+        response = client.post("/admin/sync-products", headers={"Authorization": "Bearer right"})
 
     assert response.status_code == 500
     assert "tok_live_abc123" not in response.text
@@ -449,6 +445,7 @@ def test_a_throttled_creator_is_told_they_are_throttled_not_that_it_broke():
 # --------------------------------------------------------------------------
 # Framing, and which commit is answering
 # --------------------------------------------------------------------------
+
 
 def test_telegram_web_may_frame_the_app_and_nobody_else_may(client):
     """Telegram Web opens a Mini App in an <iframe> under web.telegram.org.

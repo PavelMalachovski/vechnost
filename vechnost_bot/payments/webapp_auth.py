@@ -53,15 +53,11 @@ def validate_init_data(
 
     data_check_string = "\n".join(f"{k}={v}" for k, v in sorted(pairs.items()))
     secret_key = hmac.new(b"WebAppData", bot_token.encode(), hashlib.sha256).digest()
-    expected_hash = hmac.new(
-        secret_key, data_check_string.encode(), hashlib.sha256
-    ).hexdigest()
+    expected_hash = hmac.new(secret_key, data_check_string.encode(), hashlib.sha256).hexdigest()
 
     # Bytes, not str: compare_digest raises TypeError on a non-ASCII str, and
     # the hash is whatever the caller wrote - an unauthenticated 500 for "é".
-    if not hmac.compare_digest(
-        expected_hash.encode(), received_hash.encode("utf-8", "replace")
-    ):
+    if not hmac.compare_digest(expected_hash.encode(), received_hash.encode("utf-8", "replace")):
         raise InitDataError("initData signature mismatch")
 
     try:

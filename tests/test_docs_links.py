@@ -44,8 +44,10 @@ def test_every_relative_link_resolves(document):
         resolved = (source.parent / path).resolve() if path else source
         if not resolved.exists():
             broken.append(target)
-        elif anchor and resolved.suffix == ".md" and anchor not in _anchors(
-            resolved.read_text(encoding="utf-8")
+        elif (
+            anchor
+            and resolved.suffix == ".md"
+            and anchor not in _anchors(resolved.read_text(encoding="utf-8"))
         ):
             broken.append(target)
     assert not broken, f"{document} links to what is not there: {broken}"

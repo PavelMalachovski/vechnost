@@ -100,9 +100,7 @@ class User(Base):
     # it goes when that person is erased.
     partner_telegram_user_id: Mapped[int | None] = mapped_column(BigInteger, nullable=True)
     partner_since: Mapped[datetime | None] = mapped_column(nullable=True)
-    created_at: Mapped[datetime] = mapped_column(
-        default=datetime.utcnow, nullable=False
-    )
+    created_at: Mapped[datetime] = mapped_column(default=datetime.utcnow, nullable=False)
 
     # Relationships
     payments: Mapped[list["Payment"]] = relationship(
@@ -116,12 +114,14 @@ class User(Base):
         # Who a user invited, for `/invite`'s count and for `erase`. Partial:
         # most people were invited by nobody and need no entry.
         Index(
-            "idx_users_referred_by", "referred_by",
+            "idx_users_referred_by",
+            "referred_by",
             **_partial(column("referred_by").is_not(None)),
         ),
         # Whose partner a user is, for `erase`; partial for the same reason.
         Index(
-            "idx_users_partner", "partner_telegram_user_id",
+            "idx_users_partner",
+            "partner_telegram_user_id",
             **_partial(column("partner_telegram_user_id").is_not(None)),
         ),
     )
@@ -148,9 +148,7 @@ class Product(Base):
     )
 
     # Relationships
-    payments: Mapped[list["Payment"]] = relationship(
-        "Payment", back_populates="product"
-    )
+    payments: Mapped[list["Payment"]] = relationship("Payment", back_populates="product")
 
     def __repr__(self) -> str:
         return f"<Product(id={self.id}, name='{self.name}', amount={self.amount}, currency='{self.currency}')>"
@@ -164,12 +162,8 @@ class Payment(Base):
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
     provider: Mapped[str] = mapped_column(String, default="tribute", nullable=False)
     event_name: Mapped[str] = mapped_column(String, nullable=False)
-    user_id: Mapped[int] = mapped_column(
-        Integer, ForeignKey("users.id"), nullable=False
-    )
-    telegram_user_id: Mapped[int] = mapped_column(
-        BigInteger, nullable=False
-    )  # Denormalized
+    user_id: Mapped[int] = mapped_column(Integer, ForeignKey("users.id"), nullable=False)
+    telegram_user_id: Mapped[int] = mapped_column(BigInteger, nullable=False)  # Denormalized
     product_id: Mapped[int | None] = mapped_column(
         Integer, ForeignKey("products.id"), nullable=True
     )
@@ -179,15 +173,11 @@ class Payment(Base):
     raw_body: Mapped[dict] = mapped_column(JSONEncodedDict, nullable=False)
     signature: Mapped[str] = mapped_column(String, nullable=False)
     body_sha256: Mapped[str] = mapped_column(String, unique=True, nullable=False)
-    created_at: Mapped[datetime] = mapped_column(
-        default=datetime.utcnow, nullable=False
-    )
+    created_at: Mapped[datetime] = mapped_column(default=datetime.utcnow, nullable=False)
 
     # Relationships
     user: Mapped["User"] = relationship("User", back_populates="payments")
-    product: Mapped[Optional["Product"]] = relationship(
-        "Product", back_populates="payments"
-    )
+    product: Mapped[Optional["Product"]] = relationship("Product", back_populates="payments")
 
     __table_args__ = (Index("idx_telegram_user_id_payments", "telegram_user_id"),)
 
@@ -201,25 +191,19 @@ class Subscription(Base):
     __tablename__ = "subscriptions"
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
-    user_id: Mapped[int] = mapped_column(
-        Integer, ForeignKey("users.id"), nullable=False
-    )
-    subscription_id: Mapped[int] = mapped_column(
-        Integer, nullable=False
-    )  # ID from Tribute
+    user_id: Mapped[int] = mapped_column(Integer, ForeignKey("users.id"), nullable=False)
+    subscription_id: Mapped[int] = mapped_column(Integer, nullable=False)  # ID from Tribute
     period: Mapped[str] = mapped_column(String, nullable=False)
     status: Mapped[str] = mapped_column(String, nullable=False)
-    expires_at: Mapped[datetime | None] = mapped_column(nullable=True)  # NULL = lifetime subscription
-    last_event_at: Mapped[datetime] = mapped_column(
-        default=datetime.utcnow, nullable=False
-    )
+    expires_at: Mapped[datetime | None] = mapped_column(
+        nullable=True
+    )  # NULL = lifetime subscription
+    last_event_at: Mapped[datetime] = mapped_column(default=datetime.utcnow, nullable=False)
 
     # Relationships
     user: Mapped["User"] = relationship("User", back_populates="subscriptions")
 
-    __table_args__ = (
-        UniqueConstraint("user_id", "subscription_id", name="uq_user_subscription"),
-    )
+    __table_args__ = (UniqueConstraint("user_id", "subscription_id", name="uq_user_subscription"),)
 
     @property
     def is_lifetime(self) -> bool:
@@ -238,9 +222,7 @@ class WebhookEvent(Base):
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
     name: Mapped[str] = mapped_column(String, nullable=False)
     sent_at: Mapped[datetime] = mapped_column(nullable=False)
-    created_at: Mapped[datetime] = mapped_column(
-        default=datetime.utcnow, nullable=False
-    )
+    created_at: Mapped[datetime] = mapped_column(default=datetime.utcnow, nullable=False)
     body_sha256: Mapped[str] = mapped_column(String, unique=True, nullable=False)
     # A hash of what makes two deliveries one event: its name and Tribute's
     # purchase id, or its name, when it happened, the buyer and what was
@@ -264,8 +246,12 @@ class Certificate(Base):
     __tablename__ = "certificates"
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
-    code: Mapped[str] = mapped_column(String, unique=True, nullable=False)  # Unique certificate code
-    is_used: Mapped[bool] = mapped_column(default=False, nullable=False)  # Whether certificate was used
+    code: Mapped[str] = mapped_column(
+        String, unique=True, nullable=False
+    )  # Unique certificate code
+    is_used: Mapped[bool] = mapped_column(
+        default=False, nullable=False
+    )  # Whether certificate was used
     used_by_telegram_user_id: Mapped[int | None] = mapped_column(
         BigInteger, nullable=True
     )  # Who used the certificate
@@ -409,7 +395,8 @@ class Steps69Game(Base):
         # Games still on the board, by last move: the resume nudge and the
         # retention sweep. Finished games are kept forever and never asked.
         Index(
-            "idx_steps69_unfinished_updated", "updated_at",
+            "idx_steps69_unfinished_updated",
+            "updated_at",
             **_partial(column("finished").is_(False)),
         ),
     )
@@ -537,7 +524,8 @@ class CompatTest(Base):
         Index("idx_compat_guest", "guest_telegram_user_id"),
         # Tests nobody finished, by last answer: the retention sweep.
         Index(
-            "idx_compat_unfinished_updated", "updated_at",
+            "idx_compat_unfinished_updated",
+            "updated_at",
             **_partial(column("finished_at").is_(None)),
         ),
     )

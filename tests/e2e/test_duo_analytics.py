@@ -47,7 +47,9 @@ def test_a_couple_playing_is_counted_on_the_server(server: Server) -> None:
     alice = server.player("Alice", paid=True)
     bob = server.player("Bob")
 
-    room = alice.ok("POST", "/api/rooms?lang=ru", {"theme": "Acquaintance", "level": 1, "type": "questions"})
+    room = alice.ok(
+        "POST", "/api/rooms?lang=ru", {"theme": "Acquaintance", "level": 1, "type": "questions"}
+    )
     bob.ok("POST", f"/api/rooms/{room['code']}/join")
     bob.ok("POST", f"/api/rooms/{room['code']}/join")  # the partner reopening the link
 
@@ -70,7 +72,9 @@ def test_what_the_app_reports_is_a_name_and_one_token(server: Server) -> None:
     alice = server.player("Alice")
 
     def send(name: str, detail: str | None = None, source: str | None = None) -> int:
-        return alice.status("POST", "/api/events", {"name": name, "detail": detail, "source": source})
+        return alice.status(
+            "POST", "/api/events", {"name": name, "detail": detail, "source": source}
+        )
 
     assert send("deck_open", "Acquaintance:1:questions") == 204
     assert send("deck_open", "a question somebody typed") == 204
@@ -100,7 +104,9 @@ def test_the_app_cannot_report_what_only_the_server_knows(server: Server) -> Non
         assert alice.status("POST", "/api/events", {"name": name}) == 422, name
     assert names(server, alice) == []
 
-    response = server.http.post("/api/events", json={"name": "deck_open", "detail": "Sex::questions"})
+    response = server.http.post(
+        "/api/events", json={"name": "deck_open", "detail": "Sex::questions"}
+    )
     assert response.status_code == 204
 
 
@@ -112,9 +118,7 @@ def test_money_is_counted_as_tribute_confirmed_it(server: Server) -> None:
     assert events_of(server, carol)[0] == ("purchase", "lifetime", None)
 
 
-def test_the_bot_counts_an_arrival_with_its_channel_not_its_parameter(
-    server: Server, bot
-) -> None:
+def test_the_bot_counts_an_arrival_with_its_channel_not_its_parameter(server: Server, bot) -> None:
     alice = server.player("Alice", paid=True)
     bob = server.player("Bob")
     carol = server.player("Carol")
@@ -122,7 +126,9 @@ def test_the_bot_counts_an_arrival_with_its_channel_not_its_parameter(
 
     bot.send(alice, "/start")
     bot.send(bob, "/start src_Blogger_Anna")
-    room = alice.ok("POST", "/api/rooms?lang=ru", {"theme": "Acquaintance", "level": 1, "type": "questions"})
+    room = alice.ok(
+        "POST", "/api/rooms?lang=ru", {"theme": "Acquaintance", "level": 1, "type": "questions"}
+    )
     bot.send(carol, f"/start duo_{code_from_invite(room['invite_url'])}")
     bot.send(dave, "/start activate_VECH-ABCD-EFGH")
 
@@ -139,7 +145,9 @@ def test_delete_me_takes_the_counts_with_it(server: Server) -> None:
     from vechnost_bot.payments.repositories import UserRepository
 
     alice = server.player("Alice", paid=True)
-    alice.ok("POST", "/api/rooms?lang=ru", {"theme": "Acquaintance", "level": 1, "type": "questions"})
+    alice.ok(
+        "POST", "/api/rooms?lang=ru", {"theme": "Acquaintance", "level": 1, "type": "questions"}
+    )
     alice.status("POST", "/api/events", {"name": "lib_open", "detail": "dates"})
     assert names(server, alice) == ["purchase", "room_create", "lib_open"]
 
@@ -172,9 +180,7 @@ def test_stats_reads_the_funnel_off_what_happened(server: Server, bot) -> None:
     assert week.activated - before.activated == 1
     sources_before, sources_after = dict(before.sources), dict(week.sources)
     assert sources_after.get("tiktok", 0) - sources_before.get("tiktok", 0) == 1
-    assert (
-        sources_after.get(stats.NO_SOURCE, 0) - sources_before.get(stats.NO_SOURCE, 0) == 1
-    )
+    assert sources_after.get(stats.NO_SOURCE, 0) - sources_before.get(stats.NO_SOURCE, 0) == 1
     assert week.people("paywall_view") - before.people("paywall_view") == 2
     assert week.people("buy_click") - before.people("buy_click") == 1
     assert week.people("purchase") - before.people("purchase") == 1

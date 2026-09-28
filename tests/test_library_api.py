@@ -84,7 +84,7 @@ def test_unpaid_caller_gets_three_items_per_category(paywalled):
     body = client.get("/api/library/dates").json()
     assert body["locked"] is True
     assert all(len(c["items"]) == 3 for c in body["categories"])
-    assert body["free_count"] == 21   # 7 non-spicy categories x 3
+    assert body["free_count"] == 21  # 7 non-spicy categories x 3
     assert body["total"] == 140
 
 
@@ -122,6 +122,7 @@ def test_index_count_for_dates_respects_nsfw_flag():
 # ---------------------------------------------------------------------------
 # The guide: a module served as a document rather than a deck
 # ---------------------------------------------------------------------------
+
 
 def test_a_guide_arrives_as_ordered_steps():
     body = client.get("/api/library/nude_guide").json()
@@ -181,13 +182,13 @@ def test_an_unpaid_caller_never_receives_the_pose_text():
         ),
         patch("vechnost_bot.payments.library_api.user_has_access", return_value=False),
     ):
-        response = client.get(
-            "/api/library/nude_guide?nsfw=1", headers={"Authorization": "tma x"}
-        )
+        response = client.get("/api/library/nude_guide?nsfw=1", headers={"Authorization": "tma x"})
 
     poses = [
-        i.text for s in load_guide("nude_guide", Language.RUSSIAN)
-        if s.id in ("her", "him") for i in s.items
+        i.text
+        for s in load_guide("nude_guide", Language.RUSSIAN)
+        if s.id in ("her", "him")
+        for i in s.items
     ]
     for text in poses:
         assert text not in response.text

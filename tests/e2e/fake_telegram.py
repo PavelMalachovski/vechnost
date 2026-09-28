@@ -31,8 +31,14 @@ BOT_ID = 5_000_000_001
 
 # Methods that put a message in a chat, and so answer with a Message.
 _SENDS = {
-    "sendmessage", "sendphoto", "senddocument", "sendanimation",
-    "sendvideo", "sendvoice", "sendaudio", "sendsticker",
+    "sendmessage",
+    "sendphoto",
+    "senddocument",
+    "sendanimation",
+    "sendvideo",
+    "sendvoice",
+    "sendaudio",
+    "sendsticker",
 }
 _EDITS = {"editmessagetext", "editmessagecaption", "editmessagereplymarkup", "editmessagemedia"}
 
@@ -114,9 +120,14 @@ class FakeTelegram:
             if params.get("text") is not None:
                 extra["text"] = params["text"]
             if name == "sendphoto":
-                extra["photo"] = [{
-                    "file_id": "e2e-photo", "file_unique_id": "e2e", "width": 1, "height": 1,
-                }]
+                extra["photo"] = [
+                    {
+                        "file_id": "e2e-photo",
+                        "file_unique_id": "e2e",
+                        "width": 1,
+                        "height": 1,
+                    }
+                ]
                 if params.get("caption") is not None:
                     extra["caption"] = params["caption"]
             if markup:
@@ -199,31 +210,35 @@ class BotDriver:
         entities = []
         if text.startswith("/"):
             entities = [{"type": "bot_command", "offset": 0, "length": len(text.split()[0])}]
-        self._run({
-            "update_id": next(self._update_ids),
-            "message": {
-                "message_id": next(self.server.telegram._ids),
-                "date": int(time.time()),
-                "chat": {"id": player.id, "type": "private", "first_name": player.name},
-                "from": self._from(player),
-                "text": text,
-                "entities": entities,
-            },
-        })
+        self._run(
+            {
+                "update_id": next(self._update_ids),
+                "message": {
+                    "message_id": next(self.server.telegram._ids),
+                    "date": int(time.time()),
+                    "chat": {"id": player.id, "type": "private", "first_name": player.name},
+                    "from": self._from(player),
+                    "text": text,
+                    "entities": entities,
+                },
+            }
+        )
 
     def press(self, player: Player, sent: Sent, callback_data: str) -> None:
         """The player taps an inline button under a message the bot sent."""
-        self._run({
-            "update_id": next(self._update_ids),
-            "callback_query": {
-                "id": str(next(self._update_ids)),
-                "from": self._from(player),
-                "chat_instance": f"ci-{player.id}",
-                "data": callback_data,
-                "message": self.server.telegram.message(
-                    player.id,
-                    text=sent.text or "…",
-                    **({"reply_markup": sent.markup} if sent.markup else {}),
-                ),
-            },
-        })
+        self._run(
+            {
+                "update_id": next(self._update_ids),
+                "callback_query": {
+                    "id": str(next(self._update_ids)),
+                    "from": self._from(player),
+                    "chat_instance": f"ci-{player.id}",
+                    "data": callback_data,
+                    "message": self.server.telegram.message(
+                        player.id,
+                        text=sent.text or "…",
+                        **({"reply_markup": sent.markup} if sent.markup else {}),
+                    ),
+                },
+            }
+        )

@@ -31,10 +31,18 @@ CALLBACK_PATTERN = f"^({CONFIRM}|{CANCEL})$"
 
 def _keyboard() -> InlineKeyboardMarkup:
     language = Language.RUSSIAN
-    return InlineKeyboardMarkup([[
-        InlineKeyboardButton(get_text("privacy.confirm_button", language), callback_data=CONFIRM),
-        InlineKeyboardButton(get_text("privacy.cancel_button", language), callback_data=CANCEL),
-    ]])
+    return InlineKeyboardMarkup(
+        [
+            [
+                InlineKeyboardButton(
+                    get_text("privacy.confirm_button", language), callback_data=CONFIRM
+                ),
+                InlineKeyboardButton(
+                    get_text("privacy.cancel_button", language), callback_data=CANCEL
+                ),
+            ]
+        ]
+    )
 
 
 async def erase_user(telegram_user_id: int) -> dict[str, int]:
@@ -60,9 +68,7 @@ async def delete_me_command(update: Update, context: ContextTypes.DEFAULT_TYPE) 
     user = update.effective_user
     if message is None or user is None:
         return
-    await message.reply_text(
-        get_text("privacy.ask", Language.RUSSIAN), reply_markup=_keyboard()
-    )
+    await message.reply_text(get_text("privacy.ask", Language.RUSSIAN), reply_markup=_keyboard())
 
 
 async def delete_me_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:

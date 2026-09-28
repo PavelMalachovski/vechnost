@@ -39,6 +39,7 @@ class FakeClock:
 # Choosing the store
 # ---------------------------------------------------------------------------
 
+
 def test_without_redis_url_sessions_stay_in_memory():
     with patch.object(settings, "redis_url", None):
         assert isinstance(configured_store(), MemorySessionStore)
@@ -133,6 +134,7 @@ async def test_a_redis_that_is_not_there_is_an_error_not_a_fallback():
 # The memory store
 # ---------------------------------------------------------------------------
 
+
 async def test_a_session_is_forgotten_ttl_seconds_after_its_last_save():
     clock = FakeClock()
     store = MemorySessionStore(ttl=60, clock=clock)
@@ -198,10 +200,19 @@ async def test_a_read_hands_out_a_copy_as_redis_does():
 
 async def test_a_stored_retired_language_comes_back_russian():
     store = MemorySessionStore(ttl=60)
-    store._rows[7] = (time.monotonic() + 60, json.dumps({
-        "theme": "Acquaintance", "level": 2, "content_type": "questions",
-        "drawn_cards": ["x"], "is_nsfw_confirmed": True, "language": "en",
-    }))
+    store._rows[7] = (
+        time.monotonic() + 60,
+        json.dumps(
+            {
+                "theme": "Acquaintance",
+                "level": 2,
+                "content_type": "questions",
+                "drawn_cards": ["x"],
+                "is_nsfw_confirmed": True,
+                "language": "en",
+            }
+        ),
+    )
 
     session = await store.get_session(7)
 
@@ -222,6 +233,7 @@ async def test_an_unreadable_session_is_a_fresh_start_not_an_error():
 # ---------------------------------------------------------------------------
 # The facade the handlers use
 # ---------------------------------------------------------------------------
+
 
 async def test_an_unknown_chat_gets_a_fresh_session_and_nothing_is_written():
     session = await get_session(4242)
@@ -268,6 +280,7 @@ async def test_a_session_read_does_not_hold_the_event_loop():
 # «Сбросить игру» over a store that serializes
 # ---------------------------------------------------------------------------
 
+
 class _SerializingStore:
     """Hands out a fresh copy on every read, the way Redis does.
 
@@ -296,9 +309,14 @@ class _SerializingStore:
         self.rows.clear()
 
 
-@pytest.mark.parametrize("make_store", [
-    _SerializingStore, lambda: MemorySessionStore(ttl=60),
-], ids=["serializing-fake", "memory"])
+@pytest.mark.parametrize(
+    "make_store",
+    [
+        _SerializingStore,
+        lambda: MemorySessionStore(ttl=60),
+    ],
+    ids=["serializing-fake", "memory"],
+)
 async def test_reset_sticks_when_the_store_serializes_the_session(make_store):
     """«Сбросить игру» must reset what is saved, not a copy of it.
 
@@ -312,9 +330,14 @@ async def test_reset_sticks_when_the_store_serializes_the_session(make_store):
 
     store = make_store()
     chat_id = 4242
-    await store.save_session(chat_id, SessionState(
-        theme=Theme.SEX, level=2, is_nsfw_confirmed=True,
-    ))
+    await store.save_session(
+        chat_id,
+        SessionState(
+            theme=Theme.SEX,
+            level=2,
+            is_nsfw_confirmed=True,
+        ),
+    )
 
     query = MagicMock()
     query.message.chat.id = chat_id

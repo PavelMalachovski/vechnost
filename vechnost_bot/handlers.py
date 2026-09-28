@@ -57,14 +57,17 @@ async def _send_invite_button(message: Message, screen: str, code: str) -> bool:
 
     kind = {"steps69": "s69", "compat": "compat", "coop": "coop"}[screen]
     language = Language.RUSSIAN
-    text = (
-        f"{get_text(f'invite.{kind}_title', language)}\n\n"
-        f"{get_text('invite.hint', language)}"
+    text = f"{get_text(f'invite.{kind}_title', language)}\n\n{get_text('invite.hint', language)}"
+    keyboard = InlineKeyboardMarkup(
+        [
+            [
+                InlineKeyboardButton(
+                    get_text(f"invite.{kind}_button", language),
+                    web_app=WebAppInfo(url=url),
+                )
+            ]
+        ]
     )
-    keyboard = InlineKeyboardMarkup([[InlineKeyboardButton(
-        get_text(f'invite.{kind}_button', language),
-        web_app=WebAppInfo(url=url),
-    )]])
     await message.reply_text(text, reply_markup=keyboard)
     # The screen only: the code is a seat in someone's game while it is open.
     logger.info(f"Invite link opened: {screen}")
@@ -95,8 +98,7 @@ async def start_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
     # can be a gift certificate code, which is lifetime access to whoever
     # reads the log.
     logger.info(
-        f"Start command received from chat {chat.id} "
-        f"(with parameter: {bool(context.args)})"
+        f"Start command received from chat {chat.id} (with parameter: {bool(context.args)})"
     )
     log_bot_event("start_command", user_id=user_id)
 
@@ -115,7 +117,8 @@ async def start_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
     from .analytics import arrival_source, track
 
     await track(
-        "bot_start", user_id,
+        "bot_start",
+        user_id,
         source=arrival_source(context.args[0] if context.args else None),
     )
 
@@ -279,11 +282,12 @@ async def reset_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
     session = await get_session(chat_id)
     language = session.language
 
-    reset_text = f"{get_text('reset.title', language)}\n\n{get_text('reset.confirm_text', language)}"
+    reset_text = (
+        f"{get_text('reset.title', language)}\n\n{get_text('reset.confirm_text', language)}"
+    )
 
     await update.message.reply_text(
-        reset_text,
-        reply_markup=get_reset_confirmation_keyboard(language)
+        reset_text, reply_markup=get_reset_confirmation_keyboard(language)
     )
 
 
@@ -334,9 +338,7 @@ async def about_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
 
 
 @track_performance("activate_certificate")
-async def activate_certificate_command(
-    update: Update, context: ContextTypes.DEFAULT_TYPE
-) -> None:
+async def activate_certificate_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """Handle the /activate command for certificate activation."""
     message = update.message
     user = update.effective_user
@@ -385,10 +387,16 @@ def _app_keyboard(language: Language) -> InlineKeyboardMarkup | None:
     """The one button into the Mini App, or None where there is no app."""
     if not settings.webapp_url:
         return None
-    return InlineKeyboardMarkup([[InlineKeyboardButton(
-        get_text("welcome.button_webapp", language),
-        web_app=WebAppInfo(url=settings.webapp_url),
-    )]])
+    return InlineKeyboardMarkup(
+        [
+            [
+                InlineKeyboardButton(
+                    get_text("welcome.button_webapp", language),
+                    web_app=WebAppInfo(url=settings.webapp_url),
+                )
+            ]
+        ]
+    )
 
 
 def activation_reply(
@@ -429,12 +437,18 @@ async def ask_to_activate(message: Message, user_id: int, raw_code: str) -> None
     text = get_text("gift.confirm", Language.RUSSIAN, code=html.escape(code))
     if await user_has_access(user_id):
         text += get_text("gift.confirm_has_access", Language.RUSSIAN)
-    keyboard = InlineKeyboardMarkup([[
-        InlineKeyboardButton(get_text("gift.activate_button", Language.RUSSIAN),
-                             callback_data=ACTIVATE),
-        InlineKeyboardButton(get_text("gift.later_button", Language.RUSSIAN),
-                             callback_data=NOT_NOW),
-    ]])
+    keyboard = InlineKeyboardMarkup(
+        [
+            [
+                InlineKeyboardButton(
+                    get_text("gift.activate_button", Language.RUSSIAN), callback_data=ACTIVATE
+                ),
+                InlineKeyboardButton(
+                    get_text("gift.later_button", Language.RUSSIAN), callback_data=NOT_NOW
+                ),
+            ]
+        ]
+    )
     await message.reply_text(text, reply_markup=keyboard, parse_mode="HTML")
 
 
@@ -560,4 +574,5 @@ async def handle_callback_query(update: Update, context: ContextTypes.DEFAULT_TY
 
     # Use the callback handler registry
     from .callback_handlers import callback_registry
+
     await callback_registry.handle_callback(query, data)

@@ -56,14 +56,14 @@ def bot_token() -> str:
 class Device:
     """A phone model: its screen, and the engine that draws it."""
 
-    name: str        # "android" / "iphone": test ids, file names and logs say this
-    title: str       # what a person would call it
-    engine: str      # "chromium" / "webkit"
-    platform: str    # what Telegram.WebApp.platform reports on it
+    name: str  # "android" / "iphone": test ids, file names and logs say this
+    title: str  # what a person would call it
+    engine: str  # "chromium" / "webkit"
+    platform: str  # what Telegram.WebApp.platform reports on it
     width: int
     height: int
-    scale: float     # device pixels per CSS pixel
-    ua_from: str     # the Playwright descriptor whose user agent it borrows
+    scale: float  # device pixels per CSS pixel
+    ua_from: str  # the Playwright descriptor whose user agent it borrows
 
     @property
     def label(self) -> str:
@@ -82,10 +82,10 @@ class Device:
         }
 
 
-ANDROID = Device("android", "Android, Pixel-class", "chromium", "android",
-                 412, 915, 2.625, "Pixel 7")
-IPHONE = Device("iphone", "iPhone 15 Pro-class", "webkit", "ios",
-                393, 852, 3, "iPhone 15 Pro")
+ANDROID = Device(
+    "android", "Android, Pixel-class", "chromium", "android", 412, 915, 2.625, "Pixel 7"
+)
+IPHONE = Device("iphone", "iPhone 15 Pro-class", "webkit", "ios", 393, 852, 3, "iPhone 15 Pro")
 DEVICES = {device.name: device for device in (ANDROID, IPHONE)}
 
 
@@ -103,7 +103,9 @@ def chosen_phones() -> tuple[list[Device], bool]:
     names = [name.strip() for name in given.split(",") if name.strip()]
     unknown = sorted(set(names) - set(DEVICES))
     if unknown:
-        raise pytest.UsageError(f"E2E_PHONES names no such phone: {unknown}; known: {sorted(DEVICES)}")
+        raise pytest.UsageError(
+            f"E2E_PHONES names no such phone: {unknown}; known: {sorted(DEVICES)}"
+        )
     return [DEVICES[name] for name in names], True
 
 
@@ -151,8 +153,8 @@ class ApiCall:
     """One /api request a phone made, and how it ended."""
 
     method: str
-    path: str       # path and query, as the app asked
-    status: int     # 0: no response at all (aborted, refused, timed out)
+    path: str  # path and query, as the app asked
+    status: int  # 0: no response at all (aborted, refused, timed out)
     note: str = ""  # why it failed, when it did not get a response
 
     def __str__(self) -> str:
@@ -211,7 +213,9 @@ class Phone:
 
     def stub(self) -> str:
         unsafe: dict[str, Any] = {
-            "user": self.player.user, "auth_date": int(time.time()), "hash": "e2e",
+            "user": self.player.user,
+            "auth_date": int(time.time()),
+            "hash": "e2e",
         }
         if self.start_param:
             unsafe["start_param"] = self.start_param
@@ -229,10 +233,12 @@ class Phone:
         self.page.goto(f"{self.base_url}/app/")
 
     def back_button_visible(self) -> bool:
-        return bool(self.page.evaluate(
-            "() => !!(window.Telegram && Telegram.WebApp.BackButton"
-            " && Telegram.WebApp.BackButton.isVisible)"
-        ))
+        return bool(
+            self.page.evaluate(
+                "() => !!(window.Telegram && Telegram.WebApp.BackButton"
+                " && Telegram.WebApp.BackButton.isVisible)"
+            )
+        )
 
     def press_back(self) -> None:
         """Telegram's own Back button: the header arrow, Android's back gesture."""
@@ -337,8 +343,15 @@ def open_phone(
         context.tracing.start(screenshots=True, snapshots=True)
     page = context.new_page()
     phone = Phone(
-        player.name, player, page, context, shots, device=device,
-        base_url=base_url, start_param=start_param, telegram=dict(telegram or {}),
+        player.name,
+        player,
+        page,
+        context,
+        shots,
+        device=device,
+        base_url=base_url,
+        start_param=start_param,
+        telegram=dict(telegram or {}),
         webapp_html=webapp_html,
     )
     context.route("**/*", phone.route)

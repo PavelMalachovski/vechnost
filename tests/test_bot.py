@@ -118,7 +118,7 @@ class TestBotSetup:
             with pytest.raises(InvalidToken):
                 create_application()
 
-    @patch('vechnost_bot.bot.Application.run_polling')
+    @patch("vechnost_bot.bot.Application.run_polling")
     def test_run_bot_success(self, mock_run_polling):
         """run_bot builds the application and polls, and starts nothing else.
 
@@ -132,7 +132,7 @@ class TestBotSetup:
 
         mock_run_polling.assert_called_once()
 
-    @patch('vechnost_bot.bot.Application.run_polling')
+    @patch("vechnost_bot.bot.Application.run_polling")
     def test_run_bot_exception_handling(self, mock_run_polling):
         """A failing poll is re-raised."""
         mock_run_polling.side_effect = Exception("Test error")
@@ -153,14 +153,17 @@ class TestConfig:
             assert settings.log_level == "INFO"
             assert settings.environment == "development"
 
-    @patch.dict(os.environ, {
-        "TELEGRAM_BOT_TOKEN": "test_token",
-        "LOG_LEVEL": "DEBUG",
-        "ENVIRONMENT": "production",
-        # Production refuses to start without these (tests/test_config.py).
-        "DATABASE_URL": "postgresql+asyncpg://vechnost@db.internal:5432/vechnost",
-        "ENABLE_PAYMENT": "false",
-    })
+    @patch.dict(
+        os.environ,
+        {
+            "TELEGRAM_BOT_TOKEN": "test_token",
+            "LOG_LEVEL": "DEBUG",
+            "ENVIRONMENT": "production",
+            # Production refuses to start without these (tests/test_config.py).
+            "DATABASE_URL": "postgresql+asyncpg://vechnost@db.internal:5432/vechnost",
+            "ENABLE_PAYMENT": "false",
+        },
+    )
     def test_settings_from_env(self):
         """Test settings from environment variables."""
         settings = Settings()
@@ -180,19 +183,23 @@ class TestConfig:
 # Updates side by side, one chat in order (audit I-06)
 # ---------------------------------------------------------------------------
 
+
 def _message_from(chat_id: int, update_id: int):
     from telegram import Update
 
-    return Update.de_json({
-        "update_id": update_id,
-        "message": {
-            "message_id": update_id,
-            "date": 0,
-            "chat": {"id": chat_id, "type": "private"},
-            "from": {"id": chat_id, "is_bot": False, "first_name": "P"},
-            "text": "/start",
+    return Update.de_json(
+        {
+            "update_id": update_id,
+            "message": {
+                "message_id": update_id,
+                "date": 0,
+                "chat": {"id": chat_id, "type": "private"},
+                "from": {"id": chat_id, "is_bot": False, "first_name": "P"},
+                "text": "/start",
+            },
         },
-    }, None)
+        None,
+    )
 
 
 async def test_one_chat_is_handled_in_order_and_other_chats_meanwhile():

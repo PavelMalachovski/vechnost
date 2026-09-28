@@ -53,11 +53,14 @@ def test_two_people_start_the_bot_at_once_and_each_hears_only_their_own(
     assert server.telegram.texts_to(alice.id) == server.telegram.texts_to(bob.id)
 
 
-@pytest.mark.parametrize("kind, path, screen", [
-    ("cmp", "/api/compat", "compat"),
-    ("duo", "/api/rooms", "coop"),
-    ("s69", "/api/steps69", "steps69"),
-])
+@pytest.mark.parametrize(
+    "kind, path, screen",
+    [
+        ("cmp", "/api/compat", "compat"),
+        ("duo", "/api/rooms", "coop"),
+        ("s69", "/api/steps69", "steps69"),
+    ],
+)
 def test_an_invite_through_the_bot_becomes_a_button_that_seats_the_partner(
     server: Server, bot, kind: str, path: str, screen: str
 ) -> None:
@@ -121,9 +124,7 @@ def referral_param(server: Server, bot, player) -> str:
     return parse_qs(urlsplit(link).query)["start"][0]
 
 
-def test_the_invited_keep_their_discount_when_the_inviter_leaves(
-    server: Server, bot
-) -> None:
+def test_the_invited_keep_their_discount_when_the_inviter_leaves(server: Server, bot) -> None:
     """The inviter's /delete_me clears the link to them, not the price the
     invitation promised: that belongs to the person who was invited."""
     alice = server.player("Alice")
@@ -183,9 +184,7 @@ def test_a_referral_link_changes_nothing_for_someone_already_here(
         bot.send(carol, f"/start {param}")
         said = server.telegram.texts_to(carol.id)[before:]
         assert said, "the welcome screen still answers"
-        assert get_text(
-            "referral.welcome", percent=settings.referral_discount_percent
-        ) not in said
+        assert get_text("referral.welcome", percent=settings.referral_discount_percent) not in said
         assert get_text("referral.welcome_no_discount") not in said
 
         access = carol.ok("GET", "/api/questions")["access"]
@@ -209,8 +208,11 @@ def test_a_gift_bought_by_one_user_unlocks_the_other(server: Server, bot) -> Non
     assert f"?start=activate_{code}" in card.text
 
     def question_to(player):
-        [asked] = [s for s in server.telegram.to(player.id)[-1:]
-                   if {b.get("callback_data") for b in s.buttons()} == {"gift_activate", "gift_later"}]
+        [asked] = [
+            s
+            for s in server.telegram.to(player.id)[-1:]
+            if {b.get("callback_data") for b in s.buttons()} == {"gift_activate", "gift_later"}
+        ]
         assert code in asked.text and code not in str(asked.markup)
         return asked
 
@@ -247,7 +249,9 @@ def test_a_refunded_gift_is_taken_back_from_whoever_redeemed_it(server: Server, 
     alice = server.player("Alice", paid=True)
     bob = server.player("Bob")
     with patch.object(settings, "gift_product_id", "777"):
-        purchase = server.webhook_body("new_digital_product", alice, product_id=777, purchase_id=4401)
+        purchase = server.webhook_body(
+            "new_digital_product", alice, product_id=777, purchase_id=4401
+        )
         server.deliver(purchase)
         server.deliver(server.redelivery(purchase), label="Tribute's retry of the gift")
         cards = [s for s in server.telegram.to(alice.id) if GIFT_CODE.search(s.text)]
@@ -257,9 +261,9 @@ def test_a_refunded_gift_is_taken_back_from_whoever_redeemed_it(server: Server, 
         bot.send(bob, f"/activate {code}")
         assert paid(bob) is True
 
-        refund = server.deliver(server.webhook_body(
-            "digital_product_refunded", alice, product_id=777, purchase_id=4401
-        ))
+        refund = server.deliver(
+            server.webhook_body("digital_product_refunded", alice, product_id=777, purchase_id=4401)
+        )
         assert refund.json()["action"] == "revoke"
 
     assert paid(bob) is False, "the gift went back with the money"
@@ -272,7 +276,9 @@ def test_delete_me_takes_the_shared_rows_for_both(server: Server, bot) -> None:
     """One row per couple, and consent to keep it has to be unanimous."""
     alice = server.player("Alice", paid=True)
     bob = server.player("Bob", paid=True)
-    room = alice.ok("POST", "/api/rooms", {"theme": "Acquaintance", "level": 1, "type": "questions"})["code"]
+    room = alice.ok(
+        "POST", "/api/rooms", {"theme": "Acquaintance", "level": 1, "type": "questions"}
+    )["code"]
     bob.ok("POST", f"/api/rooms/{room}/join")
     test = alice.ok("POST", "/api/compat")["code"]
     bob.ok("POST", f"/api/compat/{test}/join")
@@ -323,4 +329,3 @@ def test_a_buyer_who_never_opened_the_chat_gets_the_daily_card_after_start(
         after_start = photos()
         server.portal.call(daily_card.send_daily_cards, bot.application.bot)
     assert photos() == after_start + 1, "the card reaches them once they have written"
-

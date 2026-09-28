@@ -117,7 +117,9 @@ def test_a_phone_that_asked_for_less_motion_gets_it(server: Server, phones) -> N
     phone = phones(server.player("Alice"))
     phone.screen("home")
     fan = "document.querySelector('.deck-fan i')"
-    assert phone.page.evaluate(f"() => getComputedStyle({fan}).animationIterationCount") == "infinite"
+    assert (
+        phone.page.evaluate(f"() => getComputedStyle({fan}).animationIterationCount") == "infinite"
+    )
 
     phone.page.emulate_media(reduced_motion="reduce")
     phone.page.reload()
@@ -152,8 +154,11 @@ def test_the_board_follows_the_piece_without_travel_when_asked(server: Server, p
         (alice if state["your_turn"] else bob).ok("POST", f"/api/steps69/{code}/roll")
 
     board = phones(
-        alice, start_param=f"s69_{code}", reduced_motion=True,
-        viewport={"width": 320, "height": 568}, init_script=WATCH_MAP,
+        alice,
+        start_param=f"s69_{code}",
+        reduced_motion=True,
+        viewport={"width": 320, "height": 568},
+        init_script=WATCH_MAP,
     )
     board.page.wait_for_selector("#nsfw.show, #s69Board.active")
     if board.page.is_visible("#nsfwYes"):
@@ -195,7 +200,9 @@ def test_the_board_keeps_the_piece_in_frame_when_the_map_changes_size(
         (alice if state["your_turn"] else bob).ok("POST", f"/api/steps69/{code}/roll")
 
     board = phones(
-        alice, start_param=f"s69_{code}", reduced_motion=True,
+        alice,
+        start_param=f"s69_{code}",
+        reduced_motion=True,
         viewport={"width": 430, "height": 932},
     )
     board.page.wait_for_selector("#nsfw.show, #s69Board.active")

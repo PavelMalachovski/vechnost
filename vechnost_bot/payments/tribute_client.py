@@ -33,9 +33,7 @@ class TributeAPIError(Exception):
 class TributeClient:
     """Client for interacting with Tribute API."""
 
-    def __init__(
-        self, api_key: str | None = None, base_url: str | None = None
-    ):
+    def __init__(self, api_key: str | None = None, base_url: str | None = None):
         """Initialize Tribute client."""
         self.api_key = api_key or settings.tribute_api_key
         self.base_url = base_url or settings.tribute_base_url
@@ -89,10 +87,10 @@ class TributeClient:
                 return products
 
         except httpx.HTTPStatusError as e:
-            logger.error(f"HTTP error fetching products: {e.response.status_code} - {e.response.text}")
-            raise TributeAPIError(
-                f"Failed to fetch products: {e.response.status_code}"
-            ) from e
+            logger.error(
+                f"HTTP error fetching products: {e.response.status_code} - {e.response.text}"
+            )
+            raise TributeAPIError(f"Failed to fetch products: {e.response.status_code}") from e
         except httpx.RequestError as e:
             logger.error(f"Request error fetching products: {e}")
             raise TributeAPIError("Failed to fetch products: network error") from e

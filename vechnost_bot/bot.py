@@ -289,23 +289,33 @@ def create_application() -> Application:
     # registered ahead of the game's catch-all on a pattern, like the
     # broadcast's, so it never reaches the callback registry.
     application.add_handler(CommandHandler("delete_me", delete_me_command))
-    application.add_handler(CallbackQueryHandler(
-        delete_me_callback, pattern=DELETE_ME_PATTERN, block=False,
-    ))
+    application.add_handler(
+        CallbackQueryHandler(
+            delete_me_callback,
+            pattern=DELETE_ME_PATTERN,
+            block=False,
+        )
+    )
 
     # «Activate this certificate?», asked by a gift's or a voucher's link.
     # Ahead of the game's catch-all, like /delete_me's: the registry does
     # not know these buttons.
-    application.add_handler(CallbackQueryHandler(
-        activate_callback, pattern=ACTIVATE_PATTERN,
-    ))
+    application.add_handler(
+        CallbackQueryHandler(
+            activate_callback,
+            pattern=ACTIVATE_PATTERN,
+        )
+    )
 
     # Somebody allowed the bot to write from the Mini App. Ahead of the
     # admin's broadcast capture below, which would otherwise take an
     # admin's service message as a draft that nobody asked for.
-    application.add_handler(MessageHandler(
-        filters.StatusUpdate.WRITE_ACCESS_ALLOWED, write_access_allowed,
-    ))
+    application.add_handler(
+        MessageHandler(
+            filters.StatusUpdate.WRITE_ACCESS_ALLOWED,
+            write_access_allowed,
+        )
+    )
 
     # The admin broadcast, and only where ADMIN_IDS names somebody. With it
     # unset none of this exists: no command to type, and no button for a
@@ -321,27 +331,30 @@ def create_application() -> Application:
         application.add_handler(CommandHandler("stats", stats_command))
         application.add_handler(CommandHandler("broadcast", broadcast_command))
         application.add_handler(CommandHandler("cancel", broadcast_cancel_command))
-        application.add_handler(MessageHandler(
-            filters.ChatType.PRIVATE & filters.User(admin_ids) & ~filters.COMMAND,
-            broadcast_message,
-        ))
-        application.add_handler(CallbackQueryHandler(
-            broadcast_callback,
-            pattern=f"^({CONFIRM}|{CANCEL})$",
-            block=False,
-        ))
+        application.add_handler(
+            MessageHandler(
+                filters.ChatType.PRIVATE & filters.User(admin_ids) & ~filters.COMMAND,
+                broadcast_message,
+            )
+        )
+        application.add_handler(
+            CallbackQueryHandler(
+                broadcast_callback,
+                pattern=f"^({CONFIRM}|{CANCEL})$",
+                block=False,
+            )
+        )
 
     # Text nobody asked for - a greeting, a certificate code pasted without
     # /activate - gets a hint rather than silence. Private chats only, new
     # messages only (not edits), and registered after the admin's broadcast
     # capture, which takes an admin's messages first in the same group.
-    application.add_handler(MessageHandler(
-        filters.UpdateType.MESSAGE
-        & filters.ChatType.PRIVATE
-        & filters.TEXT
-        & ~filters.COMMAND,
-        free_text_hint,
-    ))
+    application.add_handler(
+        MessageHandler(
+            filters.UpdateType.MESSAGE & filters.ChatType.PRIVATE & filters.TEXT & ~filters.COMMAND,
+            free_text_hint,
+        )
+    )
 
     # Add callback query handler
     application.add_handler(CallbackQueryHandler(handle_callback_query))

@@ -162,9 +162,7 @@ async def apply_webhook_event(
 
     try:
         async with get_db() as session:
-            existing = await WebhookEventRepository.get_by_body_sha256(
-                session, body_sha256
-            )
+            existing = await WebhookEventRepository.get_by_body_sha256(session, body_sha256)
             if existing is None and event_key:
                 existing = await WebhookEventRepository.get_by_event_key(session, event_key)
             if existing:
@@ -237,8 +235,7 @@ async def apply_webhook_event(
             result = {
                 "status": "success",
                 "message": (
-                    "Stale event ignored" if outcome.stale
-                    else "Webhook processed successfully"
+                    "Stale event ignored" if outcome.stale else "Webhook processed successfully"
                 ),
                 "action": "ignore" if outcome.stale else action,
                 "note": outcome.note,
@@ -349,16 +346,16 @@ async def _revoke_gift(session: AsyncSession, event: TributeEvent, now: datetime
             "certificate can be matched to it, and none was revoked"
         )
         return _Outcome(note="gift refund not applied: the purchase could not be identified")
-    certificate = await CertificateRepository.get_by_purchase(
-        session, purchase_id, for_update=True
-    )
+    certificate = await CertificateRepository.get_by_purchase(session, purchase_id, for_update=True)
     if certificate is None:
         await create_gift_certificate(session, purchase_id=purchase_id)
         certificate = await CertificateRepository.get_by_purchase(session, purchase_id)
         if certificate is not None:
             certificate.revoked_at = now
             await session.flush()
-        return _Outcome(note="gift refunded before its purchase arrived: no certificate will be issued")
+        return _Outcome(
+            note="gift refunded before its purchase arrived: no certificate will be issued"
+        )
     if certificate.revoked_at is not None:
         return _Outcome(note=f"gift certificate #{certificate.id} already revoked")
     certificate.revoked_at = now
@@ -526,9 +523,7 @@ async def user_has_access(telegram_user_id: int) -> bool:
         async with get_db() as session:
             user = await UserRepository.get_by_telegram_id(session, telegram_user_id)
             if not user:
-                logger.debug(
-                    f"User {telegram_user_id} not found in database - no access"
-                )
+                logger.debug(f"User {telegram_user_id} not found in database - no access")
                 return False
 
             subscriptions = await SubscriptionRepository.get_active_subscriptions_for_user(
@@ -736,15 +731,11 @@ async def activate_certificate(
             # One conditional UPDATE decides who gets the code. Two people
             # redeeming it in the same instant both passed the `is_used`
             # check above; only one of them changes a row here.
-            claimed = await CertificateRepository.claim(
-                session, code, telegram_user_id
-            )
+            claimed = await CertificateRepository.claim(session, code, telegram_user_id)
             if claimed is None:
                 # Someone else claimed it first - or, rarer, its refund landed
                 # in between; the claim refuses a revoked code either way.
-                logger.warning(
-                    f"Certificate #{certificate.id} was claimed by someone else first"
-                )
+                logger.warning(f"Certificate #{certificate.id} was claimed by someone else first")
                 return {
                     "status": "error",
                     "message": "Certificate already used",

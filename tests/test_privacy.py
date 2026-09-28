@@ -62,30 +62,54 @@ async def _populate():
         await UserRepository.record_referral(session, INVITED, code)
 
         await SubscriptionRepository.upsert(
-            session, user_id=me.id, subscription_id=0, period="lifetime",
-            status="active", expires_at=None,
+            session,
+            user_id=me.id,
+            subscription_id=0,
+            period="lifetime",
+            status="active",
+            expires_at=None,
         )
         await PaymentRepository.create(
-            session, provider="tribute", event_name="new_digital_product",
-            user_id=me.id, telegram_user_id=ME, amount=990, currency="eur",
-            raw_body={"payload": {"telegram_user_id": ME}}, signature="", body_sha256="p1",
+            session,
+            provider="tribute",
+            event_name="new_digital_product",
+            user_id=me.id,
+            telegram_user_id=ME,
+            amount=990,
+            currency="eur",
+            raw_body={"payload": {"telegram_user_id": ME}},
+            signature="",
+            body_sha256="p1",
         )
         room = await RoomRepository.create(
-            session, code="ROOMROOMROOMROOM", creator_telegram_user_id=PARTNER,
-            creator_name="P", theme="Acquaintance", level=1,
-            content_type="questions", card_order=[0, 1],
+            session,
+            code="ROOMROOMROOMROOM",
+            creator_telegram_user_id=PARTNER,
+            creator_name="P",
+            theme="Acquaintance",
+            level=1,
+            content_type="questions",
+            card_order=[0, 1],
         )
         await RoomRepository.seat_guest(session, room, ME, "Me")
         await CompatTestRepository.create(
             session, code="CMPTCMPTCMPTCMPT", creator_telegram_user_id=ME, creator_name="Me"
         )
         await Steps69Repository.create(
-            session, code="S69GS69GS69GS69G", creator_telegram_user_id=ME,
-            creator_name="Me", mode="solo", creator_piece="hearts",
+            session,
+            code="S69GS69GS69GS69G",
+            creator_telegram_user_id=ME,
+            creator_name="Me",
+            mode="solo",
+            creator_piece="hearts",
         )
         await Steps69Repository.create(
-            session, code="OTHEROTHEROTHER1", creator_telegram_user_id=PARTNER,
-            creator_name="P", mode="solo", creator_piece="hearts",
+            session,
+            code="OTHEROTHEROTHER1",
+            creator_telegram_user_id=PARTNER,
+            creator_name="P",
+            mode="solo",
+            creator_piece="hearts",
         )
         certificate = await CertificateRepository.create(session, code="VECH-TEST-ERAS")
         await CertificateRepository.claim(session, certificate.code, ME)
@@ -171,7 +195,8 @@ async def test_the_command_asks_before_it_deletes(mock_update, mock_context):
     assert text == get_text("privacy.ask", Language.RUSSIAN)
     markup = mock_update.message.reply_text.await_args.kwargs["reply_markup"]
     assert [b.callback_data for row in markup.inline_keyboard for b in row] == [
-        privacy.CONFIRM, privacy.CANCEL
+        privacy.CONFIRM,
+        privacy.CANCEL,
     ]
 
 

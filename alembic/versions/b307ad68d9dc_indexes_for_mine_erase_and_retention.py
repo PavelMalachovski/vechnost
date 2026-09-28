@@ -49,18 +49,24 @@ def upgrade() -> None:
         op.execute(f"DROP INDEX IF EXISTS {name}")
 
     op.create_index(
-        "idx_users_referred_by", "users", ["referred_by"],
+        "idx_users_referred_by",
+        "users",
+        ["referred_by"],
         **_partial(sa.column("referred_by").is_not(None)),
     )
     op.create_index("idx_steps69_guest", "steps69_games", ["guest_telegram_user_id"])
     op.create_index(
-        "idx_steps69_unfinished_updated", "steps69_games", ["updated_at"],
+        "idx_steps69_unfinished_updated",
+        "steps69_games",
+        ["updated_at"],
         **_partial(sa.column("finished").is_(False)),
     )
     op.create_index("idx_compat_creator", "compat_tests", ["creator_telegram_user_id"])
     op.create_index("idx_compat_guest", "compat_tests", ["guest_telegram_user_id"])
     op.create_index(
-        "idx_compat_unfinished_updated", "compat_tests", ["updated_at"],
+        "idx_compat_unfinished_updated",
+        "compat_tests",
+        ["updated_at"],
         **_partial(sa.column("finished_at").is_(None)),
     )
 

@@ -67,7 +67,9 @@ def test_an_invited_partner_pays_what_everyone_pays(server: Server) -> None:
     game = alice.ok("POST", "/api/steps69?lang=ru", {"mode": "duo", "piece": "hearts"})
     bob.ok("POST", f"/api/steps69/{game['code']}/join", {})
 
-    with patch.object(settings, "referral_payment_url", "https://t.me/tribute/app?startapp=cheaper"):
+    with patch.object(
+        settings, "referral_payment_url", "https://t.me/tribute/app?startapp=cheaper"
+    ):
         access = bob.ok("GET", "/api/questions?lang=ru")["access"]
     assert "discount_percent" not in access
     assert access["payment_url"] != "https://t.me/tribute/app?startapp=cheaper"

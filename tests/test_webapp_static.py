@@ -17,10 +17,17 @@ from vechnost_bot.payments.web import app
 INDEX = Path(__file__).parent.parent / "webapp" / "index.html"
 
 CARDS = [
-    "acq/acq_1.png", "acq/acq_2.png", "acq/acq_3.png",
-    "couples/couples_1.png", "couples/couples_2.png", "couples/couples_3.png",
-    "sex/questions.png", "sex/tasks.png", "prov/prov.png",
-    "library.png", "card_back.png",
+    "acq/acq_1.png",
+    "acq/acq_2.png",
+    "acq/acq_3.png",
+    "couples/couples_1.png",
+    "couples/couples_2.png",
+    "couples/couples_3.png",
+    "sex/questions.png",
+    "sex/tasks.png",
+    "prov/prov.png",
+    "library.png",
+    "card_back.png",
 ]
 
 
@@ -97,8 +104,9 @@ def test_fonts_and_card_art_are_kept_by_the_browser(client):
     assert "public" in art.headers["cache-control"]
     assert _max_age(art.headers["cache-control"]) >= 86400
     assert "content-encoding" not in art.headers
-    again = client.get("/assets/backgrounds/library.png",
-                       headers={"If-None-Match": art.headers["etag"]})
+    again = client.get(
+        "/assets/backgrounds/library.png", headers={"If-None-Match": art.headers["etag"]}
+    )
     assert again.status_code == 304
     assert again.headers["cache-control"] == art.headers["cache-control"]
 
@@ -137,10 +145,13 @@ def test_the_mini_app_suits_match_the_printed_cards():
     """
     html = INDEX.read_text(encoding="utf-8")
     art = html.split("const CARD_ART = {", 1)[1].split("\n  };", 1)[0]
-    for theme, folder in (("Acquaintance", "acq"), ("For Couples", "couples"),
-                          ("Sex", "sex"), ("Provocation", "prov")):
-        line = next(row for row in art.splitlines()
-                    if row.lstrip().startswith(f"'{theme}'"))
+    for theme, folder in (
+        ("Acquaintance", "acq"),
+        ("For Couples", "couples"),
+        ("Sex", "sex"),
+        ("Provocation", "prov"),
+    ):
+        line = next(row for row in art.splitlines() if row.lstrip().startswith(f"'{theme}'"))
         faces = re.findall(r"'([a-z_]+)/[a-z_0-9]+\.png'", line)
         assert faces, f"{theme} names no card face"
         assert set(faces) == {folder}, f"{theme} wears {set(faces)}, not {folder}"
@@ -360,8 +371,8 @@ def test_the_mini_app_ships_one_language():
     assert 'class="lang-row"' not in html
     assert 'data-lang="en"' not in html
     assert 'data-lang="cs"' not in html
-    assert "Pick a theme" not in html      # the English dictionary is gone
-    assert "Vyber téma" not in html        # and the Czech one
+    assert "Pick a theme" not in html  # the English dictionary is gone
+    assert "Vyber téma" not in html  # and the Czech one
 
 
 def test_the_home_screen_shows_decks_not_typographic_suits():
@@ -369,8 +380,7 @@ def test_the_home_screen_shows_decks_not_typographic_suits():
     html = INDEX.read_text(encoding="utf-8")
     assert 'class="suits"' not in html
     assert 'class="deck-fan"' in html
-    for card in ("acq/acq_1.png", "couples/couples_1.png",
-                 "sex/questions.png", "prov/prov.png"):
+    for card in ("acq/acq_1.png", "couples/couples_1.png", "sex/questions.png", "prov/prov.png"):
         assert card in html
 
 
@@ -383,10 +393,12 @@ def test_every_fan_card_wears_its_own_suit_as_a_centre_pip():
     against the card it belongs to rather than merely counting four of them.
     """
     html = INDEX.read_text(encoding="utf-8")
-    for suit, card in (("hearts", "acq/acq_1.png"),
-                       ("spades", "couples/couples_1.png"),
-                       ("clubs", "sex/questions.png"),
-                       ("diamonds", "prov/prov.png")):
+    for suit, card in (
+        ("hearts", "acq/acq_1.png"),
+        ("spades", "couples/couples_1.png"),
+        ("clubs", "sex/questions.png"),
+        ("diamonds", "prov/prov.png"),
+    ):
         pair = f"url(/assets/suits/{suit}.png),url(/assets/backgrounds/{card})"
         assert pair in html, pair
 
@@ -415,8 +427,7 @@ def test_the_invite_link_comes_from_the_server():
     # No client-side link building: a hand-rolled t.me/<bot>?start=... would
     # go stale the moment a short name is configured. (The two shapes are
     # named in the comments that explain the boot path; that is not code.)
-    code = "\n".join(line for line in html.splitlines()
-                     if not line.lstrip().startswith("//"))
+    code = "\n".join(line for line in html.splitlines() if not line.lstrip().startswith("//"))
     assert "?start=" not in code
     assert "?startapp=" not in code
 
@@ -653,9 +664,13 @@ def test_the_old_custom_property_names_are_aliases_of_the_tokens():
     the two that nothing ever read are gone."""
     html = INDEX.read_text(encoding="utf-8")
     root = _root_block(html)
-    for alias, token in (("--ink", "--c-ink"), ("--card-bg", "--card-ground"),
-                         ("--text-on-dark", "--text-1"), ("--muted-on-dark", "--text-2"),
-                         ("--radius-card", "--r-card")):
+    for alias, token in (
+        ("--ink", "--c-ink"),
+        ("--card-bg", "--card-ground"),
+        ("--text-on-dark", "--text-1"),
+        ("--muted-on-dark", "--text-2"),
+        ("--radius-card", "--r-card"),
+    ):
         assert f"{alias}: var({token});" in root, alias
     assert re.search(r"--card-ground:\s+var\(--c-blush-50\)", root)
     assert re.search(r"--c-blush-50:\s+#FFE5FA", root), "generate_card_assets.PALE"
@@ -705,8 +720,21 @@ def test_a_scroll_asked_for_by_script_asks_about_motion_too():
 class _LastChild(HTMLParser):
     """The last element child of the element with this id, as (tag, attrs)."""
 
-    VOID = {"area", "base", "br", "col", "embed", "hr", "img", "input", "link",
-            "meta", "source", "track", "wbr"}
+    VOID = {
+        "area",
+        "base",
+        "br",
+        "col",
+        "embed",
+        "hr",
+        "img",
+        "input",
+        "link",
+        "meta",
+        "source",
+        "track",
+        "wbr",
+    }
 
     def __init__(self, container: str) -> None:
         super().__init__()

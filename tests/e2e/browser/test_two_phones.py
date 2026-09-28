@@ -73,7 +73,8 @@ def test_two_phones_share_one_deck(server: Server, phones) -> None:
         before = card_text(mover)
         waiter.page.wait_for_function(
             "t => document.querySelector('#stage .card.top .q-text')?.innerText.trim() === t",
-            arg=before, timeout=POLL,
+            arg=before,
+            timeout=POLL,
         )
         # The waiting phone says so before the tap: its button is dimmed
         # (audit D-20), the mover's is not. Tapped anyway, it refuses
@@ -96,16 +97,19 @@ def test_two_phones_share_one_deck(server: Server, phones) -> None:
         mover.page.click("#btnNext")
         mover.page.wait_for_function(
             "t => document.querySelector('#stage .card.top .q-text')?.innerText.trim() !== t",
-            arg=before, timeout=POLL,
+            arg=before,
+            timeout=POLL,
         )
         after = card_text(mover)
         waiter.page.wait_for_function(
             "t => document.querySelector('#stage .card.top .q-text')?.innerText.trim() === t",
-            arg=after, timeout=POLL,
+            arg=after,
+            timeout=POLL,
         )
         waiter.page.wait_for_function(
             "t => document.querySelector('#turnChipText')?.innerText.trim() === t",
-            arg=YOUR_TURN, timeout=POLL,
+            arg=YOUR_TURN,
+            timeout=POLL,
         )
         mover.shot(f"turn{turn + 1}")
         waiter.shot(f"turn{turn + 1}")
@@ -182,7 +186,8 @@ def test_two_phones_climb_the_board(server: Server, phones) -> None:
         waiter, _ = by_seat[1 - state["turn"]]
         mover.page.wait_for_function(
             "t => document.querySelector('#s69TurnChip')?.innerText.trim() === t",
-            arg=YOUR_TURN, timeout=POLL,
+            arg=YOUR_TURN,
+            timeout=POLL,
         )
         assert waiter.text("#s69TurnChip") != YOUR_TURN
         mover.page.click("#s69Dice")
@@ -195,13 +200,15 @@ def test_two_phones_climb_the_board(server: Server, phones) -> None:
         # The mover's card is the square the server says they stand on.
         mover.page.wait_for_function(
             "t => document.querySelector('#s69Cell')?.innerText.includes(t)",
-            arg=cell["title"], timeout=POLL,
+            arg=cell["title"],
+            timeout=POLL,
         )
         mover.shot(f"roll{roll + 1}")
         # The waiting phone catches up, and never shows the mover's secret.
         waiter.page.wait_for_function(
             "t => document.querySelector('#s69TurnChip')?.innerText.trim() === t",
-            arg=YOUR_TURN, timeout=POLL,
+            arg=YOUR_TURN,
+            timeout=POLL,
         ) if not after["partner"]["home"] else None
         secret = SECRETS.get(cell["id"])
         partner_pos = after["partner"]["position"]

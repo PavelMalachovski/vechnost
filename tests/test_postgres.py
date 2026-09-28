@@ -60,6 +60,7 @@ def pg_url() -> Iterator[str]:
 
 def _run(url: str, coro_factory):
     """Run app code against `url` with the app's own engine."""
+
     async def go():
         try:
             return await coro_factory()
@@ -102,9 +103,16 @@ def test_the_backfill_serves_legacy_customers_on_postgres(pg_url: str) -> None:
             async with database.get_db() as session:
                 user = await UserRepository.create_or_update(session, tg_id)
                 payment = await PaymentRepository.create(
-                    session, provider="tribute", event_name=event, user_id=user.id,
-                    telegram_user_id=tg_id, amount=100, currency="rub",
-                    raw_body={"name": event}, signature="pg", body_sha256=f"pg-{tg_id}",
+                    session,
+                    provider="tribute",
+                    event_name=event,
+                    user_id=user.id,
+                    telegram_user_id=tg_id,
+                    amount=100,
+                    currency="rub",
+                    raw_body={"name": event},
+                    signature="pg",
+                    body_sha256=f"pg-{tg_id}",
                 )
                 payment.created_at = when
 
@@ -112,10 +120,14 @@ def test_the_backfill_serves_legacy_customers_on_postgres(pg_url: str) -> None:
         await database.create_tables()
         await database.create_tables()
         async with database.get_db() as session:
-            rows = (await session.execute(
-                select(func.count()).select_from(Subscription).join(User)
-                .where(User.telegram_user_id == 920_001)
-            )).scalar_one()
+            rows = (
+                await session.execute(
+                    select(func.count())
+                    .select_from(Subscription)
+                    .join(User)
+                    .where(User.telegram_user_id == 920_001)
+                )
+            ).scalar_one()
         return (
             await user_has_access(920_001),
             await user_has_access(920_002),
@@ -149,15 +161,19 @@ def test_alembic_builds_a_database_that_takes_a_lifetime_purchase(pg_url: str) -
         columns = {c["name"]: c for c in inspect(engine).get_columns("subscriptions")}
         assert columns["expires_at"]["nullable"] is True
         with engine.begin() as conn:
-            conn.execute(text(
-                "INSERT INTO users (telegram_user_id, created_at) "
-                "VALUES (930001, CURRENT_TIMESTAMP)"
-            ))
-            conn.execute(text(
-                "INSERT INTO subscriptions (user_id, subscription_id, period, status, "
-                "expires_at, last_event_at) SELECT id, 0, 'lifetime', 'active', NULL, "
-                "CURRENT_TIMESTAMP FROM users WHERE telegram_user_id = 930001"
-            ))
+            conn.execute(
+                text(
+                    "INSERT INTO users (telegram_user_id, created_at) "
+                    "VALUES (930001, CURRENT_TIMESTAMP)"
+                )
+            )
+            conn.execute(
+                text(
+                    "INSERT INTO subscriptions (user_id, subscription_id, period, status, "
+                    "expires_at, last_event_at) SELECT id, 0, 'lifetime', 'active', NULL, "
+                    "CURRENT_TIMESTAMP FROM users WHERE telegram_user_id = 930001"
+                )
+            )
     finally:
         engine.dispose()
 
@@ -226,8 +242,9 @@ def test_can_message_reaches_an_existing_database_on_postgres(pg_url: str) -> No
         await database.create_tables()
         await database.create_tables()
         async with database.get_db() as session:
-            return [u.telegram_user_id
-                    for u in await UserRepository.get_daily_card_recipients(session)]
+            return [
+                u.telegram_user_id for u in await UserRepository.get_daily_card_recipients(session)
+            ]
 
     _run(pg_url, seed)
     assert _run(pg_url, restart_and_read) == [950_001]
@@ -246,8 +263,11 @@ def test_rejected_deliveries_are_kept_and_released_on_postgres(pg_url: str) -> N
         async with database.get_db() as session:
             for sha, status in (("pg-stuck", 401), ("pg-fine", 200)):
                 await WebhookEventRepository.create(
-                    session, name="new_digital_product", sent_at=datetime.utcnow(),
-                    body_sha256=sha, status_code=status,
+                    session,
+                    name="new_digital_product",
+                    sent_at=datetime.utcnow(),
+                    body_sha256=sha,
+                    status_code=status,
                 )
 
     async def restart_twice_and_read() -> list[tuple[str, int]]:
@@ -259,7 +279,8 @@ def test_rejected_deliveries_are_kept_and_released_on_postgres(pg_url: str) -> N
 
     _run(pg_url, seed)
     assert _run(pg_url, restart_twice_and_read) == [
-        ("pg-fine", 200), (database.RELEASED_PREFIX + "pg-stuck", 401),
+        ("pg-fine", 200),
+        (database.RELEASED_PREFIX + "pg-stuck", 401),
     ]
 
 
@@ -298,13 +319,13 @@ def test_one_bot_of_many_claims_a_day_s_run_on_postgres(pg_url: str) -> None:
 
     async def race() -> tuple[list[str], list[str]]:
         await database.create_tables()
-        fresh = await asyncio.gather(*(
-            jobs.claim("daily_card", day, owner=f"bot{i}") for i in range(8)
-        ))
+        fresh = await asyncio.gather(
+            *(jobs.claim("daily_card", day, owner=f"bot{i}") for i in range(8))
+        )
         later = jobs.utcnow() + jobs.LEASE + timedelta(seconds=1)
-        takeover = await asyncio.gather(*(
-            jobs.claim("daily_card", day, owner=f"next{i}", now=later) for i in range(8)
-        ))
+        takeover = await asyncio.gather(
+            *(jobs.claim("daily_card", day, owner=f"next{i}", now=later) for i in range(8))
+        )
         return [o for o, _ in fresh], [o for o, _ in takeover]
 
     fresh, takeover = _run(pg_url, race)
@@ -333,9 +354,12 @@ def test_two_bots_send_the_daily_list_once_between_them_on_postgres(pg_url: str)
 
     async def overlap() -> list[str]:
         await database.create_tables()
-        return list(await asyncio.gather(
-            jobs.run_once(job, day, bot=None), jobs.run_once(job, day, bot=None),
-        ))
+        return list(
+            await asyncio.gather(
+                jobs.run_once(job, day, bot=None),
+                jobs.run_once(job, day, bot=None),
+            )
+        )
 
     outcomes = _run(pg_url, overlap)
     assert sorted(outcomes) == sorted([jobs.FINISHED, jobs.BUSY])
@@ -379,9 +403,12 @@ def _schema(sync_url: str) -> dict[str, dict[str, tuple[str, bool]]]:
     try:
         inspector = inspect(engine)
         return {
-            table: {c["name"]: (str(c["type"]), bool(c["nullable"]))
-                    for c in inspector.get_columns(table)}
-            for table in inspector.get_table_names() if table != "alembic_version"
+            table: {
+                c["name"]: (str(c["type"]), bool(c["nullable"]))
+                for c in inspector.get_columns(table)
+            }
+            for table in inspector.get_table_names()
+            if table != "alembic_version"
         }
     finally:
         engine.dispose()
@@ -457,9 +484,7 @@ def test_an_old_database_gets_the_models_indexes_on_postgres(pg_url: str) -> Non
 
     async def make_it_old() -> None:
         async with database._engine().begin() as conn:
-            await conn.execute(text(
-                "ALTER TABLE users DROP CONSTRAINT users_referral_code_key"
-            ))
+            await conn.execute(text("ALTER TABLE users DROP CONSTRAINT users_referral_code_key"))
             for name, (table, column) in database.REDUNDANT_INDEXES.items():
                 await conn.execute(text(f"CREATE INDEX {name} ON {table} ({column})"))
             for names in ADDED.values():
@@ -506,40 +531,80 @@ def test_the_hot_queries_use_an_index_on_postgres(pg_url: str) -> None:
     code = "ABCDEFGHJKLMNPQR"
     # (what, the call, the indexes its plan must use)
     queries = [
-        ("steps69 /mine", lambda s: Steps69Repository.latest_unfinished_for(s, 1),
-         {"idx_steps69_creator", "idx_steps69_guest"}),
-        ("compat /mine", lambda s: CompatTestRepository.latest_completed_for(s, 1),
-         {"idx_compat_creator", "idx_compat_guest"}),
-        ("/invite count", lambda s: UserRepository.count_referrals(s, 1),
-         {"idx_users_referred_by"}),
-        ("resume nudge", lambda s: Steps69Repository.stalled(s, now, now),
-         {"idx_steps69_unfinished_updated"}),
-        ("resume nudge, resumed", lambda s: Steps69Repository.stalled(s, now, now, after_id=7),
-         {"idx_steps69_unfinished_updated"}),
+        (
+            "steps69 /mine",
+            lambda s: Steps69Repository.latest_unfinished_for(s, 1),
+            {"idx_steps69_creator", "idx_steps69_guest"},
+        ),
+        (
+            "compat /mine",
+            lambda s: CompatTestRepository.latest_completed_for(s, 1),
+            {"idx_compat_creator", "idx_compat_guest"},
+        ),
+        (
+            "/invite count",
+            lambda s: UserRepository.count_referrals(s, 1),
+            {"idx_users_referred_by"},
+        ),
+        (
+            "resume nudge",
+            lambda s: Steps69Repository.stalled(s, now, now),
+            {"idx_steps69_unfinished_updated"},
+        ),
+        (
+            "resume nudge, resumed",
+            lambda s: Steps69Repository.stalled(s, now, now, after_id=7),
+            {"idx_steps69_unfinished_updated"},
+        ),
         # The daily card, a page at a time after the last person reached.
-        ("daily card page", lambda s: UserRepository.get_daily_card_recipients(
-            s, after=1, limit=500), {"users_telegram_user_id_key"}),
-        ("sweep: games", lambda s: RetentionRepository.delete_abandoned_games(s, now),
-         {"idx_steps69_unfinished_updated"}),
-        ("sweep: tests", lambda s: RetentionRepository.delete_abandoned_compat_tests(s, now),
-         {"idx_compat_unfinished_updated"}),
+        (
+            "daily card page",
+            lambda s: UserRepository.get_daily_card_recipients(s, after=1, limit=500),
+            {"users_telegram_user_id_key"},
+        ),
+        (
+            "sweep: games",
+            lambda s: RetentionRepository.delete_abandoned_games(s, now),
+            {"idx_steps69_unfinished_updated"},
+        ),
+        (
+            "sweep: tests",
+            lambda s: RetentionRepository.delete_abandoned_compat_tests(s, now),
+            {"idx_compat_unfinished_updated"},
+        ),
         # What the dropped doubles used to serve, served by the constraints.
-        ("user by id", lambda s: UserRepository.get_by_telegram_id(s, 1),
-         {"users_telegram_user_id_key"}),
-        ("referral code", lambda s: UserRepository.get_by_referral_code(s, "ABC234"),
-         {"users_referral_code_key"}),
-        ("room code", lambda s: RoomRepository.get_by_code(s, code),
-         {"rooms_code_key"}),
-        ("test code", lambda s: CompatTestRepository.get_by_code(s, code),
-         {"compat_tests_code_key"}),
-        ("game code", lambda s: Steps69Repository.get_by_code(s, code),
-         {"steps69_games_code_key"}),
-        ("certificate", lambda s: CertificateRepository.get_by_code(s, "VECH-XXXX-XXXX"),
-         {"certificates_code_key"}),
-        ("payment", lambda s: PaymentRepository.get_by_body_sha256(s, "x"),
-         {"payments_body_sha256_key"}),
-        ("webhook", lambda s: WebhookEventRepository.get_by_body_sha256(s, "x"),
-         {"webhook_events_body_sha256_key"}),
+        (
+            "user by id",
+            lambda s: UserRepository.get_by_telegram_id(s, 1),
+            {"users_telegram_user_id_key"},
+        ),
+        (
+            "referral code",
+            lambda s: UserRepository.get_by_referral_code(s, "ABC234"),
+            {"users_referral_code_key"},
+        ),
+        ("room code", lambda s: RoomRepository.get_by_code(s, code), {"rooms_code_key"}),
+        (
+            "test code",
+            lambda s: CompatTestRepository.get_by_code(s, code),
+            {"compat_tests_code_key"},
+        ),
+        ("game code", lambda s: Steps69Repository.get_by_code(s, code), {"steps69_games_code_key"}),
+        (
+            "certificate",
+            lambda s: CertificateRepository.get_by_code(s, "VECH-XXXX-XXXX"),
+            {"certificates_code_key"},
+        ),
+        (
+            "payment",
+            lambda s: PaymentRepository.get_by_body_sha256(s, "x"),
+            {"payments_body_sha256_key"},
+        ),
+        (
+            "webhook",
+            lambda s: WebhookEventRepository.get_by_body_sha256(s, "x"),
+            {"webhook_events_body_sha256_key"},
+        ),
     ]
     # erase: every statement that finds a person's rows by participant.
     erase_expects = {
@@ -574,9 +639,12 @@ def test_the_hot_queries_use_an_index_on_postgres(pg_url: str) -> None:
                 async with database.get_db() as session:
                     await call(session)
                 [(statement, parameters)] = [
-                    c for c in captured if not c[0].lstrip().upper().startswith(
-                        ("BEGIN", "COMMIT", "ROLLBACK", "SAVEPOINT", "RELEASE")
-                    )
+                    c
+                    for c in captured
+                    if not c[0]
+                    .lstrip()
+                    .upper()
+                    .startswith(("BEGIN", "COMMIT", "ROLLBACK", "SAVEPOINT", "RELEASE"))
                 ]
                 plans[label] = await plan_of(statement, parameters)
             captured.clear()
@@ -586,9 +654,7 @@ def test_the_hot_queries_use_an_index_on_postgres(pg_url: str) -> None:
         finally:
             event.remove(engine.sync_engine, "before_cursor_execute", capture)
         for prefix in erase_expects:
-            [(statement, parameters)] = [
-                c for c in erase_statements if c[0].startswith(prefix)
-            ]
+            [(statement, parameters)] = [c for c in erase_statements if c[0].startswith(prefix)]
             plans[prefix] = await plan_of(statement, parameters)
         return plans
 

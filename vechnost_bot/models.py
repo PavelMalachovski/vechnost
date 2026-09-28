@@ -21,7 +21,7 @@ class Theme(str, Enum):
             Theme.ACQUAINTANCE: "acq",
             Theme.FOR_COUPLES: "couples",
             Theme.SEX: "sex",
-            Theme.PROVOCATION: "prov"
+            Theme.PROVOCATION: "prov",
         }
         return mapping[self]
 
@@ -92,9 +92,7 @@ class GameData(BaseModel):
             return []
         if level is None or level not in self.themes[theme]["levels"]:
             return []
-        leveled: list[str] = self.themes[theme]["levels"][level].get(
-            content_type.value, []
-        )
+        leveled: list[str] = self.themes[theme]["levels"][level].get(content_type.value, [])
         return leveled
 
     def has_nsfw_content(self, theme: Theme) -> bool:

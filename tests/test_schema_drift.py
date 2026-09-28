@@ -40,9 +40,7 @@ def test_create_all_writes_a_python_default_as_a_bare_not_null():
     guard could go. Until then it is real.
     """
     metadata = MetaData()
-    table = Table(
-        "probe", metadata, Column("position", Integer, default=1, nullable=False)
-    )
+    table = Table("probe", metadata, Column("position", Integer, default=1, nullable=False))
     ddl = str(CreateTable(table).compile(dialect=postgresql.dialect()))
 
     assert "NOT NULL" in ddl
@@ -183,9 +181,7 @@ def test_the_backfilled_null_is_typed_for_postgres():
     source = Path("vechnost_bot/payments/database.py").read_text()
     backfill = source.split("def _backfill_access_from_payments")[1].split("\ndef ")[0]
     assert "CAST(NULL AS TIMESTAMP)" in backfill
-    migration = Path(
-        "alembic/versions/a9c1d2e3f4b5_access_from_subscriptions_only.py"
-    ).read_text()
+    migration = Path("alembic/versions/a9c1d2e3f4b5_access_from_subscriptions_only.py").read_text()
     assert "CAST(NULL AS TIMESTAMP)" in migration
 
 
@@ -206,12 +202,14 @@ def test_a_not_null_the_model_does_not_have_is_released():
     database alembic built, every lifetime grant failed its INSERT."""
     from vechnost_bot.payments.database import _match_model_nullability
 
-    conn, inspector = _nullability_connection([
-        {"name": "id", "nullable": False},
-        {"name": "user_id", "nullable": False},
-        {"name": "expires_at", "nullable": False},
-        {"name": "status", "nullable": False},
-    ])
+    conn, inspector = _nullability_connection(
+        [
+            {"name": "id", "nullable": False},
+            {"name": "user_id", "nullable": False},
+            {"name": "expires_at", "nullable": False},
+            {"name": "status", "nullable": False},
+        ]
+    )
     with patch("sqlalchemy.inspect", return_value=inspector):
         _match_model_nullability(conn)
 

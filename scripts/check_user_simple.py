@@ -6,6 +6,7 @@ the bot about who has access. Settings, `.env` included, are the app's.
 
     python scripts/check_user_simple.py 123456789
 """
+
 import argparse
 import asyncio
 import sys
@@ -24,9 +25,9 @@ async def check_user(telegram_user_id: int):
 
     init_db()
 
-    print("="*60)
+    print("=" * 60)
     print(f"Checking user: {telegram_user_id}")
-    print("="*60 + "\n")
+    print("=" * 60 + "\n")
 
     async with get_db() as session:
         # Check user
@@ -43,7 +44,7 @@ async def check_user(telegram_user_id: int):
             print("[X] USER NOT FOUND")
             return
 
-        print(f"\n{'-'*60}\n")
+        print(f"\n{'-' * 60}\n")
 
         # Check subscriptions
         result = await session.execute(
@@ -69,13 +70,11 @@ async def check_user(telegram_user_id: int):
         else:
             print("[X] NO SUBSCRIPTIONS FOUND")
 
-        print(f"\n{'-'*60}\n")
+        print(f"\n{'-' * 60}\n")
 
         # Check payments
         result = await session.execute(
-            select(Payment)
-            .where(Payment.user_id == user.id)
-            .order_by(Payment.created_at.desc())
+            select(Payment).where(Payment.user_id == user.id).order_by(Payment.created_at.desc())
         )
         payments = list(result.scalars().all())
 
@@ -92,7 +91,7 @@ async def check_user(telegram_user_id: int):
         else:
             print("[X] NO PAYMENTS FOUND")
 
-        print(f"\n{'='*60}\n")
+        print(f"\n{'=' * 60}\n")
 
         # Check active access
         from vechnost_bot.payments.repositories import SubscriptionRepository
@@ -112,7 +111,7 @@ async def check_user(telegram_user_id: int):
         else:
             print("[WARNING] NO ACTIVE ACCESS")
 
-        print(f"\n{'='*60}")
+        print(f"\n{'=' * 60}")
 
 
 def main() -> None:
@@ -124,4 +123,3 @@ def main() -> None:
 
 if __name__ == "__main__":
     main()
-

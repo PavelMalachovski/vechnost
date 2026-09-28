@@ -36,12 +36,16 @@ def _keyboard(language: Language) -> InlineKeyboardMarkup | None:
     """
     if not settings.webapp_url:
         return None
-    return InlineKeyboardMarkup([[
-        InlineKeyboardButton(
-            get_text("compat.open_button", language),
-            web_app=WebAppInfo(url=settings.webapp_url),
-        )
-    ]])
+    return InlineKeyboardMarkup(
+        [
+            [
+                InlineKeyboardButton(
+                    get_text("compat.open_button", language),
+                    web_app=WebAppInfo(url=settings.webapp_url),
+                )
+            ]
+        ]
+    )
 
 
 async def _languages(user_ids: Iterable[int]) -> dict[int, Language]:
@@ -94,9 +98,7 @@ async def notify_result_ready(user_ids: Iterable[int | None], code: str) -> None
                 except Forbidden:
                     logger.info(f"Compat notify: user {user_id} blocked the bot")
                 except Exception as e:
-                    logger.warning(
-                        f"Compat notify failed for {user_id} (test {code}): {e}"
-                    )
+                    logger.warning(f"Compat notify failed for {user_id} (test {code}): {e}")
     except Exception as e:
         # initialize()/shutdown() can themselves fail on a dead network;
         # the couple just doesn't get a push this time.

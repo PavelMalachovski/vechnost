@@ -113,7 +113,8 @@ def test_the_long_provocations_now_clear_the_marks_at_a_readable_size():
 
 
 FACES = sorted(
-    p for p in (ROOT / "assets" / "backgrounds").rglob("*.png")
+    p
+    for p in (ROOT / "assets" / "backgrounds").rglob("*.png")
     if p.name not in {"card_back.png", "default.png"}
 )
 
@@ -121,7 +122,9 @@ FACES = sorted(
 @pytest.mark.parametrize("face", FACES, ids=lambda p: str(p.relative_to(ROOT)))
 def test_the_mark_boxes_cover_the_marks_on_every_face(face):
     """Measured the way the renderer sees a face: scaled to the card."""
-    image = Image.open(face).convert("RGB").resize((CARD_WIDTH, CARD_HEIGHT), Image.Resampling.LANCZOS)
+    image = (
+        Image.open(face).convert("RGB").resize((CARD_WIDTH, CARD_HEIGHT), Image.Resampling.LANCZOS)
+    )
     paper = Image.new("RGB", image.size, image.getpixel((CARD_WIDTH // 2, CARD_HEIGHT // 2)))
     ink = ImageChops.difference(image, paper).convert("L").point(lambda v: 255 if v > 40 else 0)
 
@@ -129,8 +132,12 @@ def test_the_mark_boxes_cover_the_marks_on_every_face(face):
     top_left = ink.crop((0, 0, half_w, half_h)).getbbox()
     bottom_right = ink.crop((half_w, half_h, CARD_WIDTH, CARD_HEIGHT)).getbbox()
     assert top_left and bottom_right, "a face with no corner marks?"
-    bottom_right = (bottom_right[0] + half_w, bottom_right[1] + half_h,
-                    bottom_right[2] + half_w, bottom_right[3] + half_h)
+    bottom_right = (
+        bottom_right[0] + half_w,
+        bottom_right[1] + half_h,
+        bottom_right[2] + half_w,
+        bottom_right[3] + half_h,
+    )
 
     for measured, box in zip((top_left, bottom_right), CORNER_MARKS, strict=True):
         left, top, right, bottom = measured

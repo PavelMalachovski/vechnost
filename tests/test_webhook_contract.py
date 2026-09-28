@@ -114,6 +114,7 @@ def rows(model):
 # F01: the signature Tribute actually sends
 # ---------------------------------------------------------------------------
 
+
 def test_a_real_delivery_grants_access(client):
     """The purchase Tribute reports, signed with the API key in trbt-signature."""
     response = deliver(client, event("new_digital_product", product_id=555))
@@ -176,6 +177,7 @@ def test_a_signature_from_a_key_that_is_not_ours_is_refused(client):
 # F02: a rejected delivery must not poison its own retry
 # ---------------------------------------------------------------------------
 
+
 def test_a_rejected_delivery_leaves_no_trace(client):
     """Nothing is written before the signature is checked: no user, no
     payment, no webhook record. A stranger cannot fill the tables, and a
@@ -214,11 +216,16 @@ def test_the_same_delivery_twice_is_processed_once(client):
 # F03: what an event does is a table, and a payment row is not access
 # ---------------------------------------------------------------------------
 
+
 def test_a_cancellation_keeps_the_paid_period(client):
     """Renewal switched off, not money returned: the period paid for runs to
     its end (backend audit B-09). tests/test_tribute_semantics.py has the rest."""
-    assert deliver(client, event("new_subscription", subscription_id=77,
-                                 expires_at="2099-01-01T00:00:00Z")).status_code == 200
+    assert (
+        deliver(
+            client, event("new_subscription", subscription_id=77, expires_at="2099-01-01T00:00:00Z")
+        ).status_code
+        == 200
+    )
     assert access() is True
 
     response = deliver(client, event("cancelled_subscription", subscription_id=77))
@@ -290,10 +297,16 @@ def test_the_event_table():
 
 
 def test_the_payload_is_read_from_where_tribute_puts_it():
-    parsed = TributeEvent.parse(json.loads(event(
-        "new_subscription", subscription_id=9, period="monthly",
-        expires_at="2030-05-06T07:08:09Z",
-    )))
+    parsed = TributeEvent.parse(
+        json.loads(
+            event(
+                "new_subscription",
+                subscription_id=9,
+                period="monthly",
+                expires_at="2030-05-06T07:08:09Z",
+            )
+        )
+    )
     assert parsed.telegram_user_id == BUYER
     assert parsed.subscription_id == 9
     assert parsed.access_key == 9
@@ -313,6 +326,7 @@ def test_a_non_numeric_buyer_is_a_400_not_a_500(client):
 # ---------------------------------------------------------------------------
 # The endpoint itself
 # ---------------------------------------------------------------------------
+
 
 def test_an_oversized_body_is_refused_before_it_is_read(client):
     body = b'{"name":"new_digital_product","pad":"' + b"x" * MAX_WEBHOOK_BODY + b'"}'
@@ -342,15 +356,22 @@ def test_a_chunked_body_is_cut_off_at_the_limit_not_read_whole(client):
             started["status"] = message["status"]
 
     scope = {
-        "type": "http", "asgi": {"version": "3.0"}, "http_version": "1.1",
-        "method": "POST", "scheme": "http", "path": "/webhooks/tribute",
-        "raw_path": b"/webhooks/tribute", "query_string": b"", "root_path": "",
+        "type": "http",
+        "asgi": {"version": "3.0"},
+        "http_version": "1.1",
+        "method": "POST",
+        "scheme": "http",
+        "path": "/webhooks/tribute",
+        "raw_path": b"/webhooks/tribute",
+        "query_string": b"",
+        "root_path": "",
         "headers": [
             (b"content-type", b"application/json"),
             (b"transfer-encoding", b"chunked"),
             (b"trbt-signature", b"0" * 64),
         ],
-        "client": ("127.0.0.1", 40000), "server": ("testserver", 80),
+        "client": ("127.0.0.1", 40000),
+        "server": ("testserver", 80),
     }
     asyncio.run(app(scope, receive, send))
     assert started["status"] == 413
@@ -398,12 +419,15 @@ def test_a_delivery_racing_its_own_duplicate_is_still_a_duplicate(client):
     # The other copy had not committed when this one looked, by body or by
     # event key; it had by the time this one's insert failed.
     with (
-        patch.object(services.WebhookEventRepository, "get_by_body_sha256",
-                     side_effect=[None, object()]),
-        patch.object(services.WebhookEventRepository, "get_by_event_key",
-                     return_value=None),
-        patch.object(services.UserRepository, "create_or_update",
-                     side_effect=IntegrityError("INSERT", {}, Exception("dup"))),
+        patch.object(
+            services.WebhookEventRepository, "get_by_body_sha256", side_effect=[None, object()]
+        ),
+        patch.object(services.WebhookEventRepository, "get_by_event_key", return_value=None),
+        patch.object(
+            services.UserRepository,
+            "create_or_update",
+            side_effect=IntegrityError("INSERT", {}, Exception("dup")),
+        ),
     ):
         again = deliver(client, body)
     assert again.status_code == 200
@@ -413,9 +437,7 @@ def test_a_delivery_racing_its_own_duplicate_is_still_a_duplicate(client):
 def test_deliveries_are_throttled(client):
     limit, _ = throttle.LIMITS["webhook"]
     body = event("new_digital_product")
-    statuses = [
-        deliver(client, body, signature="0" * 64).status_code for _ in range(limit + 2)
-    ]
+    statuses = [deliver(client, body, signature="0" * 64).status_code for _ in range(limit + 2)]
     assert statuses[0] == 401
     assert statuses[-1] == 429
 
@@ -423,6 +445,7 @@ def test_deliveries_are_throttled(client):
 # ---------------------------------------------------------------------------
 # What a deploy does to the data already there
 # ---------------------------------------------------------------------------
+
 
 @pytest.fixture
 def memory_db():
@@ -445,19 +468,27 @@ async def test_a_payment_row_alone_is_not_access_and_is_backfilled_once(memory_d
     async with database.get_db() as session:
         user = await UserRepository.create_or_update(session, telegram_user_id=1001)
         payment = await PaymentRepository.create(
-            session, provider="tribute", event_name="new_digital_product",
-            user_id=user.id, telegram_user_id=1001, amount=990, currency="eur",
-            raw_body={}, signature="", body_sha256="abc", expires_at=None,
+            session,
+            provider="tribute",
+            event_name="new_digital_product",
+            user_id=user.id,
+            telegram_user_id=1001,
+            amount=990,
+            currency="eur",
+            raw_body={},
+            signature="",
+            body_sha256="abc",
+            expires_at=None,
         )
         payment.created_at = datetime.fromisoformat(
             database.ACCESS_FROM_PAYMENTS_CUTOVER
         ) - timedelta(days=10)
     assert await user_has_access(1001) is False
 
-    await database.create_tables()   # the next deploy
+    await database.create_tables()  # the next deploy
     assert await user_has_access(1001) is True
 
-    await database.create_tables()   # and the one after: nothing doubles
+    await database.create_tables()  # and the one after: nothing doubles
     async with database.get_db() as session:
         found = list((await session.execute(select(Subscription))).scalars().all())
     assert len(found) == 1
@@ -470,19 +501,27 @@ async def test_rejected_delivery_records_are_released_at_startup(memory_db):
     await database.create_tables()
     async with database.get_db() as session:
         await WebhookEventRepository.create(
-            session, name="new_digital_product", sent_at=datetime.utcnow(),
-            body_sha256="stuck", status_code=401, error="Invalid webhook signature",
+            session,
+            name="new_digital_product",
+            sent_at=datetime.utcnow(),
+            body_sha256="stuck",
+            status_code=401,
+            error="Invalid webhook signature",
         )
         await WebhookEventRepository.create(
-            session, name="new_digital_product", sent_at=datetime.utcnow(),
-            body_sha256="fine", status_code=200,
+            session,
+            name="new_digital_product",
+            sent_at=datetime.utcnow(),
+            body_sha256="fine",
+            status_code=200,
         )
     await database.create_tables()
-    await database.create_tables()   # the restart after: nothing is renamed twice
+    await database.create_tables()  # the restart after: nothing is renamed twice
     async with database.get_db() as session:
         left = list((await session.execute(select(WebhookEvent))).scalars().all())
     assert sorted((row.body_sha256, row.status_code) for row in left) == [
-        ("fine", 200), (database.RELEASED_PREFIX + "stuck", 401),
+        ("fine", 200),
+        (database.RELEASED_PREFIX + "stuck", 401),
     ]
 
 
@@ -495,8 +534,11 @@ def test_a_payment_rejected_before_the_fix_lands_when_redelivered(client):
     async def stuck() -> None:
         async with database.get_db() as session:
             await WebhookEventRepository.create(
-                session, name="new_digital_product", sent_at=datetime.utcnow(),
-                body_sha256=hashlib.sha256(body).hexdigest(), status_code=401,
+                session,
+                name="new_digital_product",
+                sent_at=datetime.utcnow(),
+                body_sha256=hashlib.sha256(body).hexdigest(),
+                status_code=401,
                 error="Invalid webhook signature",
             )
 
@@ -504,7 +546,7 @@ def test_a_payment_rejected_before_the_fix_lands_when_redelivered(client):
     assert "already processed" in deliver(client, body).json()["message"]
     assert access() is False, "the state production is in before the fix"
 
-    asyncio.run(database.create_tables())   # the deploy
+    asyncio.run(database.create_tables())  # the deploy
     response = deliver(client, body)
     assert response.status_code == 200, response.text
     assert "already processed" not in response.json()["message"]

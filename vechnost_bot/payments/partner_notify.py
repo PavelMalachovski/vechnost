@@ -49,11 +49,15 @@ def _keyboard(seated: Seated, language: Language) -> InlineKeyboardMarkup | None
     url = settings.webapp_join_url(seated.screen, seated.code)
     if not url:
         return None
-    return InlineKeyboardMarkup([[
-        InlineKeyboardButton(
-            get_text("partner.open_button", language), web_app=WebAppInfo(url=url)
-        )
-    ]])
+    return InlineKeyboardMarkup(
+        [
+            [
+                InlineKeyboardButton(
+                    get_text("partner.open_button", language), web_app=WebAppInfo(url=url)
+                )
+            ]
+        ]
+    )
 
 
 async def _language(telegram_user_id: int) -> Language:

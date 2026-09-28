@@ -44,8 +44,16 @@ def open_game(creator: Player, piece: str = "hearts") -> str:
 
 def assert_same_board(a: dict[str, Any], b: dict[str, Any]) -> None:
     """Alice's "you" is Bob's "partner", and the other way round."""
-    for key in ("code", "mode", "started", "finished", "turn", "turn_name",
-                "both_home", "finale_choice"):
+    for key in (
+        "code",
+        "mode",
+        "started",
+        "finished",
+        "turn",
+        "turn_name",
+        "both_home",
+        "finale_choice",
+    ):
         assert a[key] == b[key], f"the partners disagree on {key!r}: {a[key]!r} vs {b[key]!r}"
     for mine, theirs in ((a["you"], b["partner"]), (a["partner"], b["you"])):
         for key in ("seat", "piece", "position", "rolls", "home"):
@@ -107,7 +115,9 @@ def play_to_the_end(server: Server, code: str, players: dict[int, Player]) -> di
         assert last["seat"] == mover and last["from"] == positions[mover]
         assert 1 <= last["roll"] <= 6
         assert (last["landed"], last["to"], last["event"]) == (
-            expected.landed, expected.position, expected.event
+            expected.landed,
+            expected.position,
+            expected.event,
         ), f"a roll of {last['roll']} from {positions[mover]} went wrong"
         assert after["you"]["position"] == expected.position
         assert after["you"]["rolls"] == views[mover]["you"]["rolls"] + 1
@@ -164,7 +174,9 @@ def test_two_phones_play_to_the_finale(server: Server, round_: int) -> None:
     assert alice.ok("POST", f"/api/steps69/{code}/finale", {"choice": choice_id})["finished"]
     for player in (alice, bob):
         assert player.status("GET", "/api/steps69/mine") == 404, "a finished game is not resumable"
-    assert_same_board(alice.ok("GET", f"/api/steps69/{code}"), bob.ok("GET", f"/api/steps69/{code}"))
+    assert_same_board(
+        alice.ok("GET", f"/api/steps69/{code}"), bob.ok("GET", f"/api/steps69/{code}")
+    )
 
 
 def test_a_clashing_suit_is_swapped_not_refused(server: Server) -> None:

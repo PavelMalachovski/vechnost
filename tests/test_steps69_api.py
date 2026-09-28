@@ -34,9 +34,7 @@ def client(tmp_path):
 
 
 def create(client, headers=ALICE, mode="duo", piece="hearts"):
-    response = client.post(
-        "/api/steps69", json={"mode": mode, "piece": piece}, headers=headers
-    )
+    response = client.post("/api/steps69", json={"mode": mode, "piece": piece}, headers=headers)
     assert response.status_code == 200, response.text
     return response.json()
 
@@ -44,9 +42,7 @@ def create(client, headers=ALICE, mode="duo", piece="hearts"):
 def started_game(client):
     """A duo game with both seats taken and both pieces chosen."""
     game = create(client)
-    join = client.post(
-        f"/api/steps69/{game['code']}/join", json={"piece": "spades"}, headers=BOB
-    )
+    join = client.post(f"/api/steps69/{game['code']}/join", json={"piece": "spades"}, headers=BOB)
     assert join.status_code == 200, join.text
     return game["code"]
 
@@ -77,6 +73,7 @@ def _walk_home(client, code, seat=None):
 # ---------------------------------------------------------------------------
 # Starting a game
 # ---------------------------------------------------------------------------
+
 
 def test_both_pieces_start_on_cell_one(client):
     game = create(client)
@@ -114,9 +111,7 @@ def test_the_partner_is_dealt_a_free_suit_instead_of_a_refusal(client):
     suit"; they read it as "this game will not let me in".
     """
     game = create(client, piece="hearts")
-    joined = client.post(
-        f"/api/steps69/{game['code']}/join", json={"piece": "hearts"}, headers=BOB
-    )
+    joined = client.post(f"/api/steps69/{game['code']}/join", json={"piece": "hearts"}, headers=BOB)
     assert joined.status_code == 200
     body = joined.json()
     assert body["you"]["piece"] != "hearts"
@@ -195,9 +190,7 @@ def test_a_solo_game_gives_the_second_seat_a_suit_of_its_own(client):
 
 def test_a_third_player_cannot_take_a_seat(client):
     code = started_game(client)
-    response = client.post(
-        f"/api/steps69/{code}/join", json={"piece": "clubs"}, headers=EVE
-    )
+    response = client.post(f"/api/steps69/{code}/join", json={"piece": "clubs"}, headers=EVE)
     assert response.status_code == 409
 
 
@@ -226,6 +219,7 @@ def test_the_creator_opening_their_own_link_is_not_seated_twice(client):
 # ---------------------------------------------------------------------------
 # Turns and two pieces
 # ---------------------------------------------------------------------------
+
 
 def test_nobody_rolls_before_the_partner_arrives(client):
     game = create(client)
@@ -293,6 +287,7 @@ def test_a_stranger_can_neither_watch_nor_roll(client):
 # Portals
 # ---------------------------------------------------------------------------
 
+
 def test_a_ladder_moves_the_piece_the_moment_it_is_landed_on(client):
     code = started_game(client)
     with patch.object(steps69, "roll_dice", return_value=3):  # 1 -> 4 -> 18
@@ -307,8 +302,8 @@ def test_a_ladder_moves_the_piece_the_moment_it_is_landed_on(client):
 def test_a_snake_drags_the_piece_back(client):
     code = started_game(client)
     with patch.object(steps69, "roll_dice", return_value=6):
-        roll(client, code, ALICE)   # alice 1 -> 7
-        roll(client, code, BOB)     # bob   1 -> 7
+        roll(client, code, ALICE)  # alice 1 -> 7
+        roll(client, code, BOB)  # bob   1 -> 7
         rolled = roll(client, code, ALICE).json()  # alice 7 -> 13 -> 2
     assert rolled["last"]["landed"] == 13
     assert rolled["you"]["position"] == 2
@@ -319,6 +314,7 @@ def test_a_snake_drags_the_piece_back(client):
 # ---------------------------------------------------------------------------
 # Secrets
 # ---------------------------------------------------------------------------
+
 
 def test_the_player_standing_on_a_secret_reads_it_and_the_partner_does_not(client):
     """The brief: «Текст под спойлером должен быть уникальным для каждого игрока»."""
@@ -369,13 +365,14 @@ def test_one_phone_shows_both_halves(client):
 # The Joker
 # ---------------------------------------------------------------------------
 
+
 def test_a_joker_deals_one_task_and_it_stays_with_its_player(client):
     code = started_game(client)
     with patch.object(steps69, "roll_dice", return_value=6):
-        roll(client, code, ALICE)   # alice 1 -> 7
+        roll(client, code, ALICE)  # alice 1 -> 7
         roll(client, code, BOB)
     with patch.object(steps69, "roll_dice", return_value=2):
-        mover = roll(client, code, ALICE).json()   # alice 7 -> 9, a joker
+        mover = roll(client, code, ALICE).json()  # alice 7 -> 9, a joker
 
     watcher = client.get(f"/api/steps69/{code}", headers=BOB).json()
     assert mover["you"]["cell"]["kind"] == "joker"
@@ -384,8 +381,10 @@ def test_a_joker_deals_one_task_and_it_stays_with_its_player(client):
     assert watcher["partner"]["cell"]["kind"] == "joker"
     assert watcher["partner"]["cell"]["joker"] is None
     # Polling again must not redraw.
-    assert client.get(f"/api/steps69/{code}", headers=ALICE).json()["you"]["cell"]["joker"] \
+    assert (
+        client.get(f"/api/steps69/{code}", headers=ALICE).json()["you"]["cell"]["joker"]
         == mover["you"]["cell"]["joker"]
+    )
 
 
 def test_the_partners_joker_task_never_reaches_the_wire(client):
@@ -396,7 +395,7 @@ def test_the_partners_joker_task_never_reaches_the_wire(client):
         roll(client, code, ALICE)
         roll(client, code, BOB)
     with patch.object(steps69, "roll_dice", return_value=2):
-        mover = roll(client, code, ALICE).json()   # alice 7 -> 9, a joker
+        mover = roll(client, code, ALICE).json()  # alice 7 -> 9, a joker
 
     dealt = mover["you"]["cell"]["joker"]["text"]
     watcher = client.get(f"/api/steps69/{code}", headers=BOB)
@@ -410,8 +409,8 @@ def test_each_piece_carries_its_own_joker(client):
         roll(client, code, ALICE)
         roll(client, code, BOB)
     with patch.object(steps69, "roll_dice", return_value=2):
-        roll(client, code, ALICE)   # alice -> 9, joker
-        state = roll(client, code, BOB).json()   # bob -> 9, joker
+        roll(client, code, ALICE)  # alice -> 9, joker
+        state = roll(client, code, BOB).json()  # bob -> 9, joker
     alice = client.get(f"/api/steps69/{code}", headers=ALICE).json()
 
     assert state["you"]["cell"]["kind"] == "joker"
@@ -437,6 +436,7 @@ def test_the_joker_clears_when_the_piece_moves_on(client):
 # ---------------------------------------------------------------------------
 # The map
 # ---------------------------------------------------------------------------
+
 
 def test_the_board_shows_every_action_but_never_a_deal(client):
     """The map is the printed game: every cell carries its title and its
@@ -475,12 +475,11 @@ def test_the_map_carries_the_portal_arrows(client):
 # The finale
 # ---------------------------------------------------------------------------
 
+
 def test_the_finale_waits_for_both_pieces(client):
     code = started_game(client)
     _walk_home(client, code, seat=0)
-    response = client.post(
-        f"/api/steps69/{code}/finale", json={"choice": "sync"}, headers=ALICE
-    )
+    response = client.post(f"/api/steps69/{code}/finale", json={"choice": "sync"}, headers=ALICE)
     assert response.status_code == 409
 
 
@@ -504,9 +503,7 @@ def test_the_dice_are_dead_once_a_piece_is_home(client):
 def test_choosing_a_finale_ends_the_game(client):
     code = started_game(client)
     _walk_home(client, code)
-    done = client.post(
-        f"/api/steps69/{code}/finale", json={"choice": "sync"}, headers=ALICE
-    ).json()
+    done = client.post(f"/api/steps69/{code}/finale", json={"choice": "sync"}, headers=ALICE).json()
     assert done["finished"] is True
     assert done["finale_choice"] == "sync"
 
@@ -539,6 +536,7 @@ def test_an_unknown_finale_is_refused_without_saying_the_game_is_gone(client):
 # Coming back later, and starting over
 # ---------------------------------------------------------------------------
 
+
 def test_a_game_in_play_can_be_found_again(client):
     """Leaving the screen is not leaving the game: the pieces stay put."""
     code = started_game(client)
@@ -559,7 +557,7 @@ def test_a_finished_game_is_not_offered_to_continue(client):
 
 
 def test_starting_over_leaves_no_game_behind(client):
-    """"Начать заново" deletes first: otherwise /mine keeps offering to resume
+    """ "Начать заново" deletes first: otherwise /mine keeps offering to resume
     the board the pair just walked away from."""
     code = started_game(client)
     with patch.object(steps69, "roll_dice", return_value=2):
@@ -584,6 +582,7 @@ def test_a_stranger_cannot_erase_the_game(client):
 # The paywall
 # ---------------------------------------------------------------------------
 
+
 def test_an_unpaid_visitor_cannot_start_a_game(client):
     """The game is paid outright: there is no free prefix to trim."""
     with (
@@ -595,7 +594,8 @@ def test_an_unpaid_visitor_cannot_start_a_game(client):
         patch("vechnost_bot.payments.steps69_api.user_has_access", return_value=False),
     ):
         response = client.post(
-            "/api/steps69", json={"mode": "duo", "piece": "hearts"},
+            "/api/steps69",
+            json={"mode": "duo", "piece": "hearts"},
             headers={"Authorization": "tma x"},
         )
     assert response.status_code == 402
@@ -611,7 +611,8 @@ def test_a_paid_user_can_start_a_game(client):
         patch("vechnost_bot.payments.steps69_api.user_has_access", return_value=True),
     ):
         response = client.post(
-            "/api/steps69", json={"mode": "duo", "piece": "hearts"},
+            "/api/steps69",
+            json={"mode": "duo", "piece": "hearts"},
             headers={"Authorization": "tma x"},
         )
     assert response.status_code == 200
@@ -632,21 +633,21 @@ def test_the_guest_plays_on_the_creators_payment(client):
         patch("vechnost_bot.payments.steps69_api.user_has_access", side_effect=[True]),
     ):
         created = client.post(
-            "/api/steps69", json={"mode": "duo", "piece": "hearts"},
+            "/api/steps69",
+            json={"mode": "duo", "piece": "hearts"},
             headers={"Authorization": "tma payer"},
         )
         assert created.status_code == 200
         code = created.json()["code"]
 
         joined = client.post(
-            f"/api/steps69/{code}/join", json={"piece": "spades"},
+            f"/api/steps69/{code}/join",
+            json={"piece": "spades"},
             headers={"Authorization": "tma guest"},
         )
         assert joined.status_code == 200
 
-        board = client.get(
-            f"/api/steps69/{code}/board", headers={"Authorization": "tma guest"}
-        )
+        board = client.get(f"/api/steps69/{code}/board", headers={"Authorization": "tma guest"})
         assert board.status_code == 200
 
 

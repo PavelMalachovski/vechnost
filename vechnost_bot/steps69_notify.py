@@ -44,12 +44,16 @@ def _keyboard(language: Language) -> InlineKeyboardMarkup | None:
     """
     if not settings.webapp_steps69_url:
         return None
-    return InlineKeyboardMarkup([[
-        InlineKeyboardButton(
-            get_text("steps69.resume_button", language),
-            web_app=WebAppInfo(url=settings.webapp_steps69_url),
-        )
-    ]])
+    return InlineKeyboardMarkup(
+        [
+            [
+                InlineKeyboardButton(
+                    get_text("steps69.resume_button", language),
+                    web_app=WebAppInfo(url=settings.webapp_steps69_url),
+                )
+            ]
+        ]
+    )
 
 
 async def nudge_stalled_games(bot: Bot, run: Run | None = None) -> int:
@@ -135,10 +139,7 @@ async def nudge_stalled_games(bot: Bot, run: Run | None = None) -> int:
             if status == broadcast.SENT:
                 reached = True
             elif status == broadcast.BLOCKED:
-                logger.info(
-                    f"Steps69 nudge: user {user_id} has no chat with the bot "
-                    f"or blocked it"
-                )
+                logger.info(f"Steps69 nudge: user {user_id} has no chat with the bot or blocked it")
             await asyncio.sleep(broadcast.SECONDS_BETWEEN_SENDS)
 
         # Flagged only once somebody was actually reached. Flagging before

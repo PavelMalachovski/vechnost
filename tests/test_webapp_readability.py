@@ -20,7 +20,7 @@ STYLE = re.sub(r"/\*.*?\*/", "", HTML.split("<style>", 1)[1].split("</style>", 1
 
 
 def _luminance(hex_colour: str) -> float:
-    rgb = [int(hex_colour[i:i + 2], 16) / 255 for i in (1, 3, 5)]
+    rgb = [int(hex_colour[i : i + 2], 16) / 255 for i in (1, 3, 5)]
     lin = [c / 12.92 if c <= 0.03928 else ((c + 0.055) / 1.055) ** 2.4 for c in rgb]
     return 0.2126 * lin[0] + 0.7152 * lin[1] + 0.0722 * lin[2]
 
@@ -59,7 +59,9 @@ def test_tile_text_reads_on_every_stop_of_its_gradient():
     ink = re.search(r"--c-ink:\s*(#[0-9A-Fa-f]{6})", HTML).group(1)
     for tile in ("g-acq", "g-couples", "g-sex", "g-prov"):
         body = _rule(f".{tile}")
-        stops = re.findall(r"#[0-9A-Fa-f]{6}", body.split("color:")[0] if "color:" in body else body)
+        stops = re.findall(
+            r"#[0-9A-Fa-f]{6}", body.split("color:")[0] if "color:" in body else body
+        )
         text = ink if "var(--ink)" in body else "#FFFFFF"
         worst = min(_contrast(text, stop) for stop in stops)
         # 13px tile descriptions and 11px counts: normal text, so AA is 4.5.
@@ -81,7 +83,9 @@ def test_nothing_pressable_is_smaller_than_a_thumb():
 
 
 def test_every_header_back_is_named_and_telegram_s_back_presses_it():
-    backs = re.findall(r'<button class="icon-btn back" id="(\w+)" aria-label="Назад">←</button>', HTML)
+    backs = re.findall(
+        r'<button class="icon-btn back" id="(\w+)" aria-label="Назад">←</button>', HTML
+    )
     assert len(backs) == 16
     # Any «←» left without the class would be neither hidden in Telegram
     # nor reachable by Telegram's own Back.

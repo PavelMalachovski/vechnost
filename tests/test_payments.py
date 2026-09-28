@@ -118,9 +118,7 @@ async def test_payment_repository_create(test_db):
     """Test creating a payment record."""
     async with get_db() as session:
         # Create user first
-        user = await UserRepository.create_or_update(
-            session, telegram_user_id=123456789
-        )
+        user = await UserRepository.create_or_update(session, telegram_user_id=123456789)
 
         # Create payment
         payment = await PaymentRepository.create(
@@ -147,9 +145,7 @@ async def test_subscription_repository_upsert(test_db):
     """Test upserting subscriptions."""
     async with get_db() as session:
         # Create user first
-        user = await UserRepository.create_or_update(
-            session, telegram_user_id=123456789
-        )
+        user = await UserRepository.create_or_update(session, telegram_user_id=123456789)
 
         expires_at = datetime.utcnow() + timedelta(days=30)
 
@@ -274,9 +270,7 @@ def test_verify_tribute_signature_valid():
     import hashlib
     import hmac
 
-    expected_sig = hmac.new(
-        b"test_secret", body, hashlib.sha256
-    ).hexdigest()
+    expected_sig = hmac.new(b"test_secret", body, hashlib.sha256).hexdigest()
 
     headers = {"X-Tribute-Signature": expected_sig}
 
@@ -386,4 +380,3 @@ async def test_apply_webhook_event_subscription(test_db):
                 session, user.id
             )
             assert len(subscriptions) > 0
-

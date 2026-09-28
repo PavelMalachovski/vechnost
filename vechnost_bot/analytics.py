@@ -57,10 +57,18 @@ VIA = frozenset({"ref", "invite", "gift", "push"})
 ARRIVALS = frozenset({"bot_start", "app_open"})
 # What counts as having played: opening something, or sitting down with a
 # partner. /stats calls a newcomer activated by one of these on day one.
-ACTIVATIONS = frozenset({
-    "deck_open", "lib_open", "room_create", "room_join", "compat_create",
-    "compat_join", "s69_create", "s69_join",
-})
+ACTIVATIONS = frozenset(
+    {
+        "deck_open",
+        "lib_open",
+        "room_create",
+        "room_join",
+        "compat_create",
+        "compat_join",
+        "s69_create",
+        "s69_join",
+    }
+)
 # A partner taking the second seat: a room, a test, a board.
 JOINS = frozenset({"room_join", "compat_join", "s69_join"})
 
@@ -110,10 +118,19 @@ EVENTS: dict[str, frozenset[str] | None] = {
 # What the Mini App may report itself, through POST /api/events. Everything
 # else happens on the server and is recorded there, where it cannot be
 # forged: a client cannot claim a purchase, a join or a finished test.
-CLIENT_EVENTS = frozenset({
-    "app_open", "deck_open", "lib_open", "invite_share", "paywall_view", "buy_click",
-    "write_access", "gift_view", "gift_click",
-})
+CLIENT_EVENTS = frozenset(
+    {
+        "app_open",
+        "deck_open",
+        "lib_open",
+        "invite_share",
+        "paywall_view",
+        "buy_click",
+        "write_access",
+        "gift_view",
+        "gift_click",
+    }
+)
 
 SOURCE_TAG = re.compile(r"^[a-z0-9][a-z0-9_-]{0,31}$")
 SOURCE_PREFIX = "src_"
@@ -131,7 +148,7 @@ def parse_source_param(param: str | None) -> str | None:
     """The tag in a `src_<tag>` start parameter, or None."""
     if not isinstance(param, str) or not param.lower().startswith(SOURCE_PREFIX):
         return None
-    return clean_source(param[len(SOURCE_PREFIX):])
+    return clean_source(param[len(SOURCE_PREFIX) :])
 
 
 def arrival_source(param: str | None) -> str | None:
@@ -242,11 +259,13 @@ async def track_arrival(telegram_user_id: int, source: str | None) -> None:
         today = datetime.utcnow().replace(hour=0, minute=0, second=0, microsecond=0)
         async with get_db() as session:
             seen = await session.scalar(
-                select(AnalyticsEvent.id).where(
+                select(AnalyticsEvent.id)
+                .where(
                     AnalyticsEvent.telegram_user_id == telegram_user_id,
                     AnalyticsEvent.name == "app_open",
                     AnalyticsEvent.created_at >= today,
-                ).limit(1)
+                )
+                .limit(1)
             )
             if seen is None:
                 row = event_row("app_open", telegram_user_id, source=source)

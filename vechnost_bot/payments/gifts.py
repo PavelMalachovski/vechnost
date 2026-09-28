@@ -42,9 +42,7 @@ def is_gift_purchase(product_id) -> bool:
     return str(product_id) == str(settings.gift_product_id)
 
 
-async def create_gift_certificate(
-    session: AsyncSession, purchase_id: str | None = None
-) -> str:
+async def create_gift_certificate(session: AsyncSession, purchase_id: str | None = None) -> str:
     """Create a certificate with a fresh unique code, return the code.
 
     `purchase_id` is the Tribute purchase that paid for it, when a gift did:
@@ -64,13 +62,11 @@ def gift_language(language_code: str | None) -> Language:
 
 def render_gift_card(code: str, language: Language) -> BytesIO:
     """The gift card image: the code front and center, brand at the bottom."""
-    watermark = (
-        f"VECHNOST · @{settings.bot_username}" if settings.bot_username else "VECHNOST"
-    )
+    watermark = f"VECHNOST · @{settings.bot_username}" if settings.bot_username else "VECHNOST"
     return render_card(
         code,
         get_background_path("couples", 1, "q"),
-        footer=get_text('gift.card_footer', language),
+        footer=get_text("gift.card_footer", language),
         watermark=watermark,
         single_line=True,
     )
@@ -84,9 +80,10 @@ def delivered_caption(code: str, language: Language) -> str:
     """
     link = activation_link(code)
     if link:
-        return get_text('gift.delivered_link', language, code=code, link=link,
-                        bot=settings.bot_username or "")
-    return get_text('gift.delivered', language, code=code)
+        return get_text(
+            "gift.delivered_link", language, code=code, link=link, bot=settings.bot_username or ""
+        )
+    return get_text("gift.delivered", language, code=code)
 
 
 async def deliver_gift_certificate(
@@ -107,9 +104,7 @@ async def deliver_gift_certificate(
         )
     except Exception as e:
         logger.warning(f"Gift card image delivery failed, sending text: {e}")
-        await bot.send_message(
-            chat_id=telegram_user_id, text=caption, parse_mode="HTML"
-        )
+        await bot.send_message(chat_id=telegram_user_id, text=caption, parse_mode="HTML")
 
 
 async def gift_offer() -> tuple[str | None, str | None]:

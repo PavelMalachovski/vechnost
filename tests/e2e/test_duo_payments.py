@@ -85,9 +85,10 @@ def test_a_new_purchase_after_a_refund_counts_and_the_old_refund_cannot_undo_it(
 
     again = server.deliver(server.redelivery(refund), label="the old refund, again")
     assert "already processed" in again.json()["message"]
-    chargeback = server.deliver(server.webhook_body(
-        "chargeback", alice, created_at=earlier + timedelta(minutes=2)
-    ), label="a chargeback of the first purchase, late")
+    chargeback = server.deliver(
+        server.webhook_body("chargeback", alice, created_at=earlier + timedelta(minutes=2)),
+        label="a chargeback of the first purchase, late",
+    )
     assert chargeback.json()["action"] == "ignore"
     assert paid(alice) is True
     assert shared_deck(alice, bob) > FREE_CARDS_PER_DECK
@@ -97,12 +98,14 @@ def test_a_cancelled_subscription_keeps_the_month_that_was_paid_for(server: Serv
     alice = server.player("Alice")
     bob = server.player("Bob")
     paid_until = (datetime.now(UTC) + timedelta(days=20)).isoformat()
-    server.deliver(server.webhook_body(
-        "new_subscription", alice, subscription_id=7701, expires_at=paid_until
-    ))
-    cancel = server.deliver(server.webhook_body(
-        "cancelled_subscription", alice, subscription_id=7701, expires_at=paid_until
-    ))
+    server.deliver(
+        server.webhook_body("new_subscription", alice, subscription_id=7701, expires_at=paid_until)
+    )
+    cancel = server.deliver(
+        server.webhook_body(
+            "cancelled_subscription", alice, subscription_id=7701, expires_at=paid_until
+        )
+    )
     assert cancel.json()["action"] == "cancel"
     assert paid(alice) is True, "the renewal is off, the month is still paid for"
     code = alice.ok("POST", "/api/steps69", {"mode": "duo", "piece": "hearts"})["code"]
