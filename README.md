@@ -55,7 +55,7 @@ inside a polished Telegram Mini App.
 | Area | Choice |
 |------|--------|
 | Language | Python 3.11+ |
-| Bot | [python-telegram-bot](https://docs.python-telegram-bot.org) 21.6 (`[job-queue]`) |
+| Bot | [python-telegram-bot](https://docs.python-telegram-bot.org) 22.8 (`[job-queue]`) |
 | Web / Mini App API | FastAPI + Uvicorn |
 | Data | SQLAlchemy 2 (async) — SQLite locally, PostgreSQL in production; Alembic migrations |
 | Bot sessions | In the bot process's memory (expiring, bounded); Redis when `REDIS_URL` is set |

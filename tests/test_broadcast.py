@@ -88,6 +88,37 @@ class TestDeliver:
         assert slept == [4]  # retry_after + 1
         assert send.await_count == 2
 
+    def test_a_wait_reads_in_seconds_either_way(self):
+        from datetime import timedelta
+
+        assert bc._seconds(timedelta(seconds=1.5)) == 1.5
+        assert bc._seconds(3) == 3.0
+
+    def test_the_package_reads_a_wait_the_way_the_next_ptb_will(self):
+        """python-telegram-bot 22 warns on every read of a RetryAfter's wait
+        as a number, and its next major version gives only a timedelta (so
+        `retry_after + 1` would raise). Importing the package opts in, in a
+        clean environment too, where nothing else has set PTB_TIMEDELTA."""
+        import subprocess
+        import sys
+
+        code = (
+            "import os, warnings\n"
+            "from datetime import timedelta\n"
+            "import vechnost_bot\n"
+            "from telegram.error import RetryAfter\n"
+            "from telegram.warnings import PTBDeprecationWarning\n"
+            "assert os.environ['PTB_TIMEDELTA'] == 'true'\n"
+            "with warnings.catch_warnings():\n"
+            "    warnings.simplefilter('error', PTBDeprecationWarning)\n"
+            "    assert RetryAfter(3).retry_after == timedelta(seconds=3)\n"
+        )
+        env = {k: v for k, v in os.environ.items() if k != "PTB_TIMEDELTA"}
+        done = subprocess.run(
+            [sys.executable, "-c", code], env=env, capture_output=True, text=True, timeout=60
+        )
+        assert done.returncode == 0, done.stderr
+
     def test_a_network_error_is_retried_then_given_up_on(self):
         send = AsyncMock(side_effect=NetworkError("connection reset"))
         backoff = []

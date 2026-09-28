@@ -60,6 +60,7 @@ and commit the result. The descriptions are the fields' own.
 | `PORT` | `run_webhook.py` | The port the web process listens on; Railway sets it. Default `8000`. |
 | `RAILWAY_GIT_COMMIT_SHA` | `payments/web.py`, `monitoring.py` | The deployed commit: `/health` reports it and Sentry files events under it. Railway sets it. |
 | `RELEASE_VERSION` | `monitoring.py` | Sentry's release when `RAILWAY_GIT_COMMIT_SHA` is unset. |
+| `PTB_TIMEDELTA` | python-telegram-bot; `vechnost_bot/__init__.py` sets it | Makes python-telegram-bot report durations, a flood-control wait among them, as `timedelta`: the only answer its next major version gives, and no deprecation warning on every read. Importing the package sets it to `true` unless the environment already names a value; leave it unset. |
 
 ## Tests and CI only
 

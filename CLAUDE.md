@@ -493,7 +493,10 @@ python scripts/smoke_production.py $URL --deep  # ...and its database and bot he
 - **A broadcast has two doors and one delivery loop.** `broadcast.py` owns
   the loop — the pause between sends, the retry that honours Telegram's own
   `retry_after`, and the rule that a user who blocked the bot is opted out
-  of the daily push too, since that is the same signal. A chat that was
+  of the daily push too, since that is the same signal. That wait is a
+  `timedelta`: importing the package sets `PTB_TIMEDELTA`, without which
+  python-telegram-bot 22 warns on every read and 23 will not give a number
+  at all (`retry_after + 1` would raise). A chat that was
   never opened is not that signal: "bot can't initiate conversation" (a
   Tribute buyer, anyone who only ever used the Mini App) marks
   `users.can_message` false, which the daily card and a broadcast skip, and

@@ -21,8 +21,8 @@ classifiers = [
     "Programming Language :: Python :: 3.12",
 ]
 dependencies = [
-    "python-telegram-bot[job-queue]==21.6",
-    "pydantic==2.9.2",
+    "python-telegram-bot[job-queue]>=22.8",
+    "pydantic>=2.9.2",
     "pydantic-settings>=2.0.0",
     "pyyaml==6.0.2",
     "pillow>=10.0.0",
