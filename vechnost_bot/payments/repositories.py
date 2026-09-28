@@ -416,7 +416,7 @@ class UserRepository:
         # Whoever played with them forgets them too: their partner link is
         # a record of this person.
         unlinked = cast(
-            "CursorResult[Any]",
+            CursorResult[Any],
             await session.execute(
                 _update(User)
                 .where(User.partner_telegram_user_id == telegram_user_id)

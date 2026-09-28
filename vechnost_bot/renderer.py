@@ -323,7 +323,7 @@ def _centred_top(total_height: int, has_footer: bool) -> int:
 def _width_beside_marks(top: float, bottom: float) -> int:
     """How wide a centred line spanning [top, bottom) may be."""
     width = TEXT_AREA_WIDTH
-    (tl_left, tl_top, tl_right, tl_bottom), (br_left, br_top, br_right, br_bottom) = CORNER_MARKS
+    (_, tl_top, tl_right, tl_bottom), (br_left, br_top, _, br_bottom) = CORNER_MARKS
     centre = CARD_WIDTH / 2
     if top < tl_bottom and bottom > tl_top:
         width = min(width, int(2 * (centre - tl_right - CORNER_CLEARANCE)))

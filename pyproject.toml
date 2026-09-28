@@ -154,6 +154,9 @@ ignore_names = [
     # The tests' way in: dropping the schema, and the board's portals.
     "drop_tables", "portals", "ladders", "snakes",
     "isolation_level",                      # set on the SQLite driver's connection
+    # A column written only through update().values(...), a keyword
+    # vulture cannot connect to the attribute.
+    "partner_since",
 ]
 
 [tool.deptry]
