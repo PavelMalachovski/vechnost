@@ -7,15 +7,15 @@ alike.
 """
 
 from functools import cache
-from pathlib import Path
 from typing import Literal
 
 import yaml
 from pydantic import BaseModel
 
 from .i18n import Language
+from .paths import DATA
 
-LIBRARY_DIR = Path(__file__).parent.parent / "data" / "library"
+LIBRARY_DIR = DATA / "library"
 
 
 class Practice(BaseModel):

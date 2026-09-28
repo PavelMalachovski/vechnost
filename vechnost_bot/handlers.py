@@ -30,6 +30,7 @@ from .monitoring import (
     set_user_context,
     track_performance,
 )
+from .paths import ASSETS
 from .storage import get_session
 
 logger = logging.getLogger(__name__)
@@ -204,7 +205,7 @@ async def start_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
     # unreadable logo must not take /start down, hence the fallback to the
     # greeting alone.
     try:
-        with open("assets/images/vechnost_logo.png", "rb") as logo_file:
+        with open(ASSETS / "images" / "vechnost_logo.png", "rb") as logo_file:
             await message.reply_photo(photo=logo_file)
     except Exception as e:
         logger.warning(f"Failed to load logo image: {e}, sending greeting only")

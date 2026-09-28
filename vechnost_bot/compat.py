@@ -18,15 +18,15 @@ not happen is the result telling more than that.
 """
 
 from functools import cache
-from pathlib import Path
 from typing import Literal
 
 import yaml
 from pydantic import BaseModel
 
 from .i18n import Language
+from .paths import DATA
 
-CONTENT_DIR = Path(__file__).parent.parent / "data" / "library"
+CONTENT_DIR = DATA / "library"
 
 SPHERE_COUNT = 8
 QUESTIONS_PER_SPHERE = 5
