@@ -38,6 +38,7 @@ exec python -m mypy --follow-imports=silent \
     vechnost_bot/library.py \
     vechnost_bot/logic.py \
     vechnost_bot/models.py \
+    vechnost_bot/paths.py \
     vechnost_bot/referrals.py \
     vechnost_bot/retention.py \
     vechnost_bot/steps69.py \

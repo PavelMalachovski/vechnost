@@ -155,6 +155,16 @@ python scripts/smoke_production.py $URL --deep  # ...and its database and bot he
   in git history, one revert away. `i18n.Language` has a single member; use
   `Language.coerce(code)` to read a stored or client-supplied `en`/`cs`,
   which comes back as Russian instead of raising.
+- **Content is found from the package, never from the working directory.**
+  `paths.py` holds `ROOT`, `DATA`, `ASSETS` and `WEBAPP`, and every loader
+  reads through it; `in_repo` resolves the repository-relative paths that
+  `assets/backgrounds.yml` names. `Path("data")` in `i18n.py` and those
+  relative faces were read against wherever the process started, so a bot
+  started anywhere but the root answered with its keys ("privacy.done") and
+  drew no card (audit I-28). The package runs from a checkout - editable, or
+  on `PYTHONPATH` as the image does - and a copy without the three
+  directories (a wheel) stops on import and says so. `tests/test_paths.py`
+  starts the app from another directory.
 - **Bot sessions live in memory unless `REDIS_URL` says otherwise.**
   `storage.py` keeps a chat's session (theme, level, the 18+ consent) in
   the bot process, each forgotten `SESSION_TTL` seconds after its last save

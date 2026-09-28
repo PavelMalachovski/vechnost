@@ -69,6 +69,10 @@ e2e = [
 [project.scripts]
 vechnost-bot = "vechnost_bot.main:main"
 
+# The package runs from a checkout: an editable install, or the checkout on
+# PYTHONPATH as the production image does. data/, assets/ and webapp/ stay
+# beside it, where vechnost_bot/paths.py finds them. A wheel would carry the
+# code alone, and importing it stops with that explanation (audit I-28).
 [tool.setuptools.packages.find]
 where = ["."]
 include = ["vechnost_bot*"]
@@ -154,6 +158,9 @@ ignore_names = [
     # The tests' way in: dropping the schema, and the board's portals.
     "drop_tables", "portals", "ladders", "snakes",
     "isolation_level",                      # set on the SQLite driver's connection
+    # A column written only through update().values(...), a keyword
+    # vulture cannot connect to the attribute.
+    "partner_since",
 ]
 
 [tool.deptry]

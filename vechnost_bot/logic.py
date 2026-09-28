@@ -4,6 +4,7 @@ from typing import Any
 
 from .i18n import Language
 from .models import ContentType, GameData, Theme
+from .paths import DATA
 
 
 class LocalizedGameData:
@@ -26,11 +27,9 @@ class LocalizedGameData:
         this used to prefer are deleted, so the branch that looked for them
         could not be taken.
         """
-        from pathlib import Path
-
         import yaml
 
-        yaml_path = Path(__file__).parent.parent / "data" / "questions.yaml"
+        yaml_path = DATA / "questions.yaml"
         with open(yaml_path, encoding="utf-8") as f:
             data = yaml.safe_load(f)
         return self._create_game_data_from_yaml(data)

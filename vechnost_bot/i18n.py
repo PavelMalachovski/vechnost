@@ -9,6 +9,8 @@ import yaml
 from babel import Locale
 from babel.support import Format
 
+from .paths import DATA
+
 logger = logging.getLogger(__name__)
 
 
@@ -43,7 +45,7 @@ class Language(str, Enum):
 class I18nManager:
     """Manages internationalization for the bot."""
 
-    def __init__(self, data_dir: Path = Path("data")):
+    def __init__(self, data_dir: Path = DATA):
         self.data_dir = data_dir
         self.translations: dict[Language, dict[str, Any]] = {}
         self.formatters: dict[Language, Format] = {}

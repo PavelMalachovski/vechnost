@@ -27,6 +27,7 @@ from ..heartbeat import deep_status
 from ..i18n import Language, get_text
 from ..logic import localized_game_data
 from ..models import ContentType, Theme
+from ..paths import ASSETS, WEBAPP
 from ..renderer import get_background_path, render_card_bytes
 from .compat_api import router as compat_router
 from .database import close_db, get_db, init_db
@@ -50,8 +51,8 @@ from .webapp_auth import InitDataError, validate_init_data
 
 logger = logging.getLogger(__name__)
 
-WEBAPP_DIR = Path(__file__).parent.parent.parent / "webapp"
-ASSETS_DIR = Path(__file__).parent.parent.parent / "assets"
+WEBAPP_DIR = WEBAPP
+ASSETS_DIR = ASSETS
 
 
 @asynccontextmanager

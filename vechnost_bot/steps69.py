@@ -26,15 +26,15 @@ task of the other player at all, only the one line written for them.
 
 import random
 from functools import cache
-from pathlib import Path
 from typing import Literal
 
 import yaml
 from pydantic import BaseModel
 
 from .i18n import Language
+from .paths import DATA
 
-CONTENT_DIR = Path(__file__).parent.parent / "data"
+CONTENT_DIR = DATA
 
 BOARD_SIZE = 69
 START_CELL = 1

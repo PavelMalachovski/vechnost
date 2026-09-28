@@ -9,8 +9,6 @@ from vechnost_bot.config import (
     ProductionConfigError,
     Settings,
     create_bot,
-    get_chat_id,
-    get_log_level,
     production_problems,
 )
 
@@ -29,7 +27,6 @@ class TestSettings:
             # No Redis unless one is named: sessions stay in memory.
             assert settings.redis_url is None
             assert settings.redis_db == 0
-            assert settings.chat_id is None
             assert settings.sentry_dsn is None
             assert settings.max_connections == 20
             assert settings.session_ttl == 3600
@@ -45,7 +42,6 @@ class TestSettings:
             "ENABLE_PAYMENT": "false",
             "REDIS_URL": "redis://prod-redis:6379",
             "REDIS_DB": "1",
-            "CHAT_ID": "12345",
             "SENTRY_DSN": "https://sentry.io/project",
             "MAX_CONNECTIONS": "50",
             "SESSION_TTL": "7200",
@@ -61,7 +57,6 @@ class TestSettings:
             # have outranked REDIS_DB=1 below for a URL that names no database.
             assert settings.redis_url == "redis://prod-redis:6379"
             assert settings.redis_db == 1
-            assert settings.chat_id == "12345"
             assert settings.sentry_dsn == "https://sentry.io/project"
             assert settings.max_connections == 50
             assert settings.session_ttl == 7200
@@ -101,33 +96,6 @@ class TestConfigFunctions:
         bot = create_bot()
 
         assert bot.token == "test_token"
-
-    @patch("vechnost_bot.config.settings")
-    def test_get_log_level(self, mock_settings):
-        """Test log level retrieval."""
-        mock_settings.log_level = "DEBUG"
-
-        level = get_log_level()
-
-        assert level == "DEBUG"
-
-    @patch("vechnost_bot.config.settings")
-    def test_get_chat_id(self, mock_settings):
-        """Test chat ID retrieval."""
-        mock_settings.chat_id = "12345"
-
-        chat_id = get_chat_id()
-
-        assert chat_id == "12345"
-
-    @patch("vechnost_bot.config.settings")
-    def test_get_chat_id_none(self, mock_settings):
-        """Test chat ID retrieval when None."""
-        mock_settings.chat_id = None
-
-        chat_id = get_chat_id()
-
-        assert chat_id is None
 
 
 class TestProductionSettings:

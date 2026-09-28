@@ -26,8 +26,9 @@ FROM base AS production
 COPY --from=deps /venv /venv
 ENV PATH="/venv/bin:$PATH" \
     PYTHONPATH=/app
-# The code finds data/, assets/ and webapp/ next to the package, so the image
-# keeps the checkout's layout rather than installing the package.
+# The code finds data/, assets/ and webapp/ next to the package
+# (vechnost_bot/paths.py), so the image keeps the checkout's layout rather
+# than installing the package.
 COPY alembic.ini ./
 COPY alembic/ ./alembic/
 COPY vechnost_bot/ ./vechnost_bot/

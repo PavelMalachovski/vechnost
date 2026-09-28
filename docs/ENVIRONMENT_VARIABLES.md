@@ -25,7 +25,6 @@ and commit the result. The descriptions are the fields' own.
 | `ENVIRONMENT` | `development` | Application environment. `production` makes the service refuse to start on development defaults (see production_problems), and tags Sentry events. |
 | `REDIS_URL` | unset | Redis for bot sessions. Unset: sessions stay in the bot process's memory. |
 | `REDIS_DB` | `0` | Redis database number, when REDIS_URL names none |
-| `CHAT_ID` | unset | Optional chat ID for notifications |
 | `SENTRY_DSN` | unset | Sentry DSN for error tracking |
 | `MAX_CONNECTIONS` | `20` | Maximum Redis connections |
 | `SESSION_TTL` | `3600` | Seconds a bot session outlives its last save, in memory and in Redis alike |

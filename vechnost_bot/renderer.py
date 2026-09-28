@@ -6,11 +6,11 @@ from collections.abc import Callable
 from dataclasses import dataclass
 from functools import lru_cache
 from io import BytesIO
-from pathlib import Path
 
 from PIL import Image, ImageDraw, ImageFont
 
 from .monitoring import log_image_rendering_event, track_performance
+from .paths import ASSETS, in_repo
 
 logger = logging.getLogger(__name__)
 
@@ -75,7 +75,7 @@ TEXT_FOOTER_GAP = 14
 # *into* the backgrounds by scripts/generate_card_assets.py, which loads them
 # by filename itself; renderer.py only composites question text onto the
 # finished art. Look there, not here, if a wordmark or a rank looks wrong.
-_ASSETS_FONTS = Path(__file__).parent.parent / "assets" / "fonts"
+_ASSETS_FONTS = ASSETS / "fonts"
 FONT_PATH = _ASSETS_FONTS / "Inter-Regular.ttf"
 FALLBACK_FONT_PATH = _ASSETS_FONTS / "DejaVuSans.ttf"
 
@@ -84,7 +84,10 @@ FALLBACK_FONT_PATH = _ASSETS_FONTS / "DejaVuSans.ttf"
 def _load_background_image(bg_path: str) -> Image.Image | None:
     """Load and cache background image."""
     try:
-        path = Path(bg_path)
+        # backgrounds.yml names its faces relative to the repository, and
+        # so does whoever passes one in: resolved here, not against the
+        # working directory, from which no card could be drawn (audit I-28).
+        path = in_repo(bg_path)
         if not path.exists():
             logger.warning(f"Background image not found: {bg_path}")
             return None
@@ -323,7 +326,7 @@ def _centred_top(total_height: int, has_footer: bool) -> int:
 def _width_beside_marks(top: float, bottom: float) -> int:
     """How wide a centred line spanning [top, bottom) may be."""
     width = TEXT_AREA_WIDTH
-    (tl_left, tl_top, tl_right, tl_bottom), (br_left, br_top, br_right, br_bottom) = CORNER_MARKS
+    (_, tl_top, tl_right, tl_bottom), (br_left, br_top, _, br_bottom) = CORNER_MARKS
     centre = CARD_WIDTH / 2
     if top < tl_bottom and bottom > tl_top:
         width = min(width, int(2 * (centre - tl_right - CORNER_CLEARANCE)))
@@ -522,7 +525,7 @@ def get_background_path(topic: str, level_or_0: int, category: str) -> str:
         import yaml
 
         # Load background configuration
-        config_path = Path(__file__).parent.parent / "assets" / "backgrounds.yml"
+        config_path = ASSETS / "backgrounds.yml"
 
         if config_path.exists():
             with open(config_path, encoding="utf-8") as f:
@@ -559,7 +562,7 @@ def get_background_path(topic: str, level_or_0: int, category: str) -> str:
             path = default_path
 
         # Check if file exists, fallback to default if not
-        if not Path(path).exists():
+        if not in_repo(path).exists():
             logger.warning(f"Background not found: {path}, using default")
             path = default_path
 
