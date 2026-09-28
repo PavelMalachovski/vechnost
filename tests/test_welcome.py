@@ -9,6 +9,7 @@ features list, and the button.
 
 import re
 
+from tests.wording import plain
 from vechnost_bot.callback_handlers import features_block, welcome_screen
 from vechnost_bot.i18n import Language
 
@@ -16,7 +17,7 @@ RU = Language.RUSSIAN
 
 
 def _visible(html: str) -> str:
-    return re.sub(r"<[^>]+>", "", html)
+    return plain(re.sub(r"<[^>]+>", "", html))
 
 
 def test_the_greeting_fits_a_phone_screen_before_its_button():

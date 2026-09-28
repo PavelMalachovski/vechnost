@@ -11,6 +11,7 @@ from PIL import Image, ImageDraw, ImageFont
 
 from .monitoring import log_image_rendering_event, track_performance
 from .paths import ASSETS, in_repo
+from .typography import units
 
 logger = logging.getLogger(__name__)
 
@@ -208,7 +209,9 @@ def _wrap_lines(
     lines: list[str] = []
     current_line: list[str] = []
 
-    for word in text.split():
+    # Units, not words: a short word keeps the word after it on its line and
+    # a dash keeps the word before it (typography.units, audit D-31).
+    for word in units(text):
         max_width = width_of(len(lines))
         if _text_width(word, font) > max_width:
             # Flush the current line, then split the long word across lines

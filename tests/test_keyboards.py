@@ -9,6 +9,7 @@ keyboard added a second. The counts live in the text now (the calendar's
 message, the card's own footer).
 """
 
+from tests.wording import plain
 from vechnost_bot.callback_handlers import _calendar_text
 from vechnost_bot.i18n import Language
 from vechnost_bot.keyboards import get_calendar_keyboard, get_question_keyboard
@@ -62,7 +63,7 @@ def test_the_arrow_is_printed_once():
 
 def test_the_page_is_named_in_the_text_when_there_is_more_than_one():
     session = SessionState(theme=Theme.PROVOCATION, language=RU)
-    assert _calendar_text(session, ContentType.QUESTIONS, 34, 1, 2) == (
+    assert plain(_calendar_text(session, ContentType.QUESTIONS, 34, 1, 2)) == (
         "❤️‍🔥 Провокация\nСтраница 2 из 2"
     )
     assert _calendar_text(session, ContentType.QUESTIONS, 20, 0, 1) == "❤️‍🔥 Провокация"

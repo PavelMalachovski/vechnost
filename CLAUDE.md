@@ -844,6 +844,18 @@ python scripts/smoke_production.py $URL --deep  # ...and its database and bot he
   reader's partner: «партнёр», never «партнёрша», and no «он/она» – rewrite
   the sentence so it needs no pronoun. `data/questions.yaml`,
   `data/library/*.yaml` and the interface copy carry none.
+- **A short word keeps the next one, a dash the word before** (audit
+  D-31). `typography.py` holds the rule: a word of one or two letters, a
+  number of up to three digits or one of `PREPOSITIONS` stays with the word
+  after it, and a dash with the word before it. It is applied three ways.
+  `nbsp` glues the bot's translations with no-break spaces as `i18n` loads
+  them, leaving HTML tags alone. `units` tells the renderer where a card's
+  line may break. `bindShortWords` in `webapp/index.html` does the same for
+  the Mini App's I18N at load and for everything `escapeHTML` puts on
+  screen. The page also sets `text-wrap: pretty`. `tests/test_typography.py`
+  runs the Python and the JavaScript rule on one list of lines through node
+  and lays out the whole deck; a test about what a message says reads it
+  through `tests/wording.py::plain`.
 - **No em dash in user-facing text.** `data/questions.yaml`,
   `data/steps69_ru.yaml` and `data/library/*.yaml` hold zero long dashes;
   use an en dash `–` or rewrite the sentence. `tests/test_no_em_dash.py`

@@ -21,6 +21,7 @@ from telegram.error import Forbidden
 
 import vechnost_bot.payments.database as database
 from tests.test_webapp_auth import make_init_data
+from tests.wording import plain
 from vechnost_bot.config import settings
 from vechnost_bot.payments import partner_notify
 from vechnost_bot.payments.database import get_db
@@ -289,9 +290,11 @@ def test_following_your_own_link_credits_nobody(client, pushes):
 
 def test_the_push_names_the_partner_in_words_with_no_gender():
     seated = Seated(screen="coop", code="ABCDEFGHJKLMNPQR", creator_id=ALICE, guest_name="Bob")
-    assert partner_notify.message_for(seated) == "Bob в игре. Ваш ход!"
+    assert plain(partner_notify.message_for(seated)) == "Bob в игре. Ваш ход!"
     nameless = Seated(screen="steps69", code="ABCDEFGHJKLMNPQR", creator_id=ALICE, guest_name=" ")
-    assert partner_notify.message_for(nameless) == "Партнёр в игре «69 ступеней». Кубик ждёт вас."
+    assert plain(partner_notify.message_for(nameless)) == (
+        "Партнёр в игре «69 ступеней». Кубик ждёт вас."
+    )
     assert "Результат придёт" in partner_notify.message_for(
         Seated(screen="compat", code="ABCDEFGHJKLMNPQR", creator_id=ALICE, guest_name="Bob")
     )
@@ -343,7 +346,7 @@ async def test_nothing_on_the_way_raises_or_logs_the_code(caplog):
     ):
         await partner_notify.notify_partner_joined(seated)
     # The language could not be read: Russian, the only one there is.
-    assert bot.send_message.await_args.kwargs["text"] == "Bob в игре. Ваш ход!"
+    assert plain(bot.send_message.await_args.kwargs["text"]) == "Bob в игре. Ваш ход!"
     assert "network down" in caplog.text
     assert "ABCDEFGHJKLMNPQR" not in caplog.text
 
