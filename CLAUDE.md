@@ -854,6 +854,20 @@ python scripts/smoke_production.py $URL --deep  # ...and its database and bot he
   it ships (400, 600, 700), and a transition names what it animates;
   `tests/test_webapp_static.py` holds both and
   `tests/e2e/browser/test_css_rules.py` the rest, as drawn.
+- **Waiting is alive, loading holds its place, destroying looks like it**
+  (audit D-38). A status that waits on the partner carries `.waiting` and a
+  dot breathes in front of it (lit and still under reduced motion):
+  «Ждём партнёра…» on the three invite screens, the room's and the board's
+  chip until the partner comes (the board's also at 69, until the partner
+  gets there), and the test's partner count once your forty are in.
+  Content fetched after its screen is up holds its place with `.skeleton`
+  rows of its own size: the home screen's last two rows until
+  `/api/library` answers, so nothing jumps, and the Practices list on its
+  first visit instead of the full-screen loader. A button waiting for its
+  answer goes through `busyWhile`: a spinner in the button and no second
+  request. A button that wipes what two people share wears `.btn-danger`
+  (`--danger`): the test's «Удалить» and the board's «Начать заново».
+  `tests/e2e/browser/test_waiting.py` holds all four, as drawn.
 - New user-facing text is Russian. There is no second language to fill in.
 - **No gendered verb forms in user-facing text.** Not «уверен», and not the
   «уверен(а)» bracket either: the reader may be of any gender, and the

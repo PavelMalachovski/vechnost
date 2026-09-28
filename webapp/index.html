@@ -97,6 +97,7 @@
     --ok:              var(--c-mint-300);
     --warn:            var(--c-amber-300);
     --danger:          var(--c-red-300);
+    --danger-line:     rgb(255 120 150 / .45);
     --secret:          var(--c-lilac-200);
 
     /* 3. Type. Eleven pixels is the floor. */
@@ -516,7 +517,7 @@
   .compat-opt[disabled],.compat-prev[disabled]{opacity:.35;pointer-events:none}
   .compat-percent{font-size:56px;font-weight:700;text-align:center;margin:20px 0 6px}
   .compat-zones{text-align:center;font-size:13px;opacity:.75;margin:0 0 6px;line-height:1.7}
-  .compat-danger{margin-top:26px;width:100%;opacity:.85}
+  .compat-danger{margin-top:26px;width:100%}
   .compat-h{margin:22px 0 8px;font-size:15px;opacity:.7;text-transform:uppercase;letter-spacing:.06em}
   .compat-strength{border-left:3px solid rgba(120,220,160,.7)}
   .compat-growth{border-left:3px solid rgba(255,200,120,.7)}
@@ -1154,6 +1155,43 @@
   #loader.show { display: grid; }
   .spinner { width: 42px; height: 42px; border-radius: 50%; border: 3px solid rgba(255,255,255,.15); border-top-color: #E86BB5; animation: spin .8s linear infinite; }
   @keyframes spin { to { transform: rotate(360deg); } }
+
+  /* ---------- waiting, loading, destroying (audit D-38) ---------- */
+  /* Waiting for the partner is a live state, not a sentence: a dot breathes
+     in front of the words, on the invite screens and in the turn chip.
+     Under reduced motion the rule at the top stops it, lit. */
+  .waiting:not(:empty)::before {
+    content: ''; display: inline-block; width: 7px; height: 7px; border-radius: 50%;
+    margin-right: 8px; vertical-align: .1em; background: var(--accent);
+    animation: waiting-breath 1.6s ease-in-out infinite;
+  }
+  @keyframes waiting-breath {
+    0%, 100% { opacity: 1; transform: scale(1); }
+    50% { opacity: .3; transform: scale(.6); }
+  }
+  /* What is on its way holds its place: rows of the size of what will come,
+     shimmering, so the home screen does not jump when its last two buttons
+     arrive and the Practices list is not an empty screen under a spinner. */
+  #homeModules .skeleton, #libraryList .skeleton {
+    pointer-events: none; border-color: transparent; box-shadow: none;
+    background: linear-gradient(100deg, var(--surface-1) 35%, var(--surface-3) 50%, var(--surface-1) 65%);
+    background-size: 300% 100%;
+    animation: skeleton-shimmer 1.4s linear infinite;
+  }
+  @keyframes skeleton-shimmer { from { background-position: 100% 0; } to { background-position: 0 0; } }
+  /* A button that destroys what two people share - the test's answers, a
+     game's progress - looks like it: the danger colour on a quiet ground,
+     never the fill of the way forward. */
+  .btn.btn-danger { color: var(--danger); background: transparent; border: 1px solid var(--danger-line); }
+  /* A button whose answer is on its way says so, and takes no second tap
+     meanwhile (busyWhile). */
+  .btn.busy { pointer-events: none; opacity: .75; }
+  .btn.busy::after {
+    content: ''; display: inline-block; width: 12px; height: 12px; margin-left: 10px;
+    vertical-align: -1px; border-radius: 50%;
+    border: 2px solid var(--surface-3); border-top-color: var(--accent);
+    animation: spin .8s linear infinite;
+  }
 </style>
 </head>
 <body>
@@ -1182,7 +1220,10 @@
          not a list to browse. renderHomeModules() fills this in once
          /api/library answers, so a module added on the server still lands
          in the right place without another button written by hand. -->
-    <div id="homeModules"></div>
+    <div id="homeModules" aria-busy="true">
+      <div class="btn btn-second home-mod skeleton" aria-hidden="true">&nbsp;</div>
+      <div class="btn btn-second home-mod skeleton" aria-hidden="true">&nbsp;</div>
+    </div>
     <!-- The gift button follows here while a gift is on offer, added and
          removed by setAccess rather than kept hidden: the column is centred
          by margin-bottom:auto on its :last-child, and a hidden last child
@@ -1278,7 +1319,7 @@
       <div class="invite-link" id="compatCode"></div>
       <button class="btn btn-play" id="btnCompatShare" data-i18n="inviteShare" style="margin-top:0"></button>
       <button class="btn btn-second" id="btnCompatCopy" data-i18n="inviteCopy" style="margin-top:0"></button>
-      <p class="waiting-dots" id="compatWaiting"></p>
+      <p class="waiting-dots waiting" id="compatWaiting"></p>
     </div>
   </section>
 
@@ -1317,7 +1358,7 @@
     <div class="coop-box">
       <p class="s69-intro" data-i18n="s69Intro"></p>
       <button class="btn btn-play" id="btnS69Resume" style="margin-top:0;display:none"></button>
-      <button class="btn btn-ghost" id="btnS69Restart" style="margin-top:0;display:none"></button>
+      <button class="btn btn-ghost btn-danger" id="btnS69Restart" style="margin-top:0;display:none"></button>
       <p id="s69PickHint" data-i18n="s69Pick"></p>
       <div class="s69-suits" id="s69Suits"></div>
       <button class="btn btn-play" id="btnS69Duo" data-i18n="s69Duo" style="margin-top:0"></button>
@@ -1338,7 +1379,7 @@
       <div class="invite-link" id="s69Code"></div>
       <button class="btn btn-play" id="btnS69Share" data-i18n="inviteShare" style="margin-top:0"></button>
       <button class="btn btn-second" id="btnS69Copy" data-i18n="inviteCopy" style="margin-top:0"></button>
-      <p class="waiting-dots" id="s69Waiting"></p>
+      <p class="waiting-dots waiting" id="s69Waiting"></p>
     </div>
   </section>
 
@@ -1368,7 +1409,7 @@
       <div class="invite-link" id="inviteCode"></div>
       <button class="btn btn-play" id="btnInviteShare" data-i18n="inviteShare" style="margin-top:0"></button>
       <button class="btn btn-second" id="btnInviteCopy" data-i18n="inviteCopy" style="margin-top:0"></button>
-      <p class="waiting-dots" id="inviteWaiting"></p>
+      <p class="waiting-dots waiting" id="inviteWaiting"></p>
     </div>
   </section>
 
@@ -3255,6 +3296,7 @@
     const chip = $('turnChipText');
     $('turnChip').style.display = 'flex';
     const yours = !!(C.st.started && C.st.your_turn);
+    chip.classList.toggle('waiting', !C.st.started);
     if (!C.st.started) chip.textContent = T().inviteWaiting;
     else if (yours) chip.textContent = T().yourTurn;
     else chip.textContent = fmt(T().partnerTurn, { name: C.st.turn_name || '…' });
@@ -3394,6 +3436,8 @@
       // a user ever sees.
       box.innerHTML = practices();
       wire();
+    } finally {
+      box.removeAttribute('aria-busy');
     }
   }
 
@@ -3402,11 +3446,17 @@
   // deep link lands.
   async function openLibrary() {
     show('library');
-    $('loader').classList.add('show');
+    const box = $('libraryList');
+    // Rows the size of the modules until the modules come (audit D-38),
+    // rather than the full-screen loader over an empty screen. A return
+    // keeps the rows it has and swaps in the fresh ones when they arrive.
+    if (!box.querySelector('[data-module]')) {
+      box.innerHTML = '<div class="theme-card lib-mod skeleton" aria-hidden="true"></div>'.repeat(5);
+    }
+    box.setAttribute('aria-busy', 'true');
     try {
       const data = await libFetch('/api/library?lang=' + lang + libNsfwParam());
       data.modules = data.modules.filter(m => HOME_MODULES.indexOf(m.id) === -1);
-      const box = $('libraryList');
       box.innerHTML = data.modules.map(m => `
         <button class="theme-card lib-mod" data-module="${m.id}">
           <span class="t-emoji">${m.emoji}</span>
@@ -3417,9 +3467,10 @@
         btn.onclick = () => { LIB_BACK_TO = 'library'; openLibModule(btn.dataset.module); };
       });
     } catch (e) {
+      box.querySelectorAll('.skeleton').forEach(row => row.remove());
       toast(e.status ? statusMessage(e) : T().libLoadError);
     } finally {
-      $('loader').classList.remove('show');
+      box.removeAttribute('aria-busy');
     }
   }
 
@@ -3764,6 +3815,7 @@
     // Back one question, while the test is still being answered: the server
     // takes any index until both partners have finished (audit D-21).
     $('compatPrev').style.visibility = CT.idx > 0 ? 'visible' : 'hidden';
+    $('compatPartnerProgress').classList.toggle('waiting', CT.idx >= total);
     if (CT.idx >= total) {
       $('compatQuestion').innerHTML = '<p class="compat-q">' + escapeHTML(T().compatDone) + '</p>';
       $('compatScale').innerHTML = '';
@@ -3987,7 +4039,7 @@
       ${zoneSection('strength')}
       ${zoneSection('growth')}
       ${crisis}
-      <button class="btn btn-second compat-danger" id="compatDeleteBtn">${escapeHTML(T().compatDelete)}</button>`;
+      <button class="btn btn-second btn-danger compat-danger" id="compatDeleteBtn">${escapeHTML(T().compatDelete)}</button>`;
   }
 
   // Offer the last test back so an interrupted run is one tap from
@@ -4015,7 +4067,18 @@
   $('compatQuizBack').onclick = () => { stopCompatPoll(); show('compat'); };
   $('compatResultBack').onclick = () => show('compat');
   $('btnCompatCreate').onclick = compatCreate;
-  $('btnCompatMine').onclick = async () => {
+  // A button whose answer is on its way says so, and a second tap does not
+  // ask again (audit D-38): «Прошлый результат» sat still for as long as
+  // /mine took.
+  async function busyWhile(button, work) {
+    if (button.classList.contains('busy')) return;
+    button.classList.add('busy');
+    button.setAttribute('aria-busy', 'true');
+    try { await work(); }
+    finally { button.classList.remove('busy'); button.removeAttribute('aria-busy'); }
+  }
+
+  $('btnCompatMine').onclick = () => busyWhile($('btnCompatMine'), async () => {
     try {
       // null: nothing finished yet. A server from before audit D-37 said
       // so with a 404, which a page open across a deploy may still hear.
@@ -4025,7 +4088,7 @@
     } catch (e) {
       toast(e.status === 404 ? T().compatNoResult : T().loadError);
     }
-  };
+  });
   // Its own message and its own link: the three features' links carry
   // different prefixes, so one opens the test and never the deck.
   $('btnCompatShare').onclick = () => shareInvite(CT.invite, T().compatInviteMsg);
@@ -5163,8 +5226,8 @@
       chip.className = 'chip on';
       return;
     }
-    if (!st.started) { chip.textContent = T().s69Waiting; chip.className = 'chip'; return; }
-    if (st.you.home) { chip.textContent = T().s69YouAreHome; chip.className = 'chip'; return; }
+    if (!st.started) { chip.textContent = T().s69Waiting; chip.className = 'chip waiting'; return; }
+    if (st.you.home) { chip.textContent = T().s69YouAreHome; chip.className = 'chip waiting'; return; }
     chip.textContent = st.your_turn
       ? T().s69YourTurn
       : fmt(T().s69PartnerTurn, { name: st.turn_name || '' });
