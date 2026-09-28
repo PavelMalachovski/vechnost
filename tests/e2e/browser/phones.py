@@ -41,9 +41,8 @@ WEBAPP_HTML = os.environ.get("E2E_WEBAPP_HTML", "")
 # Console lines that are the app working as designed: the engine's note on
 # every non-2xx fetch (Chromium and WebKit word it alike), and the app's own
 # `console.error('API', status, ...)` for a 4xx it then explains to the user
-# - a 404 from /api/steps69/mine is "no game in play", a 409 on join is "the
-# seat is taken". Real failures are caught from the responses themselves:
-# any 5xx fails the test.
+# - a 409 on join is "the seat is taken". Real failures are caught from the
+# responses themselves: any 5xx fails the test.
 BENIGN_CONSOLE = re.compile(r"^(Failed to load resource|API 4\d\d )")
 
 

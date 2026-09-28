@@ -3932,7 +3932,10 @@
   $('btnCompatCreate').onclick = compatCreate;
   $('btnCompatMine').onclick = async () => {
     try {
+      // null: nothing finished yet. A server from before audit D-37 said
+      // so with a 404, which a page open across a deploy may still hear.
       const data = await coopFetch('/api/compat/mine');
+      if (!data) { toast(T().compatNoResult); return; }
       showCompatResult(data.result, data.code);
     } catch (e) {
       toast(e.status === 404 ? T().compatNoResult : T().loadError);
@@ -4759,6 +4762,7 @@
     $('btnS69Restart').style.display = 'none';
     try {
       const st = await coopFetch('/api/steps69/mine');
+      if (!st) return;  // null, the common case: no game in play
       $('btnS69Resume').textContent =
         T().s69Resume + ' · ' + fmt(T().s69ResumeHint, { n: st.you.position });
       $('btnS69Resume').style.display = '';
@@ -4785,9 +4789,11 @@
         s69OfferResume();
       };
     } catch (e) {
-      // 404 is the common case: no game in play. Any other failure must not
-      // masquerade as "no game" — hiding both buttons on a network hiccup
-      // sent a pair mid-game off to start a second board.
+      // A failure must not masquerade as "no game": hiding both buttons on a
+      // network hiccup sent a pair mid-game off to start a second board. A
+      // 404 is the exception, and only because a server from before audit
+      // D-37 said "no game" that way; a page open across a deploy may still
+      // hear one.
       if (e.status !== 404 && e.status !== 410) toast(statusMessage(e));
     }
   }
