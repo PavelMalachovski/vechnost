@@ -19,7 +19,7 @@ from vechnost_bot.compat import TOTAL_QUESTIONS
 
 from ..harness import Server, code_from_invite
 
-YOUR_TURN = "✨ Твой ход"
+YOUR_TURN = "✨ Ваш ход"
 POLL = 12_000  # the app polls every ~2.5 s and backs off on errors
 
 # What a refused tap does to the waiting phone, recorded as it happens: the

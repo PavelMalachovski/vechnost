@@ -2,7 +2,7 @@
 
 It used to run to about 1 900 characters - four manifesto sections, the deck
 list, the features and a closing section - before the one button that
-mattered, and half of it said again what «Что тебя ждёт внутри?» says one
+mattered, and half of it said again what «Что вас ждёт внутри?» says one
 tap away. Now: two sentences, the four decks in one line, the shared
 features list, and the button.
 """

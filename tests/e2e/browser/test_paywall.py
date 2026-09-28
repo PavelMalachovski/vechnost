@@ -15,7 +15,7 @@ from ...wording import plain
 from ..harness import Server, code_from_invite
 
 POLL = 12_000  # the app polls every ~2.5 s and backs off on errors
-YOUR_TURN = "✨ Твой ход"
+YOUR_TURN = "✨ Ваш ход"
 PAY_ITEMS = [
     "все 4 колоды целиком, все уровни",
     "тест совместимости для пар",
