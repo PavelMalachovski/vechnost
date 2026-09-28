@@ -747,6 +747,12 @@
   .overlay > :first-child { margin-top: auto; }
   .overlay > :last-child { margin-bottom: auto; }
   .overlay.show { display: flex; }
+  /* A keyboard user sees where the focus is; a finger or a mouse does not
+     (:focus-visible), so no screen a tap reaches changes. An open layer
+     takes the focus itself rather than its first button (see
+     trackLayerFocus), and a layer is not a control, so it wears no ring. */
+  :focus-visible { outline: none; box-shadow: var(--focus-ring); }
+  .overlay:focus, .overlay:focus-visible { outline: none; box-shadow: none; }
   .overlay h2 { font-size: 24px; margin-bottom: 10px; }
   /* pre-line: a text built from two sentences with a blank line between
      them (the paywall's referral line, the «69» finale) used to arrive as
@@ -1117,7 +1123,7 @@
 
   <!-- HOME -->
   <section class="screen active" id="home">
-    <div class="logo">Vechnost</div>
+    <h1 class="logo">Vechnost</h1>
     <div class="tagline" data-i18n="tagline"></div>
     <!-- Each card is its deck's real art with its own suit as the centre
          pip: ♥ Знакомство, ♠ Для пар, ♣ Секс, ♦ Провокации. -->
@@ -1149,7 +1155,7 @@
   <section class="screen" id="coop">
     <div class="top">
       <button class="icon-btn back" id="coopBack" aria-label="Назад">←</button>
-      <div class="title" data-i18n="coopTitle"></div>
+      <h1 class="title" data-i18n="coopTitle"></h1>
       <div class="top-spacer"></div>
     </div>
     <div class="coop-box">
@@ -1162,7 +1168,7 @@
   <section class="screen" id="library">
     <div class="top">
       <button class="icon-btn back" id="libBackHome" aria-label="Назад">←</button>
-      <div class="title" data-i18n="libraryTitle"></div>
+      <h1 class="title" data-i18n="libraryTitle"></h1>
       <div class="top-spacer"></div>
     </div>
     <div id="libraryList"></div>
@@ -1171,7 +1177,7 @@
   <section class="screen" id="libraryDetail">
     <div class="top">
       <button class="icon-btn back" id="libBack" aria-label="Назад">←</button>
-      <div class="title" id="libDetailTitle"></div>
+      <h1 class="title" id="libDetailTitle"></h1>
       <div class="top-spacer"></div>
     </div>
     <div id="libDetailBody"></div>
@@ -1181,7 +1187,7 @@
   <section class="screen" id="guide">
     <div class="top">
       <button class="icon-btn back" id="guideBack" aria-label="Назад">←</button>
-      <div class="title" id="guideTitle"></div>
+      <h1 class="title" id="guideTitle"></h1>
       <div class="top-spacer"></div>
     </div>
     <div id="guideBody"></div>
@@ -1192,7 +1198,7 @@
   <section class="screen" id="libDeck">
     <div class="top">
       <button class="icon-btn back" id="libDeckBack" aria-label="Назад">←</button>
-      <div class="title" id="libDeckTitle"></div>
+      <h1 class="title" id="libDeckTitle"></h1>
       <div class="top-spacer"></div>
     </div>
     <div class="progress-wrap">
@@ -1202,8 +1208,8 @@
     <div id="libStage"></div>
     <div class="hint" data-i18n="hint"></div>
     <div class="deck-controls">
-      <button class="ctrl" id="libPrev">↩</button>
-      <button class="ctrl main" id="libNext">→</button>
+      <button class="ctrl" id="libPrev" data-i18n-aria="ariaPrev">↩</button>
+      <button class="ctrl main" id="libNext" data-i18n-aria="ariaNext">→</button>
     </div>
   </section>
 
@@ -1211,7 +1217,7 @@
   <section class="screen" id="compat">
     <div class="top">
       <button class="icon-btn back" id="compatBack" aria-label="Назад">←</button>
-      <div class="title" data-i18n="compatTitle"></div>
+      <h1 class="title" data-i18n="compatTitle"></h1>
       <div class="top-spacer"></div>
     </div>
     <div class="coop-box">
@@ -1226,7 +1232,7 @@
   <section class="screen" id="compatInvite">
     <div class="top">
       <button class="icon-btn back" id="compatInviteBack" aria-label="Назад">←</button>
-      <div class="title" data-i18n="inviteTitle"></div>
+      <h1 class="title" data-i18n="inviteTitle"></h1>
       <div class="top-spacer"></div>
     </div>
     <div class="coop-box">
@@ -1241,7 +1247,7 @@
   <section class="screen" id="compatQuiz">
     <div class="top">
       <button class="icon-btn back" id="compatQuizBack" aria-label="Назад">←</button>
-      <div class="title" id="compatSphereTitle"></div>
+      <h1 class="title" id="compatSphereTitle"></h1>
       <div class="top-spacer"></div>
     </div>
     <div class="progress-wrap">
@@ -1257,7 +1263,7 @@
   <section class="screen" id="compatResult">
     <div class="top">
       <button class="icon-btn back" id="compatResultBack" aria-label="Назад">←</button>
-      <div class="title" data-i18n="compatResultTitle"></div>
+      <h1 class="title" data-i18n="compatResultTitle"></h1>
       <div class="top-spacer"></div>
     </div>
     <div id="compatResultBody"></div>
@@ -1267,7 +1273,7 @@
   <section class="screen" id="s69">
     <div class="top">
       <button class="icon-btn back" id="s69Back" aria-label="Назад">←</button>
-      <div class="title" data-i18n="s69Title"></div>
+      <h1 class="title" data-i18n="s69Title"></h1>
       <span style="width:38px"></span>
     </div>
     <div class="coop-box">
@@ -1286,7 +1292,7 @@
   <section class="screen" id="s69Invite">
     <div class="top">
       <button class="icon-btn back" id="s69InviteBack" aria-label="Назад">←</button>
-      <div class="title" data-i18n="inviteTitle"></div>
+      <h1 class="title" data-i18n="inviteTitle"></h1>
       <span style="width:38px"></span>
     </div>
     <div class="coop-box">
@@ -1302,8 +1308,8 @@
   <section class="screen" id="s69Board">
     <div class="top">
       <button class="icon-btn back" id="s69BoardBack" aria-label="Назад">←</button>
-      <div class="title" id="s69BoardTitle"></div>
-      <button class="icon-btn" id="s69MapToggle" title="map">🗺</button>
+      <h1 class="title" id="s69BoardTitle"></h1>
+      <button class="icon-btn" id="s69MapToggle" data-i18n-aria="ariaMap" aria-controls="s69Map" aria-expanded="true">🗺</button>
     </div>
     <div class="s69-map" id="s69Map"></div>
     <p class="s69-map-hint" id="s69MapHint" data-i18n="s69MapHint"></p>
@@ -1316,7 +1322,7 @@
   <section class="screen" id="invite">
     <div class="top">
       <button class="icon-btn back" id="inviteBack" aria-label="Назад">←</button>
-      <div class="title" data-i18n="inviteTitle"></div>
+      <h1 class="title" data-i18n="inviteTitle"></h1>
       <div class="top-spacer"></div>
     </div>
     <div class="coop-box">
@@ -1332,7 +1338,7 @@
   <section class="screen" id="themes">
     <div class="top">
       <button class="icon-btn back" id="backHome" aria-label="Назад">←</button>
-      <div class="title" data-i18n="chooseTheme"></div>
+      <h1 class="title" data-i18n="chooseTheme"></h1>
       <div class="top-spacer"></div>
     </div>
     <div id="themeList"></div>
@@ -1342,7 +1348,7 @@
   <section class="screen" id="levels">
     <div class="top">
       <button class="icon-btn back" id="backThemes" aria-label="Назад">←</button>
-      <div class="title" id="levelsTitle"></div>
+      <h1 class="title" id="levelsTitle"></h1>
       <div class="top-spacer"></div>
     </div>
     <div id="levelList"></div>
@@ -1352,8 +1358,8 @@
   <section class="screen" id="deck">
     <div class="top">
       <button class="icon-btn back" id="deckBack" aria-label="Назад">←</button>
-      <div class="title" id="deckTitle"></div>
-      <button class="icon-btn" id="btnShuffle" title="shuffle">🔀</button>
+      <h1 class="title" id="deckTitle"></h1>
+      <button class="icon-btn" id="btnShuffle" title="shuffle" data-i18n-aria="ariaShuffle">🔀</button>
     </div>
     <div class="progress-wrap">
       <div class="progress-track"><div class="progress-fill" id="progressFill"></div></div>
@@ -1367,39 +1373,39 @@
     <div id="stage"></div>
     <div class="hint" data-i18n="hint"></div>
     <div class="deck-controls">
-      <button class="ctrl" id="btnPrev">↩</button>
-      <button class="ctrl main" id="btnNext">→</button>
-      <button class="ctrl" id="btnShare">📤</button>
+      <button class="ctrl" id="btnPrev" data-i18n-aria="ariaPrev">↩</button>
+      <button class="ctrl main" id="btnNext" data-i18n-aria="ariaNext">→</button>
+      <button class="ctrl" id="btnShare" data-i18n-aria="ariaShare">📤</button>
     </div>
   </section>
 
   <!-- NSFW overlay -->
   <!-- Permission to message: asked once, where a partner is involved -->
-  <div class="overlay" id="writeAsk">
+  <div class="overlay" id="writeAsk" role="dialog" aria-modal="true" aria-labelledby="writeAskTitle" tabindex="-1">
     <div class="big-emoji">🔔</div>
-    <h2 data-i18n="writeAskTitle"></h2>
+    <h2 id="writeAskTitle" data-i18n="writeAskTitle"></h2>
     <p data-i18n="writeAskText"></p>
     <button class="btn btn-play" id="writeAskYes" data-i18n="writeAskYes"></button>
     <button class="btn btn-ghost" id="writeAskNo" data-i18n="writeAskNo" data-dismiss></button>
   </div>
 
-  <div class="overlay" id="nsfw">
+  <div class="overlay" id="nsfw" role="dialog" aria-modal="true" aria-labelledby="nsfwTitle" tabindex="-1">
     <div class="big-emoji">🔞</div>
-    <h2 data-i18n="nsfwTitle"></h2>
+    <h2 id="nsfwTitle" data-i18n="nsfwTitle"></h2>
     <p id="nsfwText" data-i18n="nsfwText"></p>
     <button class="btn btn-play" id="nsfwYes" data-i18n="nsfwYes"></button>
     <button class="btn btn-ghost" id="nsfwNo" data-i18n="nsfwNo" data-dismiss></button>
   </div>
 
   <!-- PAYWALL overlay -->
-  <div class="overlay" id="s69Finale">
+  <div class="overlay" id="s69Finale" role="dialog" aria-modal="true" aria-labelledby="s69FinaleTitle" tabindex="-1">
     <div class="big-emoji">🔥</div>
     <h2 id="s69FinaleTitle"></h2>
     <p id="s69FinaleIntro"></p>
     <div class="s69-finale" id="s69FinaleChoices"></div>
   </div>
 
-  <div class="overlay" id="s69Done">
+  <div class="overlay" id="s69Done" role="dialog" aria-modal="true" aria-labelledby="s69DoneTitle" tabindex="-1">
     <div class="big-emoji">🎆</div>
     <h2 id="s69DoneTitle"></h2>
     <p id="s69DoneText"></p>
@@ -1408,7 +1414,7 @@
   </div>
 
   <!-- A tapped board cell: its number, its action, its portal. -->
-  <div class="overlay" id="s69CellInfo">
+  <div class="overlay" id="s69CellInfo" role="dialog" aria-modal="true" aria-labelledby="s69InfoTitle" tabindex="-1">
     <p class="s69-info-meta" id="s69InfoMeta"></p>
     <h2 id="s69InfoTitle"></h2>
     <p class="s69-info-kind" id="s69InfoKind"></p>
@@ -1417,7 +1423,7 @@
     <button class="btn btn-ghost" id="s69InfoClose" data-dismiss></button>
   </div>
 
-  <div class="overlay" id="paywall" role="dialog" aria-labelledby="paywallTitle">
+  <div class="overlay" id="paywall" role="dialog" aria-modal="true" aria-labelledby="paywallTitle" tabindex="-1">
     <div class="big-emoji">🔒</div>
     <h2 id="paywallTitle"></h2>
     <p class="pay-lead" id="paywallLead"></p>
@@ -1433,7 +1439,7 @@
 
   <!-- A gift: what it is, what it costs, and the one thing the buyer may
        have to allow first - the certificate arrives as a bot message. -->
-  <div class="overlay" id="giftSheet" role="dialog" aria-labelledby="giftTitle">
+  <div class="overlay" id="giftSheet" role="dialog" aria-modal="true" aria-labelledby="giftTitle" tabindex="-1">
     <div class="big-emoji">🎁</div>
     <h2 id="giftTitle" data-i18n="giftTitle"></h2>
     <p class="gift-text" data-i18n="giftText"></p>
@@ -1444,9 +1450,9 @@
   </div>
 
   <!-- DONE overlay -->
-  <div class="overlay" id="done">
+  <div class="overlay" id="done" role="dialog" aria-modal="true" aria-labelledby="doneTitle" tabindex="-1">
     <div class="big-emoji">🎉</div>
-    <h2 data-i18n="doneTitle"></h2>
+    <h2 id="doneTitle" data-i18n="doneTitle"></h2>
     <p data-i18n="doneText"></p>
     <button class="btn btn-play" id="btnAgain" data-i18n="again"></button>
     <button class="btn btn-ghost" id="btnToThemes" data-i18n="toThemes" data-dismiss></button>
@@ -1645,7 +1651,12 @@
         'Sex':          { name: 'Секс', desc: 'Откровенно о желаниях', emoji: '🔥', grad: 'g-sex' },
         'Provocation':  { name: 'Провокация', desc: 'Вопросы на грани', emoji: '⚡', grad: 'g-prov' }
       },
-      levelDesc: { '1': 'Лёгкий старт', '2': 'Глубже и личнее', '3': 'Максимальная откровенность' }
+      levelDesc: { '1': 'Лёгкий старт', '2': 'Глубже и личнее', '3': 'Максимальная откровенность' },
+      // What a screen reader says for a button that shows only a sign
+      // (audit D-14); applyI18n sets each as that button's aria-label.
+      ariaPrev: 'Предыдущая карта', ariaNext: 'Следующая карта',
+      ariaShare: 'Поделиться картой', ariaShuffle: 'Перемешать колоду',
+      ariaMap: 'Поле'
   };
 
   const THEME_ORDER = ['Acquaintance', 'For Couples', 'Sex', 'Provocation'];
@@ -1715,6 +1726,10 @@
       const key = el.getAttribute('data-i18n');
       if (T()[key]) el.textContent = T()[key];
     });
+    document.querySelectorAll('[data-i18n-aria]').forEach(el => {
+      const key = el.getAttribute('data-i18n-aria');
+      if (T()[key]) el.setAttribute('aria-label', T()[key]);
+    });
     $('modeQ').textContent = '❓ ' + T().questions;
     $('modeT').textContent = '📝 ' + T().tasks;
   }
@@ -1746,11 +1761,85 @@
       else tg.BackButton.hide();
     } catch (e) {}
   }
+  // A layer takes the focus while it is open and gives it back when it
+  // closes (audit D-14): a keyboard or a screen reader used to stay on the
+  // button behind the layer, reading a screen nobody could see. The layer
+  // takes it itself, not its first button: the first button of the 18+
+  // question is «yes», and nothing should be chosen for anyone. Every
+  // layer opens and closes by its `show` class, in a couple of dozen
+  // places, so this watches the class rather than each of them.
+  const layerOpener = new WeakMap();
+  function trackLayerFocus(layer) {
+    const open = layer.classList.contains('show');
+    if (open && !layerOpener.has(layer)) {
+      const from = document.activeElement;
+      layerOpener.set(layer, from && from !== document.body ? from : null);
+      try { layer.focus({ preventScroll: true }); } catch (e) {}
+    } else if (!open && layerOpener.has(layer)) {
+      const from = layerOpener.get(layer);
+      layerOpener.delete(layer);
+      const now = document.activeElement;
+      // Back where it came from, if that is still on screen and the focus
+      // has not moved on meanwhile, into another layer say.
+      if (from && from.isConnected && from.offsetParent !== null &&
+          (!now || now === document.body || now === layer || layer.contains(now))) {
+        try { from.focus({ preventScroll: true }); } catch (e) {}
+      }
+    }
+  }
   try {
-    const layers = new MutationObserver(syncBackButton);
+    const layers = new MutationObserver((records) => {
+      syncBackButton();
+      records.forEach(record => trackLayerFocus(record.target));
+    });
     document.querySelectorAll('.overlay').forEach(o =>
       layers.observe(o, { attributes: true, attributeFilter: ['class'] }));
   } catch (e) {}
+
+  // The top layer closes the way its own «Назад» or «Закрыть» would
+  // (`data-dismiss`). Telegram's Back and the Escape key both come here.
+  function dismissTopLayer() {
+    const layer = document.querySelector('.overlay.show');
+    if (!layer) return false;
+    const dismiss = layer.querySelector('[data-dismiss]');
+    if (dismiss) dismiss.click(); else layer.classList.remove('show');
+    return true;
+  }
+
+  // The keyboard, for Telegram Desktop and a browser (audit D-14): Escape
+  // closes the top layer, Tab goes round inside an open one rather than
+  // out behind it, and the arrows turn the cards of the deck and of a
+  // Library deck, as the buttons under them do.
+  const FOCUSABLE = 'button, [href], input, select, textarea, summary, [tabindex]:not([tabindex="-1"])';
+  const ARROWS = { deck: ['btnPrev', 'btnNext'], libDeck: ['libPrev', 'libNext'] };
+  document.addEventListener('keydown', (e) => {
+    if (e.defaultPrevented || e.altKey || e.ctrlKey || e.metaKey) return;
+    const layer = document.querySelector('.overlay.show');
+    if (layer) {
+      if (e.key === 'Escape') { e.preventDefault(); dismissTopLayer(); return; }
+      if (e.key !== 'Tab') return;
+      // Taken over whole, not only at the ends: WebKit leaves buttons out
+      // of the Tab order unless a setting puts them in, and a layer's
+      // buttons are all it has.
+      e.preventDefault();
+      const items = [...layer.querySelectorAll(FOCUSABLE)]
+        .filter(el => !el.disabled && el.offsetParent !== null);
+      if (!items.length) return;
+      const at = items.indexOf(document.activeElement);
+      const next = at < 0 ? (e.shiftKey ? items.length - 1 : 0)
+                          : (at + (e.shiftKey ? items.length - 1 : 1)) % items.length;
+      items[next].focus();
+      return;
+    }
+    if (e.target.closest && e.target.closest('input, textarea, select, [contenteditable]')) return;
+    const screen = document.querySelector('.screen.active');
+    const pair = screen && ARROWS[screen.id];
+    const id = pair && (e.key === 'ArrowLeft' ? pair[0] : e.key === 'ArrowRight' ? pair[1] : null);
+    const button = id && $(id);
+    if (!button || button.disabled || button.offsetParent === null) return;
+    e.preventDefault();
+    button.click();
+  });
 
   // Telegram draws its own Back in the header (Bot API 6.1 and later), so
   // the page's «←» is hidden there (audit D-25); outside Telegram - platform
@@ -1769,12 +1858,7 @@
         // its own «Назад» or «Закрыть» would (`data-dismiss`); the Android
         // gesture used to leave the screen under a paywall or an 18+
         // question instead (audit D-06).
-        const layer = document.querySelector('.overlay.show');
-        if (layer) {
-          const dismiss = layer.querySelector('[data-dismiss]');
-          if (dismiss) dismiss.click(); else layer.classList.remove('show');
-          return;
-        }
+        if (dismissTopLayer()) return;
         // Otherwise the screen's own back, the «←» in its header: one
         // behaviour for both, so hiding the page's copy inside Telegram
         // (audit D-25) cannot make the two drift apart.
@@ -5164,6 +5248,7 @@
     haptic('light');
     const folded = $('s69Map').classList.toggle('folded');
     $('s69MapHint').style.display = folded ? 'none' : '';
+    $('s69MapToggle').setAttribute('aria-expanded', String(!folded));
   };
   // The piece stays in frame when the map itself changes size - a phone
   // turned, the map unfolded, a window resized - not only when the state
