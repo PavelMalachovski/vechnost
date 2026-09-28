@@ -855,6 +855,21 @@ python scripts/smoke_production.py $URL --deep  # ...and its database and bot he
   off the bottom of the screen. The music presets are synthesised WebAudio
   beds, not files; swap them for licensed stems when there are any and keep
   the control surface.
+- **A keyboard and a screen reader reach what a finger does** (audit
+  D-14). Every screen has one `h1` (its header title; the wordmark on the
+  home screen). Every overlay is a modal dialog labelled by its own
+  heading: `trackLayerFocus` moves the focus into the layer itself when it
+  opens - not its first button, which on the 18+ question is «yes» - and
+  back to the opener when it closes, by watching the `show` class rather
+  than the couple of dozen places that set it. Escape closes the top layer
+  exactly as Telegram's Back does (`dismissTopLayer`), Tab goes round
+  inside an open layer (taken over whole: WebKit leaves buttons out of the
+  Tab order), and the arrows turn the cards of the deck and of a Library
+  deck. A button that shows only a sign carries `data-i18n-aria`, an I18N
+  key `applyI18n` sets as its `aria-label`. Keyboard focus draws
+  `--focus-ring` under `:focus-visible`, so no tap changes a screen.
+  `tests/test_webapp_a11y.py` holds the markup and
+  `tests/e2e/browser/test_keyboard.py` presses the keys.
 - **Readable on every phone, and one Back.** Nothing on the page is set
   under 11px and the page may be zoomed; tile text reads at 4.5:1 on every
   stop of its tile's gradient (the light tiles carry the cards' ink); a
