@@ -759,7 +759,11 @@ python scripts/smoke_production.py $URL --deep  # ...and its database and bot he
 - **Card rendering** (`renderer.py`) draws only the question text, and
   auto-picks between **Inter** (the card and UI face) and **DejaVu** (the
   last-resort fallback) per string, so a text in an alphabet Inter lacks
-  degrades instead of tofuing. The brand's other two faces are the
+  degrades instead of tofuing. Inter is set in **SemiBold**, the weight the
+  Mini App gives the same card (`.q-text`, 600): the bot drew it at 400 and
+  one card read as two (audit D-35). Which texts leave one word alone on
+  their last line depends on the weight, so a test sample for that is
+  chosen for this face. The brand's other two faces are the
   *generator's*, not the renderer's: **Lora** (the `VECHNOST` wordmark) and
   **Forum** (the `V`/`Λ` letters and the `2`/`3` ranks) are printed into the
   backgrounds by `scripts/generate_card_assets.py`, which loads them by
@@ -785,7 +789,15 @@ python scripts/smoke_production.py $URL --deep  # ...and its database and bot he
   reproduces the committed bytes — at the card's own 1080×1350: the ten deck
   faces from the hand-drawn 600×900 art in `assets/deck_art/`, plus
   `library.png` (the Library and the daily prompt) and `card_back.png` (the
-  shared dark back), whose emblems it crops out of that same art. The art is
+  shared dark back), whose emblems it crops out of that same art. On
+  `library.png` the VECHNOST wordmark sits in the bottom third, in the band
+  no text reaches in either front-end (`LIBRARY_WORDMARK_CY`; it lay across
+  the middle, under every question of the day, audit D-36), and the same
+  face is the renderer's fallback (`default:` in `assets/backgrounds.yml`),
+  where a hand-made `default.png` of the old design used to be (D-43). The
+  Sex deck has one face for its questions and its tasks, `sex/sex.png`: the
+  art was one picture under three names (D-42), and a deck that wants its
+  own face gets its own art and a line in `DECK_FACES`. The art is
   2:3 and the card 4:5, and the bot used to resize one into the other, which
   printed every V, rank and suit a fifth too wide (audit D-18); a face now
   redraws each mark where that resize put it, at the art's proportions, so

@@ -87,10 +87,13 @@ LONG = (
     "Останешься ли ты рядом и что скажешь в первый же вечер?"
 )
 
-# One card per deck face: (reference, face, footer, text). The texts are
-# fixed rather than read from the decks, so editing a question never moves
-# a reference. Between them they take the band at its largest size, a
-# middling one, and a text too long for the band, laid out beside the marks.
+# One card per deck face, and the Library's: (reference, face, footer,
+# text). The texts are fixed rather than read from the decks, so editing a
+# question never moves a reference. Between them they take the band at its
+# largest size, a middling one, and a text too long for the band, laid out
+# beside the marks. The Sex deck's questions and tasks share one face (audit
+# D-42) and keep a card each; the Library card holds its wordmark below the
+# text (D-36).
 CARDS = [
     ("acq-1", "assets/backgrounds/acq/acq_1.png", "Знакомство · 1/30", SHORT),
     ("acq-2", "assets/backgrounds/acq/acq_2.png", "Знакомство · 7/30", MEDIUM),
@@ -98,9 +101,10 @@ CARDS = [
     ("couples-1", "assets/backgrounds/couples/couples_1.png", "Для пар · 1/30", MEDIUM),
     ("couples-2", "assets/backgrounds/couples/couples_2.png", "Для пар · 9/30", SHORT),
     ("couples-3", "assets/backgrounds/couples/couples_3.png", "Для пар · 30/30", LONG),
-    ("sex-questions", "assets/backgrounds/sex/questions.png", "Секс · 3/93", MEDIUM),
-    ("sex-tasks", "assets/backgrounds/sex/tasks.png", "Секс · 4/93", SHORT),
+    ("sex-questions", "assets/backgrounds/sex/sex.png", "Секс · 3/93", MEDIUM),
+    ("sex-tasks", "assets/backgrounds/sex/sex.png", "Секс · 4/93", SHORT),
     ("prov", "assets/backgrounds/prov/prov.png", "Провокация · 4/34", LONG),
+    ("daily", "assets/backgrounds/library.png", "Вопрос дня · 271/365", MEDIUM),
 ]
 IDS = [card[0] for card in CARDS]
 

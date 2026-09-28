@@ -113,9 +113,7 @@ def test_the_long_provocations_now_clear_the_marks_at_a_readable_size():
 
 
 FACES = sorted(
-    p
-    for p in (ROOT / "assets" / "backgrounds").rglob("*.png")
-    if p.name not in {"card_back.png", "default.png"}
+    p for p in (ROOT / "assets" / "backgrounds").rglob("*.png") if p.name != "card_back.png"
 )
 
 

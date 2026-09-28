@@ -94,9 +94,8 @@ def test_generated_card_has_the_deck_geometry(name):
 # `python scripts/generate_card_assets.py`, look at the two PNGs, and if the
 # change was intended paste the new digest in — the failure message prints it.
 CARD_SHA256 = {
-    "library.png": "d2825d21ac1bf4f3b630e2d3332a3fc2b9c3d80afd92de0ae4f26eee92d0291e",
+    "library.png": "48fa50fcf89fc664d8bb3f4c01170604bb45865fac3f4e0de4e11a8ec76164c9",
     "card_back.png": "125e5d7ba10c74fd6444af60b9970271cc78862d81288aa10a573931388bbc12",
-    # The three Sex faces print the same V and club, so they are one picture.
     "acq/acq_1.png": "de0a84a94e80711c9a74faf60228847d14c3bdfcab8473d9a79013ccf7a3516a",
     "acq/acq_2.png": "3ad8e2ee3ba4bc24273c24e63bdd5e528d2cc18b5c5270be1f15be75e306b1bc",
     "acq/acq_3.png": "ce372938b560e6f407d6b6b5f5de076f55c395331e929ab7ba7ba317560db89e",
@@ -104,9 +103,8 @@ CARD_SHA256 = {
     "couples/couples_2.png": "451a9ab1cf7c0f2d9d3b19717d56c42381db7d1ea9a55ce774351640360e8e75",
     "couples/couples_3.png": "3fc1699027fb267f1ff9f090a3472de3e55e8dd19f3c81fc5bcdd423d516f3b3",
     "prov/prov.png": "2d3468b4ce65ebcab65b10092bba9123149387f266d15129f86c45b86b6d229d",
-    "sex/questions.png": "6078c467400127f73846db9b94f0beb89fbcf90c305d3707a1e76b32e89f7ae7",
+    # One face for the Sex deck's questions and its tasks (audit D-42).
     "sex/sex.png": "6078c467400127f73846db9b94f0beb89fbcf90c305d3707a1e76b32e89f7ae7",
-    "sex/tasks.png": "6078c467400127f73846db9b94f0beb89fbcf90c305d3707a1e76b32e89f7ae7",
 }
 
 # The same pinning, for the four emblems on their own. These carry no text at
