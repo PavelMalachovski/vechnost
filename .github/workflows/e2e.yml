@@ -76,9 +76,9 @@ jobs:
           --health-timeout 5s
           --health-retries 20
     steps:
-    - uses: actions/checkout@v5
+    - uses: actions/checkout@v7
 
-    - uses: actions/setup-python@v6
+    - uses: actions/setup-python@v7
       with:
         python-version: '3.11'
         cache: pip
@@ -143,7 +143,7 @@ jobs:
 
     - name: Keep the report
       if: always()
-      uses: actions/upload-artifact@v6
+      uses: actions/upload-artifact@v7
       with:
         name: e2e-postgres
         path: e2e-report
@@ -154,9 +154,9 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 45
     steps:
-    - uses: actions/checkout@v5
+    - uses: actions/checkout@v7
 
-    - uses: actions/setup-python@v6
+    - uses: actions/setup-python@v7
       with:
         python-version: '3.11'
         cache: pip
@@ -180,7 +180,7 @@ jobs:
 
     - name: Keep what the runs reached
       if: always()
-      uses: actions/upload-artifact@v6
+      uses: actions/upload-artifact@v7
       with:
         name: e2e-fuzz
         path: e2e-report
@@ -220,9 +220,9 @@ jobs:
       # instead of skipping them (tests/e2e/browser/phones.py).
       E2E_PHONES: ${{ matrix.phone }}
     steps:
-    - uses: actions/checkout@v5
+    - uses: actions/checkout@v7
 
-    - uses: actions/setup-python@v6
+    - uses: actions/setup-python@v7
       with:
         python-version: '3.11'
         cache: pip
@@ -290,7 +290,7 @@ jobs:
     # show-trace`).
     - name: Keep screenshots and traces
       if: always()
-      uses: actions/upload-artifact@v6
+      uses: actions/upload-artifact@v7
       with:
         name: e2e-browser-${{ matrix.phone }}
         path: e2e-report
@@ -307,7 +307,7 @@ jobs:
     permissions:
       issues: write
     steps:
-    - uses: actions/github-script@v8
+    - uses: actions/github-script@v9
       with:
         script: |
           const label = 'e2e-nightly';
