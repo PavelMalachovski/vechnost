@@ -33,10 +33,10 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
-    - uses: actions/checkout@v5
+    - uses: actions/checkout@v7
 
     - name: Set up Python 3.11
-      uses: actions/setup-python@v6
+      uses: actions/setup-python@v7
       with:
         python-version: '3.11'
         cache: pip
@@ -125,14 +125,14 @@ jobs:
           --health-retries 5
 
     steps:
-    - uses: actions/checkout@v5
+    - uses: actions/checkout@v7
       with:
         # The whole history, so the diff coverage below can find where this
         # pull request branched off.
         fetch-depth: 0
 
     - name: Set up Python 3.11
-      uses: actions/setup-python@v6
+      uses: actions/setup-python@v7
       with:
         python-version: '3.11'
         cache: pip
@@ -175,7 +175,7 @@ jobs:
 
     - name: Keep the coverage report
       if: always()
-      uses: actions/upload-artifact@v6
+      uses: actions/upload-artifact@v7
       with:
         name: coverage
         path: coverage.xml
@@ -192,10 +192,10 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:
-    - uses: actions/checkout@v5
+    - uses: actions/checkout@v7
 
     - name: Set up Python 3.11
-      uses: actions/setup-python@v6
+      uses: actions/setup-python@v7
       with:
         python-version: '3.11'
 
@@ -234,7 +234,7 @@ jobs:
 
     - name: Keep the installed versions
       if: always()
-      uses: actions/upload-artifact@v6
+      uses: actions/upload-artifact@v7
       with:
         name: runtime-freeze
         path: runtime-freeze.txt
@@ -250,10 +250,10 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:
-    - uses: actions/checkout@v5
+    - uses: actions/checkout@v7
 
     - name: Set up Python 3.11
-      uses: actions/setup-python@v6
+      uses: actions/setup-python@v7
       with:
         python-version: '3.11'
 
@@ -268,7 +268,7 @@ jobs:
 
     - name: Keep the resolved versions
       if: always()
-      uses: actions/upload-artifact@v6
+      uses: actions/upload-artifact@v7
       with:
         name: upstream-freeze
         path: upstream-freeze.txt
@@ -284,7 +284,7 @@ jobs:
     permissions:
       issues: write
     steps:
-    - uses: actions/github-script@v8
+    - uses: actions/github-script@v9
       with:
         script: |
           const label = 'ci-nightly';
