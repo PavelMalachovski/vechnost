@@ -114,7 +114,9 @@ class TestYAMLIntegrity:
                         if content_type in level_data:
                             content = level_data[content_type]
                             for item in content:
-                                assert item.strip() != "", f"Empty string found in {theme} level {level} {content_type}"
+                                assert item.strip() != "", (
+                                    f"Empty string found in {theme} level {level} {content_type}"
+                                )
 
     def test_tasks_only_in_sex_theme(self):
         """Test that tasks are only present in Sex theme."""
@@ -140,7 +142,9 @@ class TestYAMLIntegrity:
                 # All levels should have the same content types
                 for _level, level_data in theme_data["levels"].items():
                     level_content_types = set(level_data.keys())
-                    assert level_content_types == content_types, f"Inconsistent content types in {theme}"
+                    assert level_content_types == content_types, (
+                        f"Inconsistent content types in {theme}"
+                    )
 
     def test_questions_have_content(self):
         """Test that all question lists have actual content."""
@@ -155,9 +159,15 @@ class TestYAMLIntegrity:
 
                         # Check that questions are not just level indicators (skip first item as it might be a level indicator)
                         for i, question in enumerate(questions):
-                            if i == 0 and question.strip() in ("1 уровень", "2 уровень", "3 уровень"):
+                            if i == 0 and question.strip() in (
+                                "1 уровень",
+                                "2 уровень",
+                                "3 уровень",
+                            ):
                                 continue  # Skip level indicators at the beginning
-                            assert question.strip() != "", f"Empty question found in {theme} level {level}"
+                            assert question.strip() != "", (
+                                f"Empty question found in {theme} level {level}"
+                            )
 
     def test_tasks_have_content(self):
         """Test that all task lists have actual content."""

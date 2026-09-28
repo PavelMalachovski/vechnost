@@ -33,7 +33,8 @@ def press_back(phone) -> None:
 def progress_is(phone, text: str, timeout: float = POLL) -> None:
     phone.page.wait_for_function(
         "t => document.getElementById('progressNum').innerText.trim() === t",
-        arg=text, timeout=timeout,
+        arg=text,
+        timeout=timeout,
     )
 
 
@@ -144,7 +145,8 @@ def test_either_partner_paying_opens_a_free_room_for_both(server: Server, phones
         mover = a if turn % 2 == 0 else b
         mover.page.wait_for_function(
             "t => document.querySelector('#turnChipText')?.innerText.trim() === t",
-            arg=YOUR_TURN, timeout=POLL,
+            arg=YOUR_TURN,
+            timeout=POLL,
         )
         mover.page.click("#btnNext")
         if turn < 4:
@@ -203,7 +205,9 @@ def test_an_invite_to_the_18_plus_deck_seats_nobody_before_the_answer(
 ) -> None:
     alice = server.player("Alice", paid=True)
     bob = server.player("Bob")
-    room = alice.ok("POST", "/api/rooms?lang=ru", {"theme": "Sex", "level": None, "type": "questions"})
+    room = alice.ok(
+        "POST", "/api/rooms?lang=ru", {"theme": "Sex", "level": None, "type": "questions"}
+    )
     code = room["code"]
 
     def seated() -> bool:

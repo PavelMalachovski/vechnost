@@ -72,7 +72,9 @@ def smoke(client: httpx.Client, expect_commit: str | None, deep: bool = False) -
         assert body.get("status") == "ok", body
         commit = body.get("commit") or "unknown"
         if expect_commit:
-            assert commit.startswith(expect_commit[:7]), f"live commit {commit}, expected {expect_commit}"
+            assert commit.startswith(expect_commit[:7]), (
+                f"live commit {commit}, expected {expect_commit}"
+            )
         return f"commit {commit[:12]}, payments {body.get('payment_enabled')}"
 
     def app_page() -> str:
@@ -110,8 +112,13 @@ def smoke(client: httpx.Client, expect_commit: str | None, deep: bool = False) -
         # GET only: reading an unknown code as nobody must be a 401, not a
         # 404 and certainly not a 200. Nothing is created by asking.
         seen = []
-        for path in ("/api/rooms/SMOKESMOKESMOKE1", "/api/compat/SMOKESMOKESMOKE1",
-                     "/api/steps69/SMOKESMOKESMOKE1", "/api/compat/mine", "/api/steps69/mine"):
+        for path in (
+            "/api/rooms/SMOKESMOKESMOKE1",
+            "/api/compat/SMOKESMOKESMOKE1",
+            "/api/steps69/SMOKESMOKESMOKE1",
+            "/api/compat/mine",
+            "/api/steps69/mine",
+        ):
             status = client.get(path).status_code
             seen.append(status)
             assert status == 401, f"{path} answered an anonymous caller with {status}"
@@ -146,7 +153,7 @@ def wait_for_commit(client: httpx.Client, commit: str, timeout: float) -> None:
     last = "no answer"
     while time.monotonic() < deadline:
         try:
-            live = (client.get("/health").json().get("commit") or "")
+            live = client.get("/health").json().get("commit") or ""
             if live.startswith(commit[:7]):
                 return
             last = live or "no commit reported"
@@ -167,10 +174,14 @@ def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     parser.add_argument("url", help="base URL of the web process, e.g. https://x.up.railway.app")
     parser.add_argument("--expect-commit", help="fail unless /health reports this commit")
-    parser.add_argument("--wait", type=float, default=0,
-                        help="seconds to wait for --expect-commit to go live first")
-    parser.add_argument("--deep", action="store_true",
-                        help="also require /health/deep: the database answers and the bot is beating")
+    parser.add_argument(
+        "--wait", type=float, default=0, help="seconds to wait for --expect-commit to go live first"
+    )
+    parser.add_argument(
+        "--deep",
+        action="store_true",
+        help="also require /health/deep: the database answers and the bot is beating",
+    )
     args = parser.parse_args()
 
     with httpx.Client(base_url=args.url.rstrip("/"), timeout=20, follow_redirects=True) as client:

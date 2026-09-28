@@ -84,15 +84,15 @@ KEEP = timedelta(days=30)
 OWNER = f"{socket.gethostname()}:{os.getpid()}:{uuid.uuid4().hex[:8]}"
 
 # What a claim came to (`claim`), and what a run came to (`run_once`).
-FRESH = "fresh"          # nobody had started today's run: it is ours
-RESUMED = "resumed"      # its owner went quiet: ours, from the cursor on
-BUSY = "busy"            # another process holds it and is alive
-DONE = "done"            # today's run has finished
-GAVE_UP = "gave_up"      # failed MAX_ATTEMPTS times: tomorrow, then
+FRESH = "fresh"  # nobody had started today's run: it is ours
+RESUMED = "resumed"  # its owner went quiet: ours, from the cursor on
+BUSY = "busy"  # another process holds it and is alive
+DONE = "done"  # today's run has finished
+GAVE_UP = "gave_up"  # failed MAX_ATTEMPTS times: tomorrow, then
 FINISHED = "finished"
-STOPPED = "stopped"      # the bot is stopping; the run was handed back
-LOST = "lost"            # another process took the run over mid-way
-FAILED = "failed"        # raised; resumed once its lease runs out
+STOPPED = "stopped"  # the bot is stopping; the run was handed back
+LOST = "lost"  # another process took the run over mid-way
+FAILED = "failed"  # raised; resumed once its lease runs out
 
 # The statuses a run counts, the ones `broadcast.deliver` returns.
 SENT, BLOCKED = "sent", "blocked"
@@ -196,9 +196,7 @@ class Run:
         if self.detached:
             return
         async with get_db() as session:
-            await session.execute(
-                update(JobRun).where(*self._mine()).values(lease_until=utcnow())
-            )
+            await session.execute(update(JobRun).where(*self._mine()).values(lease_until=utcnow()))
 
     def _mine(self) -> tuple[Any, ...]:
         return (
@@ -239,38 +237,58 @@ async def claim(
         bind = session.bind
         assert bind is not None, "get_db() always binds its sessions"
         insert = _insert(bind.dialect.name)
-        created = (await session.execute(
-            insert(JobRun)
-            .values(
-                job=job, day=day, owner=owner, lease_until=now + LEASE,
-                attempts=1, sent=0, blocked=0, failed=0, started_at=now,
+        created = (
+            await session.execute(
+                insert(JobRun)
+                .values(
+                    job=job,
+                    day=day,
+                    owner=owner,
+                    lease_until=now + LEASE,
+                    attempts=1,
+                    sent=0,
+                    blocked=0,
+                    failed=0,
+                    started_at=now,
+                )
+                .on_conflict_do_nothing(index_elements=["job", "day"])
+                .returning(JobRun.job)
             )
-            .on_conflict_do_nothing(index_elements=["job", "day"])
-            .returning(JobRun.job)
-        )).first()
+        ).first()
         if created is not None:
             return FRESH, Run(job=job, day=day, owner=owner)
 
-        taken = (await session.execute(
-            update(JobRun)
-            .where(
-                JobRun.job == job,
-                JobRun.day == day,
-                JobRun.finished_at.is_(None),
-                JobRun.lease_until < now,
-                JobRun.attempts < MAX_ATTEMPTS,
+        taken = (
+            await session.execute(
+                update(JobRun)
+                .where(
+                    JobRun.job == job,
+                    JobRun.day == day,
+                    JobRun.finished_at.is_(None),
+                    JobRun.lease_until < now,
+                    JobRun.attempts < MAX_ATTEMPTS,
+                )
+                .values(owner=owner, lease_until=now + LEASE, attempts=JobRun.attempts + 1)
+                .returning(
+                    JobRun.cursor,
+                    JobRun.sent,
+                    JobRun.blocked,
+                    JobRun.failed,
+                    JobRun.check_in_id,
+                )
             )
-            .values(owner=owner, lease_until=now + LEASE, attempts=JobRun.attempts + 1)
-            .returning(
-                JobRun.cursor, JobRun.sent, JobRun.blocked, JobRun.failed,
-                JobRun.check_in_id,
-            )
-        )).first()
+        ).first()
         if taken is not None:
             return RESUMED, Run(
-                job=job, day=day, owner=owner, cursor=taken.cursor,
-                sent=taken.sent, blocked=taken.blocked, failed=taken.failed,
-                resumed=True, check_in_id=taken.check_in_id,
+                job=job,
+                day=day,
+                owner=owner,
+                cursor=taken.cursor,
+                sent=taken.sent,
+                blocked=taken.blocked,
+                failed=taken.failed,
+                resumed=True,
+                check_in_id=taken.check_in_id,
             )
 
         row = await session.get(JobRun, (job, day))
@@ -319,7 +337,9 @@ class DailyJob:
 
 
 def _check_in(
-    job: DailyJob, status: str, check_in_id: str | None = None,
+    job: DailyJob,
+    status: str,
+    check_in_id: str | None = None,
     duration: float | None = None,
 ) -> str | None:
     """Tell Sentry Crons how the run is going; nothing without a DSN."""
@@ -346,9 +366,7 @@ async def _keep_check_in(run: Run, check_in_id: str | None, *, clear: bool = Fal
     if (check_in_id is None and not clear) or run.detached:
         return
     async with get_db() as session:
-        await session.execute(
-            update(JobRun).where(*run._mine()).values(check_in_id=check_in_id)
-        )
+        await session.execute(update(JobRun).where(*run._mine()).values(check_in_id=check_in_id))
 
 
 async def run_once(
@@ -365,11 +383,15 @@ async def run_once(
     try:
         outcome, run = await claim(job.name, day, now=now)
     except Exception as e:
-        logger.warning(f"Job {job.name}: could not claim the run for {day}: {type(e).__name__}: {e}")
+        logger.warning(
+            f"Job {job.name}: could not claim the run for {day}: {type(e).__name__}: {e}"
+        )
         return FAILED
     if run is None:
         if outcome == GAVE_UP:
-            logger.error(f"Job {job.name}: the run for {day} failed {MAX_ATTEMPTS} times; not retried today")
+            logger.error(
+                f"Job {job.name}: the run for {day} failed {MAX_ATTEMPTS} times; not retried today"
+            )
         return outcome
 
     run.stopping = stopping
@@ -433,7 +455,10 @@ class Scheduler:
     async def _run(self, application: Application, job: DailyJob, day: date) -> None:
         try:
             outcome = await run_once(
-                job, day, bot=application.bot, stopping=lambda: not application.running,
+                job,
+                day,
+                bot=application.bot,
+                stopping=lambda: not application.running,
             )
             if outcome in (FINISHED, DONE, GAVE_UP):
                 self._settled.add((job.name, day))
@@ -455,9 +480,11 @@ def schedule(application: Application, jobs: list[DailyJob]) -> Scheduler | None
         return None
     scheduler = Scheduler(jobs)
     application.job_queue.run_repeating(
-        scheduler.job_callback, interval=TICK, first=FIRST_TICK, name="scheduled_jobs",
+        scheduler.job_callback,
+        interval=TICK,
+        first=FIRST_TICK,
+        name="scheduled_jobs",
     )
     for job in jobs:
         logger.info(f"- {job.name} at {job.at:%H:%M} UTC, catching up for {job.window}")
     return scheduler
-

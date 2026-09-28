@@ -229,9 +229,7 @@ class Player:
             # with it. False is someone who only ever opened the Mini App.
             "allows_write_to_pm": allows_write,
         }
-        self.init_data = sign_init_data(
-            self.user, server.bot_token, auth_date=auth_date
-        )
+        self.init_data = sign_init_data(self.user, server.bot_token, auth_date=auth_date)
 
     def __repr__(self) -> str:
         return f"<Player {self.name} {self.id}>"
@@ -269,14 +267,20 @@ class Player:
             received: Any = response.json()
         except ValueError:
             received = response.text[:500]
-        self.server.transcript.add(Exchange(
-            who=self.name, method=method, path=path, status=response.status_code,
-            elapsed_ms=elapsed, sent=json_body, received=received,
-        ))
+        self.server.transcript.add(
+            Exchange(
+                who=self.name,
+                method=method,
+                path=path,
+                status=response.status_code,
+                elapsed_ms=elapsed,
+                sent=json_body,
+                received=received,
+            )
+        )
         if response.status_code >= 500:
             raise ServerError(
-                f"{self.name}: {method} {path} -> {response.status_code}: "
-                f"{response.text[:500]}"
+                f"{self.name}: {method} {path} -> {response.status_code}: {response.text[:500]}"
             )
         if expect is not None:
             allowed = {expect} if isinstance(expect, int) else set(expect)
@@ -327,7 +331,9 @@ class Server:
     def webhook(
         self, name: str, player: Player, *, key: str = E2E_TRIBUTE_KEY, **payload: Any
     ) -> httpx.Response:
-        return self.deliver(self.webhook_body(name, player, **payload), key=key, label=f"{name} → {player.name}")
+        return self.deliver(
+            self.webhook_body(name, player, **payload), key=key, label=f"{name} → {player.name}"
+        )
 
     def webhook_body(
         self, name: str, player: Player, *, created_at: datetime | None = None, **payload: Any
@@ -342,19 +348,21 @@ class Server:
         apart as well.
         """
         now = datetime.now(UTC)
-        return json.dumps({
-            "name": name,
-            "created_at": (created_at or now).isoformat(),
-            "sent_at": now.isoformat(),
-            "nonce": secrets.token_hex(6),
-            "payload": {
-                "telegram_user_id": player.id,
-                "product_id": E2E_PRODUCT_ID,
-                "amount": 49900,
-                "currency": "rub",
-                **payload,
-            },
-        }).encode()
+        return json.dumps(
+            {
+                "name": name,
+                "created_at": (created_at or now).isoformat(),
+                "sent_at": now.isoformat(),
+                "nonce": secrets.token_hex(6),
+                "payload": {
+                    "telegram_user_id": player.id,
+                    "product_id": E2E_PRODUCT_ID,
+                    "amount": 49900,
+                    "currency": "rub",
+                    **payload,
+                },
+            }
+        ).encode()
 
     @staticmethod
     def redelivery(body: bytes) -> bytes:
@@ -365,7 +373,11 @@ class Server:
         return json.dumps(delivery).encode()
 
     def deliver(
-        self, body: bytes, *, key: str = E2E_TRIBUTE_KEY, label: str = "delivery",
+        self,
+        body: bytes,
+        *,
+        key: str = E2E_TRIBUTE_KEY,
+        label: str = "delivery",
         http: httpx.Client | None = None,
     ) -> httpx.Response:
         """POST one delivery, signed. A 503 is Tribute's cue to redeliver,
@@ -380,12 +392,16 @@ class Server:
                 "X-Forwarded-For": fresh_ip(),
             },
         )
-        self.transcript.add(Exchange(
-            who="tribute", method="POST", path=f"/webhooks/tribute [{label}]",
-            status=response.status_code,
-            elapsed_ms=(time.perf_counter() - started) * 1000,
-            received=response.text[:300],
-        ))
+        self.transcript.add(
+            Exchange(
+                who="tribute",
+                method="POST",
+                path=f"/webhooks/tribute [{label}]",
+                status=response.status_code,
+                elapsed_ms=(time.perf_counter() - started) * 1000,
+                received=response.text[:300],
+            )
+        )
         if response.status_code >= 500 and response.status_code != 503:
             raise ServerError(f"{label} -> {response.status_code}: {response.text}")
         return response
@@ -405,9 +421,7 @@ class Server:
 
     # -- the same instant on several phones ---------------------------------
 
-    def all_at_once(
-        self, requests: list[tuple[Player, str, str, Any]]
-    ) -> list[httpx.Response]:
+    def all_at_once(self, requests: list[tuple[Player, str, str, Any]]) -> list[httpx.Response]:
         """Fire every (player, method, path, body) at the same moment.
 
         Each request gets its own connection and waits at a barrier, so they
@@ -427,11 +441,17 @@ class Server:
                 received: Any = response.json()
             except ValueError:
                 received = response.text[:300]
-            self.transcript.add(Exchange(
-                who=player.name, method=method, path=f"{path} [concurrent]",
-                status=response.status_code, elapsed_ms=elapsed, sent=body,
-                received=received,
-            ))
+            self.transcript.add(
+                Exchange(
+                    who=player.name,
+                    method=method,
+                    path=f"{path} [concurrent]",
+                    status=response.status_code,
+                    elapsed_ms=elapsed,
+                    sent=body,
+                    received=received,
+                )
+            )
             return response
 
         with ThreadPoolExecutor(max_workers=len(requests)) as pool:

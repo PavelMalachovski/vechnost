@@ -52,7 +52,10 @@ def serve_web(port: int) -> None:
     from vechnost_bot.monitoring import uvicorn_log_config
 
     uvicorn.run(
-        "vechnost_bot.payments.web:app", host="0.0.0.0", port=port, log_level="info",
+        "vechnost_bot.payments.web:app",
+        host="0.0.0.0",
+        port=port,
+        log_level="info",
         log_config=uvicorn_log_config(),
     )
 
@@ -123,10 +126,12 @@ def supervise(
 def main() -> int:
     port = int(os.getenv("PORT", "8000"))
     print(f"[*] Starting webhook server on port {port}...", flush=True)
-    return supervise([
-        ("webhook server", serve_web, (port,)),
-        ("bot", serve_bot, ()),
-    ])
+    return supervise(
+        [
+            ("webhook server", serve_web, (port,)),
+            ("bot", serve_bot, ()),
+        ]
+    )
 
 
 if __name__ == "__main__":

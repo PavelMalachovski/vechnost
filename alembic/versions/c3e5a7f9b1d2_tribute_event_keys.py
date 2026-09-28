@@ -29,14 +29,10 @@ depends_on = None
 def upgrade() -> None:
     with op.batch_alter_table("webhook_events") as batch:
         batch.add_column(sa.Column("event_key", sa.String(), nullable=True))
-    op.create_index(
-        "uq_webhook_events_event_key", "webhook_events", ["event_key"], unique=True
-    )
+    op.create_index("uq_webhook_events_event_key", "webhook_events", ["event_key"], unique=True)
     with op.batch_alter_table("certificates") as batch:
         batch.add_column(sa.Column("purchase_id", sa.String(), nullable=True))
-    op.create_index(
-        "uq_certificates_purchase_id", "certificates", ["purchase_id"], unique=True
-    )
+    op.create_index("uq_certificates_purchase_id", "certificates", ["purchase_id"], unique=True)
 
 
 def downgrade() -> None:

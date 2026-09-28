@@ -34,7 +34,9 @@ ADDED = {
     "users": {"idx_users_referred_by"},
     "steps69_games": {"idx_steps69_guest", "idx_steps69_unfinished_updated"},
     "compat_tests": {
-        "idx_compat_creator", "idx_compat_guest", "idx_compat_unfinished_updated",
+        "idx_compat_creator",
+        "idx_compat_guest",
+        "idx_compat_unfinished_updated",
     },
 }
 
@@ -93,6 +95,7 @@ async def _execute(*statements: str) -> None:
 # The model
 # --------------------------------------------------------------------------
 
+
 def test_the_model_declares_no_index_a_unique_constraint_already_gives():
     for table in Base.metadata.sorted_tables:
         unique = {
@@ -110,28 +113,30 @@ def test_the_redundant_list_names_no_index_the_model_still_declares():
     assert not declared & set(database.REDUNDANT_INDEXES)
 
 
-@pytest.mark.parametrize("table, column", [
-    # "creator or guest": /mine, erase
-    ("steps69_games", "creator_telegram_user_id"),
-    ("steps69_games", "guest_telegram_user_id"),
-    ("compat_tests", "creator_telegram_user_id"),
-    ("compat_tests", "guest_telegram_user_id"),
-    # /invite's count, erase's unlinking
-    ("users", "referred_by"),
-    # the retention sweep and the resume nudge, over unfinished rows
-    ("steps69_games", "updated_at"),
-    ("compat_tests", "updated_at"),
-])
+@pytest.mark.parametrize(
+    "table, column",
+    [
+        # "creator or guest": /mine, erase
+        ("steps69_games", "creator_telegram_user_id"),
+        ("steps69_games", "guest_telegram_user_id"),
+        ("compat_tests", "creator_telegram_user_id"),
+        ("compat_tests", "guest_telegram_user_id"),
+        # /invite's count, erase's unlinking
+        ("users", "referred_by"),
+        # the retention sweep and the resume nudge, over unfinished rows
+        ("steps69_games", "updated_at"),
+        ("compat_tests", "updated_at"),
+    ],
+)
 def test_what_is_looked_up_by_person_or_by_age_is_indexed(table, column):
-    indexed = {
-        index.columns[0].name for index in Base.metadata.tables[table].indexes
-    }
+    indexed = {index.columns[0].name for index in Base.metadata.tables[table].indexes}
     assert column in indexed
 
 
 # --------------------------------------------------------------------------
 # A deployed database
 # --------------------------------------------------------------------------
+
 
 async def test_an_old_database_is_brought_to_the_models_indexes(db):
     """The index set of the code before this change - the eight doubles, none

@@ -36,6 +36,7 @@ async def _user(telegram_user_id, name="U"):
 # The code itself
 # ---------------------------------------------------------------------------
 
+
 def test_a_code_is_stable_for_the_same_seed():
     """A retry after a lost response must not burn a fresh code."""
     assert referrals.code_from_seed("42:0") == referrals.code_from_seed("42:0")
@@ -67,9 +68,9 @@ def test_a_code_is_read_back_however_it_was_typed():
 
 def test_something_that_is_not_a_code_is_refused():
     assert referrals.normalize("") is None
-    assert referrals.normalize("ABC") is None          # too short
-    assert referrals.normalize("ABC2345") is None      # too long
-    assert referrals.normalize("AB0234") is None       # a zero is not in the alphabet
+    assert referrals.normalize("ABC") is None  # too short
+    assert referrals.normalize("ABC2345") is None  # too long
+    assert referrals.normalize("AB0234") is None  # a zero is not in the alphabet
 
 
 def test_only_a_referral_deep_link_is_read_as_one():
@@ -89,6 +90,7 @@ def test_the_link_carries_the_bot_handle():
 # ---------------------------------------------------------------------------
 # Minting and crediting
 # ---------------------------------------------------------------------------
+
 
 async def test_a_code_is_minted_once_and_then_stays(db):
     await _user(1)
@@ -230,14 +232,25 @@ async def test_someone_who_already_bought_is_not_credited(db, history):
         user = await UserRepository.get_by_telegram_id(session, 2)
         if history == "payment":
             await PaymentRepository.create(
-                session, provider="tribute", event_name="new_digital_product",
-                user_id=user.id, telegram_user_id=2, amount=49900, currency="rub",
-                raw_body={}, signature="", body_sha256="ref-history",
+                session,
+                provider="tribute",
+                event_name="new_digital_product",
+                user_id=user.id,
+                telegram_user_id=2,
+                amount=49900,
+                currency="rub",
+                raw_body={},
+                signature="",
+                body_sha256="ref-history",
             )
         elif history == "subscription":
             await SubscriptionRepository.upsert(
-                session, user_id=user.id, subscription_id=0, period="lifetime",
-                status="canceled", expires_at=None,
+                session,
+                user_id=user.id,
+                subscription_id=0,
+                period="lifetime",
+                status="canceled",
+                expires_at=None,
             )
         else:
             certificate = await CertificateRepository.create(session, code="REF-HISTORY-TEST")
@@ -263,6 +276,7 @@ async def test_an_unreferred_user_is_not_referred(db):
 # ---------------------------------------------------------------------------
 # The discount
 # ---------------------------------------------------------------------------
+
 
 def test_the_discount_needs_a_page_to_send_people_to():
     """Tribute owns the price, so with no discounted product configured the
@@ -308,9 +322,11 @@ async def test_the_paywall_sends_a_referred_user_to_the_discounted_page(db):
             ),
             patch("vechnost_bot.payments.web.user_has_access", return_value=False),
         ):
-            return TestClient(app).get(
-                "/api/questions", headers={"Authorization": "tma x"}
-            ).json()["access"]
+            return (
+                TestClient(app)
+                .get("/api/questions", headers={"Authorization": "tma x"})
+                .json()["access"]
+            )
 
     invited = paywall(2)
     assert invited["payment_url"] == "https://tribute.to/ten-off"
@@ -344,9 +360,11 @@ async def test_no_discounted_page_means_no_promise_of_one(db):
         ),
         patch("vechnost_bot.payments.web.user_has_access", return_value=False),
     ):
-        access = TestClient(app).get(
-            "/api/questions", headers={"Authorization": "tma x"}
-        ).json()["access"]
+        access = (
+            TestClient(app)
+            .get("/api/questions", headers={"Authorization": "tma x"})
+            .json()["access"]
+        )
 
     assert access["payment_url"] == "https://tribute.to/full"
     assert "discount_percent" not in access

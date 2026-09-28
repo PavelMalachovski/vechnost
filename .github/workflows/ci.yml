@@ -55,12 +55,11 @@ jobs:
     - name: Run ruff
       run: ruff check .
 
-    # The repository has never been through `ruff format`, and a one-time
-    # reformat would collide with every branch in flight. Until it has been,
-    # this only says how far off it is: one line a file (the default output
-    # prints every diff, eleven thousand lines of it).
-    - name: Formatting (advisory)
-      continue-on-error: true
+    # The whole repository went through `ruff format` once (the commit is in
+    # .git-blame-ignore-revs), so formatting gates like the lint does.
+    # `ruff format .` fixes a red step; concise output names the files
+    # rather than printing every diff.
+    - name: Formatting
       run: ruff format --check --output-format concise .
 
     # Strict, and blocking, on the modules that can hold the line today: the

@@ -26,6 +26,7 @@ from sentry_sdk.integrations.logging import LoggingIntegration
 # among structlog's JSON - on Railway an error could not be told from an
 # info line.
 
+
 # The one handler this module puts on the root logger. It is found again by
 # its type, so configuring twice (the bot, the web process, a test) never
 # stacks a second one.
@@ -99,6 +100,7 @@ CODE_MASK = "***"
 
 def mask_codes(text: str) -> str:
     """`text` with every room, test and game code replaced by `***`."""
+
     def path(match: re.Match[str]) -> str:
         if match.group(2) in _NOT_A_CODE:
             return match.group(0)
@@ -145,7 +147,10 @@ def uvicorn_log_config(level: str = "INFO") -> dict[str, Any]:
             "uvicorn": {"handlers": [], "level": level, "propagate": True},
             "uvicorn.error": {"level": level, "propagate": True},
             "uvicorn.access": {
-                "handlers": [], "level": level, "propagate": True, "filters": ["mask_codes"],
+                "handlers": [],
+                "level": level,
+                "propagate": True,
+                "filters": ["mask_codes"],
             },
         },
         "root": {"handlers": ["stdout"], "level": level},
@@ -250,13 +255,14 @@ def configure_sentry() -> None:
     # Configure Sentry integrations
     integrations = [
         LoggingIntegration(
-            level=BREADCRUMB_LEVEL,    # Capture warnings and above as breadcrumbs
-            event_level=logging.ERROR  # Send errors as events
+            level=BREADCRUMB_LEVEL,  # Capture warnings and above as breadcrumbs
+            event_level=logging.ERROR,  # Send errors as events
         ),
     ]
 
     # Initialize Sentry
     import sentry_sdk
+
     sentry_sdk.init(
         dsn=sentry_dsn,
         integrations=integrations,
@@ -271,14 +277,14 @@ def configure_sentry() -> None:
 def before_send_filter(event, hint):
     """Filter events before sending to Sentry."""
     # Don't send certain types of errors
-    if 'exc_info' in hint:
-        exc_type = hint['exc_info'][0]
-        if exc_type.__name__ in ['KeyboardInterrupt', 'SystemExit']:
+    if "exc_info" in hint:
+        exc_type = hint["exc_info"][0]
+        if exc_type.__name__ in ["KeyboardInterrupt", "SystemExit"]:
             return None
 
     # Add custom context
-    event.setdefault('tags', {})
-    event['tags']['bot_name'] = 'vechnost-bot'
+    event.setdefault("tags", {})
+    event["tags"]["bot_name"] = "vechnost-bot"
 
     return event
 
@@ -313,6 +319,7 @@ metrics = BotMetrics()
 
 def track_performance(operation_name: str):
     """Decorator to track performance of operations."""
+
     def decorator(func):
         @wraps(func)
         async def async_wrapper(*args, **kwargs):
@@ -346,6 +353,7 @@ def track_performance(operation_name: str):
             return async_wrapper
         else:
             return sync_wrapper
+
     return decorator
 
 
@@ -383,12 +391,7 @@ def log_callback_event(callback_data: str | None, user_id: int, **context):
     DEBUG, like the metrics: one line per tap is a firehose at INFO.
     """
     logger = structlog.get_logger("callback_events")
-    logger.debug(
-        "callback_event",
-        callback_data=callback_data,
-        user_id=user_id,
-        **context
-    )
+    logger.debug("callback_event", callback_data=callback_data, user_id=user_id, **context)
 
     # Increment counter
     metrics.increment_counter("callback_events_total")
@@ -415,12 +418,7 @@ def log_callback_event(callback_data: str | None, user_id: int, **context):
 def log_image_rendering_event(success: bool, duration: float, **context):
     """Log an image rendering event (DEBUG: one per card shown)."""
     logger = structlog.get_logger("image_rendering")
-    logger.debug(
-        "image_rendering_event",
-        success=success,
-        duration=duration,
-        **context
-    )
+    logger.debug("image_rendering_event", success=success, duration=duration, **context)
 
     if success:
         metrics.increment_counter("image_rendering_success")

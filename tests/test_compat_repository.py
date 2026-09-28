@@ -113,9 +113,7 @@ def test_delete_superseded_removes_other_rows_for_the_same_pair():
             new.finished_at = datetime.utcnow()
             await session.flush()
 
-            removed = await CompatTestRepository.delete_superseded(
-                session, "1:2", keep_id=new.id
-            )
+            removed = await CompatTestRepository.delete_superseded(session, "1:2", keep_id=new.id)
             assert removed == 1
             assert await CompatTestRepository.get_by_code(session, "OLD111") is None
             assert await CompatTestRepository.get_by_code(session, "NEW111") is not None
@@ -129,6 +127,7 @@ def test_delete_superseded_removes_other_rows_for_the_same_pair():
 
 def test_delete_superseded_leaves_a_newer_session_alone():
     """Completing the older of two open tests used to delete the newer one."""
+
     async def scenario():
         engine, session = await _make_session()
         try:
@@ -142,9 +141,7 @@ def test_delete_superseded_leaves_a_newer_session_alone():
                 test.pair_key = "1:2"
             await session.flush()
 
-            removed = await CompatTestRepository.delete_superseded(
-                session, "1:2", keep_id=older.id
-            )
+            removed = await CompatTestRepository.delete_superseded(session, "1:2", keep_id=older.id)
             assert removed == 0
             assert await CompatTestRepository.get_by_code(session, "NEWER1") is not None
         finally:

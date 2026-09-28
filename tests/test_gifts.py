@@ -90,6 +90,7 @@ def test_render_gift_card_produces_image():
 # The card's caption, and the question its link opens on
 # ---------------------------------------------------------------------------
 
+
 def test_the_caption_carries_the_link_to_forward():
     from vechnost_bot.payments.gifts import delivered_caption
 
@@ -110,11 +111,14 @@ def _question(text: str, code: str | None) -> Message:
     entities = []
     if code:
         # Telegram counts in UTF-16 units: the 🎁 before the code is two.
-        offset = len(text[:text.index(code)].encode("utf-16-le")) // 2
+        offset = len(text[: text.index(code)].encode("utf-16-le")) // 2
         entities = [MessageEntity(MessageEntity.CODE, offset, len(code))]
     return Message(
-        message_id=1, date=datetime.now(UTC), chat=Chat(id=5, type=Chat.PRIVATE),
-        text=text, entities=entities,
+        message_id=1,
+        date=datetime.now(UTC),
+        chat=Chat(id=5, type=Chat.PRIVATE),
+        text=text,
+        entities=entities,
     )
 
 
@@ -142,14 +146,17 @@ async def test_someone_with_access_is_told_to_give_it_away():
     assert get_text("gift.confirm_has_access") in message.reply_text.await_args.args[0]
 
 
-@pytest.mark.parametrize("result, key, has_button", [
-    ({"status": "success"}, "certificate.activated", True),
-    ({"status": "error", "code": 409, "yours": True}, "certificate.already_yours", True),
-    ({"status": "error", "code": 409, "yours": False}, "certificate.already_used", False),
-    ({"status": "error", "code": 404}, "certificate.not_found", False),
-    ({"status": "error", "code": 410}, "certificate.revoked", False),
-    ({"status": "error", "code": 500}, "certificate.error", False),
-])
+@pytest.mark.parametrize(
+    "result, key, has_button",
+    [
+        ({"status": "success"}, "certificate.activated", True),
+        ({"status": "error", "code": 409, "yours": True}, "certificate.already_yours", True),
+        ({"status": "error", "code": 409, "yours": False}, "certificate.already_used", False),
+        ({"status": "error", "code": 404}, "certificate.not_found", False),
+        ({"status": "error", "code": 410}, "certificate.revoked", False),
+        ({"status": "error", "code": 500}, "certificate.error", False),
+    ],
+)
 async def test_the_button_activates_the_code_its_question_carries(result, key, has_button):
     from vechnost_bot import handlers
     from vechnost_bot.i18n import get_text

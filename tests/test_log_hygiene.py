@@ -48,9 +48,7 @@ def test_the_sentry_user_is_an_id_and_nothing_else():
     assert set_user.call_args.args[0] == {"id": "123"}
 
 
-async def test_a_certificate_code_in_a_start_link_is_not_logged(
-    mock_update, mock_context, caplog
-):
+async def test_a_certificate_code_in_a_start_link_is_not_logged(mock_update, mock_context, caplog):
     """`/start activate_VECH-…` is how a gift is redeemed. The code must
     reach the database and nothing else."""
     mock_context.args = ["activate_VECH-ABCD-EFGH"]

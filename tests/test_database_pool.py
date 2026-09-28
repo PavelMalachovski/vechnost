@@ -53,11 +53,14 @@ def test_a_sqlite_file_gets_a_connection_per_session(db_at, tmp_path):
     assert isinstance(database.engine.sync_engine.pool, NullPool)
 
 
-@pytest.mark.parametrize("url", [
-    "sqlite:///:memory:",
-    "sqlite+aiosqlite:///:memory:",
-    "sqlite+aiosqlite:///file:shared?mode=memory&cache=shared&uri=true",
-])
+@pytest.mark.parametrize(
+    "url",
+    [
+        "sqlite:///:memory:",
+        "sqlite+aiosqlite:///:memory:",
+        "sqlite+aiosqlite:///file:shared?mode=memory&cache=shared&uri=true",
+    ],
+)
 def test_an_in_memory_database_keeps_its_one_connection(db_at, url):
     db_at(url)
     database.init_db()
@@ -74,8 +77,13 @@ async def test_read_modify_writes_on_a_sqlite_file_take_turns(db_at, tmp_path):
     db_at(f"sqlite:///{tmp_path / 'taps.db'}")
     async with get_db() as session:
         await RoomRepository.create(
-            session, code=CODE, creator_telegram_user_id=1, creator_name="A",
-            theme="Acquaintance", level=1, content_type="questions",
+            session,
+            code=CODE,
+            creator_telegram_user_id=1,
+            creator_name="A",
+            theme="Acquaintance",
+            level=1,
+            content_type="questions",
             card_order=list(range(10)),
         )
 

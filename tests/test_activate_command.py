@@ -39,8 +39,10 @@ async def test_activate_without_a_code_is_sent_as_html():
     context = MagicMock()
     context.args = []
 
-    with patch("vechnost_bot.handlers.set_user_context"), \
-            patch("vechnost_bot.handlers.log_bot_event"):
+    with (
+        patch("vechnost_bot.handlers.set_user_context"),
+        patch("vechnost_bot.handlers.log_bot_event"),
+    ):
         await activate_certificate_command(update, context)
 
     message.reply_text.assert_awaited_once()

@@ -72,7 +72,7 @@ def parse_start_param(param: str | None) -> str | None:
     """The code inside a `?start=ref_XXXXXX` deep link, if there is one."""
     if not param or not param.startswith(PREFIX):
         return None
-    return normalize(param[len(PREFIX):])
+    return normalize(param[len(PREFIX) :])
 
 
 def invite_link(code: str) -> str | None:

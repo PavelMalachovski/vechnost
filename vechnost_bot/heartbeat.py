@@ -75,7 +75,9 @@ async def heartbeat_job(context: "ContextTypes.DEFAULT_TYPE") -> None:
 def register_heartbeat(application: "Application") -> None:
     """Make the bot beat. Called from `bot.py` where the jobs are scheduled."""
     if application.job_queue is None:
-        logger.warning("JobQueue is unavailable: no heartbeat, /health/deep will report the bot down")
+        logger.warning(
+            "JobQueue is unavailable: no heartbeat, /health/deep will report the bot down"
+        )
         return
     application.job_queue.run_repeating(
         heartbeat_job, interval=INTERVAL, first=FIRST_BEAT, name="heartbeat"
@@ -94,9 +96,7 @@ async def deep_status(now: datetime | None = None) -> tuple[bool, dict[str, Any]
         async with asyncio.timeout(DATABASE_TIMEOUT):
             async with get_db() as session:
                 await session.execute(text("SELECT 1"))
-                last = await session.scalar(
-                    select(Heartbeat.beat_at).where(Heartbeat.name == BOT)
-                )
+                last = await session.scalar(select(Heartbeat.beat_at).where(Heartbeat.name == BOT))
     except Exception as e:
         logger.warning(f"Deep health check: the database did not answer: {type(e).__name__}: {e}")
         checks["database"] = f"error: {type(e).__name__}"

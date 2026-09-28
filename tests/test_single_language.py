@@ -39,6 +39,7 @@ def test_coerce_returns_a_typed_member_by_lookup_not_by_luck():
     stand-in enum that borrows the same `coerce` and *does* have a second
     member — there, "by accident" gives the wrong answer.
     """
+
     class TwoLanguages(str, Enum):
         RUSSIAN = "ru"
         ENGLISH = "en"
@@ -61,14 +62,18 @@ def test_a_session_stored_in_a_retired_language_survives_the_round_trip():
     """
     storage = RedisSessionStore("redis://localhost:6379/0", ttl=60)
     storage._client = AsyncMock()
-    storage._client.get = AsyncMock(return_value=json.dumps({
-        "theme": "Acquaintance",
-        "level": 2,
-        "content_type": "questions",
-        "drawn_cards": ["уже вытянутая карта", "и вторая"],
-        "is_nsfw_confirmed": True,
-        "language": "en",
-    }))
+    storage._client.get = AsyncMock(
+        return_value=json.dumps(
+            {
+                "theme": "Acquaintance",
+                "level": 2,
+                "content_type": "questions",
+                "drawn_cards": ["уже вытянутая карта", "и вторая"],
+                "is_nsfw_confirmed": True,
+                "language": "en",
+            }
+        )
+    )
 
     session = asyncio.run(storage.get_session(4242))
 
@@ -81,10 +86,15 @@ def test_a_session_stored_in_a_retired_language_survives_the_round_trip():
     assert session.is_nsfw_confirmed is True
 
 
-@pytest.mark.parametrize("name", [
-    "questions_en.yaml", "questions_cs.yaml",
-    "translations_en.yaml", "translations_cs.yaml",
-])
+@pytest.mark.parametrize(
+    "name",
+    [
+        "questions_en.yaml",
+        "questions_cs.yaml",
+        "translations_en.yaml",
+        "translations_cs.yaml",
+    ],
+)
 def test_retired_language_files_are_gone(name):
     assert not (DATA / name).exists()
 

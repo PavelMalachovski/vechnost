@@ -41,6 +41,7 @@ BUYER = 515151
 # The message
 # ---------------------------------------------------------------------------
 
+
 def _send(user_id: int = BUYER, bot=None, language: str | None = "ru", lifetime: bool = True):
     if bot is None:
         bot = MagicMock()
@@ -123,6 +124,7 @@ def test_a_dead_network_is_swallowed():
 # When the webhook sends it
 # ---------------------------------------------------------------------------
 
+
 @pytest.fixture
 def client(tmp_path):
     """Payments on, the API key configured, a fresh database, a mock push."""
@@ -151,19 +153,26 @@ def push():
 
 
 def event(name: str, telegram_user_id: int = BUYER, **payload) -> bytes:
-    return json.dumps({
-        "name": name,
-        "created_at": "2026-09-01T10:00:00Z",
-        "sent_at": "2026-09-01T10:00:01Z",
-        "payload": {"telegram_user_id": telegram_user_id, "amount": 990,
-                    "currency": "eur", **payload},
-    }).encode()
+    return json.dumps(
+        {
+            "name": name,
+            "created_at": "2026-09-01T10:00:00Z",
+            "sent_at": "2026-09-01T10:00:01Z",
+            "payload": {
+                "telegram_user_id": telegram_user_id,
+                "amount": 990,
+                "currency": "eur",
+                **payload,
+            },
+        }
+    ).encode()
 
 
 def deliver(client, body: bytes, key: str = API_KEY):
     signature = hmac.new(key.encode(), body, hashlib.sha256).hexdigest()
     return client.post(
-        "/webhooks/tribute", content=body,
+        "/webhooks/tribute",
+        content=body,
         headers={"Content-Type": "application/json", "trbt-signature": signature},
     )
 
@@ -182,24 +191,30 @@ def test_a_purchase_tells_the_buyer_once(client, push):
 
 
 def test_a_subscription_tells_the_buyer_too_but_not_that_it_is_for_good(client, push):
-    deliver(client, event("new_subscription", subscription_id=9,
-                          expires_at="2099-01-01T00:00:00Z"))
+    deliver(client, event("new_subscription", subscription_id=9, expires_at="2099-01-01T00:00:00Z"))
     push.assert_awaited_once_with(BUYER, False)
 
 
 def test_a_renewal_tells_the_buyer_nothing_new(client, push):
     """Every month a subscription renews; «всё открыто» each time would be
     noise about something that opened long ago."""
-    deliver(client, event("new_subscription", subscription_id=9,
-                          expires_at="2099-01-01T00:00:00Z"))
+    deliver(client, event("new_subscription", subscription_id=9, expires_at="2099-01-01T00:00:00Z"))
     push.reset_mock()
-    response = deliver(client, json.dumps({
-        "name": "renewed_subscription",
-        "created_at": "2026-10-01T10:00:00Z",
-        "sent_at": "2026-10-01T10:00:01Z",
-        "payload": {"telegram_user_id": BUYER, "subscription_id": 9,
-                    "expires_at": "2099-02-01T00:00:00Z"},
-    }).encode())
+    response = deliver(
+        client,
+        json.dumps(
+            {
+                "name": "renewed_subscription",
+                "created_at": "2026-10-01T10:00:00Z",
+                "sent_at": "2026-10-01T10:00:01Z",
+                "payload": {
+                    "telegram_user_id": BUYER,
+                    "subscription_id": 9,
+                    "expires_at": "2099-02-01T00:00:00Z",
+                },
+            }
+        ).encode(),
+    )
     assert response.status_code == 200 and response.json()["action"] == "grant"
     push.assert_not_awaited()
 
@@ -239,8 +254,9 @@ def test_an_unsigned_delivery_before_launch_tells_nobody(client, push):
         patch.object(settings, "enable_payment", False),
         patch.object(settings, "tribute_api_key", None),
     ):
-        response = client.post("/webhooks/tribute", content=body,
-                               headers={"Content-Type": "application/json"})
+        response = client.post(
+            "/webhooks/tribute", content=body, headers={"Content-Type": "application/json"}
+        )
     assert response.status_code == 200 and response.json()["action"] == "ignore"
     push.assert_not_awaited()
 
@@ -286,15 +302,22 @@ def test_the_answer_goes_to_tribute_before_the_message_goes_to_telegram(client):
                 answered.set()
 
         scope = {
-            "type": "http", "asgi": {"version": "3.0"}, "http_version": "1.1",
-            "method": "POST", "scheme": "http", "path": "/webhooks/tribute",
-            "raw_path": b"/webhooks/tribute", "query_string": b"", "root_path": "",
+            "type": "http",
+            "asgi": {"version": "3.0"},
+            "http_version": "1.1",
+            "method": "POST",
+            "scheme": "http",
+            "path": "/webhooks/tribute",
+            "raw_path": b"/webhooks/tribute",
+            "query_string": b"",
+            "root_path": "",
             "headers": [
                 (b"content-type", b"application/json"),
                 (b"content-length", str(len(body)).encode()),
                 (b"trbt-signature", signature.encode()),
             ],
-            "client": ("127.0.0.1", 40001), "server": ("testserver", 80),
+            "client": ("127.0.0.1", 40001),
+            "server": ("testserver", 80),
         }
         with patch.object(web, "notify_access_granted", slow_push):
             await web.app(scope, receive, send)

@@ -15,6 +15,7 @@ from vechnost_bot.i18n import Language
 # The board
 # ---------------------------------------------------------------------------
 
+
 def test_the_board_is_sixty_nine_cells_numbered_in_order():
     cells = steps69.load_cells()
     assert len(cells) == steps69.BOARD_SIZE == 69
@@ -102,6 +103,7 @@ def test_milestones_land_on_every_tenth_ordinary_cell():
 # Movement
 # ---------------------------------------------------------------------------
 
+
 def test_an_ordinary_roll_just_advances():
     move = steps69.resolve_move(1, 2)
     assert (move.landed, move.position, move.event) == (3, 3, None)
@@ -163,6 +165,7 @@ def test_the_die_only_ever_shows_one_to_six():
 # The Joker
 # ---------------------------------------------------------------------------
 
+
 def test_the_board_splits_into_three_stages():
     assert steps69.stage_of(1) == "tender"
     assert steps69.stage_of(23) == "tender"
@@ -173,9 +176,9 @@ def test_the_board_splits_into_three_stages():
 
 
 def test_a_pair_carried_by_the_ladders_counts_as_rushing():
-    assert steps69.is_rushing(50, 6) is True     # ~8 cells a roll
-    assert steps69.is_rushing(50, 20) is False   # ~2.5 cells a roll
-    assert steps69.is_rushing(1, 0) is False     # nobody has rolled yet
+    assert steps69.is_rushing(50, 6) is True  # ~8 cells a roll
+    assert steps69.is_rushing(50, 20) is False  # ~2.5 cells a roll
+    assert steps69.is_rushing(1, 0) is False  # nobody has rolled yet
 
 
 def test_a_rushing_pair_gets_slowed_down_wherever_they_are_standing():
@@ -226,6 +229,7 @@ def test_a_joker_task_can_be_found_by_id():
 # ---------------------------------------------------------------------------
 # What each player is allowed to see
 # ---------------------------------------------------------------------------
+
 
 def test_the_map_shows_every_cells_action_but_never_a_deal():
     """A printed board lets both players read every cell, so the map

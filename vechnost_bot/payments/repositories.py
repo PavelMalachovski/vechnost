@@ -43,9 +43,7 @@ class UserRepository:
     """Repository for User operations."""
 
     @staticmethod
-    async def get_by_telegram_id(
-        session: AsyncSession, telegram_user_id: int
-    ) -> User | None:
+    async def get_by_telegram_id(session: AsyncSession, telegram_user_id: int) -> User | None:
         """Get user by Telegram ID."""
         result = await session.execute(
             select(User).where(User.telegram_user_id == telegram_user_id)
@@ -139,8 +137,10 @@ class UserRepository:
         if user is None:
             raise RuntimeError(f"User {telegram_user_id} could not be made")
         for field, value in (
-            ("first_name", first_name), ("username", username),
-            ("last_name", last_name), ("language", language),
+            ("first_name", first_name),
+            ("username", username),
+            ("last_name", last_name),
+            ("language", language),
         ):
             if value is not None and getattr(user, field) != value:
                 setattr(user, field, value)
@@ -170,9 +170,7 @@ class UserRepository:
         return await UserRepository.get_by_telegram_id(session, user.partner_telegram_user_id)
 
     @staticmethod
-    async def record_invite(
-        session: AsyncSession, telegram_user_id: int, inviter_id: int
-    ) -> bool:
+    async def record_invite(session: AsyncSession, telegram_user_id: int, inviter_id: int) -> bool:
         """Credit the person whose invite link seated a newcomer. True when
         it counted.
 
@@ -243,9 +241,7 @@ class UserRepository:
         resumed after the last person it reached (`after`): the list is
         read as the run goes, and somebody who opts out mid-run is skipped.
         """
-        query = select(User).where(
-            User.daily_card_opt_out.is_(False), User.can_message.is_(True)
-        )
+        query = select(User).where(User.daily_card_opt_out.is_(False), User.can_message.is_(True))
         if after is not None:
             query = query.where(User.telegram_user_id > after)
         query = query.order_by(User.telegram_user_id)
@@ -255,19 +251,13 @@ class UserRepository:
         return list(result.scalars().all())
 
     @staticmethod
-    async def get_by_referral_code(
-        session: AsyncSession, code: str
-    ) -> User | None:
+    async def get_by_referral_code(session: AsyncSession, code: str) -> User | None:
         """The user who hands out this code."""
-        result = await session.execute(
-            select(User).where(User.referral_code == code)
-        )
+        result = await session.execute(select(User).where(User.referral_code == code))
         return result.scalar_one_or_none()
 
     @staticmethod
-    async def ensure_referral_code(
-        session: AsyncSession, telegram_user_id: int
-    ) -> str | None:
+    async def ensure_referral_code(session: AsyncSession, telegram_user_id: int) -> str | None:
         """This user's code, minted on the first ask and stable after.
 
         Derives a candidate from the user id and salts the seed again on a
@@ -315,9 +305,7 @@ class UserRepository:
         return False
 
     @staticmethod
-    async def record_referral(
-        session: AsyncSession, telegram_user_id: int, code: str
-    ) -> bool:
+    async def record_referral(session: AsyncSession, telegram_user_id: int, code: str) -> bool:
         """Credit an invitation. True when it counted, False when it did not.
 
         Only a newcomer can be invited: a user whose row is younger than
@@ -354,9 +342,7 @@ class UserRepository:
     @staticmethod
     async def count_referrals(session: AsyncSession, telegram_user_id: int) -> int:
         """How many people came in on this user's link."""
-        result = await session.execute(
-            select(User).where(User.referred_by == telegram_user_id)
-        )
+        result = await session.execute(select(User).where(User.referred_by == telegram_user_id))
         return len(list(result.scalars().all()))
 
     @staticmethod
@@ -423,19 +409,20 @@ class UserRepository:
         removed["certificates_unlinked"] = result.rowcount or 0
 
         result = await session.execute(
-            _update(User)
-            .where(User.referred_by == telegram_user_id)
-            .values(referred_by=None)
+            _update(User).where(User.referred_by == telegram_user_id).values(referred_by=None)
         )
         removed["referrals_unlinked"] = result.rowcount or 0
 
         # Whoever played with them forgets them too: their partner link is
         # a record of this person.
-        unlinked = cast("CursorResult[Any]", await session.execute(
-            _update(User)
-            .where(User.partner_telegram_user_id == telegram_user_id)
-            .values(partner_telegram_user_id=None, partner_since=None)
-        ))
+        unlinked = cast(
+            "CursorResult[Any]",
+            await session.execute(
+                _update(User)
+                .where(User.partner_telegram_user_id == telegram_user_id)
+                .values(partner_telegram_user_id=None, partner_since=None)
+            ),
+        )
         removed["partners_unlinked"] = unlinked.rowcount or 0
 
         user = await UserRepository.get_by_telegram_id(session, telegram_user_id)
@@ -530,13 +517,9 @@ class PaymentRepository:
     """Repository for Payment operations."""
 
     @staticmethod
-    async def get_by_body_sha256(
-        session: AsyncSession, body_sha256: str
-    ) -> Payment | None:
+    async def get_by_body_sha256(session: AsyncSession, body_sha256: str) -> Payment | None:
         """Get payment by body SHA256."""
-        result = await session.execute(
-            select(Payment).where(Payment.body_sha256 == body_sha256)
-        )
+        result = await session.execute(select(Payment).where(Payment.body_sha256 == body_sha256))
         return result.scalar_one_or_none()
 
     @staticmethod
@@ -628,9 +611,7 @@ class SubscriptionRepository:
             subscription.status = status
             subscription.expires_at = expires_at
             subscription.last_event_at = last_event_at
-            logger.info(
-                f"Updated subscription {subscription_id} for user {user_id}: {status}"
-            )
+            logger.info(f"Updated subscription {subscription_id} for user {user_id}: {status}")
         else:
             # Create new subscription
             subscription = Subscription(
@@ -642,9 +623,7 @@ class SubscriptionRepository:
                 last_event_at=last_event_at,
             )
             session.add(subscription)
-            logger.info(
-                f"Created subscription {subscription_id} for user {user_id}: {status}"
-            )
+            logger.info(f"Created subscription {subscription_id} for user {user_id}: {status}")
 
         await session.flush()
         return subscription
@@ -715,9 +694,7 @@ class WebhookEventRepository:
     """Repository for WebhookEvent operations."""
 
     @staticmethod
-    async def get_by_body_sha256(
-        session: AsyncSession, body_sha256: str
-    ) -> WebhookEvent | None:
+    async def get_by_body_sha256(session: AsyncSession, body_sha256: str) -> WebhookEvent | None:
         """Get webhook event by body SHA256."""
         result = await session.execute(
             select(WebhookEvent).where(WebhookEvent.body_sha256 == body_sha256)
@@ -725,9 +702,7 @@ class WebhookEventRepository:
         return result.scalar_one_or_none()
 
     @staticmethod
-    async def get_by_event_key(
-        session: AsyncSession, event_key: str
-    ) -> WebhookEvent | None:
+    async def get_by_event_key(session: AsyncSession, event_key: str) -> WebhookEvent | None:
         """The delivery on record for this event, whatever its body said."""
         result = await session.execute(
             select(WebhookEvent).where(WebhookEvent.event_key == event_key)
@@ -767,9 +742,7 @@ class CertificateRepository:
     @staticmethod
     async def get_by_code(session: AsyncSession, code: str) -> Certificate | None:
         """Get certificate by code."""
-        result = await session.execute(
-            select(Certificate).where(Certificate.code == code)
-        )
+        result = await session.execute(select(Certificate).where(Certificate.code == code))
         return result.scalar_one_or_none()
 
     @staticmethod
@@ -799,9 +772,7 @@ class CertificateRepository:
         return certificate
 
     @staticmethod
-    async def claim(
-        session: AsyncSession, code: str, telegram_user_id: int
-    ) -> Certificate | None:
+    async def claim(session: AsyncSession, code: str, telegram_user_id: int) -> Certificate | None:
         """Take an unused certificate for this user, atomically.
 
         One UPDATE whose WHERE clause carries the condition, so two people
@@ -827,23 +798,16 @@ class CertificateRepository:
         certificate = await CertificateRepository.get_by_code(session, code)
         if certificate is not None:
             await session.refresh(certificate)
-            logger.info(
-                f"Claimed certificate #{certificate.id} for user {telegram_user_id}"
-            )
+            logger.info(f"Claimed certificate #{certificate.id} for user {telegram_user_id}")
         return certificate
 
     @staticmethod
-    async def get_by_user(
-        session: AsyncSession, telegram_user_id: int
-    ) -> list[Certificate]:
+    async def get_by_user(session: AsyncSession, telegram_user_id: int) -> list[Certificate]:
         """Get all certificates used by a specific user."""
         result = await session.execute(
-            select(Certificate).where(
-                Certificate.used_by_telegram_user_id == telegram_user_id
-            )
+            select(Certificate).where(Certificate.used_by_telegram_user_id == telegram_user_id)
         )
         return list(result.scalars().all())
-
 
 
 class RoomRepository:
@@ -1077,9 +1041,7 @@ class RetentionRepository:
     @staticmethod
     async def delete_old_job_runs(session: AsyncSession, before: datetime) -> int:
         """Scheduled-job runs started before `before` (`jobs.KEEP`)."""
-        result = await session.execute(
-            delete(JobRun).where(JobRun.started_at < before)
-        )
+        result = await session.execute(delete(JobRun).where(JobRun.started_at < before))
         return result.rowcount or 0
 
     @staticmethod
@@ -1093,15 +1055,11 @@ class RetentionRepository:
     @staticmethod
     async def delete_expired_rooms(session: AsyncSession, before: datetime) -> int:
         """Rooms last touched before `before`. They already 410 on read."""
-        result = await session.execute(
-            delete(Room).where(Room.updated_at < before)
-        )
+        result = await session.execute(delete(Room).where(Room.updated_at < before))
         return result.rowcount or 0
 
     @staticmethod
-    async def delete_abandoned_compat_tests(
-        session: AsyncSession, before: datetime
-    ) -> int:
+    async def delete_abandoned_compat_tests(session: AsyncSession, before: datetime) -> int:
         """Unfinished tests nobody has touched since `before`.
 
         `finished_at is None` is the whole condition that matters: a
@@ -1118,9 +1076,7 @@ class RetentionRepository:
         return result.rowcount or 0
 
     @staticmethod
-    async def delete_abandoned_games(
-        session: AsyncSession, before: datetime
-    ) -> int:
+    async def delete_abandoned_games(session: AsyncSession, before: datetime) -> int:
         """Unfinished boards nobody has touched since `before`.
 
         The resume nudge gives up after a week; three months later the pair
@@ -1229,9 +1185,7 @@ class CompatTestRepository:
         return result.scalar_one_or_none()
 
     @staticmethod
-    async def delete_superseded(
-        session: AsyncSession, pair_key: str, keep_id: int
-    ) -> int:
+    async def delete_superseded(session: AsyncSession, pair_key: str, keep_id: int) -> int:
         """
         Delete this pair's older sessions.
 
@@ -1250,9 +1204,7 @@ class CompatTestRepository:
             # answer is "deleted nothing", not an exception.
             return 0
         result = await session.execute(
-            delete(CompatTest).where(
-                CompatTest.pair_key == pair_key, CompatTest.id < keep_id
-            )
+            delete(CompatTest).where(CompatTest.pair_key == pair_key, CompatTest.id < keep_id)
         )
         await session.flush()
         return result.rowcount or 0

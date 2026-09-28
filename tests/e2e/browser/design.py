@@ -38,8 +38,12 @@ BASELINE = Path(__file__).parent / "design_baseline.json"
 RULES = ("font-size", "contrast", "tap-target", "icon-name", "overflow", "clipped")
 # The audit items each rule measures (D-11, D-12 and D-25 fixed in #49; the
 # lint keeps them fixed).
-AUDIT = {"font-size": "D-12, H-04", "contrast": "D-11, H-04", "tap-target": "D-25",
-         "icon-name": "D-14"}
+AUDIT = {
+    "font-size": "D-12, H-04",
+    "contrast": "D-11, H-04",
+    "tap-target": "D-25",
+    "icon-name": "D-14",
+}
 
 LINT = r"""() => {
   const W = document.documentElement.clientWidth;

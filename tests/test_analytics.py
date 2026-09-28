@@ -13,22 +13,25 @@ import pytest
 from vechnost_bot import analytics, stats
 
 
-@pytest.mark.parametrize(("param", "source"), [
-    (None, None),
-    ("", None),
-    ("src_tiktok", "tiktok"),
-    ("SRC_TikTok", "tiktok"),
-    ("src_blogger_anna-2", "blogger_anna-2"),
-    ("src_", None),
-    ("src_" + "x" * 40, None),
-    ("src_has space", None),
-    ("ref_ABC123", "ref"),
-    ("duo_ABCDEFGHJKMNPQRS", "invite"),
-    ("cmp_ABCDEFGHJKMNPQRS", "invite"),
-    ("s69_ABCDEFGHJKMNPQRS", "invite"),
-    ("activate_VECH-ABCD-EFGH", "gift"),
-    ("something_else", None),
-])
+@pytest.mark.parametrize(
+    ("param", "source"),
+    [
+        (None, None),
+        ("", None),
+        ("src_tiktok", "tiktok"),
+        ("SRC_TikTok", "tiktok"),
+        ("src_blogger_anna-2", "blogger_anna-2"),
+        ("src_", None),
+        ("src_" + "x" * 40, None),
+        ("src_has space", None),
+        ("ref_ABC123", "ref"),
+        ("duo_ABCDEFGHJKMNPQRS", "invite"),
+        ("cmp_ABCDEFGHJKMNPQRS", "invite"),
+        ("s69_ABCDEFGHJKMNPQRS", "invite"),
+        ("activate_VECH-ABCD-EFGH", "gift"),
+        ("something_else", None),
+    ],
+)
 def test_an_arrival_names_its_channel_never_its_parameter(param, source):
     assert analytics.arrival_source(param) == source
 

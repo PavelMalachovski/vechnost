@@ -17,6 +17,7 @@ from vechnost_bot.payments.models import Base
 # access to the values within the .ini file in use.
 config = context.config
 
+
 # Set database URL from settings
 def _sync_url(url: str) -> str:
     """The app's async URL, spelled for the synchronous engine alembic runs.

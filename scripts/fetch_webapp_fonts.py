@@ -10,8 +10,10 @@ import re
 import urllib.request
 from pathlib import Path
 
-UA = ("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
-      "(KHTML, like Gecko) Chrome/120.0 Safari/537.36")
+UA = (
+    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
+    "(KHTML, like Gecko) Chrome/120.0 Safari/537.36"
+)
 OUT = Path(__file__).parent.parent / "webapp" / "fonts"
 
 # family query -> output stem
@@ -49,9 +51,9 @@ def main() -> None:
                 continue
             text = ranges.group(1)
             if "U+0301" in text or "U+0400" in text:
-                suffix = ""          # cyrillic block -> the primary file
+                suffix = ""  # cyrillic block -> the primary file
             elif text.strip().startswith("U+0000"):
-                suffix = "-latin"    # basic latin block
+                suffix = "-latin"  # basic latin block
             else:
                 continue
             path = OUT / f"{stem}{suffix}.woff2"

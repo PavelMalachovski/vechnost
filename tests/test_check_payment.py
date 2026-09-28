@@ -34,9 +34,7 @@ async def test_the_check_payment_button_answers_its_query_once(
     assert shown == get_text("payment.access_granted", Language.RUSSIAN)
 
 
-async def test_an_unpaid_user_gets_the_paywall_back(
-    mock_update, mock_callback_query, mock_context
-):
+async def test_an_unpaid_user_gets_the_paywall_back(mock_update, mock_callback_query, mock_context):
     mock_callback_query.data = "check_payment"
     with (
         patch("vechnost_bot.payments.handlers.check_and_register_user", AsyncMock()),

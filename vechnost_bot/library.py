@@ -67,18 +67,44 @@ class LibraryModule(BaseModel):
 MODULES: dict[str, LibraryModule] = {
     m.id: m
     for m in [
-        LibraryModule(id="dates", title="Идеи для свиданий", emoji="💡",
-                      type="list", paid=True, count=150),
-        LibraryModule(id="fall_in_love", title="36 вопросов, чтобы влюбиться",
-                      emoji="💘", type="list", paid=False, count=36),
-        LibraryModule(id="practices_self", title="Практики для себя", emoji="🌱",
-                      type="practice", paid=False, count=25),
-        LibraryModule(id="practices_couples", title="Практики для пар", emoji="💞",
-                      type="practice", paid=True, count=25),
-        LibraryModule(id="nude_guide", title="Мастер-класс по нюдсам", emoji="📸",
-                      type="guide", paid=True, count=29),
-        LibraryModule(id="reflection", title="Вопрос дня", emoji="🌙",
-                      type="daily", paid=False, count=365),
+        LibraryModule(
+            id="dates", title="Идеи для свиданий", emoji="💡", type="list", paid=True, count=150
+        ),
+        LibraryModule(
+            id="fall_in_love",
+            title="36 вопросов, чтобы влюбиться",
+            emoji="💘",
+            type="list",
+            paid=False,
+            count=36,
+        ),
+        LibraryModule(
+            id="practices_self",
+            title="Практики для себя",
+            emoji="🌱",
+            type="practice",
+            paid=False,
+            count=25,
+        ),
+        LibraryModule(
+            id="practices_couples",
+            title="Практики для пар",
+            emoji="💞",
+            type="practice",
+            paid=True,
+            count=25,
+        ),
+        LibraryModule(
+            id="nude_guide",
+            title="Мастер-класс по нюдсам",
+            emoji="📸",
+            type="guide",
+            paid=True,
+            count=29,
+        ),
+        LibraryModule(
+            id="reflection", title="Вопрос дня", emoji="🌙", type="daily", paid=False, count=365
+        ),
     ]
 }
 
@@ -100,9 +126,7 @@ def load_practices(module_id: str, language: Language = Language.RUSSIAN) -> lis
     return [Practice(**item) for item in data.get("items", [])]
 
 
-def load_guide(
-    module_id: str, language: Language = Language.RUSSIAN
-) -> list[GuideStep]:
+def load_guide(module_id: str, language: Language = Language.RUSSIAN) -> list[GuideStep]:
     """The numbered steps of a `guide`-type module, in authored order."""
     data = _load_yaml(module_id, language)
     return [GuideStep(**step) for step in data.get("steps", [])]
@@ -113,9 +137,7 @@ def guide_intro(module_id: str, language: Language = Language.RUSSIAN) -> str:
     return str(_load_yaml(module_id, language).get("intro", ""))
 
 
-def load_categories(
-    module_id: str, language: Language = Language.RUSSIAN
-) -> list[LibraryCategory]:
+def load_categories(module_id: str, language: Language = Language.RUSSIAN) -> list[LibraryCategory]:
     """The categories of a `list`-type module, in authored order."""
     data = _load_yaml(module_id, language)
     return [LibraryCategory(**category) for category in data.get("categories", [])]
@@ -130,9 +152,7 @@ def load_reflection(language: Language = Language.RUSSIAN) -> list[list[str]]:
     return [block["items"] for block in data.get("blocks", [])]
 
 
-def question_of_the_day(
-    day_of_year: int, language: Language = Language.RUSSIAN
-) -> tuple[str, int]:
+def question_of_the_day(day_of_year: int, language: Language = Language.RUSSIAN) -> tuple[str, int]:
     """
     The reflection prompt for a day of the year, plus its 1-based number.
 

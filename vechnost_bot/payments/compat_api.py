@@ -48,9 +48,7 @@ def _language(lang: str) -> Language:
     return Language.coerce(lang)
 
 
-def _caller(
-    authorization: str | None, guest_id: str | None
-) -> tuple[int, str]:
+def _caller(authorization: str | None, guest_id: str | None) -> tuple[int, str]:
     """Resolve the caller from initData, or from a guest id when unpaid.
 
     Not quite rooms.py's scheme — see the comment on the guest branch below.
@@ -76,9 +74,7 @@ def _caller(
     raise HTTPException(status_code=401, detail="unauthorized")
 
 
-async def _find(
-    session: AsyncSession, code: str, for_update: bool = False
-) -> CompatTest | None:
+async def _find(session: AsyncSession, code: str, for_update: bool = False) -> CompatTest | None:
     """The test behind a code, or None - without asking the database about a
     code that could never have been minted (a NUL byte is a 500 on
     PostgreSQL; see rooms._load_room)."""
@@ -137,8 +133,7 @@ async def questions(lang: str = "ru") -> dict[str, Any]:
     return {
         "scale": scale_labels(language),
         "spheres": [
-            {"id": s.id, "title": s.title, "questions": s.questions}
-            for s in load_spheres(language)
+            {"id": s.id, "title": s.title, "questions": s.questions} for s in load_spheres(language)
         ],
         "total": TOTAL_QUESTIONS,
     }
@@ -192,9 +187,13 @@ async def join(
                 raise HTTPException(status_code=409, detail="test is full")
             analytics.record(session, "compat_join", user_id)
             seated = await partners.seat_taken(
-                session, screen="compat", code=test.code,
-                creator_id=test.creator_telegram_user_id, creator_name=test.creator_name,
-                guest_id=user_id, guest_name=name,
+                session,
+                screen="compat",
+                code=test.code,
+                creator_id=test.creator_telegram_user_id,
+                creator_name=test.creator_name,
+                guest_id=user_id,
+                guest_name=name,
             )
         elif test.guest_telegram_user_id != user_id:
             raise HTTPException(status_code=409, detail="test is full")
@@ -287,8 +286,7 @@ async def answer(
         # fortieth POST block on the network while holding a pooled connection
         # and a row lock.
         recipients = (
-            (test.creator_telegram_user_id, test.guest_telegram_user_id)
-            if just_finished else ()
+            (test.creator_telegram_user_id, test.guest_telegram_user_id) if just_finished else ()
         )
 
     if recipients:
@@ -337,6 +335,4 @@ async def result(
         test = await _load(session, code, user_id)
         if test.finished_at is None:
             raise HTTPException(status_code=409, detail="both partners must finish")
-        return build_result(
-            test.creator_answers, test.guest_answers, language
-        ).model_dump()
+        return build_result(test.creator_answers, test.guest_answers, language).model_dump()

@@ -31,26 +31,34 @@ from pydantic import BaseModel, Field
 
 Action = Literal["grant", "cancel", "revoke", "ignore"]
 
-GRANT_EVENTS = frozenset({
-    "new_digital_product",
-    "new_subscription",
-    "renewed_subscription",
-})
+GRANT_EVENTS = frozenset(
+    {
+        "new_digital_product",
+        "new_subscription",
+        "renewed_subscription",
+    }
+)
 # Auto-renewal switched off. The customer has paid up to `expires_at` and
 # keeps access until then (backend audit B-09); it used to revoke at once.
-CANCEL_EVENTS = frozenset({
-    "cancelled_subscription",
-    "canceled_subscription",
-})
+CANCEL_EVENTS = frozenset(
+    {
+        "cancelled_subscription",
+        "canceled_subscription",
+    }
+)
 # The money went back: access ends now.
-REFUND_EVENTS = frozenset({
-    "refund",
-    "refunded",
-    "digital_product_refunded",
-})
-CHARGEBACK_EVENTS = frozenset({
-    "chargeback",
-})
+REFUND_EVENTS = frozenset(
+    {
+        "refund",
+        "refunded",
+        "digital_product_refunded",
+    }
+)
+CHARGEBACK_EVENTS = frozenset(
+    {
+        "chargeback",
+    }
+)
 
 # A one-time purchase never expires; a subscription without a date Tribute
 # vouches for is trusted for one period and no longer.
@@ -147,7 +155,9 @@ class TributeEvent(BaseModel):
                 payload = body[key]
                 break
         return cls(
-            name=str(name).strip(), payload=payload, raw=body,
+            name=str(name).strip(),
+            payload=payload,
+            raw=body,
             # Each on its own: `created_at` orders the event against the ones
             # already applied, and an unreadable `sent_at` used to take it
             # down with it.
@@ -160,9 +170,7 @@ class TributeEvent(BaseModel):
         """Tribute's connectivity ping: no event name, or an explicit flag."""
         if self.name:
             return False
-        return not self.raw or any(
-            self.raw.get(flag) for flag in ("test", "ping", "test_event")
-        )
+        return not self.raw or any(self.raw.get(flag) for flag in ("test", "ping", "test_event"))
 
     @property
     def action(self) -> Action:
@@ -171,12 +179,12 @@ class TributeEvent(BaseModel):
     def _first(self, *keys: str) -> Any:
         """The first of `keys` present in the payload, the body, or a
         nested `customer` object, in that order."""
-        customer = self.payload.get("customer") if isinstance(
-            self.payload.get("customer"), dict
-        ) else None
-        raw_customer = self.raw.get("customer") if isinstance(
-            self.raw.get("customer"), dict
-        ) else None
+        customer = (
+            self.payload.get("customer") if isinstance(self.payload.get("customer"), dict) else None
+        )
+        raw_customer = (
+            self.raw.get("customer") if isinstance(self.raw.get("customer"), dict) else None
+        )
         for source in (self.payload, self.raw, customer, raw_customer):
             if not source:
                 continue
@@ -194,9 +202,9 @@ class TributeEvent(BaseModel):
 
     @property
     def product_id(self) -> int | None:
-        product = self.payload.get("product") if isinstance(
-            self.payload.get("product"), dict
-        ) else None
+        product = (
+            self.payload.get("product") if isinstance(self.payload.get("product"), dict) else None
+        )
         value = self._first("product_id") or (product or {}).get("id")
         try:
             return _to_int(value)
@@ -248,8 +256,12 @@ class TributeEvent(BaseModel):
             parts = ["purchase", name, self.purchase_id, buyer, str(self.product_id or "")]
         elif self.created_at is not None:
             parts = [
-                "event", name, self.created_at.isoformat(), buyer,
-                str(self.access_key), self.purchase_id or "",
+                "event",
+                name,
+                self.created_at.isoformat(),
+                buyer,
+                str(self.access_key),
+                self.purchase_id or "",
             ]
         else:
             return None

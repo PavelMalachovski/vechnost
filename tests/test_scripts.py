@@ -30,7 +30,11 @@ def test_every_script_answers_help_and_does_nothing_else(script, tmp_path):
     env = {**os.environ, "PYTHONPATH": str(REPO)}
     result = subprocess.run(
         [sys.executable, str(script), "--help"],
-        cwd=tmp_path, env=env, capture_output=True, text=True, timeout=120,
+        cwd=tmp_path,
+        env=env,
+        capture_output=True,
+        text=True,
+        timeout=120,
     )
 
     assert result.returncode == 0, result.stderr
@@ -41,6 +45,9 @@ def test_every_script_answers_help_and_does_nothing_else(script, tmp_path):
 def test_the_scripts_are_found():
     """A glob that matches nothing passes every parametrized test."""
     assert {path.name for path in SCRIPTS} >= {
-        "broadcast.py", "check_user_simple.py", "generate_certificates.py",
-        "smoke_production.py", "test_webhook.py",
+        "broadcast.py",
+        "check_user_simple.py",
+        "generate_certificates.py",
+        "smoke_production.py",
+        "test_webhook.py",
     }

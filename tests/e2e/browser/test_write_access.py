@@ -39,8 +39,9 @@ def test_a_guest_the_bot_cannot_reach_is_asked_once(server: Server, phones) -> N
 def test_not_now_is_an_answer_too(server: Server, phones) -> None:
     alice = server.player("Alice", paid=True)
     bob = server.player("Bob", allows_write=False)
-    room = alice.ok("POST", "/api/rooms?lang=ru",
-                    {"theme": "Acquaintance", "level": 1, "type": "questions"})
+    room = alice.ok(
+        "POST", "/api/rooms?lang=ru", {"theme": "Acquaintance", "level": 1, "type": "questions"}
+    )
     code = code_from_invite(room["invite_url"])
 
     phone = phones(bob, start_param=f"duo_{code}")
@@ -52,7 +53,7 @@ def test_not_now_is_an_answer_too(server: Server, phones) -> None:
 
 
 def test_someone_the_bot_can_already_write_to_is_never_asked(server: Server, phones) -> None:
-    alice = server.player("Alice", paid=True)          # allows_write_to_pm: true
+    alice = server.player("Alice", paid=True)  # allows_write_to_pm: true
     phone = phones(alice)
     phone.screen("home")
     phone.page.click("#btnCompat")

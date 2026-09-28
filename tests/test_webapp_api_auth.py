@@ -119,9 +119,7 @@ def test_unpaid_user_gets_free_slice():
 
 def test_card_image_free_index_is_public():
     with patch.object(settings, "enable_payment", True):
-        response = client.get(
-            "/api/card?theme=Acquaintance&level=1&idx=0&type=questions&lang=ru"
-        )
+        response = client.get("/api/card?theme=Acquaintance&level=1&idx=0&type=questions&lang=ru")
     assert response.status_code == 200
     assert response.headers["content-type"] == "image/jpeg"
     assert len(response.content) > 10_000
@@ -129,9 +127,7 @@ def test_card_image_free_index_is_public():
 
 def test_card_image_paid_index_locked_for_unpaid():
     with patch.object(settings, "enable_payment", True):
-        response = client.get(
-            "/api/card?theme=Acquaintance&level=1&idx=7&type=questions&lang=ru"
-        )
+        response = client.get("/api/card?theme=Acquaintance&level=1&idx=7&type=questions&lang=ru")
     assert response.status_code == 403
 
 
@@ -159,9 +155,7 @@ def test_card_image_unknown_deck_404():
 
 
 def test_card_image_out_of_range_404():
-    response = client.get(
-        "/api/card?theme=Acquaintance&level=1&idx=999&type=questions"
-    )
+    response = client.get("/api/card?theme=Acquaintance&level=1&idx=999&type=questions")
     assert response.status_code == 404
 
 

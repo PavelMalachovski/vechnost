@@ -39,9 +39,19 @@ def mypy_errors() -> list[tuple[str, str]]:
     """Each error mypy reports, as (baseline key, the line mypy printed)."""
     # `python -m mypy`, not `mypy`: see scripts/typecheck.sh.
     result = subprocess.run(
-        [sys.executable, "-m", "mypy", "vechnost_bot",
-         "--no-error-summary", "--no-pretty", "--no-color-output", "--show-error-codes"],
-        cwd=ROOT, capture_output=True, text=True,
+        [
+            sys.executable,
+            "-m",
+            "mypy",
+            "vechnost_bot",
+            "--no-error-summary",
+            "--no-pretty",
+            "--no-color-output",
+            "--show-error-codes",
+        ],
+        cwd=ROOT,
+        capture_output=True,
+        text=True,
     )
     if result.returncode not in (0, 1):  # 2: mypy itself could not run
         sys.exit(f"mypy failed to run:\n{result.stdout}{result.stderr}")
@@ -57,23 +67,26 @@ def read_baseline() -> Counter[str]:
     if not BASELINE.exists():
         return Counter()
     return Counter(
-        line for line in BASELINE.read_text(encoding="utf-8").splitlines()
+        line
+        for line in BASELINE.read_text(encoding="utf-8").splitlines()
         if line and not line.startswith("#")
     )
 
 
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__.split("\n\n")[0])
-    parser.add_argument("--update", action="store_true",
-                        help="rewrite .mypy-baseline from what mypy reports now")
+    parser.add_argument(
+        "--update", action="store_true", help="rewrite .mypy-baseline from what mypy reports now"
+    )
     args = parser.parse_args()
 
     errors = mypy_errors()
     now = Counter(key for key, _ in errors)
 
     if args.update:
-        BASELINE.write_text(HEADER + "".join(f"{key}\n" for key in sorted(now.elements())),
-                            encoding="utf-8")
+        BASELINE.write_text(
+            HEADER + "".join(f"{key}\n" for key in sorted(now.elements())), encoding="utf-8"
+        )
         print(f"{BASELINE.name}: {sum(now.values())} errors")
         return 0
 
@@ -89,8 +102,10 @@ def main() -> int:
                 new[key] -= 1
         print()
     if gone:
-        print(f"mypy: {sum(gone.values())} error(s) in {BASELINE.name} are fixed. Shrink the "
-              "baseline so they stay fixed:\n\n    python scripts/mypy_ratchet.py --update\n")
+        print(
+            f"mypy: {sum(gone.values())} error(s) in {BASELINE.name} are fixed. Shrink the "
+            "baseline so they stay fixed:\n\n    python scripts/mypy_ratchet.py --update\n"
+        )
         for key in sorted(gone.elements()):
             print(f"  {key}")
         print()

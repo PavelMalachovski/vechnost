@@ -36,7 +36,7 @@ class Card:
 
     theme: str
     level: str | None
-    kind: str        # "questions" / "tasks"
+    kind: str  # "questions" / "tasks"
     index: int
     deck_size: int
     text: str
@@ -54,14 +54,14 @@ def cards(player: Player) -> list[Card]:
     for theme, entry in themes.items():
         decks: list[tuple[str | None, dict[str, Any]]] = (
             [(level, deck) for level, deck in sorted(entry["levels"].items())]
-            if "levels" in entry else [(None, entry)]
+            if "levels" in entry
+            else [(None, entry)]
         )
         for level, deck in decks:
             for kind in ("questions", "tasks"):
                 items = deck.get(kind) or []
                 found.extend(
-                    Card(theme, level, kind, i, len(items), text)
-                    for i, text in enumerate(items)
+                    Card(theme, level, kind, i, len(items), text) for i, text in enumerate(items)
                 )
     return found
 
@@ -95,7 +95,8 @@ def settle_card(phone: Phone, stage: str = "#stage") -> None:
             return (turned === 'none' || turned === 'matrix(1, 0, 0, 1, 0, 0)')
                 && !card.style.transform;
         }""",
-        arg=stage, timeout=10_000,
+        arg=stage,
+        timeout=10_000,
     )
 
 
@@ -103,9 +104,15 @@ def open_deck(phone: Phone, card: Card, *, confirm_age: bool = True) -> None:
     """Open `card`'s deck on that card, the way the app resumes a deck."""
     if confirm_age:
         remember(phone, "nsfwOk", True)
-    remember(phone, "deck." + card.deck_key, {
-        "order": list(range(card.deck_size)), "idx": card.index, "shuffled": False,
-    })
+    remember(
+        phone,
+        "deck." + card.deck_key,
+        {
+            "order": list(range(card.deck_size)),
+            "idx": card.index,
+            "shuffled": False,
+        },
+    )
     phone.tap("#btnPlay")
     phone.screen("themes")
     phone.page.locator("#themeList .theme-card", has_text=THEME_NAMES[card.theme]).first.tap()
@@ -125,16 +132,18 @@ def open_deck(phone: Phone, card: Card, *, confirm_age: bool = True) -> None:
 
 def zone(phone: Phone, stage: str = "#stage") -> dict[str, float]:
     """The top card's text band: where it is, and how far it can scroll."""
-    return dict(phone.page.evaluate(
-        """(stage) => {
+    return dict(
+        phone.page.evaluate(
+            """(stage) => {
             const z = document.querySelector(stage + ' .card.top .q-zone');
             const r = z.getBoundingClientRect();
             return {x: r.left + r.width / 2, y: r.top + r.height / 2,
                     width: r.width, height: r.height, scrollTop: z.scrollTop,
                     slack: z.scrollHeight - z.clientHeight};
         }""",
-        stage,
-    ))
+            stage,
+        )
+    )
 
 
 def resize(phone: Phone, viewport: dict[str, int]) -> None:

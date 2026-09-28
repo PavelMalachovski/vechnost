@@ -19,11 +19,35 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parent.parent
 
 TEXT_SUFFIXES = {
-    ".py", ".md", ".txt", ".yml", ".yaml", ".toml", ".ini", ".cfg", ".json",
-    ".sql", ".sh", ".ps1", ".html", ".example", ".mako",
+    ".py",
+    ".md",
+    ".txt",
+    ".yml",
+    ".yaml",
+    ".toml",
+    ".ini",
+    ".cfg",
+    ".json",
+    ".sql",
+    ".sh",
+    ".ps1",
+    ".html",
+    ".example",
+    ".mako",
 }
-SKIP_DIRS = {".git", "__pycache__", ".venv", "venv", "node_modules", ".mypy_cache",
-             ".pytest_cache", ".ruff_cache", "assets", "fonts", "certificates"}
+SKIP_DIRS = {
+    ".git",
+    "__pycache__",
+    ".venv",
+    "venv",
+    "node_modules",
+    ".mypy_cache",
+    ".pytest_cache",
+    ".ruff_cache",
+    "assets",
+    "fonts",
+    "certificates",
+}
 
 # Where examples are written by hand and a real value slips in unnoticed.
 PROSE_DIRS = ("docs", "scripts", "sql")
@@ -31,8 +55,14 @@ PROSE_ROOT_FILES = ("README.md", "CLAUDE.md", "env.example")
 
 # Ids that are plainly made up and may appear in examples.
 FAKE_TELEGRAM_IDS = {
-    "123456789", "1234567890", "0123456789", "987654321",
-    "111111111", "222222222", "333333333", "555555555",
+    "123456789",
+    "1234567890",
+    "0123456789",
+    "987654321",
+    "111111111",
+    "222222222",
+    "333333333",
+    "555555555",
 }
 PLACEHOLDER_PASSWORDS = {"password", "pass", "secret", "***", "xxx", "changeme"}
 

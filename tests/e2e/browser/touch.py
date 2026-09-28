@@ -63,8 +63,9 @@ class Finger:
     @staticmethod
     def _along(start: Point, end: Point, steps: int) -> list[Point]:
         (x0, y0), (x1, y1) = start, end
-        return [(x0 + (x1 - x0) * i / steps, y0 + (y1 - y0) * i / steps)
-                for i in range(1, steps + 1)]
+        return [
+            (x0 + (x1 - x0) * i / steps, y0 + (y1 - y0) * i / steps) for i in range(1, steps + 1)
+        ]
 
 
 class CdpFinger(Finger):
@@ -78,11 +79,15 @@ class CdpFinger(Finger):
         self.cdp = context.new_cdp_session(page)
 
     def _send(self, kind: str, points: list[Point]) -> None:
-        self.cdp.send("Input.dispatchTouchEvent", {
-            "type": kind,
-            "touchPoints": [{"x": x, "y": y, "radiusX": 11, "radiusY": 11, "force": 0.5}
-                            for x, y in points],
-        })
+        self.cdp.send(
+            "Input.dispatchTouchEvent",
+            {
+                "type": kind,
+                "touchPoints": [
+                    {"x": x, "y": y, "radiusX": 11, "radiusY": 11, "force": 0.5} for x, y in points
+                ],
+            },
+        )
 
     def tap(self, x: float, y: float) -> None:
         self._send("touchStart", [(x, y)])

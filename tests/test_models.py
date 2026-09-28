@@ -43,15 +43,17 @@ class TestGameData:
 
     def test_get_available_levels(self):
         """Test getting available levels for a theme."""
-        game_data = GameData(themes={
-            Theme.ACQUAINTANCE: {
-                "levels": {
-                    1: {"questions": ["q1"]},
-                    2: {"questions": ["q2"]},
-                    3: {"questions": ["q3"]},
+        game_data = GameData(
+            themes={
+                Theme.ACQUAINTANCE: {
+                    "levels": {
+                        1: {"questions": ["q1"]},
+                        2: {"questions": ["q2"]},
+                        3: {"questions": ["q3"]},
+                    }
                 }
             }
-        })
+        )
 
         levels = game_data.get_available_levels(Theme.ACQUAINTANCE)
         assert levels == [1, 2, 3]
@@ -62,16 +64,9 @@ class TestGameData:
 
     def test_get_content(self):
         """Test getting content for theme/level/type."""
-        game_data = GameData(themes={
-            Theme.SEX: {
-                "levels": {
-                    1: {
-                        "questions": ["q1", "q2"],
-                        "tasks": ["t1", "t2"]
-                    }
-                }
-            }
-        })
+        game_data = GameData(
+            themes={Theme.SEX: {"levels": {1: {"questions": ["q1", "q2"], "tasks": ["t1", "t2"]}}}}
+        )
 
         questions = game_data.get_content(Theme.SEX, 1, ContentType.QUESTIONS)
         assert questions == ["q1", "q2"]

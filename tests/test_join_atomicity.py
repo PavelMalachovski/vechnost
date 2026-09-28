@@ -36,9 +36,14 @@ def memory_db():
 async def test_a_room_seats_one_guest(memory_db):
     async with get_db() as session:
         room = await RoomRepository.create(
-            session, code="ROOMROOMROOMROOM", creator_telegram_user_id=1,
-            creator_name="A", theme="Acquaintance", level=1,
-            content_type="questions", card_order=[0, 1, 2],
+            session,
+            code="ROOMROOMROOMROOM",
+            creator_telegram_user_id=1,
+            creator_name="A",
+            theme="Acquaintance",
+            level=1,
+            content_type="questions",
+            card_order=[0, 1, 2],
         )
         assert await RoomRepository.seat_guest(session, room, 2, "Bob") is True
         assert await RoomRepository.seat_guest(session, room, 3, "Eve") is False
@@ -60,8 +65,12 @@ async def test_a_compat_test_seats_one_guest_and_keeps_the_pair_key(memory_db):
 async def test_a_board_seats_one_guest_with_their_suit(memory_db):
     async with get_db() as session:
         game = await Steps69Repository.create(
-            session, code="S69GS69GS69GS69G", creator_telegram_user_id=1,
-            creator_name="A", mode="duo", creator_piece="hearts",
+            session,
+            code="S69GS69GS69GS69G",
+            creator_telegram_user_id=1,
+            creator_name="A",
+            mode="duo",
+            creator_piece="hearts",
         )
         assert await Steps69Repository.seat_guest(session, game, 2, "Bob", "spades") is True
         assert await Steps69Repository.seat_guest(session, game, 3, "Eve", "clubs") is False

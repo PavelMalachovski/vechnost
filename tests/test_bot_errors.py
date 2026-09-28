@@ -49,9 +49,7 @@ def _message(text: str) -> dict[str, Any]:
 async def app():
     """The real application, over a fake Bot API that records every call."""
     telegram = FakeTelegram("vechnost_test_bot")
-    with patch.object(
-        bot_module, "create_bot", lambda: telegram.bot(settings.telegram_bot_token)
-    ):
+    with patch.object(bot_module, "create_bot", lambda: telegram.bot(settings.telegram_bot_token)):
         application = bot_module.create_application()
     await application.initialize()
     try:
@@ -68,6 +66,7 @@ async def _say(application, text: str) -> None:
 # A failing command is answered
 # ---------------------------------------------------------------------------
 
+
 async def test_a_command_that_fails_gets_a_short_apology(app):
     application, telegram = app
     with patch("vechnost_bot.handlers.get_session", side_effect=RuntimeError("db down")):
@@ -78,8 +77,10 @@ async def test_a_command_that_fails_gets_a_short_apology(app):
 
 async def test_the_apology_carries_no_detail(app):
     application, telegram = app
-    with patch("vechnost_bot.handlers.get_session",
-               side_effect=RuntimeError("password=hunter2 at db.internal")):
+    with patch(
+        "vechnost_bot.handlers.get_session",
+        side_effect=RuntimeError("password=hunter2 at db.internal"),
+    ):
         await _say(application, "/about")
 
     [said] = telegram.texts_to(CHAT)
@@ -139,6 +140,7 @@ async def test_an_apology_that_cannot_be_delivered_does_not_raise():
 # A button that fails is not an unknown command
 # ---------------------------------------------------------------------------
 
+
 def _query() -> MagicMock:
     query = MagicMock()
     query.message.chat.id = CHAT
@@ -149,8 +151,9 @@ def _query() -> MagicMock:
 
 async def test_a_button_that_fails_says_so_rather_than_unknown_command():
     query = _query()
-    with patch("vechnost_bot.callback_handlers.get_session",
-               side_effect=ConnectionError("Redis went away")):
+    with patch(
+        "vechnost_bot.callback_handlers.get_session", side_effect=ConnectionError("Redis went away")
+    ):
         await CallbackHandlerRegistry().handle_callback(query, "theme_Acquaintance")
 
     text = query.edit_message_text.await_args.args[0]
@@ -189,6 +192,7 @@ async def test_a_button_the_bot_does_not_know_is_still_unknown():
 # Text nobody asked for
 # ---------------------------------------------------------------------------
 
+
 async def test_free_text_gets_a_hint(app):
     application, telegram = app
     await _say(application, "привет, а как тут играть?")
@@ -196,12 +200,15 @@ async def test_free_text_gets_a_hint(app):
     assert telegram.texts_to(CHAT) == [get_text("hints.free_text")]
 
 
-@pytest.mark.parametrize("typed", [
-    "VECH-AB2C-DE3F",
-    "vech-ab2c-de3f",
-    "VECHAB2CDE3F",
-    "вот мой код: VECH AB2C DE3F, спасибо!",
-])
+@pytest.mark.parametrize(
+    "typed",
+    [
+        "VECH-AB2C-DE3F",
+        "vech-ab2c-de3f",
+        "VECHAB2CDE3F",
+        "вот мой код: VECH AB2C DE3F, спасибо!",
+    ],
+)
 async def test_a_pasted_certificate_code_is_pointed_at_activate(app, typed):
     application, telegram = app
     await _say(application, typed)

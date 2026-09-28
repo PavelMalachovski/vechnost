@@ -39,6 +39,8 @@ logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/api/rooms", tags=["rooms"])
 
 ROOM_TTL = timedelta(hours=24)
+
+
 class CreateRoomRequest(BaseModel):
     theme: str
     # Bounded: the column is an INTEGER, and 99999999999 for a deck without
@@ -53,9 +55,7 @@ def _generate_room_code() -> str:
     return invites.new_code()
 
 
-def _identity(
-    authorization: str | None, guest_id: str | None
-) -> tuple[int, str]:
+def _identity(authorization: str | None, guest_id: str | None) -> tuple[int, str]:
     """
     Resolve the caller to a stable (user_id, name).
 
@@ -89,9 +89,7 @@ def _room_items(room, language: Language) -> list:
         content_type = ContentType(room.content_type)
     except ValueError as e:
         raise HTTPException(status_code=410, detail="room content is gone") from e
-    return localized_game_data.get_content(
-        theme, room.level, content_type, language
-    ) or []
+    return localized_game_data.get_content(theme, room.level, content_type, language) or []
 
 
 def _is_adult(room) -> bool:
@@ -182,9 +180,9 @@ def _room_state(room, user_id: int, language: Language) -> dict[str, Any]:
         "finished": room.finished,
         "started": room.guest_telegram_user_id is not None,
         "your_role": "creator" if is_creator else "guest",
-        "your_turn": (not room.finished
-                      and room.guest_telegram_user_id is not None
-                      and turn_holder == user_id),
+        "your_turn": (
+            not room.finished and room.guest_telegram_user_id is not None and turn_holder == user_id
+        ),
         "turn_name": turn_name,
         "players": {
             "creator": room.creator_name,
@@ -196,9 +194,7 @@ def _room_state(room, user_id: int, language: Language) -> dict[str, Any]:
     }
 
 
-async def _load_room(
-    session, code: str, *, member: int | None = None, for_update: bool = False
-):
+async def _load_room(session, code: str, *, member: int | None = None, for_update: bool = False):
     """The room behind a code, or 404/410.
 
     With `member`, anyone who is not sitting in the room gets the 404 an
@@ -218,12 +214,14 @@ async def _load_room(
     # is a 500 on PostgreSQL.
     room = (
         await RoomRepository.get_by_code(session, code, for_update=for_update)
-        if invites.valid_code(code) else None
+        if invites.valid_code(code)
+        else None
     )
     if not room:
         raise HTTPException(status_code=404, detail="room not found")
     if member is not None and member not in (
-        room.creator_telegram_user_id, room.guest_telegram_user_id
+        room.creator_telegram_user_id,
+        room.guest_telegram_user_id,
     ):
         raise HTTPException(status_code=404, detail="room not found")
     if datetime.utcnow() - room.updated_at > ROOM_TTL:
@@ -282,7 +280,9 @@ async def room_dealt_card(
         if datetime.utcnow() - room.updated_at > ROOM_TTL:
             return False
         if (room.theme, room.level or None, room.content_type) != (
-            theme.value, level or None, content_type.value
+            theme.value,
+            level or None,
+            content_type.value,
         ):
             return False
         dealt = list(room.card_order or [])[: room.idx + 1]
@@ -305,9 +305,7 @@ async def create_room(
     except ValueError as e:
         raise HTTPException(status_code=404, detail="unknown deck") from e
 
-    items = localized_game_data.get_content(
-        theme, body.level, content_type, language
-    )
+    items = localized_game_data.get_content(theme, body.level, content_type, language)
     if not items:
         raise HTTPException(status_code=404, detail="unknown deck")
 
@@ -370,9 +368,13 @@ async def join_room(
                 raise HTTPException(status_code=409, detail="room is full")
             analytics.record(session, "room_join", user_id)
             seated = await partners.seat_taken(
-                session, screen="coop", code=room.code,
-                creator_id=room.creator_telegram_user_id, creator_name=room.creator_name,
-                guest_id=user_id, guest_name=name,
+                session,
+                screen="coop",
+                code=room.code,
+                creator_id=room.creator_telegram_user_id,
+                creator_name=room.creator_name,
+                guest_id=user_id,
+                guest_name=name,
             )
         elif room.guest_telegram_user_id != user_id:
             raise HTTPException(status_code=409, detail="room is full")
@@ -447,8 +449,7 @@ async def advance_room(
             raise HTTPException(status_code=409, detail="deck is finished")
 
         turn_holder = (
-            room.creator_telegram_user_id if room.turn == 0
-            else room.guest_telegram_user_id
+            room.creator_telegram_user_id if room.turn == 0 else room.guest_telegram_user_id
         )
         if turn_holder != user_id:
             raise HTTPException(status_code=403, detail="not your turn")

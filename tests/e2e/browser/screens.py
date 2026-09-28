@@ -181,8 +181,13 @@ class Tour:
 
     def _phone(self, player: Player) -> Phone:
         phone = open_phone(
-            self.engines, self.base_url, player, shots=self.out / "steps",
-            device=self.device, trace=False, reduced_motion=VISUAL,
+            self.engines,
+            self.base_url,
+            player,
+            shots=self.out / "steps",
+            device=self.device,
+            trace=False,
+            reduced_motion=VISUAL,
         )
         self.phones.append(phone)
         wait_home(phone)
@@ -206,8 +211,12 @@ class Tour:
         phone.page.evaluate("() => document.fonts.ready.then(() => true)")
         masks = [phone.page.locator(sel) for sel in VISUAL_MASKS.get(stop, [])] if VISUAL else []
         phone.page.screenshot(
-            path=str(self.out / name), animations="disabled", caret="hide",
-            scale="css", style=SHOT_STYLE, mask=masks,
+            path=str(self.out / name),
+            animations="disabled",
+            caret="hide",
+            scale="css",
+            style=SHOT_STYLE,
+            mask=masks,
         )
         atlas.shots.setdefault(stop, {})[vp_name(viewport)] = f"{self.device.name}/{name}"
 
@@ -268,9 +277,15 @@ class Tour:
         self.free.tap("#nsfwNo")
         last_free = [c for c in cards(self.bob) if c.theme == "Sex" and c.kind == "questions"][-1]
         remember(self.free, "nsfwOk", True)
-        remember(self.free, "deck." + last_free.deck_key, {
-            "order": list(range(last_free.deck_size)), "idx": last_free.index, "shuffled": False,
-        })
+        remember(
+            self.free,
+            "deck." + last_free.deck_key,
+            {
+                "order": list(range(last_free.deck_size)),
+                "idx": last_free.index,
+                "shuffled": False,
+            },
+        )
         self.free.page.locator("#themeList .theme-card", has_text=THEME_NAMES["Sex"]).first.tap()
         self.free.screen("deck")
         settle_card(self.free)
@@ -348,8 +363,12 @@ class Tour:
         for index in range(TOTAL_QUESTIONS):
             mine = 5 if index % 3 else 2
             theirs = 5 if index % 4 else 1
-            self.alice.ok("POST", f"/api/compat/{self.test}/answer", {"index": index, "value": mine})
-            self.pat.ok("POST", f"/api/compat/{self.test}/answer", {"index": index, "value": theirs})
+            self.alice.ok(
+                "POST", f"/api/compat/{self.test}/answer", {"index": index, "value": mine}
+            )
+            self.pat.ok(
+                "POST", f"/api/compat/{self.test}/answer", {"index": index, "value": theirs}
+            )
         self.paid.screen("compatResult", timeout=POLL)
 
     def stop_s69_entry(self) -> None:
@@ -462,12 +481,17 @@ def write_contact_sheet() -> None:
             shot = p["shots"].get(stop, {}).get(v)
             cells.append(
                 f'<td><a href="{html.escape(shot)}"><img loading="lazy" src="{html.escape(shot)}" '
-                f'alt="{html.escape(stop)} {v}"></a></td>' if shot else '<td class="none">–</td>'
+                f'alt="{html.escape(stop)} {v}"></a></td>'
+                if shot
+                else '<td class="none">–</td>'
             )
-        rows.append(f"<tr><th>{html.escape(title)}<br><code>{stop}</code></th>{''.join(cells)}</tr>")
+        rows.append(
+            f"<tr><th>{html.escape(title)}<br><code>{stop}</code></th>{''.join(cells)}</tr>"
+        )
     problems = "".join(
         f"<li><b>{html.escape(p['device'])}</b>: {html.escape(error)}</li>"
-        for p in phones for error in p.get("errors", [])
+        for p in phones
+        for error in p.get("errors", [])
     )
     page = f"""<!doctype html>
 <html lang="en"><head><meta charset="utf-8">
@@ -486,9 +510,9 @@ def write_contact_sheet() -> None:
 <h1>VECHNOST screens</h1>
 <p>Every screen of the Mini App on each phone at four sizes. Toasts are hidden and
 animations stopped. Click a picture for full size.</p>
-{f'<ul class="problems">{problems}</ul>' if problems else ''}
+{f'<ul class="problems">{problems}</ul>' if problems else ""}
 <table><thead><tr><th>Screen</th>{head}</tr></thead>
-<tbody>{''.join(rows)}</tbody></table>
+<tbody>{"".join(rows)}</tbody></table>
 </body></html>
 """
     (SCREENS_DIR / "index.html").write_text(page, encoding="utf-8")
@@ -496,18 +520,26 @@ animations stopped. Click a picture for full size.</p>
     artifact = os.environ.get("E2E_ARTIFACT_NAME", "")
     lines = ["### Screens", ""]
     if artifact:
-        lines += [f"Artifact `{artifact}`: open `browser/screens/index.html` for every picture.", ""]
+        lines += [
+            f"Artifact `{artifact}`: open `browser/screens/index.html` for every picture.",
+            "",
+        ]
     names = [vp_name(v) for v in VIEWPORTS]
     lines += ["| Screen | " + " | ".join(names) + " |", "|---|" + "---|" * len(names)]
     for stop, _ in STOPS:
         cells = []
         for v in names:
-            got = [f"{p['device']} ({p['engine']})" for p in phones if p["shots"].get(stop, {}).get(v)]
+            got = [
+                f"{p['device']} ({p['engine']})" for p in phones if p["shots"].get(stop, {}).get(v)
+            ]
             cells.append(", ".join(got) or "missing")
         lines.append(f"| `{stop}` | " + " | ".join(cells) + " |")
     total = sum(len(shots) for p in phones for shots in p["shots"].values())
-    lines += ["", f"{len(STOPS)} screens × {len(VIEWPORTS)} sizes × "
-              f"{len(phones)} phone(s): {total} screenshots."]
+    lines += [
+        "",
+        f"{len(STOPS)} screens × {len(VIEWPORTS)} sizes × "
+        f"{len(phones)} phone(s): {total} screenshots.",
+    ]
     for p in phones:
         for error in p.get("errors", []):
             lines.append(f"- **{p['device']}**: {error.splitlines()[0]}")

@@ -94,10 +94,16 @@ def test_content_never_picks_a_gender_for_the_reader(path):
     offenders = [
         f"{path.name}:{number}: {line.strip()[:120]}"
         for number, line in _lines(path)
-        if (BRACKETED.search(line) or PERSONAL_PAST.search(line)
-            or SLASHED.search(line) or INVERTED_PAST.search(line)
-            or BRACKETED_WORD.search(line) or IRREGULAR_PAST.search(line)
-            or PARTNER_FEMININE.search(line) or PRONOUN_PAIR.search(line))
+        if (
+            BRACKETED.search(line)
+            or PERSONAL_PAST.search(line)
+            or SLASHED.search(line)
+            or INVERTED_PAST.search(line)
+            or BRACKETED_WORD.search(line)
+            or IRREGULAR_PAST.search(line)
+            or PARTNER_FEMININE.search(line)
+            or PRONOUN_PAIR.search(line)
+        )
     ]
     assert not offenders, "gendered form in user-facing text:\n" + "\n".join(offenders)
 

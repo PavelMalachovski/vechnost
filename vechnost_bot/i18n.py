@@ -16,6 +16,7 @@ class Language(str, Enum):
     """The languages the product ships. English and Czech are retired: the
     content behind them is in git history, one revert away, but nothing at
     runtime branches on language any more."""
+
     RUSSIAN = "ru"
 
     @classmethod
@@ -56,7 +57,7 @@ class I18nManager:
                 # Load UI translations
                 ui_file = self.data_dir / f"translations_{language.value}.yaml"
                 if ui_file.exists():
-                    with open(ui_file, encoding='utf-8') as f:
+                    with open(ui_file, encoding="utf-8") as f:
                         ui_translations = yaml.safe_load(f) or {}
                 else:
                     ui_translations = {}
@@ -83,15 +84,13 @@ class I18nManager:
             except Exception as e:
                 logger.error(f"Failed to setup formatter for {language.value}: {e}")
                 # Fallback to English
-                self.formatters[language] = Format(Locale('en'))
+                self.formatters[language] = Format(Locale("en"))
 
-    def get_text(
-        self, key: str, language: Language = Language.RUSSIAN, **kwargs: object
-    ) -> str:
+    def get_text(self, key: str, language: Language = Language.RUSSIAN, **kwargs: object) -> str:
         """Get translated text for a key."""
         try:
             # Navigate through nested keys (e.g., "welcome.title")
-            keys = key.split('.')
+            keys = key.split(".")
             value = self.translations.get(language, {}).get("ui", {})
 
             for k in keys:
@@ -136,9 +135,7 @@ i18n_manager = I18nManager()
 
 
 # Convenience functions
-def get_text(
-    key: str, language: Language = Language.RUSSIAN, **kwargs: object
-) -> str:
+def get_text(key: str, language: Language = Language.RUSSIAN, **kwargs: object) -> str:
     """Get translated text for a key."""
     return i18n_manager.get_text(key, language, **kwargs)
 

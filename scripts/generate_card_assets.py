@@ -29,24 +29,24 @@ CARD = (1080, 1350)
 
 # Every colour below is sampled from the deck art so the new cards are cut
 # from the same cloth as the ones the bot already sends.
-PALE = (255, 229, 250)         # the deck's own ground
-DARK = (74, 7, 58)             # the deck's own ink, used as a field
-INK = (74, 7, 58)              # the V/Λ on the pale card
-PALE_WATERMARK = (250, 214, 243)   # VECHNOST on the pale card: barely there
-PINK = (254, 167, 236)         # the suit pink, reused for ink on the back
+PALE = (255, 229, 250)  # the deck's own ground
+DARK = (74, 7, 58)  # the deck's own ink, used as a field
+INK = (74, 7, 58)  # the V/Λ on the pale card
+PALE_WATERMARK = (250, 214, 243)  # VECHNOST on the pale card: barely there
+PINK = (254, 167, 236)  # the suit pink, reused for ink on the back
 
 # Corner geometry, in the 1080×1350 frame. Derived from the deck cards, which
 # are 600×900: there the V spans x 64-105 / y 76-125 and the emblem sits in
 # x 60-109 centred on y 161. Scaled ×1.8 that is a 90px-wide emblem whose left
 # edge is 108 from the card edge, under a V of 90px cap height.
 MARGIN = 108
-SUIT_W = 90                    # nominal emblem width, matching the deck
+SUIT_W = 90  # nominal emblem width, matching the deck
 CLUSTER_CX = MARGIN + SUIT_W // 2
-LETTER_CAP = 90                # cap height of the V/Λ
-GAP_BELOW_V = 65               # V cap bottom → emblem centre, per the deck
+LETTER_CAP = 90  # cap height of the V/Λ
+GAP_BELOW_V = 65  # V cap bottom → emblem centre, per the deck
 
-WORDMARK_CY = CARD[1] // 2     # cap-height centre of VECHNOST
-WORDMARK_W = 760               # how far the letter-spaced wordmark spans
+WORDMARK_CY = CARD[1] // 2  # cap-height centre of VECHNOST
+WORDMARK_W = 760  # how far the letter-spaced wordmark spans
 
 # Where the suit sits on each source card, as a fraction of that card's size.
 # Measured, not guessed: scanning the four deck cards for pixels that differ
@@ -71,9 +71,9 @@ SUIT_SOURCES = {
     "diamonds": "prov/prov.png",
 }
 
-_GROUND_TOL = 30   # channel-sum distance still counted as bare card
-_FRINGE = 2        # px of source ring blended toward the pale ground
-_BLEED = 2         # px of colour pushed past the mask, to feed the soft edge
+_GROUND_TOL = 30  # channel-sum distance still counted as bare card
+_FRINGE = 2  # px of source ring blended toward the pale ground
+_BLEED = 2  # px of colour pushed past the mask, to feed the soft edge
 
 
 def _font(name: str, size: int) -> ImageFont.FreeTypeFont:
@@ -183,9 +183,13 @@ def _suit(source: str, size: int) -> Image.Image:
             for x in range(bw):
                 if not core[y * bw + x]:
                     continue
-                if any(not core[(y + dy) * bw + x + dx]
-                       if 0 <= x + dx < bw and 0 <= y + dy < bh else True
-                       for dy in (-1, 0, 1) for dx in (-1, 0, 1)):
+                if any(
+                    not core[(y + dy) * bw + x + dx]
+                    if 0 <= x + dx < bw and 0 <= y + dy < bh
+                    else True
+                    for dy in (-1, 0, 1)
+                    for dx in (-1, 0, 1)
+                ):
                     eroded[y * bw + x] = 0
         core = eroded
 
@@ -236,15 +240,20 @@ def _suit(source: str, size: int) -> Image.Image:
 
 
 def _paste_centred(card: Image.Image, tile: Image.Image, cx: int, cy: int):
-    card.paste(tile, (round(cx - tile.width / 2), round(cy - tile.height / 2)),
-               tile)
+    card.paste(tile, (round(cx - tile.width / 2), round(cy - tile.height / 2)), tile)
 
 
 def _wordmark(card: Image.Image, size: int, fill):
     draw = ImageDraw.Draw(card)
     lora = _font("Lora-Regular.ttf", size)
-    _centre_text(draw, (CARD[0] / 2, WORDMARK_CY), "VECHNOST", lora, fill,
-                 tracking=_tracking_for(lora, "VECHNOST", WORDMARK_W))
+    _centre_text(
+        draw,
+        (CARD[0] / 2, WORDMARK_CY),
+        "VECHNOST",
+        lora,
+        fill,
+        tracking=_tracking_for(lora, "VECHNOST", WORDMARK_W),
+    )
 
 
 def build_library_card() -> Image.Image:
@@ -255,8 +264,7 @@ def build_library_card() -> Image.Image:
     v = _letter("V", LETTER_CAP, INK)
     lam = _letter("V", LETTER_CAP, INK, rotate=180)
     _paste_centred(card, v, CLUSTER_CX, MARGIN + LETTER_CAP / 2)
-    _paste_centred(card, lam, CARD[0] - CLUSTER_CX,
-                   CARD[1] - MARGIN - LETTER_CAP / 2)
+    _paste_centred(card, lam, CARD[0] - CLUSTER_CX, CARD[1] - MARGIN - LETTER_CAP / 2)
     return card
 
 
@@ -266,8 +274,7 @@ def build_card_back() -> Image.Image:
     _wordmark(card, 104, PINK)
 
     heart, spade, club, diamond = (
-        _suit(SUIT_SOURCES[name], SUIT_BOX)
-        for name in ("hearts", "spades", "clubs", "diamonds")
+        _suit(SUIT_SOURCES[name], SUIT_BOX) for name in ("hearts", "spades", "clubs", "diamonds")
     )
 
     v = _letter("V", LETTER_CAP, PINK)
@@ -295,15 +302,14 @@ def build_suit_emblems() -> dict[str, Image.Image]:
     source emblem is 50px in the 600x900 deck art, so SUIT_BOX is as much
     resolution as there is; asking for a larger tile would only add blur.
     """
-    return {name: _suit(source, SUIT_BOX)
-            for name, source in SUIT_SOURCES.items()}
+    return {name: _suit(source, SUIT_BOX) for name, source in SUIT_SOURCES.items()}
 
 
 def main() -> None:
     argparse.ArgumentParser(
         description=__doc__.split("\n\n")[0],
         epilog="Rewrites assets/backgrounds/library.png, card_back.png and "
-               "assets/suits/*.png; commit them with the change that needed them.",
+        "assets/suits/*.png; commit them with the change that needed them.",
     ).parse_args()
     build_library_card().save(BG / "library.png")
     build_card_back().save(BG / "card_back.png")
@@ -311,8 +317,7 @@ def main() -> None:
     emblems = build_suit_emblems()
     for name, tile in emblems.items():
         tile.save(SUITS_DIR / f"{name}.png")
-    print("wrote library.png, card_back.png and "
-          + ", ".join(f"suits/{n}.png" for n in emblems))
+    print("wrote library.png, card_back.png and " + ", ".join(f"suits/{n}.png" for n in emblems))
 
 
 if __name__ == "__main__":

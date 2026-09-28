@@ -29,7 +29,9 @@ def _calendar(page: int, total_items: int):
 
 def test_no_button_does_nothing():
     for markup in (
-        _calendar(0, 34), _calendar(1, 34), _calendar(0, 20),
+        _calendar(0, 34),
+        _calendar(1, 34),
+        _calendar(0, 20),
         get_question_keyboard("prov", 0, 0, 34, RU),
         get_question_keyboard("prov", 0, 12, 34, RU),
         get_question_keyboard("prov", 0, 0, 1, RU),
@@ -72,7 +74,8 @@ def test_the_card_keyboard_is_the_way_on_and_the_way_back():
 
     middle = get_question_keyboard("prov", 0, 12, 34, RU).inline_keyboard
     assert [[b.text for b in row] for row in middle] == [
-        ["← Предыдущий", "Следующий →"], ["← Назад"],
+        ["← Предыдущий", "Следующий →"],
+        ["← Назад"],
     ]
 
     only = get_question_keyboard("prov", 0, 0, 1, RU).inline_keyboard

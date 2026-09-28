@@ -20,7 +20,7 @@ def _memory_storage(storage):
     the other talking to a real Redis.
     """
     return _MultiPatch(
-        patch('vechnost_bot.storage.session_store', return_value=storage),
+        patch("vechnost_bot.storage.session_store", return_value=storage),
     )
 
 
@@ -56,9 +56,10 @@ class TestCompleteUserFlows:
         # Mock the storage
         with _memory_storage(memory_session_store):
             # Step 1: Start command
-            with patch('vechnost_bot.handlers.welcome_screen') as mock_welcome, \
-                 patch('vechnost_bot.handlers.set_user_context') as mock_set_context:
-
+            with (
+                patch("vechnost_bot.handlers.welcome_screen") as mock_welcome,
+                patch("vechnost_bot.handlers.set_user_context") as mock_set_context,
+            ):
                 mock_welcome.return_value = ("добро пожаловать", MagicMock())
                 mock_update.message.reply_text = AsyncMock()
                 mock_update.message.reply_photo = AsyncMock()
@@ -117,12 +118,7 @@ class TestCompleteUserFlows:
 
     @pytest.mark.integration
     @pytest.mark.asyncio
-    async def test_complete_sex_theme_flow(
-        self,
-        mock_update,
-        mock_context,
-        memory_session_store
-    ):
+    async def test_complete_sex_theme_flow(self, mock_update, mock_context, memory_session_store):
         """Test complete Sex theme flow with NSFW confirmation."""
         with _memory_storage(memory_session_store):
             # Step 1: Language selection
@@ -163,12 +159,7 @@ class TestCompleteUserFlows:
 
     @pytest.mark.integration
     @pytest.mark.asyncio
-    async def test_complete_reset_flow(
-        self,
-        mock_update,
-        mock_context,
-        memory_session_store
-    ):
+    async def test_complete_reset_flow(self, mock_update, mock_context, memory_session_store):
         """Test complete reset flow."""
         with _memory_storage(memory_session_store):
             # Step 1: Create a session with data
@@ -206,12 +197,7 @@ class TestCompleteUserFlows:
 
     @pytest.mark.integration
     @pytest.mark.asyncio
-    async def test_complete_navigation_flow(
-        self,
-        mock_update,
-        mock_context,
-        memory_session_store
-    ):
+    async def test_complete_navigation_flow(self, mock_update, mock_context, memory_session_store):
         """Test complete navigation flow."""
         with _memory_storage(memory_session_store):
             # Step 1: Navigate to question
@@ -259,12 +245,7 @@ class TestCompleteUserFlows:
 
     @pytest.mark.integration
     @pytest.mark.asyncio
-    async def test_multilingual_flow(
-        self,
-        mock_update,
-        mock_context,
-        memory_session_store
-    ):
+    async def test_multilingual_flow(self, mock_update, mock_context, memory_session_store):
         """A stored `en`/`cs` language callback coerces to Russian, the only
         supported language, rather than raising or sticking."""
         with _memory_storage(memory_session_store):
@@ -308,10 +289,7 @@ class TestErrorRecoveryScenarios:
     @pytest.mark.integration
     @pytest.mark.asyncio
     async def test_invalid_callback_data_recovery(
-        self,
-        mock_update,
-        mock_context,
-        memory_session_store
+        self, mock_update, mock_context, memory_session_store
     ):
         """Test recovery from invalid callback data."""
         with _memory_storage(memory_session_store):
@@ -334,14 +312,9 @@ class TestErrorRecoveryScenarios:
 
     @pytest.mark.integration
     @pytest.mark.asyncio
-    async def test_storage_failure_recovery(
-        self,
-        mock_update,
-        mock_context,
-        mock_redis_error
-    ):
+    async def test_storage_failure_recovery(self, mock_update, mock_context, mock_redis_error):
         """Test recovery from storage failures."""
-        with patch('vechnost_bot.storage.session_store') as mock_get_storage:
+        with patch("vechnost_bot.storage.session_store") as mock_get_storage:
             # Mock storage that fails
             mock_storage = AsyncMock()
             mock_storage.get_session.side_effect = mock_redis_error
@@ -361,11 +334,7 @@ class TestErrorRecoveryScenarios:
     @pytest.mark.integration
     @pytest.mark.asyncio
     async def test_telegram_api_failure_recovery(
-        self,
-        mock_update,
-        mock_context,
-        memory_session_store,
-        mock_telegram_error
+        self, mock_update, mock_context, memory_session_store, mock_telegram_error
     ):
         """Test recovery from Telegram API failures."""
         with _memory_storage(memory_session_store):
@@ -393,21 +362,16 @@ class TestManySessions:
         memory_session_store,
     ):
         """Test concurrent user sessions."""
+
         async def create_user_session(user_id: int):
             """Create a session for a user."""
-            session = SessionState(
-                language=Language.RUSSIAN,
-                theme=Theme.ACQUAINTANCE,
-                level=1
-            )
+            session = SessionState(language=Language.RUSSIAN, theme=Theme.ACQUAINTANCE, level=1)
             await memory_session_store.save_session(user_id, session)
             return await memory_session_store.get_session(user_id)
 
         # Create multiple concurrent sessions
         user_ids = list(range(100))
-        sessions = await asyncio.gather(*[
-            create_user_session(user_id) for user_id in user_ids
-        ])
+        sessions = await asyncio.gather(*[create_user_session(user_id) for user_id in user_ids])
 
         # Verify all sessions were created
         assert len(sessions) == 100
@@ -436,7 +400,7 @@ class TestManySessions:
                 "nav:prev",
                 "back:calendar",
                 "back:levels",
-                "back:themes"
+                "back:themes",
             ]
 
             # Handle all callbacks rapidly
@@ -454,12 +418,7 @@ class TestEdgeCases:
 
     @pytest.mark.integration
     @pytest.mark.asyncio
-    async def test_empty_session_handling(
-        self,
-        mock_update,
-        mock_context,
-        memory_session_store
-    ):
+    async def test_empty_session_handling(self, mock_update, mock_context, memory_session_store):
         """Test handling of empty sessions."""
         with _memory_storage(memory_session_store):
             # Try to navigate without setting up session
@@ -476,10 +435,7 @@ class TestEdgeCases:
     @pytest.mark.integration
     @pytest.mark.asyncio
     async def test_session_state_corruption_recovery(
-        self,
-        mock_update,
-        mock_context,
-        memory_session_store
+        self, mock_update, mock_context, memory_session_store
     ):
         """Test recovery from corrupted session state."""
         with _memory_storage(memory_session_store):
@@ -487,7 +443,7 @@ class TestEdgeCases:
             corrupted_session = SessionState(
                 language=Language.RUSSIAN,
                 theme=Theme.ACQUAINTANCE,
-                level=999  # Invalid level
+                level=999,  # Invalid level
             )
             await memory_session_store.save_session(12345, corrupted_session)
 
@@ -510,11 +466,7 @@ class TestEdgeCases:
         # Create many sessions to test memory handling
         sessions = []
         for i in range(1000):
-            session = SessionState(
-                language=Language.RUSSIAN,
-                theme=Theme.ACQUAINTANCE,
-                level=1
-            )
+            session = SessionState(language=Language.RUSSIAN, theme=Theme.ACQUAINTANCE, level=1)
             await memory_session_store.save_session(i, session)
             sessions.append(await memory_session_store.get_session(i))
 
@@ -530,10 +482,7 @@ class TestDataIntegrity:
     @pytest.mark.integration
     @pytest.mark.asyncio
     async def test_session_persistence_across_operations(
-        self,
-        mock_update,
-        mock_context,
-        memory_session_store
+        self, mock_update, mock_context, memory_session_store
     ):
         """Test session persistence across multiple operations."""
         with _memory_storage(memory_session_store):
@@ -569,11 +518,9 @@ class TestDataIntegrity:
 
     @pytest.mark.integration
     @pytest.mark.asyncio
-    async def test_concurrent_session_modifications(
-        self,
-        memory_session_store
-    ):
+    async def test_concurrent_session_modifications(self, memory_session_store):
         """Test concurrent modifications to the same session."""
+
         async def modify_session(operation: str):
             """Modify session with given operation."""
             session = await memory_session_store.get_session(12345)
@@ -592,9 +539,7 @@ class TestDataIntegrity:
 
         # Perform concurrent modifications
         operations = ["set_language", "set_theme", "set_level"]
-        await asyncio.gather(*[
-            modify_session(op) for op in operations
-        ])
+        await asyncio.gather(*[modify_session(op) for op in operations])
 
         # Verify final session state
         final_session = await memory_session_store.get_session(12345)

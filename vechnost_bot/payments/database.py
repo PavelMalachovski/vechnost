@@ -113,9 +113,7 @@ def init_db() -> None:
     else:
         engine = create_async_engine(db_url, echo=False)
 
-    async_session_maker = async_sessionmaker(
-        engine, class_=AsyncSession, expire_on_commit=False
-    )
+    async_session_maker = async_sessionmaker(engine, class_=AsyncSession, expire_on_commit=False)
 
     logger.info("Database initialized successfully")
 
@@ -195,16 +193,18 @@ def _backfill_access_from_payments(sync_conn) -> None:
     tables = set(inspect(sync_conn).get_table_names())
     if not {"payments", "subscriptions"} <= tables:
         return
-    result = sync_conn.execute(text(
-        "INSERT INTO subscriptions "
-        "(user_id, subscription_id, period, status, expires_at, last_event_at) "
-        "SELECT DISTINCT p.user_id, 0, 'lifetime', 'active', "
-        "CAST(NULL AS TIMESTAMP), CURRENT_TIMESTAMP "
-        "FROM payments p "
-        "WHERE p.expires_at IS NULL "
-        f"AND p.created_at < '{ACCESS_FROM_PAYMENTS_CUTOVER}' "
-        "AND NOT EXISTS (SELECT 1 FROM subscriptions s WHERE s.user_id = p.user_id)"
-    ))
+    result = sync_conn.execute(
+        text(
+            "INSERT INTO subscriptions "
+            "(user_id, subscription_id, period, status, expires_at, last_event_at) "
+            "SELECT DISTINCT p.user_id, 0, 'lifetime', 'active', "
+            "CAST(NULL AS TIMESTAMP), CURRENT_TIMESTAMP "
+            "FROM payments p "
+            "WHERE p.expires_at IS NULL "
+            f"AND p.created_at < '{ACCESS_FROM_PAYMENTS_CUTOVER}' "
+            "AND NOT EXISTS (SELECT 1 FROM subscriptions s WHERE s.user_id = p.user_id)"
+        )
+    )
     if result.rowcount:
         logger.warning(
             f"Backfilled {result.rowcount} lifetime subscription row(s) from "
@@ -235,10 +235,12 @@ def _release_stuck_webhooks(sync_conn) -> None:
 
     if "webhook_events" not in inspect(sync_conn).get_table_names():
         return
-    result = sync_conn.execute(text(
-        f"UPDATE webhook_events SET body_sha256 = '{RELEASED_PREFIX}' || body_sha256 "
-        f"WHERE status_code >= 400 AND body_sha256 NOT LIKE '{RELEASED_PREFIX}%'"
-    ))
+    result = sync_conn.execute(
+        text(
+            f"UPDATE webhook_events SET body_sha256 = '{RELEASED_PREFIX}' || body_sha256 "
+            f"WHERE status_code >= 400 AND body_sha256 NOT LIKE '{RELEASED_PREFIX}%'"
+        )
+    )
     if result.rowcount:
         logger.warning(
             f"Released {result.rowcount} rejected webhook delivery record(s) so "
@@ -265,13 +267,9 @@ def _ensure_user_columns(sync_conn) -> None:
     additions = {
         "language": "ALTER TABLE users ADD COLUMN language VARCHAR",
         "daily_card_opt_out": (
-            "ALTER TABLE users ADD COLUMN daily_card_opt_out BOOLEAN "
-            "NOT NULL DEFAULT '0'"
+            "ALTER TABLE users ADD COLUMN daily_card_opt_out BOOLEAN NOT NULL DEFAULT '0'"
         ),
-        "can_message": (
-            "ALTER TABLE users ADD COLUMN can_message BOOLEAN "
-            "NOT NULL DEFAULT '1'"
-        ),
+        "can_message": ("ALTER TABLE users ADD COLUMN can_message BOOLEAN NOT NULL DEFAULT '1'"),
         # No UNIQUE here: SQLite cannot add a unique column to a populated
         # table, and the code is minted from a uniqueness check in the
         # repository anyway. The model and the migration both declare it, so
@@ -297,10 +295,12 @@ def _ensure_user_columns(sync_conn) -> None:
         # column, so there is no start on which the column exists and an
         # invited user reads as uninvited. Their join date stands in for
         # the moment of the invitation, which was never recorded.
-        result = sync_conn.execute(text(
-            "UPDATE users SET referred_at = created_at "
-            "WHERE referred_by IS NOT NULL AND referred_at IS NULL"
-        ))
+        result = sync_conn.execute(
+            text(
+                "UPDATE users SET referred_at = created_at "
+                "WHERE referred_by IS NOT NULL AND referred_at IS NULL"
+            )
+        )
         if result.rowcount:
             logger.info(f"Marked {result.rowcount} invited user(s) as referred")
 
@@ -423,9 +423,7 @@ def _release_dropped_columns(sync_conn) -> None:
             name = column["name"]
             if name in model_columns or column.get("nullable", True):
                 continue
-            sync_conn.execute(
-                text(f'ALTER TABLE {table} ALTER COLUMN "{name}" DROP NOT NULL')
-            )
+            sync_conn.execute(text(f'ALTER TABLE {table} ALTER COLUMN "{name}" DROP NOT NULL'))
             logger.warning(
                 f"Dropped NOT NULL on {table}.{name}: the column is not in "
                 "the model any more, and it was blocking every insert"
@@ -457,9 +455,7 @@ def _match_model_nullability(sync_conn: Connection) -> None:
         for column in inspector.get_columns(table):
             name = column["name"]
             if name in nullable_in_model and not column.get("nullable", True):
-                sync_conn.execute(
-                    text(f'ALTER TABLE {table} ALTER COLUMN "{name}" DROP NOT NULL')
-                )
+                sync_conn.execute(text(f'ALTER TABLE {table} ALTER COLUMN "{name}" DROP NOT NULL'))
                 logger.warning(f"Dropped NOT NULL on {table}.{name} to match the model")
 
 
@@ -486,8 +482,7 @@ def _unique_on(sync_conn: Connection, table: str, column: str) -> bool:
     if any(uc["column_names"] == [column] for uc in inspector.get_unique_constraints(table)):
         return True
     return any(
-        ix.get("unique") and ix["column_names"] == [column]
-        for ix in inspector.get_indexes(table)
+        ix.get("unique") and ix["column_names"] == [column] for ix in inspector.get_indexes(table)
     )
 
 
@@ -513,20 +508,24 @@ def _ensure_indexes(sync_conn: Connection) -> None:
     tables = set(inspect(sync_conn).get_table_names())
 
     if "users" in tables and not _unique_on(sync_conn, "users", "referral_code"):
-        duplicate = sync_conn.execute(text(
-            "SELECT referral_code FROM users WHERE referral_code IS NOT NULL "
-            "GROUP BY referral_code HAVING COUNT(*) > 1"
-        )).first()
+        duplicate = sync_conn.execute(
+            text(
+                "SELECT referral_code FROM users WHERE referral_code IS NOT NULL "
+                "GROUP BY referral_code HAVING COUNT(*) > 1"
+            )
+        ).first()
         if duplicate is None:
-            sync_conn.execute(text(
-                "CREATE UNIQUE INDEX IF NOT EXISTS uq_users_referral_code "
-                "ON users (referral_code)"
-            ))
+            sync_conn.execute(
+                text(
+                    "CREATE UNIQUE INDEX IF NOT EXISTS uq_users_referral_code "
+                    "ON users (referral_code)"
+                )
+            )
             logger.info("Made users.referral_code unique")
         else:
-            sync_conn.execute(text(
-                "CREATE INDEX IF NOT EXISTS idx_referral_code ON users (referral_code)"
-            ))
+            sync_conn.execute(
+                text("CREATE INDEX IF NOT EXISTS idx_referral_code ON users (referral_code)")
+            )
             logger.warning(
                 "users.referral_code holds duplicate codes, so it cannot be made "
                 "unique; keeping a plain index on it"
@@ -617,4 +616,3 @@ async def close_db() -> None:
     if engine:
         await engine.dispose()
         logger.info("Database connections closed")
-

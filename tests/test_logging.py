@@ -33,9 +33,15 @@ def log_output(capsys):
     so no other test inherits a handler or a level.
     """
     root = logging.getLogger()
-    touched = [logging.getLogger(name) for name in (
-        "uvicorn", "uvicorn.error", "uvicorn.access", "apscheduler.executors.default",
-    )]
+    touched = [
+        logging.getLogger(name)
+        for name in (
+            "uvicorn",
+            "uvicorn.error",
+            "uvicorn.access",
+            "apscheduler.executors.default",
+        )
+    ]
     saved_root = (root.handlers[:], root.level)
     saved = [(lg, lg.handlers[:], lg.level, lg.propagate, lg.filters[:]) for lg in touched]
     # Start from no handler of ours, so the formatter is built for the
@@ -96,19 +102,22 @@ def test_configuring_twice_does_not_print_twice(log_output):
     assert sum(isinstance(h, monitoring.StdoutHandler) for h in logging.getLogger().handlers) == 1
 
 
-@pytest.mark.parametrize("path", [
-    f"/api/rooms/{CODE}",
-    f"/api/rooms/{CODE}/join",
-    f"/api/rooms/{CODE}/advance",
-    f"/api/compat/{CODE}",
-    f"/api/compat/{CODE}/answer",
-    f"/api/compat/{CODE}/result?lang=ru",
-    f"/api/steps69/{CODE}/board",
-    f"/api/steps69/{CODE}/roll",
-    "/api/steps69/ABCDEF",  # a legacy six-character code
-    f"/app/?screen=coop&code={CODE}",
-    f"/app/?tgWebAppStartParam=duo_{CODE}",
-])
+@pytest.mark.parametrize(
+    "path",
+    [
+        f"/api/rooms/{CODE}",
+        f"/api/rooms/{CODE}/join",
+        f"/api/rooms/{CODE}/advance",
+        f"/api/compat/{CODE}",
+        f"/api/compat/{CODE}/answer",
+        f"/api/compat/{CODE}/result?lang=ru",
+        f"/api/steps69/{CODE}/board",
+        f"/api/steps69/{CODE}/roll",
+        "/api/steps69/ABCDEF",  # a legacy six-character code
+        f"/app/?screen=coop&code={CODE}",
+        f"/app/?tgWebAppStartParam=duo_{CODE}",
+    ],
+)
 def test_a_code_never_reaches_the_access_log(log_output, path):
     monitoring.configure_logging()
 
@@ -120,15 +129,18 @@ def test_a_code_never_reaches_the_access_log(log_output, path):
     assert '"GET ' in line["event"] and line["event"].endswith(" 200")
 
 
-@pytest.mark.parametrize("path", [
-    "/api/compat/questions?lang=ru",
-    "/api/compat/mine",
-    "/api/steps69/pieces",
-    "/api/steps69/mine",
-    "/api/rooms",
-    "/api/library/dates?nsfw=1",
-    "/health",
-])
+@pytest.mark.parametrize(
+    "path",
+    [
+        "/api/compat/questions?lang=ru",
+        "/api/compat/mine",
+        "/api/steps69/pieces",
+        "/api/steps69/mine",
+        "/api/rooms",
+        "/api/library/dates?nsfw=1",
+        "/health",
+    ],
+)
 def test_the_routes_beside_the_codes_are_left_readable(log_output, path):
     monitoring.configure_logging()
 

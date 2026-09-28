@@ -19,7 +19,7 @@ from vechnost_bot.payments.repositories import UserRepository
 
 
 def test_caption_carries_the_day_number():
-    day = date(2026, 2, 16)          # day 47 of the year
+    day = date(2026, 2, 16)  # day 47 of the year
     assert day.timetuple().tm_yday == 47
     _, number = question_of_the_day(47, Language.RUSSIAN)
     assert number == 47
@@ -43,7 +43,7 @@ def test_first_and_last_day_of_the_year_render():
 
 
 def test_leap_day_renders_without_raising():
-    image, _ = render_daily_card(date(2028, 12, 31), Language.RUSSIAN)   # day 366
+    image, _ = render_daily_card(date(2028, 12, 31), Language.RUSSIAN)  # day 366
     assert image.getvalue()
 
 

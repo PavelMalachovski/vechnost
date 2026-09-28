@@ -57,16 +57,12 @@ async def test_the_fallback_photo_is_the_card_not_an_empty_file(data):
 @pytest.mark.parametrize("data", ["q:acq:1:9999:q", "nav:acq:1:9999:q"])
 async def test_a_card_that_is_not_there_says_so_under_a_photo(data):
     query = _query(on_a_photo=True)
-    query.edit_message_text.side_effect = BadRequest(
-        "There is no text in the message to edit"
-    )
+    query.edit_message_text.side_effect = BadRequest("There is no text in the message to edit")
 
     await CallbackHandlerRegistry().handle_callback(query, data)
 
     query.message.reply_text.assert_awaited_once()
-    assert query.message.reply_text.await_args.args[0] == get_text(
-        "errors.question_unavailable"
-    )
+    assert query.message.reply_text.await_args.args[0] == get_text("errors.question_unavailable")
 
 
 async def test_a_card_that_is_not_there_is_said_in_place_on_a_text_message():
@@ -75,9 +71,7 @@ async def test_a_card_that_is_not_there_is_said_in_place_on_a_text_message():
     await CallbackHandlerRegistry().handle_callback(query, "q:acq:1:9999:q")
 
     query.edit_message_text.assert_awaited_once()
-    assert query.edit_message_text.await_args.args[0] == get_text(
-        "errors.question_unavailable"
-    )
+    assert query.edit_message_text.await_args.args[0] == get_text("errors.question_unavailable")
     # Not a dead end: the message offers the decks again.
     keyboard = query.edit_message_text.await_args.kwargs["reply_markup"]
     targets = [b.callback_data for row in keyboard.inline_keyboard for b in row]

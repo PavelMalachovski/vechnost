@@ -16,8 +16,14 @@ from vechnost_bot.compat import (
 from vechnost_bot.i18n import Language
 
 SPHERE_IDS = [
-    "values", "money", "communication", "intimacy",
-    "home", "trust", "social", "empathy",
+    "values",
+    "money",
+    "communication",
+    "intimacy",
+    "home",
+    "trust",
+    "social",
+    "empathy",
 ]
 
 
@@ -75,7 +81,7 @@ def test_gap_of_two_is_growth_and_not_divergent():
 def test_gap_of_three_is_divergent_but_not_crisis():
     a = [4] * 40
     b = [4] * 40
-    b[0] = 1                      # question 1, gap of 3
+    b[0] = 1  # question 1, gap of 3
     result = build_result(a, b)
     assert result.spheres[0].zone == "growth"
     assert result.divergent_all == [1]
@@ -85,7 +91,7 @@ def test_gap_of_three_is_divergent_but_not_crisis():
 def test_single_gap_of_four_makes_the_sphere_critical():
     a = [5] * 40
     b = [5] * 40
-    b[2] = 1                      # question 3, gap of 4
+    b[2] = 1  # question 3, gap of 4
     result = build_result(a, b)
     assert result.spheres[0].zone == "crisis"
     assert result.spheres[1].zone == "strength"
@@ -95,9 +101,9 @@ def test_single_gap_of_four_makes_the_sphere_critical():
 @pytest.mark.parametrize(
     "value_a,value_b,expected",
     [
-        (2, 2, "crisis"),     # both below 3
-        (2, 3, "growth"),     # only one below 3 — not a crisis
-        (3, 3, "growth"),     # 3.0 is the boundary and does not trip it
+        (2, 2, "crisis"),  # both below 3
+        (2, 3, "growth"),  # only one below 3 — not a crisis
+        (3, 3, "growth"),  # 3.0 is the boundary and does not trip it
         (4, 4, "strength"),
     ],
 )
@@ -109,8 +115,8 @@ def test_zone_boundaries(value_a, value_b, expected):
 
 def test_average_just_under_three_is_a_crisis():
     """2.8 is "below 3" as much as 2 is — the rule is the average, not the label."""
-    a = [3, 3, 3, 3, 2] + [4] * 35     # avg 2.8
-    b = [3, 3, 3, 2, 2] + [4] * 35     # avg 2.6
+    a = [3, 3, 3, 3, 2] + [4] * 35  # avg 2.8
+    b = [3, 3, 3, 2, 2] + [4] * 35  # avg 2.6
     assert build_result(a, b).spheres[0].zone == "crisis"
 
 
@@ -126,7 +132,7 @@ def test_question_numbers_are_one_based_and_global():
     """Sphere 8's questions are numbered 36-40, not 1-5."""
     a = [4] * 40
     b = [4] * 40
-    b[39] = 1                     # last question overall
+    b[39] = 1  # last question overall
     result = build_result(a, b)
     assert result.divergent_all == [40]
     assert result.spheres[7].divergent == [40]
@@ -138,8 +144,8 @@ def test_divergent_questions_carry_their_texts():
     divergent question, keyed by its global number — texts only, no answers."""
     a = [4] * 40
     b = [4] * 40
-    b[0] = 1                      # question 1
-    b[39] = 1                     # question 40
+    b[0] = 1  # question 1
+    b[39] = 1  # question 40
     result = build_result(a, b)
     flat = [q for s in load_spheres(Language.RUSSIAN) for q in s.questions]
     assert set(result.questions) == {1, 40}
@@ -176,8 +182,8 @@ def test_a_divergent_question_is_framed_as_a_gap_even_when_both_are_low():
     question would equally fit two high averages and one gap of four.
     The gap framing stays true: a divergent question always has one
     partner at 4 or 5 and the other at 1 or 2."""
-    a = [2, 2, 2, 2, 2] + [5] * 35     # sphere 1 avg 2.0
-    b = [2, 2, 2, 2, 5] + [5] * 35     # sphere 1 avg 2.6, question 5 gap of 3
+    a = [2, 2, 2, 2, 2] + [5] * 35  # sphere 1 avg 2.0
+    b = [2, 2, 2, 2, 5] + [5] * 35  # sphere 1 avg 2.6, question 5 gap of 3
     result = build_result(a, b)
     sphere_1 = next(e for e in result.attention if e.sphere.id == "values")
     assert sphere_1.sphere.zone == "crisis"
@@ -189,8 +195,8 @@ def test_a_divergent_question_is_framed_as_a_gap_even_when_both_are_low():
 def test_both_low_framing_only_where_the_zone_already_says_so():
     """A crisis with no divergent question can only be two averages under
     3, so there the framing adds nothing a partner could not work out."""
-    a = [2, 3, 2, 2, 2] + [5] * 35     # sphere 1 avg 2.2
-    b = [3, 2, 2, 1, 2] + [5] * 35     # sphere 1 avg 2.0, no gap >= 3
+    a = [2, 3, 2, 2, 2] + [5] * 35  # sphere 1 avg 2.2
+    b = [3, 2, 2, 1, 2] + [5] * 35  # sphere 1 avg 2.0, no gap >= 3
     result = build_result(a, b)
     sphere_1 = next(e for e in result.attention if e.sphere.id == "values")
     assert sphere_1.sphere.zone == "crisis"
@@ -202,8 +208,8 @@ def test_both_low_framing_only_where_the_zone_already_says_so():
 def test_gap_framing_is_used_when_divergence_alone_put_it_there():
     """A sphere with at least one average at or above 3 that still lands in
     attention got there through disagreement, not shared low scores."""
-    a = [4, 4, 4, 4, 1] + [5] * 35     # sphere 1 avg 3.4, question 5 gap of 3
-    b = [4, 4, 4, 4, 4] + [5] * 35     # sphere 1 avg 4.0
+    a = [4, 4, 4, 4, 1] + [5] * 35  # sphere 1 avg 3.4, question 5 gap of 3
+    b = [4, 4, 4, 4, 4] + [5] * 35  # sphere 1 avg 4.0
     result = build_result(a, b)
     sphere_1 = next(e for e in result.attention if e.sphere.id == "values")
     assert sphere_1.sphere.divergent == [5]
@@ -217,8 +223,8 @@ def test_no_framing_when_neither_condition_applies():
     a growth sphere with no divergent question lands here too. There is
     nothing true to say about why, so framing must be None rather than
     defaulting to "gap"."""
-    a = [3, 4, 3, 4, 3] + [5] * 35     # sphere 1 avg 3.4
-    b = [4, 3, 4, 4, 3] + [5] * 35     # sphere 1 avg 3.6, no gap >= 3
+    a = [3, 4, 3, 4, 3] + [5] * 35  # sphere 1 avg 3.4
+    b = [4, 3, 4, 4, 3] + [5] * 35  # sphere 1 avg 3.6, no gap >= 3
     result = build_result(a, b)
     sphere_1 = next(e for e in result.attention if e.sphere.id == "values")
     assert sphere_1.sphere.divergent == []
@@ -233,8 +239,8 @@ def test_all_strengths_leaves_attention_empty():
 
 
 def test_one_growth_sphere_among_strengths_is_the_sole_attention_entry():
-    a = [4] * 5 + [5] * 35     # sphere 0: avg 4.0
-    b = [3] * 5 + [5] * 35     # sphere 0: avg 3.0, no single gap >= 3 -> growth
+    a = [4] * 5 + [5] * 35  # sphere 0: avg 4.0
+    b = [3] * 5 + [5] * 35  # sphere 0: avg 3.0, no single gap >= 3 -> growth
     result = build_result(a, b)
     assert result.spheres[0].zone == "growth"
     assert all(s.zone == "strength" for s in result.spheres[1:])
@@ -284,7 +290,12 @@ def test_lists_follow_the_authored_order_not_the_score():
     b = [4] * 5 + [4] * 5 + [2] * 5 + [4] * 20 + [5] * 5
     result = build_result(a, b)
     assert [s.id for s in result.strengths] == [
-        "values", "intimacy", "home", "trust", "social", "empathy",
+        "values",
+        "intimacy",
+        "home",
+        "trust",
+        "social",
+        "empathy",
     ]
     # money is growth (3.0 and 4.0), communication a crisis (1.0 and 2.0).
     assert [e.sphere.id for e in result.attention] == ["money", "communication"]
@@ -304,9 +315,7 @@ def test_everything_but_the_percent_follows_from_zones_and_divergence():
         [5, 5, 5, 5, 5] + [5] * 35,
     )
     assert both_low.percent != one_gap.percent
-    assert both_low.model_dump(exclude={"percent"}) == one_gap.model_dump(
-        exclude={"percent"}
-    )
+    assert both_low.model_dump(exclude={"percent"}) == one_gap.model_dump(exclude={"percent"})
 
 
 def test_lists_and_framings_are_a_function_of_the_public_result():
@@ -319,16 +328,16 @@ def test_lists_and_framings_are_a_function_of_the_public_result():
         a = [rng.randint(1, 5) for _ in range(TOTAL_QUESTIONS)]
         b = [rng.randint(1, 5) for _ in range(TOTAL_QUESTIONS)]
         result = build_result(a, b)
-        assert result.strengths == [
-            s for s in result.spheres if s.zone == "strength"
-        ], (a, b)
+        assert result.strengths == [s for s in result.spheres if s.zone == "strength"], (a, b)
         assert [e.sphere for e in result.attention] == [
             s for s in result.spheres if s.zone != "strength"
         ], (a, b)
         for entry in result.attention:
             expected = (
-                framings["gap"] if entry.sphere.divergent
-                else framings["both_low"] if entry.sphere.zone == "crisis"
+                framings["gap"]
+                if entry.sphere.divergent
+                else framings["both_low"]
+                if entry.sphere.zone == "crisis"
                 else None
             )
             assert entry.framing == expected, (a, b)

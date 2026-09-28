@@ -70,10 +70,14 @@ def _update_from(user_id: int) -> MagicMock:
 # What a failed send means
 # ---------------------------------------------------------------------------
 
-@pytest.mark.parametrize(("error", "unreachable", "opted_out"), [
-    (NEVER_STARTED, True, False),
-    (BLOCKED, False, True),
-])
+
+@pytest.mark.parametrize(
+    ("error", "unreachable", "opted_out"),
+    [
+        (NEVER_STARTED, True, False),
+        (BLOCKED, False, True),
+    ],
+)
 async def test_a_chat_never_opened_is_not_an_unsubscribe(error, unreachable, opted_out):
     send = AsyncMock(side_effect=error)
     with (
@@ -101,12 +105,15 @@ async def test_the_answer_is_written_on_the_row_and_nothing_else_changes(db):
 # Who gets sent to
 # ---------------------------------------------------------------------------
 
+
 async def test_the_daily_card_and_a_broadcast_skip_whom_the_bot_cannot_reach(db):
     await _user(1)
     await _user(2, can_message=False)
     await _user(3, opt_out=True)
     async with get_db() as session:
-        daily = [u.telegram_user_id for u in await UserRepository.get_daily_card_recipients(session)]
+        daily = [
+            u.telegram_user_id for u in await UserRepository.get_daily_card_recipients(session)
+        ]
         everyone = [u.telegram_user_id for u in await UserRepository.get_all(session)]
     assert daily == [1]
     # A broadcast still ignores the daily unsubscribe; it never tries a
@@ -118,6 +125,7 @@ async def test_the_daily_card_and_a_broadcast_skip_whom_the_bot_cannot_reach(db)
 # Reachable again
 # ---------------------------------------------------------------------------
 
+
 async def test_writing_to_the_bot_makes_a_person_reachable_and_keeps_an_unsubscribe(db):
     await _user(1, can_message=False)
     await _user(2, can_message=False, opt_out=True)
@@ -128,7 +136,9 @@ async def test_writing_to_the_bot_makes_a_person_reachable_and_keeps_an_unsubscr
     two = await _row(2)
     assert (two.can_message, two.daily_card_opt_out) == (True, True)
     async with get_db() as session:
-        daily = [u.telegram_user_id for u in await UserRepository.get_daily_card_recipients(session)]
+        daily = [
+            u.telegram_user_id for u in await UserRepository.get_daily_card_recipients(session)
+        ]
     assert daily == [1]
 
 
@@ -174,6 +184,7 @@ def test_the_service_message_reaches_its_handler_even_from_an_admin():
 # ---------------------------------------------------------------------------
 # The column on a deployed database
 # ---------------------------------------------------------------------------
+
 
 async def test_a_deployed_table_gets_the_column_with_everyone_reachable(db):
     from sqlalchemy import text

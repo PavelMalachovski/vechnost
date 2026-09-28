@@ -47,9 +47,10 @@ class TestCommandHandlers:
     @pytest.mark.asyncio
     async def test_start_command_success(self, mock_update, mock_context):
         """Test successful start command."""
-        with patch('vechnost_bot.handlers.welcome_screen') as mock_welcome, \
-             patch('vechnost_bot.handlers.set_user_context') as mock_set_context:
-
+        with (
+            patch("vechnost_bot.handlers.welcome_screen") as mock_welcome,
+            patch("vechnost_bot.handlers.set_user_context") as mock_set_context,
+        ):
             keyboard = MagicMock()
             mock_welcome.return_value = ("добро пожаловать", keyboard)
             mock_update.message.reply_text = AsyncMock()
@@ -88,7 +89,7 @@ class TestCommandHandlers:
     @pytest.mark.asyncio
     async def test_reset_command(self, mock_update, mock_context):
         """Test reset command."""
-        with patch('vechnost_bot.handlers.get_session') as mock_get_session:
+        with patch("vechnost_bot.handlers.get_session") as mock_get_session:
             mock_get_session.return_value = SessionState(language=Language.RUSSIAN)
             mock_update.message.reply_text = AsyncMock()
 
@@ -97,11 +98,10 @@ class TestCommandHandlers:
         mock_update.message.reply_text.assert_called_once()
         # /reset asks before it erases; the two answers are the whole point.
         keyboard = mock_update.message.reply_text.call_args.kwargs["reply_markup"]
-        assert [
-            button.callback_data
-            for row in keyboard.inline_keyboard
-            for button in row
-        ] == ["reset_confirm", "reset_cancel"]
+        assert [button.callback_data for row in keyboard.inline_keyboard for button in row] == [
+            "reset_confirm",
+            "reset_cancel",
+        ]
 
 
 class TestCallbackHandlers:
@@ -138,9 +138,7 @@ class TestCallbackHandlers:
     @pytest.mark.asyncio
     async def test_handle_callback_query_success(self, mock_update, mock_context):
         """The query is acknowledged, then handed to the registry."""
-        with patch(
-            'vechnost_bot.callback_handlers.callback_registry'
-        ) as mock_registry:
+        with patch("vechnost_bot.callback_handlers.callback_registry") as mock_registry:
             mock_registry.handle_callback = AsyncMock()
 
             await handle_callback_query(mock_update, mock_context)
@@ -160,12 +158,8 @@ class TestCallbackHandlers:
         a second to render a card must not leave the player watching a
         spinner, and one that raises must not leave it spinning forever.
         """
-        with patch(
-            'vechnost_bot.callback_handlers.callback_registry'
-        ) as mock_registry:
-            mock_registry.handle_callback = AsyncMock(
-                side_effect=Exception("Test error")
-            )
+        with patch("vechnost_bot.callback_handlers.callback_registry") as mock_registry:
+            mock_registry.handle_callback = AsyncMock(side_effect=Exception("Test error"))
 
             with pytest.raises(Exception, match="Test error"):
                 await handle_callback_query(mock_update, mock_context)
@@ -179,9 +173,7 @@ class TestCallbackHandlers:
         update.callback_query = MagicMock(spec=CallbackQuery)
         update.callback_query.message = None
 
-        with patch(
-            'vechnost_bot.callback_handlers.callback_registry'
-        ) as mock_registry:
+        with patch("vechnost_bot.callback_handlers.callback_registry") as mock_registry:
             mock_registry.handle_callback = AsyncMock()
 
             await handle_callback_query(update, mock_context)
@@ -189,15 +181,11 @@ class TestCallbackHandlers:
         mock_registry.handle_callback.assert_not_awaited()
 
     @pytest.mark.asyncio
-    async def test_a_query_without_data_is_answered_and_dropped(
-        self, mock_update, mock_context
-    ):
+    async def test_a_query_without_data_is_answered_and_dropped(self, mock_update, mock_context):
         """Telegram allows a callback query with no data at all; the spinner
         still has to stop, and there is nothing to dispatch."""
         mock_update.callback_query.data = None
-        with patch(
-            'vechnost_bot.callback_handlers.callback_registry'
-        ) as mock_registry:
+        with patch("vechnost_bot.callback_handlers.callback_registry") as mock_registry:
             mock_registry.handle_callback = AsyncMock()
 
             await handle_callback_query(mock_update, mock_context)
@@ -209,9 +197,7 @@ class TestCallbackHandlers:
     async def test_an_update_without_a_query_is_ignored(self, mock_context):
         update = MagicMock(spec=Update)
         update.callback_query = None
-        with patch(
-            'vechnost_bot.callback_handlers.callback_registry'
-        ) as mock_registry:
+        with patch("vechnost_bot.callback_handlers.callback_registry") as mock_registry:
             mock_registry.handle_callback = AsyncMock()
 
             await handle_callback_query(update, mock_context)
@@ -256,18 +242,14 @@ class TestStartCommandLogo:
     @pytest.mark.asyncio
     async def test_start_survives_a_missing_logo(self, mock_update, mock_context):
         """No logo is a degraded greeting, never a dead /start."""
-        with patch(
-            'builtins.open', side_effect=FileNotFoundError("no logo here")
-        ):
+        with patch("builtins.open", side_effect=FileNotFoundError("no logo here")):
             await start_command(mock_update, mock_context)
 
         mock_update.message.reply_photo.assert_not_called()
         mock_update.message.reply_text.assert_called_once()
 
     @pytest.mark.asyncio
-    async def test_the_greeting_is_a_message_of_its_own(
-        self, mock_update, mock_context
-    ):
+    async def test_the_greeting_is_a_message_of_its_own(self, mock_update, mock_context):
         """The logo, then the greeting as a message of its own.
 
         The greeting once ran past Telegram's 1024-character caption limit,

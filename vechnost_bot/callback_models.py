@@ -45,7 +45,7 @@ class CallbackData(BaseModel):
             raise ValueError(f"Invalid callback data: {data}")
 
         # Check for malicious patterns
-        dangerous_patterns = ['..', '/', '\\', 'script', 'javascript']
+        dangerous_patterns = ["..", "/", "\\", "script", "javascript"]
         if any(pattern in data.lower() for pattern in dangerous_patterns):
             raise ValueError(f"Potentially malicious callback data: {data}")
 
@@ -71,7 +71,21 @@ class CallbackData(BaseModel):
             # Russian and it lands on the same welcome screen, which is where
             # a back button wanted to go anyway.
             return LanguageCallbackData.parse(data)
-        elif data in ["nsfw_confirm", "nsfw_deny", "reset_game", "reset_confirm", "reset_cancel", "noop", "check_payment", "start_game", "show_inside", "show_why", "daily_off", "daily_on", "show_gift"]:
+        elif data in [
+            "nsfw_confirm",
+            "nsfw_deny",
+            "reset_game",
+            "reset_confirm",
+            "reset_cancel",
+            "noop",
+            "check_payment",
+            "start_game",
+            "show_inside",
+            "show_why",
+            "daily_off",
+            "daily_on",
+            "show_gift",
+        ]:
             return SimpleCallbackData.parse(data)
         else:
             raise ValueError(f"Unknown callback action: {data}")
@@ -156,13 +170,7 @@ class CalendarCallbackData(CallbackData):
         if page < 0:
             raise ValueError(f"Page out of range: {page}")
 
-        return cls(
-            raw_data=data,
-            topic=topic,
-            level_or_0=level_or_0,
-            category=category,
-            page=page
-        )
+        return cls(raw_data=data, topic=topic, level_or_0=level_or_0, category=category, page=page)
 
 
 class QuestionCallbackData(CallbackData):
@@ -206,11 +214,7 @@ class QuestionCallbackData(CallbackData):
             raise ValueError(f"Index out of range: {index}")
 
         return cls(
-            raw_data=data,
-            topic=topic,
-            level_or_0=level_or_0,
-            index=index,
-            category=category
+            raw_data=data, topic=topic, level_or_0=level_or_0, index=index, category=category
         )
 
 
@@ -253,11 +257,7 @@ class NavigationCallbackData(CallbackData):
             raise ValueError(f"Index out of range: {index}")
 
         return cls(
-            raw_data=data,
-            topic=topic,
-            level_or_0=level_or_0,
-            index=index,
-            category=category
+            raw_data=data, topic=topic, level_or_0=level_or_0, index=index, category=category
         )
 
 
@@ -289,12 +289,7 @@ class ToggleCallbackData(CallbackData):
         if page < 0:
             raise ValueError(f"Page out of range: {page}")
 
-        return cls(
-            raw_data=data,
-            topic=topic,
-            category=category,
-            page=page
-        )
+        return cls(raw_data=data, topic=topic, category=category, page=page)
 
 
 class BackCallbackData(CallbackData):
@@ -372,5 +367,3 @@ class LanguageConfirmCallbackData(CallbackData):
             raise ValueError("Empty language code")
 
         return cls(raw_data=data, language_code=language_code)
-
-

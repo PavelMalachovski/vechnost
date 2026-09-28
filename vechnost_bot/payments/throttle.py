@@ -61,7 +61,7 @@ logger = logging.getLogger(__name__)
 # Attempts allowed per window, per client, keyed by bucket name.
 LIMITS: dict[str, tuple[int, int]] = {
     # (max attempts, window seconds)
-    "join": (10, 300),      # guessing someone else's code
+    "join": (10, 300),  # guessing someone else's code
     # Spinning up rooms/tests/games. Sixty an hour, not twenty: this bucket
     # exists to stop someone allocating rows in bulk, and twenty is inside
     # what one curious couple does in an evening - open a board, abandon it,
@@ -69,9 +69,9 @@ LIMITS: dict[str, tuple[int, int]] = {
     # suit. Hitting it looked like the game was broken, because a 429 was
     # not one of the statuses the client had a sentence for.
     "create": (60, 3600),
-    "render": (30, 60),     # /api/card, one Pillow composite each
-    "admin": (5, 60),       # the admin bearer token
-    "write": (120, 60),     # ordinary in-game writes: dice, answers, reactions
+    "render": (30, 60),  # /api/card, one Pillow composite each
+    "admin": (5, 60),  # the admin bearer token
+    "write": (120, 60),  # ordinary in-game writes: dice, answers, reactions
     # Tribute delivers a handful of events a day and retries a failed one
     # with backoff, so this is far above anything legitimate. What it caps
     # is a stranger making the box hash and HMAC 64 KB bodies all day.

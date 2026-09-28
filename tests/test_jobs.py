@@ -67,8 +67,9 @@ class Audience:
     """A job that sends to a fixed list, after the run's cursor, the way
     the daily card does: `check()` before each person, `advance()` after."""
 
-    def __init__(self, people: list[int], crash_after: int | None = None,
-                 crash: BaseException | None = None) -> None:
+    def __init__(
+        self, people: list[int], crash_after: int | None = None, crash: BaseException | None = None
+    ) -> None:
         self.people = people
         self.crash_after = crash_after
         self.crash = crash or RuntimeError("a bug, on this person")
@@ -93,6 +94,7 @@ def daily(run) -> DailyJob:
 # ---------------------------------------------------------------------------
 # Claiming a day's run
 # ---------------------------------------------------------------------------
+
 
 async def test_the_first_claim_of_a_day_is_fresh_and_a_second_is_busy(db):
     outcome, run = await claim("daily_card", DAY, owner="a")
@@ -170,6 +172,7 @@ async def test_different_jobs_and_days_do_not_share_a_row(db):
 # When a job is due
 # ---------------------------------------------------------------------------
 
+
 def test_a_job_is_due_from_its_slot_to_the_end_of_its_window():
     job = daily(None)
     at = lambda h, m=0: datetime.combine(DAY, time(h, m))  # noqa: E731
@@ -188,6 +191,7 @@ def test_a_window_that_crosses_midnight_belongs_to_the_day_it_started():
 # ---------------------------------------------------------------------------
 # Running one
 # ---------------------------------------------------------------------------
+
 
 async def test_a_bot_that_was_down_at_the_slot_still_sends_and_only_once(db):
     audience = Audience([1, 2, 3])
@@ -236,14 +240,17 @@ async def test_a_stopping_bot_hands_its_run_back(db):
     audience = Audience([1, 2, 3, 4])
     stopping = iter([False, False, True])
     outcome = await run_once(
-        daily(audience), DAY, bot=None, stopping=lambda: next(stopping, True),
+        daily(audience),
+        DAY,
+        bot=None,
+        stopping=lambda: next(stopping, True),
     )
     assert outcome == STOPPED and audience.sent == [1, 2]
 
     rest = Audience([1, 2, 3, 4])
-    assert await run_once(
-        daily(rest), DAY, bot=None, now=utcnow() + timedelta(seconds=1)
-    ) == FINISHED
+    assert (
+        await run_once(daily(rest), DAY, bot=None, now=utcnow() + timedelta(seconds=1)) == FINISHED
+    )
     assert rest.sent == [3, 4]
 
 
@@ -251,12 +258,14 @@ async def test_a_stopping_bot_hands_its_run_back(db):
 # Sentry Crons
 # ---------------------------------------------------------------------------
 
+
 class Checkins:
     def __init__(self) -> None:
         self.calls: list[tuple[str, str | None, str]] = []
 
-    def __call__(self, monitor_slug=None, check_in_id=None, status=None,
-                 duration=None, monitor_config=None):
+    def __call__(
+        self, monitor_slug=None, check_in_id=None, status=None, duration=None, monitor_config=None
+    ):
         assert monitor_config["schedule"] == {"type": "crontab", "value": "0 17 * * *"}
         self.calls.append((monitor_slug, check_in_id, status))
         return check_in_id or f"check-{len(self.calls)}"
@@ -302,7 +311,10 @@ async def test_a_run_resumed_after_an_error_opens_a_check_in_of_its_own(db, sent
     assert await run_once(daily(Audience([1, 2], crash_after=1)), DAY, bot=None) == FAILED
     await run_once(daily(Audience([1, 2])), DAY, bot=None, now=later())
     assert [(check, status) for _, check, status in sentry.calls] == [
-        (None, "in_progress"), ("check-1", "error"), (None, "in_progress"), ("check-3", "ok"),
+        (None, "in_progress"),
+        ("check-1", "error"),
+        (None, "in_progress"),
+        ("check-3", "ok"),
     ]
 
 
@@ -316,6 +328,7 @@ async def test_without_sentry_nothing_checks_in(db):
 # ---------------------------------------------------------------------------
 # The tick
 # ---------------------------------------------------------------------------
+
 
 class FakeApplication:
     def __init__(self) -> None:
@@ -350,8 +363,9 @@ async def test_the_tick_starts_what_is_due_once(db):
 async def test_the_old_jobs_rows_go_with_the_retention_sweep(db):
     from vechnost_bot.retention import sweep
 
-    _, old = await claim("daily_card", DAY - timedelta(days=40), owner="a",
-                         now=utcnow() - timedelta(days=40))
+    _, old = await claim(
+        "daily_card", DAY - timedelta(days=40), owner="a", now=utcnow() - timedelta(days=40)
+    )
     await old.finish()
     await claim("daily_card", DAY, owner="a")
 

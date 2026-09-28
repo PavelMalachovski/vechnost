@@ -72,22 +72,25 @@ class Tribute:
         telegram_user_id: int = BUYER,
         **payload: Any,
     ) -> bytes:
-        return json.dumps({
-            "name": name,
-            "created_at": created_at,
-            "sent_at": sent_at or created_at,
-            "payload": {
-                "telegram_user_id": telegram_user_id,
-                "amount": 990,
-                "currency": "eur",
-                **payload,
-            },
-        }).encode()
+        return json.dumps(
+            {
+                "name": name,
+                "created_at": created_at,
+                "sent_at": sent_at or created_at,
+                "payload": {
+                    "telegram_user_id": telegram_user_id,
+                    "amount": 990,
+                    "currency": "eur",
+                    **payload,
+                },
+            }
+        ).encode()
 
     def post(self, body: bytes) -> dict[str, Any]:
         signature = hmac.new(API_KEY.encode(), body, hashlib.sha256).hexdigest()
         response = self.client.post(
-            "/webhooks/tribute", content=body,
+            "/webhooks/tribute",
+            content=body,
             headers={"Content-Type": "application/json", "trbt-signature": signature},
         )
         assert response.status_code == 200, response.text
@@ -129,6 +132,7 @@ def tribute(tmp_path) -> Iterator[Tribute]:
 # B-09: a cancellation ends the renewal, not the period paid for
 # ---------------------------------------------------------------------------
 
+
 def test_the_event_table_tells_a_cancellation_from_money_going_back():
     assert action_for("cancelled_subscription") == "cancel"
     assert action_for("canceled_subscription") == "cancel"
@@ -140,8 +144,12 @@ def test_the_event_table_tells_a_cancellation_from_money_going_back():
 
 def test_a_cancelled_subscription_is_access_until_the_period_ends(tribute):
     tribute.send("new_subscription", subscription_id=SUBSCRIPTION, expires_at=LATER)
-    answer = tribute.send("cancelled_subscription", created_at="2026-09-02T10:00:00.000000Z",
-                          subscription_id=SUBSCRIPTION, expires_at=LATER)
+    answer = tribute.send(
+        "cancelled_subscription",
+        created_at="2026-09-02T10:00:00.000000Z",
+        subscription_id=SUBSCRIPTION,
+        expires_at=LATER,
+    )
     assert answer["action"] == "cancel"
     assert tribute.access() is True, "paid for twenty more days"
     row = tribute.subscriptions()[SUBSCRIPTION]
@@ -152,8 +160,12 @@ def test_a_cancelled_subscription_is_access_until_the_period_ends(tribute):
 def test_a_cancellation_whose_period_is_over_ends_access(tribute):
     tribute.send("new_subscription", subscription_id=SUBSCRIPTION, expires_at=LATER)
     yesterday = iso(datetime.utcnow() - timedelta(days=1))
-    tribute.send("cancelled_subscription", created_at="2026-09-02T10:00:00.000000Z",
-                 subscription_id=SUBSCRIPTION, expires_at=yesterday)
+    tribute.send(
+        "cancelled_subscription",
+        created_at="2026-09-02T10:00:00.000000Z",
+        subscription_id=SUBSCRIPTION,
+        expires_at=yesterday,
+    )
     assert tribute.access() is False, "Tribute says the paid period ended yesterday"
 
 
@@ -161,24 +173,27 @@ def test_a_cancellation_does_not_touch_a_lifetime_purchase(tribute):
     """Cancelling some other subscription used to close every row the user
     had, the lifetime purchase included, because none matched its id."""
     tribute.send("new_digital_product", product_id=PRODUCT)
-    tribute.send("cancelled_subscription", created_at="2026-09-02T10:00:00.000000Z",
-                 subscription_id=SUBSCRIPTION)
+    tribute.send(
+        "cancelled_subscription",
+        created_at="2026-09-02T10:00:00.000000Z",
+        subscription_id=SUBSCRIPTION,
+    )
     assert tribute.access() is True
     assert tribute.subscriptions()[PRODUCT].status == "active"
 
 
 def test_a_cancellation_cannot_shorten_a_purchase_that_never_ends(tribute):
     tribute.send("new_digital_product", product_id=PRODUCT)
-    tribute.send("cancelled_subscription", created_at="2026-09-02T10:00:00.000000Z",
-                 product_id=PRODUCT)
+    tribute.send(
+        "cancelled_subscription", created_at="2026-09-02T10:00:00.000000Z", product_id=PRODUCT
+    )
     assert tribute.access() is True
     assert tribute.subscriptions()[PRODUCT].status == "active"
 
 
 def test_a_refund_still_ends_access_at_once(tribute):
     tribute.send("new_subscription", subscription_id=SUBSCRIPTION, expires_at=LATER)
-    tribute.send("refund", created_at="2026-09-02T10:00:00.000000Z",
-                 subscription_id=SUBSCRIPTION)
+    tribute.send("refund", created_at="2026-09-02T10:00:00.000000Z", subscription_id=SUBSCRIPTION)
     assert tribute.access() is False
     assert tribute.subscriptions()[SUBSCRIPTION].status == "refunded"
 
@@ -186,19 +201,22 @@ def test_a_refund_still_ends_access_at_once(tribute):
 def test_a_chargeback_ends_access_at_once_and_is_filed_as_one(tribute):
     """It used to be filed as "canceled", which now means "paid until"."""
     tribute.send("new_subscription", subscription_id=SUBSCRIPTION, expires_at=LATER)
-    tribute.send("chargeback", created_at="2026-09-02T10:00:00.000000Z",
-                 subscription_id=SUBSCRIPTION)
+    tribute.send(
+        "chargeback", created_at="2026-09-02T10:00:00.000000Z", subscription_id=SUBSCRIPTION
+    )
     assert tribute.access() is False
     assert tribute.subscriptions()[SUBSCRIPTION].status == "charged_back"
 
 
 def test_a_refund_after_a_cancellation_ends_the_rest_of_the_period(tribute):
     tribute.send("new_subscription", subscription_id=SUBSCRIPTION, expires_at=LATER)
-    tribute.send("cancelled_subscription", created_at="2026-09-02T10:00:00.000000Z",
-                 subscription_id=SUBSCRIPTION)
+    tribute.send(
+        "cancelled_subscription",
+        created_at="2026-09-02T10:00:00.000000Z",
+        subscription_id=SUBSCRIPTION,
+    )
     assert tribute.access() is True
-    tribute.send("refund", created_at="2026-09-03T10:00:00.000000Z",
-                 subscription_id=SUBSCRIPTION)
+    tribute.send("refund", created_at="2026-09-03T10:00:00.000000Z", subscription_id=SUBSCRIPTION)
     assert tribute.access() is False
 
 
@@ -273,8 +291,9 @@ def test_an_older_chargeback_does_not_undo_a_newer_purchase(tribute):
     """Bought, refunded, bought again - and then a chargeback of the first
     purchase arrives. The second purchase stands."""
     tribute.send("new_digital_product", created_at=T1, product_id=PRODUCT)
-    tribute.send("digital_product_refunded", created_at="2026-09-01T12:00:00.000000Z",
-                 product_id=PRODUCT)
+    tribute.send(
+        "digital_product_refunded", created_at="2026-09-01T12:00:00.000000Z", product_id=PRODUCT
+    )
     tribute.send("new_digital_product", created_at=T3, product_id=PRODUCT)
     assert tribute.access() is True
 
@@ -285,12 +304,18 @@ def test_an_older_chargeback_does_not_undo_a_newer_purchase(tribute):
 
 def test_an_older_cancellation_does_not_end_a_newer_renewal(tribute):
     first_period_end = iso(datetime.utcnow() - timedelta(days=1))
-    tribute.send("new_subscription", created_at=T1, subscription_id=SUBSCRIPTION,
-                 expires_at=first_period_end)
-    tribute.send("renewed_subscription", created_at=T3, subscription_id=SUBSCRIPTION,
-                 expires_at=LATER)
-    tribute.send("cancelled_subscription", created_at=T2, subscription_id=SUBSCRIPTION,
-                 expires_at=first_period_end)
+    tribute.send(
+        "new_subscription", created_at=T1, subscription_id=SUBSCRIPTION, expires_at=first_period_end
+    )
+    tribute.send(
+        "renewed_subscription", created_at=T3, subscription_id=SUBSCRIPTION, expires_at=LATER
+    )
+    tribute.send(
+        "cancelled_subscription",
+        created_at=T2,
+        subscription_id=SUBSCRIPTION,
+        expires_at=first_period_end,
+    )
     assert tribute.access() is True
     row = tribute.subscriptions()[SUBSCRIPTION]
     assert row.status == "active" and row.last_event_at == datetime(2026, 9, 3, 10, 0)
@@ -298,6 +323,7 @@ def test_an_older_cancellation_does_not_end_a_newer_renewal(tribute):
 
 def journal(tribute: Tribute) -> list[str]:
     """The event names in the payments journal, oldest first."""
+
     async def read() -> list[str]:
         async with database.get_db() as session:
             found = (await session.execute(select(Payment).order_by(Payment.id))).scalars().all()
@@ -325,8 +351,9 @@ def gifts(tribute) -> Iterator[AsyncMock]:
     """The gift product configured; what reaches the buyer's chat, recorded."""
     with (
         patch.object(settings, "gift_product_id", str(GIFT)),
-        patch("vechnost_bot.payments.services.deliver_gift_certificate",
-              new_callable=AsyncMock) as sent,
+        patch(
+            "vechnost_bot.payments.services.deliver_gift_certificate", new_callable=AsyncMock
+        ) as sent,
     ):
         yield sent
 
@@ -342,11 +369,15 @@ def certificates(tribute: Tribute) -> list[Certificate]:
 
 def test_the_event_key_ignores_the_attempt_and_hides_the_buyer():
     def key(**body: Any) -> str | None:
-        return TributeEvent.parse({
-            "name": "new_subscription", "created_at": T1, "sent_at": T1,
-            "payload": {"telegram_user_id": BUYER, "subscription_id": SUBSCRIPTION},
-            **body,
-        }).idempotency_key
+        return TributeEvent.parse(
+            {
+                "name": "new_subscription",
+                "created_at": T1,
+                "sent_at": T1,
+                "payload": {"telegram_user_id": BUYER, "subscription_id": SUBSCRIPTION},
+                **body,
+            }
+        ).idempotency_key
 
     first = key()
     assert first and len(first) == 64 and str(BUYER) not in first
@@ -355,11 +386,14 @@ def test_the_event_key_ignores_the_attempt_and_hides_the_buyer():
     assert key(created_at=None) is None, "nothing stable to key on: the body decides"
 
     def purchase(**body: Any) -> str | None:
-        return TributeEvent.parse({
-            "name": "new_digital_product", "created_at": T1,
-            "payload": {"telegram_user_id": BUYER, "product_id": GIFT, "purchase_id": 31337},
-            **body,
-        }).idempotency_key
+        return TributeEvent.parse(
+            {
+                "name": "new_digital_product",
+                "created_at": T1,
+                "payload": {"telegram_user_id": BUYER, "product_id": GIFT, "purchase_id": 31337},
+                **body,
+            }
+        ).idempotency_key
 
     assert purchase(created_at=T2) == purchase(), "a purchase is named by its id"
     assert purchase(name="digital_product_refunded") != purchase()
@@ -412,10 +446,14 @@ def test_the_gift_code_is_sent_only_once_the_certificate_is_saved(tribute, gifts
 
     body = tribute.body("new_digital_product", product_id=GIFT)
     signature = hmac.new(API_KEY.encode(), body, hashlib.sha256).hexdigest()
-    with patch.object(services.WebhookEventRepository, "create",
-                      side_effect=IntegrityError("INSERT", {}, Exception("lost"))):
+    with patch.object(
+        services.WebhookEventRepository,
+        "create",
+        side_effect=IntegrityError("INSERT", {}, Exception("lost")),
+    ):
         response = tribute.client.post(
-            "/webhooks/tribute", content=body,
+            "/webhooks/tribute",
+            content=body,
             headers={"Content-Type": "application/json", "trbt-signature": signature},
         )
     assert response.status_code == 503, "not applied, so Tribute sends it again"
@@ -435,8 +473,9 @@ def test_a_redelivery_racing_the_first_is_turned_away_by_the_database(tribute, g
     import vechnost_bot.payments.services as services
 
     tribute.send("new_digital_product", created_at=T1, product_id=GIFT)
-    with patch.object(services.WebhookEventRepository, "get_by_event_key",
-                      side_effect=[None, object()]):
+    with patch.object(
+        services.WebhookEventRepository, "get_by_event_key", side_effect=[None, object()]
+    ):
         again = tribute.send("new_digital_product", created_at=T1, sent_at=T3, product_id=GIFT)
     assert again["message"] == "Webhook already processed (race condition)"
     assert len(certificates(tribute)) == 1
@@ -455,7 +494,7 @@ def test_an_old_database_gets_the_event_key_and_the_purchase_link(tmp_path):
     async def restart_and_insert_twice() -> None:
         try:
             await database.create_tables()
-            await database.create_tables()   # and the restart after it
+            await database.create_tables()  # and the restart after it
             async with database.get_db() as session:
                 session.add(Certificate(code="VECH-AAAA-AAAA", purchase_id="7"))
             with pytest.raises(IntegrityError):

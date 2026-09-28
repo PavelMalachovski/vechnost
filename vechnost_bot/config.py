@@ -78,29 +78,23 @@ class Settings(BaseSettings):
     """Application settings using Pydantic Settings."""
 
     model_config = SettingsConfigDict(
-        env_file=".env",
-        env_file_encoding="utf-8",
-        case_sensitive=False
+        env_file=".env", env_file_encoding="utf-8", case_sensitive=False
     )
 
     # Telegram Bot Configuration
     telegram_bot_token: str = Field(
-        validation_alias="TELEGRAM_BOT_TOKEN",
-        description="Telegram bot token"
+        validation_alias="TELEGRAM_BOT_TOKEN", description="Telegram bot token"
     )
 
     # Logging Configuration
-    log_level: str = Field(
-        default="INFO",
-        description="Logging level"
-    )
+    log_level: str = Field(default="INFO", description="Logging level")
 
     # Environment Configuration
     environment: str = Field(
         default="development",
         description="Application environment. `production` makes the "
-                    "service refuse to start on development defaults "
-                    "(see production_problems), and tags Sentry events."
+        "service refuse to start on development defaults "
+        "(see production_problems), and tags Sentry events.",
     )
 
     # Sessions. Unset (the default) keeps them in the bot process's memory,
@@ -110,37 +104,23 @@ class Settings(BaseSettings):
     # Checked as a Redis DSN but kept as written (see the validator below).
     redis_url: str | None = Field(
         default=None,
-        description="Redis for bot sessions. Unset: sessions stay in the "
-                    "bot process's memory."
+        description="Redis for bot sessions. Unset: sessions stay in the bot process's memory.",
     )
 
-    redis_db: int = Field(
-        default=0,
-        description="Redis database number, when REDIS_URL names none"
-    )
+    redis_db: int = Field(default=0, description="Redis database number, when REDIS_URL names none")
 
     # Optional Configuration
-    chat_id: str | None = Field(
-        default=None,
-        description="Optional chat ID for notifications"
-    )
+    chat_id: str | None = Field(default=None, description="Optional chat ID for notifications")
 
     # Sentry Configuration
-    sentry_dsn: str | None = Field(
-        default=None,
-        description="Sentry DSN for error tracking"
-    )
+    sentry_dsn: str | None = Field(default=None, description="Sentry DSN for error tracking")
 
     # Performance Configuration
-    max_connections: int = Field(
-        default=20,
-        description="Maximum Redis connections"
-    )
+    max_connections: int = Field(default=20, description="Maximum Redis connections")
 
     session_ttl: int = Field(
         default=3600,
-        description="Seconds a bot session outlives its last save, in "
-                    "memory and in Redis alike"
+        description="Seconds a bot session outlives its last save, in memory and in Redis alike",
     )
 
     @field_validator("redis_url", mode="before")
@@ -161,62 +141,60 @@ class Settings(BaseSettings):
 
     # Payment Configuration
     enable_payment: bool = Field(
-        default=False,
-        validation_alias="ENABLE_PAYMENT",
-        description="Enable payment requirement"
+        default=False, validation_alias="ENABLE_PAYMENT", description="Enable payment requirement"
     )
 
     tribute_api_key: str | None = Field(
         default=None,
         validation_alias="TRIBUTE_API_KEY",
-        description="Tribute API key for authentication"
+        description="Tribute API key for authentication",
     )
 
     tribute_base_url: str = Field(
         default="https://api.tribute.to",
         validation_alias="TRIBUTE_BASE_URL",
-        description="Tribute API base URL"
+        description="Tribute API base URL",
     )
 
     tribute_payment_url: str = Field(
         default="https://tribute.to/vechnost",
         validation_alias="TRIBUTE_PAYMENT_URL",
-        description="Tribute payment page URL for users"
+        description="Tribute payment page URL for users",
     )
 
     webhook_secret: str | None = Field(
         default=None,
         validation_alias="WEBHOOK_SECRET",
         description="Optional second key webhooks may be signed with, for a "
-                    "relay or a test harness in front of the endpoint. Tribute "
-                    "itself signs with TRIBUTE_API_KEY; this is accepted "
-                    "alongside it, never instead of it."
+        "relay or a test harness in front of the endpoint. Tribute "
+        "itself signs with TRIBUTE_API_KEY; this is accepted "
+        "alongside it, never instead of it.",
     )
 
     admin_ids: str | None = Field(
         default=None,
         validation_alias="ADMIN_IDS",
         description="Comma-separated Telegram user ids allowed to run the "
-                    "bot's admin commands (/broadcast). Unset means nobody "
-                    "is: the commands are not registered at all, which is "
-                    "the safe default for a bot that can message everyone."
+        "bot's admin commands (/broadcast). Unset means nobody "
+        "is: the commands are not registered at all, which is "
+        "the safe default for a bot that can message everyone.",
     )
 
     admin_token: str | None = Field(
         default=None,
         validation_alias="ADMIN_TOKEN",
         description="Bearer token for the /admin endpoints. Falls back to "
-                    "TRIBUTE_API_KEY so existing deployments keep working, "
-                    "but set it: TRIBUTE_API_KEY is an outbound credential "
-                    "and reusing it as an inbound password means one leak "
-                    "costs both."
+        "TRIBUTE_API_KEY so existing deployments keep working, "
+        "but set it: TRIBUTE_API_KEY is an outbound credential "
+        "and reusing it as an inbound password means one leak "
+        "costs both.",
     )
 
     # Database Configuration
     database_url: str = Field(
         default="sqlite:///./vechnost.db",
         validation_alias="DATABASE_URL",
-        description="Database connection URL"
+        description="Database connection URL",
     )
 
     # Mini App Configuration
@@ -224,36 +202,36 @@ class Settings(BaseSettings):
         default=None,
         validation_alias="WEBAPP_URL",
         description="HTTPS URL of the Telegram Mini App (e.g. https://<railway-app>/app). "
-                    "When set, the bot shows a 'Play in app' button."
+        "When set, the bot shows a 'Play in app' button.",
     )
 
     bot_username: str | None = Field(
         default="tvoya_vechnost_bot",
         validation_alias="BOT_USERNAME",
         description="Bot username without @, used for the brand watermark on "
-                    "shared card images and share links."
+        "shared card images and share links.",
     )
 
     webapp_short_name: str | None = Field(
         default=None,
         validation_alias="WEBAPP_SHORT_NAME",
         description="The short name of a *named* Mini App, made in BotFather "
-                    "with /newapp. With it, an invite is a direct link "
-                    "(t.me/<bot>/<short name>?startapp=...) that opens the app "
-                    "on the right screen in one tap."
+        "with /newapp. With it, an invite is a direct link "
+        "(t.me/<bot>/<short name>?startapp=...) that opens the app "
+        "on the right screen in one tap.",
     )
 
     webapp_main_app: bool = Field(
         default=False,
         validation_alias="WEBAPP_MAIN_APP",
         description="Set when the bot has a Main Mini App (BotFather -> Bot "
-                    "Settings -> Configure Mini App). Its direct link carries "
-                    "no short name at all — t.me/<bot>?startapp=... — which is "
-                    "why this is its own switch rather than a value in "
-                    "WEBAPP_SHORT_NAME. One tap, same as a named app; the "
-                    "short name wins if somehow both are configured. With "
-                    "neither, invites fall back to t.me/<bot>?start=..., where "
-                    "the bot answers with a button into the app."
+        "Settings -> Configure Mini App). Its direct link carries "
+        "no short name at all — t.me/<bot>?startapp=... — which is "
+        "why this is its own switch rather than a value in "
+        "WEBAPP_SHORT_NAME. One tap, same as a named app; the "
+        "short name wins if somehow both are configured. With "
+        "neither, invites fall back to t.me/<bot>?start=..., where "
+        "the bot answers with a button into the app.",
     )
 
     # The product the paywall sells
@@ -261,11 +239,11 @@ class Settings(BaseSettings):
         default=None,
         validation_alias="ACCESS_PRODUCT_ID",
         description="Tribute product id of the access itself. The Mini App's "
-                    "buy button, the price it shows and the bot's purchase "
-                    "button use exactly this product. Unset, they use the "
-                    "cheapest synced product that is neither the gift "
-                    "(GIFT_PRODUCT_ID) nor the referral discount "
-                    "(REFERRAL_PAYMENT_URL)."
+        "buy button, the price it shows and the bot's purchase "
+        "button use exactly this product. Unset, they use the "
+        "cheapest synced product that is neither the gift "
+        "(GIFT_PRODUCT_ID) nor the referral discount "
+        "(REFERRAL_PAYMENT_URL).",
     )
 
     # Gift certificates
@@ -273,15 +251,15 @@ class Settings(BaseSettings):
         default=None,
         validation_alias="GIFT_PRODUCT_ID",
         description="Tribute product id for the gift certificate. Payments for "
-                    "this product produce a certificate instead of buyer access."
+        "this product produce a certificate instead of buyer access.",
     )
 
     gift_payment_url: str | None = Field(
         default=None,
         validation_alias="GIFT_PAYMENT_URL",
         description="Tribute payment page for the gift certificate product. "
-                    "The gift button is hidden when neither this nor a synced "
-                    "gift product link is available."
+        "The gift button is hidden when neither this nor a synced "
+        "gift product link is available.",
     )
 
     # HTTP hardening
@@ -289,8 +267,8 @@ class Settings(BaseSettings):
         default=None,
         validation_alias="CORS_ALLOW_ORIGINS",
         description="Comma-separated origins allowed to read API responses "
-                    "from script. The Mini App is same-origin and needs none, "
-                    "so the default is no allowance at all."
+        "from script. The Mini App is same-origin and needs none, "
+        "so the default is no allowance at all.",
     )
 
     trusted_proxy_hops: int = Field(
@@ -299,18 +277,18 @@ class Settings(BaseSettings):
         le=5,
         validation_alias="TRUSTED_PROXY_HOPS",
         description="How many proxies stand between the internet and this "
-                    "app and append to X-Forwarded-For. The rate limiter "
-                    "reads the client address that many entries from the "
-                    "end of the header; the entries before it were written "
-                    "by the client. One on Railway; two with a CDN in front.",
+        "app and append to X-Forwarded-For. The rate limiter "
+        "reads the client address that many entries from the "
+        "end of the header; the entries before it were written "
+        "by the client. One on Railway; two with a CDN in front.",
     )
 
     allowed_hosts: str | None = Field(
         default=None,
         validation_alias="ALLOWED_HOSTS",
         description="Comma-separated hostnames this deployment answers to. "
-                    "Set it in production: unset, a forged Host header is "
-                    "accepted."
+        "Set it in production: unset, a forged Host header is "
+        "accepted.",
     )
 
     # Referrals
@@ -318,8 +296,8 @@ class Settings(BaseSettings):
         default=None,
         validation_alias="REFERRAL_PAYMENT_URL",
         description="Tribute page for the discounted product shown to users "
-                    "who arrived through someone's referral link. Unset means "
-                    "referrals are still tracked but everyone pays full price."
+        "who arrived through someone's referral link. Unset means "
+        "referrals are still tracked but everyone pays full price.",
     )
 
     referral_discount_percent: int = Field(
@@ -328,14 +306,14 @@ class Settings(BaseSettings):
         le=90,
         validation_alias="REFERRAL_DISCOUNT_PERCENT",
         description="What the referral page is worth, for the copy only. The "
-                    "price itself lives in the Tribute product."
+        "price itself lives in the Tribute product.",
     )
 
     # Daily card push
     daily_card_enabled: bool = Field(
         default=True,
         validation_alias="DAILY_CARD_ENABLED",
-        description="Send the daily card push to registered users."
+        description="Send the daily card push to registered users.",
     )
 
     daily_card_hour_utc: int = Field(
@@ -343,7 +321,7 @@ class Settings(BaseSettings):
         ge=0,
         le=23,
         validation_alias="DAILY_CARD_HOUR_UTC",
-        description="UTC hour when the daily card is sent (17 = ~19:00 Prague)."
+        description="UTC hour when the daily card is sent (17 = ~19:00 Prague).",
     )
 
     @property

@@ -43,6 +43,7 @@ class TestTrackPerformance:
 
     def test_sync_function_success(self):
         """Test tracking performance of successful sync function."""
+
         @track_performance("test_operation")
         def test_func():
             time.sleep(0.01)
@@ -54,6 +55,7 @@ class TestTrackPerformance:
 
     def test_sync_function_error(self):
         """Test tracking performance of sync function that raises error."""
+
         @track_performance("test_operation")
         def test_func():
             time.sleep(0.01)
@@ -65,6 +67,7 @@ class TestTrackPerformance:
     @pytest.mark.asyncio
     async def test_async_function_success(self):
         """Test tracking performance of successful async function."""
+
         @track_performance("test_operation")
         async def test_func():
             await asyncio.sleep(0.01)
@@ -77,6 +80,7 @@ class TestTrackPerformance:
     @pytest.mark.asyncio
     async def test_async_function_error(self):
         """Test tracking performance of async function that raises error."""
+
         @track_performance("test_operation")
         async def test_func():
             await asyncio.sleep(0.01)
@@ -91,25 +95,28 @@ class TestLoggingFunctions:
 
     def test_log_bot_event(self):
         """Test logging bot event."""
-        with patch('vechnost_bot.monitoring.metrics') as mock_metrics:
+        with patch("vechnost_bot.monitoring.metrics") as mock_metrics:
             log_bot_event("test_event", user_id=123, action="test")
 
             mock_metrics.increment_counter.assert_called_with("bot_events_test_event")
 
-    @pytest.mark.parametrize("data, counter", [
-        ("theme_Acquaintance", "callback_events_theme"),
-        ("level_1", "callback_events_level"),
-        ("cal:acq:1:q:0", "callback_events_calendar"),
-        ("q:acq:1:0", "callback_events_question"),
-        ("nav:acq:1:1:q", "callback_events_navigation"),
-        ("toggle:sex:0:t", "callback_events_toggle"),
-        ("back:themes", "callback_events_back"),
-        ("reset_game", "callback_events_other"),
-        (None, "callback_events_other"),
-    ])
+    @pytest.mark.parametrize(
+        "data, counter",
+        [
+            ("theme_Acquaintance", "callback_events_theme"),
+            ("level_1", "callback_events_level"),
+            ("cal:acq:1:q:0", "callback_events_calendar"),
+            ("q:acq:1:0", "callback_events_question"),
+            ("nav:acq:1:1:q", "callback_events_navigation"),
+            ("toggle:sex:0:t", "callback_events_toggle"),
+            ("back:themes", "callback_events_back"),
+            ("reset_game", "callback_events_other"),
+            (None, "callback_events_other"),
+        ],
+    )
     def test_log_callback_event(self, data, counter):
         """Every tap counts once in the total and once under its kind."""
-        with patch('vechnost_bot.monitoring.metrics') as mock_metrics:
+        with patch("vechnost_bot.monitoring.metrics") as mock_metrics:
             log_callback_event(data, 123, action="test")
 
         calls = [call.args[0] for call in mock_metrics.increment_counter.call_args_list]
@@ -117,7 +124,7 @@ class TestLoggingFunctions:
 
     def test_log_image_rendering_event_success(self):
         """Test logging successful image rendering event."""
-        with patch('vechnost_bot.monitoring.metrics') as mock_metrics:
+        with patch("vechnost_bot.monitoring.metrics") as mock_metrics:
             log_image_rendering_event(True, 1.5, user_id=123)
 
             mock_metrics.increment_counter.assert_called_with("image_rendering_success")
@@ -125,7 +132,7 @@ class TestLoggingFunctions:
 
     def test_log_image_rendering_event_failure(self):
         """Test logging failed image rendering event."""
-        with patch('vechnost_bot.monitoring.metrics') as mock_metrics:
+        with patch("vechnost_bot.monitoring.metrics") as mock_metrics:
             log_image_rendering_event(False, 0.5, user_id=123)
 
             mock_metrics.increment_counter.assert_called_with("image_rendering_failed")
@@ -137,15 +144,12 @@ class TestSetUserContext:
 
     def test_set_user_context(self):
         """Test setting user context."""
-        with patch('vechnost_bot.monitoring.set_user') as mock_set_user:
+        with patch("vechnost_bot.monitoring.set_user") as mock_set_user:
             set_user_context(123, "testuser", theme="Acquaintance")
 
             # The handle is accepted and dropped: Sentry gets an id to count
             # by, never a person's public name.
-            mock_set_user.assert_called_once_with({
-                "id": "123",
-                "theme": "Acquaintance"
-            })
+            mock_set_user.assert_called_once_with({"id": "123", "theme": "Acquaintance"})
 
 
 class TestInitializeMonitoring:
@@ -153,8 +157,8 @@ class TestInitializeMonitoring:
 
     def test_initialize_monitoring(self):
         """Test initializing monitoring."""
-        with patch('vechnost_bot.monitoring.configure_logging') as mock_configure_logging:
-            with patch('vechnost_bot.monitoring.configure_sentry') as mock_configure_sentry:
+        with patch("vechnost_bot.monitoring.configure_logging") as mock_configure_logging:
+            with patch("vechnost_bot.monitoring.configure_sentry") as mock_configure_sentry:
                 initialize_monitoring()
 
                 mock_configure_logging.assert_called_once()
@@ -182,17 +186,21 @@ class TestSentryIntegration:
         from vechnost_bot.config import settings
 
         with patch.object(settings, "sentry_dsn", "https://test@sentry.io/123"):
-            with patch('sentry_sdk.init') as mock_init:
+            with patch("sentry_sdk.init") as mock_init:
                 from vechnost_bot.monitoring import configure_sentry
+
                 configure_sentry()
 
                 mock_init.assert_called_once()
 
-    @pytest.mark.parametrize(("env", "release"), [
-        ({"RAILWAY_GIT_COMMIT_SHA": "0123abc", "RELEASE_VERSION": "1.2.0"}, "0123abc"),
-        ({"RELEASE_VERSION": "1.2.0"}, "1.2.0"),
-        ({}, None),
-    ])
+    @pytest.mark.parametrize(
+        ("env", "release"),
+        [
+            ({"RAILWAY_GIT_COMMIT_SHA": "0123abc", "RELEASE_VERSION": "1.2.0"}, "0123abc"),
+            ({"RELEASE_VERSION": "1.2.0"}, "1.2.0"),
+            ({}, None),
+        ],
+    )
     def test_the_release_is_the_deployed_commit(self, monkeypatch, env, release):
         """Every event used to be filed under one release called "unknown",
         so no error in Sentry could be traced to the deploy that caused it."""
@@ -206,7 +214,7 @@ class TestSentryIntegration:
         with (
             patch.object(settings, "sentry_dsn", "https://test@sentry.io/123"),
             patch.object(settings, "environment", "production"),
-            patch('sentry_sdk.init') as mock_init,
+            patch("sentry_sdk.init") as mock_init,
         ):
             configure_sentry()
 
@@ -218,9 +226,9 @@ class TestSentryIntegration:
         from vechnost_bot.config import settings
 
         with patch.object(settings, "sentry_dsn", None):
-            with patch('sentry_sdk.init') as mock_init:
+            with patch("sentry_sdk.init") as mock_init:
                 from vechnost_bot.monitoring import configure_sentry
+
                 configure_sentry()
 
                 mock_init.assert_not_called()
-

@@ -53,11 +53,11 @@ TOLERANCE = 4
 class Verdict:
     """One screen at one size, compared."""
 
-    name: str              # <phone>/<stop>@<size>.png
-    status: str            # same | changed | new | gone
-    moved: int = 0         # pixels that moved
-    diff: str = ""         # the difference picture, relative to OUT
-    where: str = ""        # the box the moved pixels fill: "x 0-375, y 612-628"
+    name: str  # <phone>/<stop>@<size>.png
+    status: str  # same | changed | new | gone
+    moved: int = 0  # pixels that moved
+    diff: str = ""  # the difference picture, relative to OUT
+    where: str = ""  # the box the moved pixels fill: "x 0-375, y 612-628"
 
     @property
     def changed(self) -> bool:
@@ -73,7 +73,7 @@ def compare(base: Path, head: Path, out: Path) -> tuple[str, int]:
         b.save(out)
         return "changed", b.width * b.height
     delta = _delta(a, b)
-    moved = sum(delta.histogram()[THRESHOLD + 1:])
+    moved = sum(delta.histogram()[THRESHOLD + 1 :])
     if moved == 0:
         return "same", 0
     # The pull request's picture, dimmed, with every moved pixel in red.
@@ -118,10 +118,15 @@ def compare_tours(base: Path, head: Path, out: Path) -> list[Verdict]:
         else:
             diff = Path("diff") / name
             status, moved = compare(base / name, head / name, out / diff)
-            verdicts.append(Verdict(
-                name, status, moved, diff.as_posix() if moved else "",
-                where(base / name, head / name) if status == "changed" else "",
-            ))
+            verdicts.append(
+                Verdict(
+                    name,
+                    status,
+                    moved,
+                    diff.as_posix() if moved else "",
+                    where(base / name, head / name) if status == "changed" else "",
+                )
+            )
     return verdicts
 
 
@@ -135,9 +140,17 @@ def write_report(verdicts: list[Verdict], base: Path, head: Path, out: Path) -> 
             if (root / v.name).exists():
                 (out / side / v.name).parent.mkdir(parents=True, exist_ok=True)
                 (out / side / v.name).write_bytes((root / v.name).read_bytes())
-    (out / "result.json").write_text(json.dumps(
-        {"threshold": THRESHOLD, "tolerance": TOLERANCE,
-         "verdicts": [asdict(v) for v in verdicts]}, indent=2), encoding="utf-8")
+    (out / "result.json").write_text(
+        json.dumps(
+            {
+                "threshold": THRESHOLD,
+                "tolerance": TOLERANCE,
+                "verdicts": [asdict(v) for v in verdicts],
+            },
+            indent=2,
+        ),
+        encoding="utf-8",
+    )
 
     def img(path: str) -> str:
         if not (out / path).exists():
@@ -169,8 +182,12 @@ its pixels did). Columns: master, this pull request, the difference in red.</p>
     if not changed:
         lines.append(f"None: all {len(verdicts)} screens look as they do on master.")
     else:
-        lines += [f"{len(changed)} of {len(verdicts)} screens changed:", "",
-                  "| Screen | | Pixels moved | Where |", "|---|---|---|---|"]
+        lines += [
+            f"{len(changed)} of {len(verdicts)} screens changed:",
+            "",
+            "| Screen | | Pixels moved | Where |",
+            "|---|---|---|---|",
+        ]
         lines += [f"| `{v.name}` | {v.status} | {v.moved or ''} | {v.where} |" for v in changed]
     (out / "summary.md").write_text("\n".join(lines) + "\n", encoding="utf-8")
 
@@ -180,8 +197,9 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("base", type=Path, help="the screens folder of master's tour")
     parser.add_argument("head", type=Path, help="the screens folder of the pull request's tour")
     parser.add_argument("out", type=Path, help="where the report goes")
-    parser.add_argument("--accept", action="store_true",
-                        help="the change is meant: report it, do not fail")
+    parser.add_argument(
+        "--accept", action="store_true", help="the change is meant: report it, do not fail"
+    )
     args = parser.parse_args(argv)
     verdicts = compare_tours(args.base, args.head, args.out)
     write_report(verdicts, args.base, args.head, args.out)
@@ -192,12 +210,16 @@ def main(argv: list[str] | None = None) -> int:
         print("no screens to compare: did both tours run?")
         return 1
     if changed and not args.accept:
-        print(f"\n{len(changed)} screen(s) look different from master. If that is the point of "
-              "this pull request, add the `visual-change` label; the pictures are in the job's "
-              "artifact (index.html).")
+        print(
+            f"\n{len(changed)} screen(s) look different from master. If that is the point of "
+            "this pull request, add the `visual-change` label; the pictures are in the job's "
+            "artifact (index.html)."
+        )
         return 1
-    print(f"{len(verdicts) - len(changed)} of {len(verdicts)} screens unchanged"
-          + (" (changes accepted by the visual-change label)" if changed else ""))
+    print(
+        f"{len(verdicts) - len(changed)} of {len(verdicts)} screens unchanged"
+        + (" (changes accepted by the visual-change label)" if changed else "")
+    )
     return 0
 
 

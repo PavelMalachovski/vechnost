@@ -52,16 +52,12 @@ def main_app():
 
 
 def test_without_a_short_name_the_link_goes_through_the_bot(bot_only):
-    assert invites.invite_url("s69", CODE) == (
-        f"https://t.me/vechnost_bot?start=s69_{CODE}"
-    )
+    assert invites.invite_url("s69", CODE) == (f"https://t.me/vechnost_bot?start=s69_{CODE}")
 
 
 def test_with_a_short_name_the_link_opens_the_app_itself(direct_link):
     """One tap instead of two: Telegram hands the payload to the page."""
-    assert invites.invite_url("cmp", CODE) == (
-        f"https://t.me/vechnost_bot/app?startapp=cmp_{CODE}"
-    )
+    assert invites.invite_url("cmp", CODE) == (f"https://t.me/vechnost_bot/app?startapp=cmp_{CODE}")
 
 
 def test_the_main_mini_app_answers_on_the_bare_username(main_app):
@@ -70,9 +66,7 @@ def test_the_main_mini_app_answers_on_the_bare_username(main_app):
     This is its own shape rather than a value in WEBAPP_SHORT_NAME because
     the named-app link with anything in the name slot opens nothing at all.
     """
-    assert invites.invite_url("s69", CODE) == (
-        f"https://t.me/vechnost_bot?startapp=s69_{CODE}"
-    )
+    assert invites.invite_url("s69", CODE) == (f"https://t.me/vechnost_bot?startapp=s69_{CODE}")
 
 
 def test_a_named_app_wins_over_a_main_one():
@@ -118,11 +112,11 @@ def test_a_link_payload_names_a_screen_and_a_code(param, expected):
     [
         None,
         "",
-        "ref_ABCDEF",          # a referral, which /start also carries
-        "activate_ABCDEF",     # a certificate, likewise
+        "ref_ABCDEF",  # a referral, which /start also carries
+        "activate_ABCDEF",  # a certificate, likewise
         "s69_TOOLONGCODE",
-        "s69_AB1",             # too short
-        "s69_AB1OCD",          # 1, O and I are not in the code alphabet
+        "s69_AB1",  # too short
+        "s69_AB1OCD",  # 1, O and I are not in the code alphabet
         "s69_../../etc",
         "s69",
     ],
@@ -145,6 +139,7 @@ def test_no_mini_app_url_means_no_join_url():
 # ---------------------------------------------------------------------------
 # /start answering an invite link
 # ---------------------------------------------------------------------------
+
 
 def _update(param):
     update = MagicMock()
@@ -197,6 +192,7 @@ def test_without_a_mini_app_an_invite_still_lands_on_the_welcome_screen():
 # The code is the credential
 # ---------------------------------------------------------------------------
 
+
 def test_a_code_is_long_enough_that_guessing_is_not_a_strategy():
     """A code is the whole credential for joining: whoever holds one takes
     the second seat, sees the couple's board or their compatibility answers,
@@ -227,7 +223,7 @@ def test_codes_minted_before_the_change_still_work():
 def test_nothing_but_a_code_travels_in_a_link():
     assert invites.valid_code("ABC") is False
     assert invites.valid_code("A" * 17) is False
-    assert invites.valid_code("AB12CD") is False        # 1 is not in the alphabet
+    assert invites.valid_code("AB12CD") is False  # 1 is not in the alphabet
     assert invites.valid_code("../../etc") is False
     assert invites.parse_invite_param("s69_../../etc") is None
 
@@ -237,8 +233,7 @@ def test_all_three_doors_mint_from_the_same_generator():
     one in referrals.py, which is a separate thing and stays separate."""
     from vechnost_bot.payments import compat_api, rooms, steps69_api
 
-    for mint in (rooms._generate_room_code, compat_api._generate_code,
-                 steps69_api._generate_code):
+    for mint in (rooms._generate_room_code, compat_api._generate_code, steps69_api._generate_code):
         code = mint()
         assert len(code) == invites.CODE_LENGTH
         assert invites.valid_code(code)

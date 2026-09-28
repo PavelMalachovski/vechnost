@@ -32,7 +32,7 @@ from .repositories import UserRepository
 class Seated:
     """Who took which seat, for the push to the creator."""
 
-    screen: str      # the Mini App screen the game opens on: coop, compat, steps69
+    screen: str  # the Mini App screen the game opens on: coop, compat, steps69
     code: str
     creator_id: int
     guest_name: str | None

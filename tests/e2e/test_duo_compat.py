@@ -31,17 +31,47 @@ from .harness import (
 # here too, by someone who has decided it does not let one partner work out
 # the other's answers (CLAUDE.md: "no per-sphere score").
 RESULT_KEYS = {
-    "percent", "spheres", "strengths", "strengths_fallback", "attention",
-    "divergent_all", "questions", "recommendation", "critical_blocks",
-    "id", "title", "zone", "verdict", "divergent", "sphere", "framing",
+    "percent",
+    "spheres",
+    "strengths",
+    "strengths_fallback",
+    "attention",
+    "divergent_all",
+    "questions",
+    "recommendation",
+    "critical_blocks",
+    "id",
+    "title",
+    "zone",
+    "verdict",
+    "divergent",
+    "sphere",
+    "framing",
 }
 # The same for a progress poll: counts, never values.
 STATE_KEYS = {
-    "code", "your_role", "started", "answered", "answered_indices",
-    "partner_answered", "total", "finished", "players", "creator", "guest",
+    "code",
+    "your_role",
+    "started",
+    "answered",
+    "answered_indices",
+    "partner_answered",
+    "total",
+    "finished",
+    "players",
+    "creator",
+    "guest",
     "invite_url",
 }
-FORBIDDEN_KEYS = {"creator_answers", "guest_answers", "answers", "score", "scores", "avg", "average"}
+FORBIDDEN_KEYS = {
+    "creator_answers",
+    "guest_answers",
+    "answers",
+    "score",
+    "scores",
+    "avg",
+    "average",
+}
 
 
 def open_test(creator: Player) -> str:
@@ -52,9 +82,7 @@ def open_test(creator: Player) -> str:
     return code
 
 
-def answer_all(
-    code: str, answers: dict[Player, list[int]], rng: random.Random
-) -> None:
+def answer_all(code: str, answers: dict[Player, list[int]], rng: random.Random) -> None:
     """Both partners answer, interleaved the way two phones would be."""
     queue = [(player, index) for player in answers for index in range(TOTAL_QUESTIONS)]
     rng.shuffle(queue)
@@ -62,7 +90,8 @@ def answer_all(
     partner = dict(zip(answers, reversed(list(answers)), strict=True))
     for step, (player, index) in enumerate(queue):
         state = player.ok(
-            "POST", f"/api/compat/{code}/answer",
+            "POST",
+            f"/api/compat/{code}/answer",
             {"index": index, "value": answers[player][index]},
         )
         done[player] += 1
@@ -124,9 +153,7 @@ def test_two_partners_take_the_test_and_read_one_result(server: Server, seed: in
 
     # A completed test is immutable, for both.
     for player in (alice, bob):
-        assert player.status(
-            "POST", f"/api/compat/{code}/answer", {"index": 0, "value": 5}
-        ) == 409
+        assert player.status("POST", f"/api/compat/{code}/answer", {"index": 0, "value": 5}) == 409
     # And it is what each of them is shown as "my last result".
     for player in (alice, bob):
         mine = player.ok("GET", "/api/compat/mine?lang=ru")
@@ -270,14 +297,17 @@ def test_a_stranger_cannot_tell_the_test_exists(server: Server) -> None:
     assert alice.ok("GET", f"/api/compat/{code}")["finished"] is True
 
 
-@pytest.mark.parametrize("body", [
-    {"index": -1, "value": 3},
-    {"index": TOTAL_QUESTIONS, "value": 3},
-    {"index": 0, "value": 0},
-    {"index": 0, "value": 6},
-    {"index": "zero", "value": 3},
-    {"value": 3},
-])
+@pytest.mark.parametrize(
+    "body",
+    [
+        {"index": -1, "value": 3},
+        {"index": TOTAL_QUESTIONS, "value": 3},
+        {"index": 0, "value": 0},
+        {"index": 0, "value": 6},
+        {"index": "zero", "value": 3},
+        {"value": 3},
+    ],
+)
 def test_a_malformed_answer_is_refused_not_crashed(server: Server, body: dict[str, Any]) -> None:
     alice = server.player("Alice", paid=True)
     bob = server.player("Bob")

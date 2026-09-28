@@ -102,7 +102,9 @@ def git_ignores(path: Path) -> bool:
     try:
         result = subprocess.run(
             ["git", "check-ignore", "-q", "--", f"{path}/"],
-            cwd=ROOT, capture_output=True, check=False,
+            cwd=ROOT,
+            capture_output=True,
+            check=False,
         )
     except OSError:
         return True
@@ -160,15 +162,19 @@ def parse_args(argv: list[str]) -> argparse.Namespace:
     parser = argparse.ArgumentParser(description=__doc__.split("\n\n")[0])
     parser.add_argument("count", nargs="?", type=int, default=5, help="how many to mint (1-100)")
     parser.add_argument(
-        "--out", type=Path, default=DEFAULT_OUT,
+        "--out",
+        type=Path,
+        default=DEFAULT_OUT,
         help="where to write the QR cards (default: certificates/, git-ignored)",
     )
     parser.add_argument(
-        "--bot", default=None,
+        "--bot",
+        default=None,
         help="bot username without @ (default: BOT_USERNAME from the environment)",
     )
     parser.add_argument(
-        "--sql", action="store_true",
+        "--sql",
+        action="store_true",
         help="also write certificates.sql with INSERTs for another database",
     )
     args = parser.parse_args(argv)

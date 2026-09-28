@@ -17,7 +17,7 @@ INDEX = Path("webapp/index.html").read_text(encoding="utf-8")
 def _body(name: str) -> str:
     """The source of one top-level function, by its declaration."""
     start = INDEX.index(f"function {name}(")
-    return INDEX[start:INDEX.index("\n  }\n", start)]
+    return INDEX[start : INDEX.index("\n  }\n", start)]
 
 
 def test_every_request_has_a_deadline():
@@ -46,7 +46,7 @@ def test_the_pollers_share_one_loop_that_backs_off_and_stops():
 
 
 def test_an_older_poll_answer_never_repaints_a_newer_move():
-    coop = INDEX[INDEX.index("function enterCoopDeck("):INDEX.index("function coopFlyTop(")]
+    coop = INDEX[INDEX.index("function enterCoopDeck(") : INDEX.index("function coopFlyTop(")]
     assert re.search(r"st\.idx < prevIdx\) return", coop), "couple mode may step backwards"
     board = _body("onS69State")
     assert "rolls" in board and "return" in board, "the board may jump back a square"

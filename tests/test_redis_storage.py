@@ -98,10 +98,12 @@ async def test_many_chats_at_once_queue_for_the_pool_rather_than_fail(store):
     small = RedisSessionStore(_url(), ttl=60, max_connections=2)
     try:
         chat_ids = list(range(1000, 1040))
-        await asyncio.gather(*(
-            small.save_session(chat_id, SessionState(level=chat_id % 3 + 1))
-            for chat_id in chat_ids
-        ))
+        await asyncio.gather(
+            *(
+                small.save_session(chat_id, SessionState(level=chat_id % 3 + 1))
+                for chat_id in chat_ids
+            )
+        )
         found = await asyncio.gather(*(small.get_session(c) for c in chat_ids))
         assert all(session is not None for session in found)
     finally:

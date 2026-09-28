@@ -54,14 +54,14 @@ REFERENCES = Path(__file__).parent / "references" / "cards"
 UPDATE = os.environ.get("UPDATE_CARD_REFERENCES") == "1"
 WATERMARK = "VECHNOST · @vechnost_bot"
 
-SCALE = 4             # compared at a quarter of 1080x1350
-MEAN = 5.0            # mean difference per channel, of 255
-STRONG = 96           # a pixel this different is a different pixel...
-STRONG_PIXELS = 40    # ...and this many of them are a different card
-BOX = 2               # a band's ink may move this many (quarter) pixels
-COLOUR = 12           # a band's ink colour may drift this much per channel
-INK = 40              # at a quarter: what differs from the bare face by more is ink
-FULL_INK = 60         # at full size, where JPEG ringing around the marks stays under it
+SCALE = 4  # compared at a quarter of 1080x1350
+MEAN = 5.0  # mean difference per channel, of 255
+STRONG = 96  # a pixel this different is a different pixel...
+STRONG_PIXELS = 40  # ...and this many of them are a different card
+BOX = 2  # a band's ink may move this many (quarter) pixels
+COLOUR = 12  # a band's ink colour may drift this much per channel
+INK = 40  # at a quarter: what differs from the bare face by more is ink
+FULL_INK = 60  # at full size, where JPEG ringing around the marks stays under it
 
 W, H = CARD_WIDTH // SCALE, CARD_HEIGHT // SCALE
 # The bands the ink falls in, top to bottom, at a quarter of the size.
@@ -74,14 +74,18 @@ BANDS = {
 }
 
 SHORT = "Какое твоё самое значимое воспоминание в жизни? Почему?"
-MEDIUM = ("Что ты думаешь о том, чтобы жить вместе? Какие привычки друг друга "
-          "нам придётся принять, а о каких стоит договориться заранее?")
-LONG = ("Твой партнёр полностью обеспечивает тебя, у вас нет никаких "
-        "финансовых проблем. Но однажды ты узнаёшь, что всё это время партнёр "
-        "скрывал от тебя, откуда на самом деле берутся деньги: это работа, "
-        "которую ты считаешь недопустимой. Партнёр обещает, что скоро всё "
-        "изменится, но просит ничего не менять в вашей жизни. Твои действия? "
-        "Останешься ли ты рядом и что скажешь в первый же вечер?")
+MEDIUM = (
+    "Что ты думаешь о том, чтобы жить вместе? Какие привычки друг друга "
+    "нам придётся принять, а о каких стоит договориться заранее?"
+)
+LONG = (
+    "Твой партнёр полностью обеспечивает тебя, у вас нет никаких "
+    "финансовых проблем. Но однажды ты узнаёшь, что всё это время партнёр "
+    "скрывал от тебя, откуда на самом деле берутся деньги: это работа, "
+    "которую ты считаешь недопустимой. Партнёр обещает, что скоро всё "
+    "изменится, но просит ничего не менять в вашей жизни. Твои действия? "
+    "Останешься ли ты рядом и что скажешь в первый же вечер?"
+)
 
 # One card per deck face: (reference, face, footer, text). The texts are
 # fixed rather than read from the decks, so editing a question never moves
@@ -101,7 +105,9 @@ CARDS = [
 IDS = [card[0] for card in CARDS]
 
 
-def render(face: str, footer: str | None, text: str, watermark: str | None = WATERMARK) -> Image.Image:
+def render(
+    face: str, footer: str | None, text: str, watermark: str | None = WATERMARK
+) -> Image.Image:
     data = render_card(text, str(ROOT / face), footer=footer, watermark=watermark)
     return Image.open(BytesIO(data.getvalue())).convert("RGB")
 
@@ -142,7 +148,7 @@ def differences(reference: Image.Image, card: Image.Image, face: str) -> list[st
     found = []
     diff = ImageChops.difference(reference, card)
     mean = sum(ImageStat.Stat(diff).mean) / 3
-    strong = sum(diff.convert("L").histogram()[STRONG + 1:])
+    strong = sum(diff.convert("L").histogram()[STRONG + 1 :])
     if mean > MEAN:
         found.append(f"mean difference {mean:.2f} (at most {MEAN})")
     if strong > STRONG_PIXELS:
@@ -157,8 +163,10 @@ def differences(reference: Image.Image, card: Image.Image, face: str) -> list[st
             found.append(f"the {band} moved: {before} -> {after} (quarter-size pixels)")
         c0, c1 = was.colours[band], now.colours[band]
         if c0 and c1 and max(abs(a - b) for a, b in zip(c0, c1, strict=True)) > COLOUR:
-            found.append(f"the {band}'s colour drifted: {tuple(round(v) for v in c0)} -> "
-                         f"{tuple(round(v) for v in c1)}")
+            found.append(
+                f"the {band}'s colour drifted: {tuple(round(v) for v in c0)} -> "
+                f"{tuple(round(v) for v in c1)}"
+            )
     return found
 
 
@@ -169,10 +177,13 @@ def test_the_card_looks_as_its_reference(name: str, face: str, footer: str, text
     if UPDATE:
         reference.parent.mkdir(parents=True, exist_ok=True)
         card.save(reference, optimize=True)
-    assert reference.exists(), f"no reference: UPDATE_CARD_REFERENCES=1 pytest {Path(__file__).name}"
+    assert reference.exists(), (
+        f"no reference: UPDATE_CARD_REFERENCES=1 pytest {Path(__file__).name}"
+    )
     found = differences(Image.open(reference).convert("RGB"), card, face)
     assert not found, (
-        f"{name} no longer looks like tests/references/cards/{name}.png: " + "; ".join(found)
+        f"{name} no longer looks like tests/references/cards/{name}.png: "
+        + "; ".join(found)
         + ". If that is meant, UPDATE_CARD_REFERENCES=1 and let the pull request show the pictures."
     )
 
@@ -189,7 +200,9 @@ def _glyphs_moved(card: Image.Image, face: str, dx: int, dy: int) -> Image.Image
     return out
 
 
-@pytest.mark.parametrize("name,face,footer,text", [CARDS[0], CARDS[3], CARDS[-1]], ids=IDS[:1] + IDS[3:4] + IDS[-1:])
+@pytest.mark.parametrize(
+    "name,face,footer,text", [CARDS[0], CARDS[3], CARDS[-1]], ids=IDS[:1] + IDS[3:4] + IDS[-1:]
+)
 def test_the_comparison_forgives_a_hair_but_not_a_change(
     name: str, face: str, footer: str, text: str, monkeypatch: pytest.MonkeyPatch
 ) -> None:
@@ -218,7 +231,11 @@ def test_the_comparison_forgives_a_hair_but_not_a_change(
 @pytest.mark.parametrize("name,face,footer,text", CARDS, ids=IDS)
 def test_no_ink_falls_on_a_corner_mark(name: str, face: str, footer: str, text: str) -> None:
     card = render(face, footer, text)
-    ink = ImageChops.difference(card, bare(face)).convert("L").point(lambda v: 255 if v > FULL_INK else 0)
+    ink = (
+        ImageChops.difference(card, bare(face))
+        .convert("L")
+        .point(lambda v: 255 if v > FULL_INK else 0)
+    )
     assert ink.getbbox() is not None, "no text found at all, so this would prove nothing"
     for box in CORNER_MARKS:
         touched = ink.crop(box).getbbox()

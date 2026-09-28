@@ -33,7 +33,9 @@ def upgrade() -> None:
     op.add_column("users", sa.Column("partner_telegram_user_id", sa.BigInteger(), nullable=True))
     op.add_column("users", sa.Column("partner_since", sa.DateTime(), nullable=True))
     op.create_index(
-        "idx_users_partner", "users", ["partner_telegram_user_id"],
+        "idx_users_partner",
+        "users",
+        ["partner_telegram_user_id"],
         **_partial(sa.column("partner_telegram_user_id").is_not(None)),
     )
 

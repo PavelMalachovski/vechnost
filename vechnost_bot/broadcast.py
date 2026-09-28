@@ -83,10 +83,16 @@ def app_keyboard() -> InlineKeyboardMarkup | None:
     """
     if not settings.webapp_url:
         return None
-    return InlineKeyboardMarkup([[InlineKeyboardButton(
-        get_text('broadcast.open_app_button', Language.RUSSIAN),
-        web_app=WebAppInfo(url=settings.webapp_url),
-    )]])
+    return InlineKeyboardMarkup(
+        [
+            [
+                InlineKeyboardButton(
+                    get_text("broadcast.open_app_button", Language.RUSSIAN),
+                    web_app=WebAppInfo(url=settings.webapp_url),
+                )
+            ]
+        ]
+    )
 
 
 async def recipients() -> list[tuple[int, str | None]]:
@@ -233,30 +239,34 @@ def report_text(report: BroadcastReport) -> str:
     """The admin's receipt: counts, and the ids worth a manual message."""
     language = Language.RUSSIAN
     lines = [
-        get_text('broadcast.report_title', language),
-        get_text('broadcast.report_total', language, total=report.total),
-        get_text('broadcast.report_sent', language, sent=report.sent),
-        get_text('broadcast.report_blocked', language, blocked=report.blocked),
-        get_text('broadcast.report_failed', language, failed=len(report.failed)),
+        get_text("broadcast.report_title", language),
+        get_text("broadcast.report_total", language, total=report.total),
+        get_text("broadcast.report_sent", language, sent=report.sent),
+        get_text("broadcast.report_blocked", language, blocked=report.blocked),
+        get_text("broadcast.report_failed", language, failed=len(report.failed)),
     ]
     if report.failed:
         shown = ", ".join(str(i) for i in report.failed[:10])
         tail = " …" if len(report.failed) > 10 else ""
         lines.append("")
-        lines.append(get_text('broadcast.report_ids', language, ids=f"{shown}{tail}"))
+        lines.append(get_text("broadcast.report_ids", language, ids=f"{shown}{tail}"))
     return "\n".join(lines)
 
 
 def _confirm_keyboard() -> InlineKeyboardMarkup:
     language = Language.RUSSIAN
-    return InlineKeyboardMarkup([[
-        InlineKeyboardButton(
-            get_text('broadcast.send_button', language), callback_data=CONFIRM
-        ),
-        InlineKeyboardButton(
-            get_text('broadcast.cancel_button', language), callback_data=CANCEL
-        ),
-    ]])
+    return InlineKeyboardMarkup(
+        [
+            [
+                InlineKeyboardButton(
+                    get_text("broadcast.send_button", language), callback_data=CONFIRM
+                ),
+                InlineKeyboardButton(
+                    get_text("broadcast.cancel_button", language), callback_data=CANCEL
+                ),
+            ]
+        ]
+    )
 
 
 async def _reply(query: Any, user_id: int, bot: Any, text: str) -> None:
@@ -283,9 +293,7 @@ async def _replace(query: Any, user_id: int, bot: Any, text: str) -> None:
         await _reply(query, user_id, bot, text)
 
 
-async def broadcast_command(
-    update: Update, context: ContextTypes.DEFAULT_TYPE
-) -> None:
+async def broadcast_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """`/broadcast`: ask the admin for the message to send.
 
     A non-admin gets silence rather than a refusal: there is nothing to be
@@ -301,12 +309,10 @@ async def broadcast_command(
 
     context.user_data[_AWAITING] = True
     context.user_data.pop(_PREVIEW, None)
-    await message.reply_text(get_text('broadcast.ask', Language.RUSSIAN))
+    await message.reply_text(get_text("broadcast.ask", Language.RUSSIAN))
 
 
-async def broadcast_cancel_command(
-    update: Update, context: ContextTypes.DEFAULT_TYPE
-) -> None:
+async def broadcast_cancel_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """`/cancel`: forget a broadcast that was being composed.
 
     Needed because the capture below stays armed until something disarms
@@ -322,14 +328,11 @@ async def broadcast_cancel_command(
 
     was_awaiting = bool(context.user_data.pop(_AWAITING, False))
     had_preview = context.user_data.pop(_PREVIEW, None) is not None
-    key = 'broadcast.cancelled' if (was_awaiting or had_preview) \
-        else 'broadcast.nothing_to_cancel'
+    key = "broadcast.cancelled" if (was_awaiting or had_preview) else "broadcast.nothing_to_cancel"
     await message.reply_text(get_text(key, Language.RUSSIAN))
 
 
-async def broadcast_message(
-    update: Update, context: ContextTypes.DEFAULT_TYPE
-) -> None:
+async def broadcast_message(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """The admin's next message after `/broadcast`: show it back, then ask.
 
     The draft is never re-typed or re-uploaded — the preview and every copy
@@ -352,7 +355,7 @@ async def broadcast_message(
         # than after the admin has confirmed.
         logger.error(f"Broadcast: could not read the recipient list: {e}")
         context.user_data.pop(_AWAITING, None)
-        await message.reply_text(get_text('broadcast.error', Language.RUSSIAN))
+        await message.reply_text(get_text("broadcast.error", Language.RUSSIAN))
         return
 
     context.user_data[_AWAITING] = False
@@ -365,14 +368,12 @@ async def broadcast_message(
         reply_markup=app_keyboard(),
     )
     await message.reply_text(
-        get_text('broadcast.preview', Language.RUSSIAN, total=total),
+        get_text("broadcast.preview", Language.RUSSIAN, total=total),
         reply_markup=_confirm_keyboard(),
     )
 
 
-async def broadcast_callback(
-    update: Update, context: ContextTypes.DEFAULT_TYPE
-) -> None:
+async def broadcast_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """The two buttons under the preview.
 
     Registered ahead of the game's own callback handler and matched on a
@@ -400,7 +401,7 @@ async def broadcast_callback(
     if query.data == CANCEL:
         context.user_data.pop(_AWAITING, None)
         context.user_data.pop(_PREVIEW, None)
-        await _replace(query, user.id, bot, get_text('broadcast.cancelled', language))
+        await _replace(query, user.id, bot, get_text("broadcast.cancelled", language))
         return
 
     preview = context.user_data.pop(_PREVIEW, None)
@@ -409,12 +410,12 @@ async def broadcast_callback(
         # draft and tapping «Отправить» loses it, and without this the
         # button would sit there doing nothing at all — which reads as a
         # broadcast that silently did not go.
-        await _replace(query, user.id, bot, get_text('broadcast.stale', language))
+        await _replace(query, user.id, bot, get_text("broadcast.stale", language))
         return
 
     from_chat_id, message_id = preview
     context.user_data.pop(_AWAITING, None)
-    await _replace(query, user.id, bot, get_text('broadcast.started', language))
+    await _replace(query, user.id, bot, get_text("broadcast.started", language))
 
     keyboard = app_keyboard()
 
@@ -428,7 +429,7 @@ async def broadcast_callback(
 
     async def progress(done: int, total: int) -> None:
         await query.edit_message_text(
-            get_text('broadcast.progress', language, done=done, total=total)
+            get_text("broadcast.progress", language, done=done, total=total)
         )
 
     report = await run(send, on_progress=progress)

@@ -56,14 +56,24 @@ def build(name: str, telegram_user_id: int, product_id: int) -> bytes:
 
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__.split("\n")[0])
-    parser.add_argument("name", nargs="?", default="new_digital_product",
-                        help="event name (new_digital_product, cancelled_subscription, ...)")
+    parser.add_argument(
+        "name",
+        nargs="?",
+        default="new_digital_product",
+        help="event name (new_digital_product, cancelled_subscription, ...)",
+    )
     parser.add_argument("--user", type=int, default=123456789, help="telegram_user_id")
     parser.add_argument("--product", type=int, default=1, help="product_id")
-    parser.add_argument("--bad-signature", action="store_true",
-                        help="sign with a wrong key; the server must answer 401")
-    parser.add_argument("--url", default=WEBHOOK_URL,
-                        help="where to send it (default: $WEBHOOK_URL, else a local server)")
+    parser.add_argument(
+        "--bad-signature",
+        action="store_true",
+        help="sign with a wrong key; the server must answer 401",
+    )
+    parser.add_argument(
+        "--url",
+        default=WEBHOOK_URL,
+        help="where to send it (default: $WEBHOOK_URL, else a local server)",
+    )
     args = parser.parse_args()
 
     body = build(args.name, args.user, args.product)

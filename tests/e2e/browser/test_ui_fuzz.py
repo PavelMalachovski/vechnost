@@ -64,7 +64,7 @@ LOADER_LIMIT_MS = 10_000
 # The server allows ten joins in five minutes per person (throttle.py), and
 # every opening of an invite is a join: one every half minute stays inside it.
 INVITE_EVERY_S = 30.0
-SETTLE_S = 9.0          # three or four polls
+SETTLE_S = 9.0  # three or four polls
 POLL = 15_000
 YOUR_TURN = "✨ Твой ход"
 # A state poll: GET /api/<feature>/<CODE>, which only a participant sends.
@@ -74,22 +74,44 @@ CODE = r"[A-Z2-9]{6,16}"
 # The 4xx the app asks for knowing it may hear them, and handles: anything
 # else is a failure. (method, path, statuses, why)
 EXPECTED: list[tuple[str, re.Pattern[str], frozenset[int], str]] = [
-    (m, re.compile(p), frozenset(s), why) for m, p, s, why in [
+    (m, re.compile(p), frozenset(s), why)
+    for m, p, s, why in [
         ("GET", r"^/api/steps69/mine\b", {404}, "no board in play (audit D-37)"),
         ("GET", r"^/api/compat/mine\b", {404}, "no finished test yet"),
         ("POST", r"^/api/(steps69|compat)(\?|$)", {402}, "an unpaid partner starts a paid feature"),
         ("POST", rf"^/api/rooms/{CODE}/join\b", {403}, "an 18+ room, before the age answer"),
-        ("POST", rf"^/api/(rooms|compat|steps69)/{CODE}/join\b", {404, 409, 410},
-         "the invite is stale: the seat is taken, or the partner deleted it"),
-        ("POST", rf"^/api/rooms/{CODE}/advance\b", {403, 409},
-         "a tap that crossed the partner's turn or the deck's end"),
-        ("POST", rf"^/api/steps69/{CODE}/roll\b", {403, 409},
-         "a roll that crossed the partner's turn or the finish"),
+        (
+            "POST",
+            rf"^/api/(rooms|compat|steps69)/{CODE}/join\b",
+            {404, 409, 410},
+            "the invite is stale: the seat is taken, or the partner deleted it",
+        ),
+        (
+            "POST",
+            rf"^/api/rooms/{CODE}/advance\b",
+            {403, 409},
+            "a tap that crossed the partner's turn or the deck's end",
+        ),
+        (
+            "POST",
+            rf"^/api/steps69/{CODE}/roll\b",
+            {403, 409},
+            "a roll that crossed the partner's turn or the finish",
+        ),
         ("POST", rf"^/api/steps69/{CODE}/finale\b", {409}, "the partner chose the finale first"),
         ("POST", rf"^/api/compat/{CODE}/answer\b", {409}, "an answer after the test was complete"),
-        ("GET", rf"^/api/(rooms|compat|steps69)/{CODE}(/board|/result)?(\?|$)", {404, 410},
-         "the partner deleted it"),
-        ("DELETE", rf"^/api/(compat|steps69)/{CODE}(\?|$)", {404, 410}, "already deleted by the partner"),
+        (
+            "GET",
+            rf"^/api/(rooms|compat|steps69)/{CODE}(/board|/result)?(\?|$)",
+            {404, 410},
+            "the partner deleted it",
+        ),
+        (
+            "DELETE",
+            rf"^/api/(compat|steps69)/{CODE}(\?|$)",
+            {404, 410},
+            "already deleted by the partner",
+        ),
         ("GET", r"^/api/card\?", {403}, "an unpaid partner shares a card outside a room"),
     ]
 ]
@@ -253,7 +275,7 @@ class UiFuzz:
         if request.method != "GET":
             return
         path = request.url.split("://", 1)[-1]
-        path = path[path.find("/"):]
+        path = path[path.find("/") :]
         match = STATE_POLL.search(path)
         if match:
             self.games[name] = (match.group(1), match.group(2))
@@ -281,11 +303,24 @@ class UiFuzz:
     def save(self, failed: str | None = None) -> None:
         REPORT_DIR.mkdir(parents=True, exist_ok=True)
         name = f"ui_fuzz_{self.device.name}_{self.arena}_{self.seed}.json"
-        (REPORT_DIR / name).write_text(json.dumps({
-            "seed": self.seed, "arena": self.arena, "phone": self.device.name,
-            "steps": STEPS, "failed": failed, "actions": dict(self.counts),
-            "screens": dict(self.screens), "api": dict(self.statuses), "log": self.log,
-        }, ensure_ascii=False, indent=2), encoding="utf-8")
+        (REPORT_DIR / name).write_text(
+            json.dumps(
+                {
+                    "seed": self.seed,
+                    "arena": self.arena,
+                    "phone": self.device.name,
+                    "steps": STEPS,
+                    "failed": failed,
+                    "actions": dict(self.counts),
+                    "screens": dict(self.screens),
+                    "api": dict(self.statuses),
+                    "log": self.log,
+                },
+                ensure_ascii=False,
+                indent=2,
+            ),
+            encoding="utf-8",
+        )
 
     # -- the evening ---------------------------------------------------------
 
@@ -337,7 +372,9 @@ class UiFuzz:
         # back, or come back through the link.
         home = seen["screen"] in ARENA_SCREENS[self.arena] and not seen["overlay"]
         options: list[tuple[str, float]] = [
-            ("tap", 12), ("wait", 2 if home else 1), ("reopen", 0.5 if home else 1),
+            ("tap", 12),
+            ("wait", 2 if home else 1),
+            ("reopen", 0.5 if home else 1),
         ]
         if seen["card"] and not seen["overlay"]:
             options.append(("swipe", 4))
@@ -370,7 +407,9 @@ class UiFuzz:
             x, y, width, _ = box
             direction = self.rng.choice((1, -1))
             self.say(f"{name} on {where}: swipe {'right' if direction > 0 else 'left'}")
-            phone.finger.drag((x - direction * width * 0.3, y), (x + direction * width * 0.45, y + 6))
+            phone.finger.drag(
+                (x - direction * width * 0.3, y), (x + direction * width * 0.45, y + 6)
+            )
         elif kind == "scroll":
             index = self.rng.randrange(len(seen["scrollers"]))
             aim = phone.page.evaluate(AIM, ["scroll", index])
@@ -378,8 +417,9 @@ class UiFuzz:
                 self.say(f"{name} on {where}: {seen['scrollers'][index]} is out of reach, skipped")
                 return
             dy = self.rng.choice((1, -1)) * max(40.0, aim[2] * 0.5)
-            self.say(f"{name} on {where}: scroll {seen['scrollers'][index]} "
-                     f"{'down' if dy > 0 else 'up'}")
+            self.say(
+                f"{name} on {where}: scroll {seen['scrollers'][index]} {'down' if dy > 0 else 'up'}"
+            )
             phone.finger.scroll(aim[0], aim[1], dy)
         elif kind == "back":
             self.say(f"{name} on {where}: Telegram's Back button")
@@ -400,7 +440,9 @@ class UiFuzz:
 
     # -- invariants ----------------------------------------------------------
 
-    def check(self, kind: str, actor: str | None = None, layer: dict[str, Any] | None = None) -> None:
+    def check(
+        self, kind: str, actor: str | None = None, layer: dict[str, Any] | None = None
+    ) -> None:
         for name, phone in self.phones.items():
             try:
                 phone.page.wait_for_selector(
@@ -423,11 +465,13 @@ class UiFuzz:
 
     def api(self, name: str, phone: Phone, *, navigated: bool) -> None:
         """Every /api call since the last check came back as the app expects."""
-        calls = phone.api[self.seen_api[name]:]
+        calls = phone.api[self.seen_api[name] :]
         self.seen_api[name] = len(phone.api)
         for call in calls:
-            self.statuses[f"{call.method} {re.sub(CODE, '{code}', call.path.split('?')[0])} "
-                          f"{call.status or 'failed'}"] += 1
+            self.statuses[
+                f"{call.method} {re.sub(CODE, '{code}', call.path.split('?')[0])} "
+                f"{call.status or 'failed'}"
+            ] += 1
             if call.status and call.status < 400:
                 continue
             if call.status == 0 and navigated:
@@ -465,7 +509,9 @@ class UiFuzz:
             on_it = all(
                 phone.page.evaluate(
                     "(s) => !!document.querySelector('section#' + s + '.active')"
-                    " && !document.querySelector('.overlay.show')", screen)
+                    " && !document.querySelector('.overlay.show')",
+                    screen,
+                )
                 for phone in self.phones.values()
             )
             if not on_it:
@@ -517,14 +563,23 @@ class UiFuzz:
             if got["rolling"]:
                 return f"{name}'s dice are still rolling"
             if got["mine"] != st["you"]["position"] or got["theirs"] != st["partner"]["position"]:
-                return (f"{name} sees their piece on {got['mine']} and the partner's on "
-                        f"{got['theirs']}; the board has {st['you']['position']} and "
-                        f"{st['partner']['position']}")
-            yours = (st["your_turn"] and st["started"] and not st["finished"]
-                     and not st["both_home"] and not st["you"]["home"])
+                return (
+                    f"{name} sees their piece on {got['mine']} and the partner's on "
+                    f"{got['theirs']}; the board has {st['you']['position']} and "
+                    f"{st['partner']['position']}"
+                )
+            yours = (
+                st["your_turn"]
+                and st["started"]
+                and not st["finished"]
+                and not st["both_home"]
+                and not st["you"]["home"]
+            )
             if (got["chip"] == YOUR_TURN) != bool(yours):
-                return (f"{name}'s turn chip reads {got['chip']!r}; the board says "
-                        f"{'' if yours else 'not '}their turn")
+                return (
+                    f"{name}'s turn chip reads {got['chip']!r}; the board says "
+                    f"{'' if yours else 'not '}their turn"
+                )
         return ""
 
     def _differ_compat(self, states: dict[str, dict[str, Any]]) -> str:
@@ -550,10 +605,14 @@ class UiFuzz:
                 if layer["screen"] == "home" and not layer["overlay"]:
                     break
                 if not phone.back_button_visible():
-                    self.fail(f"{name} is on #{layer['overlay'] or layer['screen']} "
-                              "and Telegram shows no Back button")
-                self.say(f"{name} on {layer['overlay'] or layer['screen']}: "
-                         "Telegram's Back button, on the way home")
+                    self.fail(
+                        f"{name} is on #{layer['overlay'] or layer['screen']} "
+                        "and Telegram shows no Back button"
+                    )
+                self.say(
+                    f"{name} on {layer['overlay'] or layer['screen']}: "
+                    "Telegram's Back button, on the way home"
+                )
                 phone.press_back()
                 phone.page.wait_for_timeout(500)
                 self.check("back", name, layer)
@@ -578,7 +637,10 @@ def test_two_phones_survive_a_random_evening(
     alice = server.player("Alice", paid=True)
     bob = server.player("Bob")
     fuzz = UiFuzz(
-        rng, seed, arena, device,
+        rng,
+        seed,
+        arena,
+        device,
         phones={"Alice": phones(alice), "Bob": phones(bob)},
         players={"Alice": alice, "Bob": bob},
     )

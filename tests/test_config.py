@@ -48,7 +48,7 @@ class TestSettings:
             "CHAT_ID": "12345",
             "SENTRY_DSN": "https://sentry.io/project",
             "MAX_CONNECTIONS": "50",
-            "SESSION_TTL": "7200"
+            "SESSION_TTL": "7200",
         }
 
         with patch.dict(os.environ, env_vars):
@@ -75,19 +75,17 @@ class TestSettings:
 
     def test_redis_dsn_validation(self):
         """Test Redis DSN validation."""
-        with patch.dict(os.environ, {
-            "TELEGRAM_BOT_TOKEN": "test_token",
-            "REDIS_URL": "invalid-url"
-        }):
+        with patch.dict(
+            os.environ, {"TELEGRAM_BOT_TOKEN": "test_token", "REDIS_URL": "invalid-url"}
+        ):
             with pytest.raises(ValueError):
                 Settings()
 
     def test_numeric_validation(self):
         """Test numeric field validation."""
-        with patch.dict(os.environ, {
-            "TELEGRAM_BOT_TOKEN": "test_token",
-            "REDIS_DB": "invalid_number"
-        }):
+        with patch.dict(
+            os.environ, {"TELEGRAM_BOT_TOKEN": "test_token", "REDIS_DB": "invalid_number"}
+        ):
             with pytest.raises(ValueError):
                 Settings()
 
@@ -95,7 +93,7 @@ class TestSettings:
 class TestConfigFunctions:
     """Test configuration utility functions."""
 
-    @patch('vechnost_bot.config.settings')
+    @patch("vechnost_bot.config.settings")
     def test_create_bot(self, mock_settings):
         """Test bot creation."""
         mock_settings.telegram_bot_token = "test_token"
@@ -104,7 +102,7 @@ class TestConfigFunctions:
 
         assert bot.token == "test_token"
 
-    @patch('vechnost_bot.config.settings')
+    @patch("vechnost_bot.config.settings")
     def test_get_log_level(self, mock_settings):
         """Test log level retrieval."""
         mock_settings.log_level = "DEBUG"
@@ -113,7 +111,7 @@ class TestConfigFunctions:
 
         assert level == "DEBUG"
 
-    @patch('vechnost_bot.config.settings')
+    @patch("vechnost_bot.config.settings")
     def test_get_chat_id(self, mock_settings):
         """Test chat ID retrieval."""
         mock_settings.chat_id = "12345"
@@ -122,7 +120,7 @@ class TestConfigFunctions:
 
         assert chat_id == "12345"
 
-    @patch('vechnost_bot.config.settings')
+    @patch("vechnost_bot.config.settings")
     def test_get_chat_id_none(self, mock_settings):
         """Test chat ID retrieval when None."""
         mock_settings.chat_id = None
@@ -192,7 +190,9 @@ class TestProductionSettings:
         message = self._refusal(TRIBUTE_API_KEY=None)
         assert "TRIBUTE_API_KEY" in message
 
-    @pytest.mark.parametrize("url", ["http://vechnost.example/app/", "vechnost.example/app", "https://"])
+    @pytest.mark.parametrize(
+        "url", ["http://vechnost.example/app/", "vechnost.example/app", "https://"]
+    )
     def test_a_mini_app_url_that_is_not_https_is_refused(self, url):
         assert "WEBAPP_URL must be an https:// address" in self._refusal(WEBAPP_URL=url)
 
@@ -260,7 +260,7 @@ class TestSettingsIntegration:
         env_vars = {
             "telegram_bot_token": "lowercase_token",
             "LOG_LEVEL": "ERROR",
-            "environment": "staging"
+            "environment": "staging",
         }
 
         with patch.dict(os.environ, env_vars):
@@ -272,9 +272,7 @@ class TestSettingsIntegration:
 
     def test_settings_validation_alias(self):
         """Test validation alias for telegram token."""
-        env_vars = {
-            "TELEGRAM_BOT_TOKEN": "alias_token"
-        }
+        env_vars = {"TELEGRAM_BOT_TOKEN": "alias_token"}
 
         with patch.dict(os.environ, env_vars):
             settings = Settings()
@@ -292,7 +290,7 @@ class TestSettingsPerformance:
         env_vars = {
             "TELEGRAM_BOT_TOKEN": "perf_token",
             "LOG_LEVEL": "INFO",
-            "REDIS_URL": "redis://localhost:6379"
+            "REDIS_URL": "redis://localhost:6379",
         }
 
         with patch.dict(os.environ, env_vars):
@@ -308,10 +306,7 @@ class TestSettingsPerformance:
         """Test settings memory usage."""
         import sys
 
-        env_vars = {
-            "TELEGRAM_BOT_TOKEN": "memory_token",
-            "LOG_LEVEL": "INFO"
-        }
+        env_vars = {"TELEGRAM_BOT_TOKEN": "memory_token", "LOG_LEVEL": "INFO"}
 
         with patch.dict(os.environ, env_vars):
             settings = Settings()
@@ -326,10 +321,7 @@ class TestSettingsErrorHandling:
 
     def test_invalid_redis_url(self):
         """Test invalid Redis URL handling."""
-        env_vars = {
-            "TELEGRAM_BOT_TOKEN": "test_token",
-            "REDIS_URL": "not-a-valid-redis-url"
-        }
+        env_vars = {"TELEGRAM_BOT_TOKEN": "test_token", "REDIS_URL": "not-a-valid-redis-url"}
 
         with patch.dict(os.environ, env_vars):
             with pytest.raises(ValueError):
@@ -340,14 +332,11 @@ class TestSettingsErrorHandling:
         test_cases = [
             ("REDIS_DB", "not_a_number"),
             ("MAX_CONNECTIONS", "invalid"),
-            ("SESSION_TTL", "also_invalid")
+            ("SESSION_TTL", "also_invalid"),
         ]
 
         for env_var, invalid_value in test_cases:
-            env_vars = {
-                "TELEGRAM_BOT_TOKEN": "test_token",
-                env_var: invalid_value
-            }
+            env_vars = {"TELEGRAM_BOT_TOKEN": "test_token", env_var: invalid_value}
 
             with patch.dict(os.environ, env_vars):
                 with pytest.raises(ValueError):

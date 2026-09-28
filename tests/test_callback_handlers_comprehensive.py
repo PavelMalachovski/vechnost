@@ -66,9 +66,10 @@ class TestCallbackHandlerRegistry:
     @pytest.mark.asyncio
     async def test_handle_callback_success(self, registry, mock_query, mock_session):
         """Test successful callback handling."""
-        with patch('vechnost_bot.callback_handlers.get_session') as mock_get_session, \
-             patch('vechnost_bot.callback_handlers.CallbackData.parse') as mock_parse:
-
+        with (
+            patch("vechnost_bot.callback_handlers.get_session") as mock_get_session,
+            patch("vechnost_bot.callback_handlers.CallbackData.parse") as mock_parse,
+        ):
             mock_get_session.return_value = mock_session
             mock_callback_data = MagicMock()
             mock_callback_data.action = CallbackAction.THEME
@@ -81,10 +82,11 @@ class TestCallbackHandlerRegistry:
     @pytest.mark.asyncio
     async def test_handle_callback_invalid_data(self, registry, mock_query):
         """Test callback handling with invalid data."""
-        with patch('vechnost_bot.callback_handlers.get_session') as mock_get_session, \
-             patch('vechnost_bot.callback_handlers.CallbackData.parse') as mock_parse, \
-             patch('vechnost_bot.callback_handlers.get_text') as mock_get_text:
-
+        with (
+            patch("vechnost_bot.callback_handlers.get_session") as mock_get_session,
+            patch("vechnost_bot.callback_handlers.CallbackData.parse") as mock_parse,
+            patch("vechnost_bot.callback_handlers.get_text") as mock_get_text,
+        ):
             mock_session = MagicMock(spec=SessionState)
             mock_session.language = Language.RUSSIAN
             mock_get_session.return_value = mock_session
@@ -98,10 +100,11 @@ class TestCallbackHandlerRegistry:
     @pytest.mark.asyncio
     async def test_handle_callback_no_handler(self, registry, mock_query, mock_session):
         """Test callback handling with no handler."""
-        with patch('vechnost_bot.callback_handlers.get_session') as mock_get_session, \
-             patch('vechnost_bot.callback_handlers.CallbackData.parse') as mock_parse, \
-             patch('vechnost_bot.callback_handlers.get_text') as mock_get_text:
-
+        with (
+            patch("vechnost_bot.callback_handlers.get_session") as mock_get_session,
+            patch("vechnost_bot.callback_handlers.CallbackData.parse") as mock_parse,
+            patch("vechnost_bot.callback_handlers.get_text") as mock_get_text,
+        ):
             mock_get_session.return_value = mock_session
             mock_callback_data = MagicMock()
             mock_callback_data.action = "unknown_action"
@@ -119,7 +122,7 @@ class TestCallbackHandlerRegistry:
         It used to re-read the session only to pick a language, so it failed
         the same way and every button went silently dead.
         """
-        with patch('vechnost_bot.callback_handlers.get_session') as mock_get_session:
+        with patch("vechnost_bot.callback_handlers.get_session") as mock_get_session:
             mock_get_session.side_effect = Exception("storage is down")
 
             await registry.handle_callback(mock_query, "theme_Acquaintance")
@@ -133,7 +136,7 @@ class TestCallbackHandlerRegistry:
         mock_query.edit_message_text.side_effect = Exception("message is gone")
         mock_query.message.reply_text = AsyncMock(side_effect=Exception("chat is gone"))
 
-        with patch('vechnost_bot.callback_handlers.get_session') as mock_get_session:
+        with patch("vechnost_bot.callback_handlers.get_session") as mock_get_session:
             mock_get_session.side_effect = Exception("storage is down")
 
             await registry.handle_callback(mock_query, "theme_Acquaintance")
@@ -285,9 +288,7 @@ class TestLevelHandler:
     @pytest.mark.asyncio
     async def test_handle_level_selection(self, handler, mock_query, session):
         """Picking a level opens that level's calendar."""
-        callback_data = LevelCallbackData(
-            action=CallbackAction.LEVEL, raw_data="level_1", level=1
-        )
+        callback_data = LevelCallbackData(action=CallbackAction.LEVEL, raw_data="level_1", level=1)
 
         await handler.handle(mock_query, callback_data, session)
 
@@ -300,9 +301,7 @@ class TestLevelHandler:
     async def test_level_without_a_theme_is_refused(self, handler, mock_query):
         """A stale button from a reset session must not open a calendar."""
         session = SessionState(language=Language.RUSSIAN)
-        callback_data = LevelCallbackData(
-            action=CallbackAction.LEVEL, raw_data="level_1", level=1
-        )
+        callback_data = LevelCallbackData(action=CallbackAction.LEVEL, raw_data="level_1", level=1)
 
         await handler.handle(mock_query, callback_data, session)
 
@@ -381,9 +380,7 @@ class TestQuestionHandler:
         assert "nav:acq:1:1:q" in targets
 
     @pytest.mark.asyncio
-    async def test_an_index_past_the_deck_is_refused(
-        self, handler, mock_query, session
-    ):
+    async def test_an_index_past_the_deck_is_refused(self, handler, mock_query, session):
         callback_data = QuestionCallbackData.parse("q:acq:1:9999")
 
         await handler.handle(mock_query, callback_data, session)
@@ -405,7 +402,9 @@ class TestQuestionHandler:
     async def test_the_last_card_offers_no_next(self, handler, mock_query, session):
         from vechnost_bot.logic import localized_game_data
 
-        last = len(localized_game_data.get_content(Theme.ACQUAINTANCE, 1, ContentType.QUESTIONS)) - 1
+        last = (
+            len(localized_game_data.get_content(Theme.ACQUAINTANCE, 1, ContentType.QUESTIONS)) - 1
+        )
         callback_data = QuestionCallbackData.parse(f"q:acq:1:{last}")
 
         await handler.handle(mock_query, callback_data, session)
@@ -468,9 +467,7 @@ class TestToggleHandler:
         )
 
     @pytest.mark.asyncio
-    async def test_handle_toggle_questions_to_tasks(
-        self, handler, mock_query, session
-    ):
+    async def test_handle_toggle_questions_to_tasks(self, handler, mock_query, session):
         """The toggle switches the deck and redraws the calendar on it."""
         callback_data = ToggleCallbackData.parse("toggle:sex:0:t")
 
@@ -509,9 +506,7 @@ class TestBackHandler:
 
     @pytest.fixture
     def session(self):
-        return SessionState(
-            language=Language.RUSSIAN, theme=Theme.ACQUAINTANCE, level=1
-        )
+        return SessionState(language=Language.RUSSIAN, theme=Theme.ACQUAINTANCE, level=1)
 
     @pytest.mark.asyncio
     async def test_handle_back_to_themes(self, handler, mock_query, session):
@@ -532,9 +527,7 @@ class TestBackHandler:
         assert any(t.startswith("q:acq:1:") for t in targets)
 
     @pytest.mark.asyncio
-    async def test_back_without_a_theme_lands_on_the_themes(
-        self, handler, mock_query
-    ):
+    async def test_back_without_a_theme_lands_on_the_themes(self, handler, mock_query):
         """Every destination needs a theme; without one, go up, not nowhere."""
         session = SessionState(language=Language.RUSSIAN)
         callback_data = BackCallbackData.parse("back:calendar")
@@ -644,7 +637,7 @@ class TestWelcomeScreen:
         configured.webapp_url = "https://example.test/app"
         configured.gift_product_id = "gift-1"
 
-        with patch('vechnost_bot.callback_handlers.settings', configured):
+        with patch("vechnost_bot.callback_handlers.settings", configured):
             _, keyboard = welcome_screen(language)
 
         # show_gift is only ever rendered here; losing it strands ShowGiftHandler.
@@ -674,7 +667,7 @@ class TestWelcomeScreen:
         bare.gift_product_id = ""
         bare.gift_payment_url = ""
 
-        with patch('vechnost_bot.callback_handlers.settings', bare):
+        with patch("vechnost_bot.callback_handlers.settings", bare):
             _, keyboard = welcome_screen(language)
 
         assert self._targets(keyboard) == ["start_game", "show_inside", "show_why"]
@@ -691,9 +684,7 @@ class TestWelcomeScreen:
         parsed = CallbackData.parse(data)
 
         assert parsed.action == CallbackAction.LANGUAGE
-        assert isinstance(
-            CallbackHandlerRegistry()._handlers[parsed.action], LanguageHandler
-        )
+        assert isinstance(CallbackHandlerRegistry()._handlers[parsed.action], LanguageHandler)
         assert Language.coerce(parsed.language_code) is Language.RUSSIAN
 
     @pytest.mark.parametrize("language", list(Language))
@@ -733,9 +724,7 @@ class TestSimpleActionHandler:
         assert any(t.startswith("q:sex:") for t in targets)
 
     @pytest.mark.asyncio
-    async def test_nsfw_confirm_on_a_levelled_theme_shows_its_levels(
-        self, handler, mock_query
-    ):
+    async def test_nsfw_confirm_on_a_levelled_theme_shows_its_levels(self, handler, mock_query):
         """The branch for an NSFW theme that has levels.
 
         Sex is the only NSFW theme today and it has no levels, so nothing

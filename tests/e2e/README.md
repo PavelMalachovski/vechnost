@@ -235,8 +235,8 @@ server and one database without seeing each other.
 
 ```python
 def test_something_two_people_do(server):
-    alice = server.player("Alice", paid=True)   # bought access via a signed webhook
-    bob = server.player("Bob")                  # did not
+    alice = server.player("Alice", paid=True)  # bought access via a signed webhook
+    bob = server.player("Bob")  # did not
     code = alice.ok("POST", "/api/compat")["code"]
     bob.ok("POST", f"/api/compat/{code}/join")
     assert bob.status("GET", "/api/compat/NOPE") == 404

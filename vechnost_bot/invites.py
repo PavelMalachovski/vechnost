@@ -63,10 +63,7 @@ def new_code() -> str:
 
 def valid_code(code: str) -> bool:
     """Whether this could be one of our codes, new or legacy."""
-    return (
-        LEGACY_CODE_LENGTH <= len(code) <= CODE_LENGTH
-        and set(code) <= _CODE_ALPHABET
-    )
+    return LEGACY_CODE_LENGTH <= len(code) <= CODE_LENGTH and set(code) <= _CODE_ALPHABET
 
 
 # Kept as the private name the module used before `valid_code` was public.

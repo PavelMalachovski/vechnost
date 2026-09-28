@@ -59,10 +59,15 @@ def test_inside_telegram_there_is_one_back(server: Server, phones) -> None:
     phone.screen("home")
     phone.page.click("#btnPlay")
     phone.screen("themes")
-    assert phone.page.evaluate(
-        "() => getComputedStyle(document.getElementById('backHome')).visibility") == "hidden"
+    assert (
+        phone.page.evaluate(
+            "() => getComputedStyle(document.getElementById('backHome')).visibility"
+        )
+        == "hidden"
+    )
     size = phone.page.evaluate(
-        "() => { const r = document.getElementById('btnPlay').getBoundingClientRect(); return r.height; }")
+        "() => { const r = document.getElementById('btnPlay').getBoundingClientRect(); return r.height; }"
+    )
     assert size >= 44
     press_back(phone)
     phone.screen("home")
@@ -87,31 +92,40 @@ def test_an_answer_can_be_changed_until_both_have_finished(server: Server, phone
 
     phone = phones(alice, start_param=f"cmp_{test['code']}")
     phone.screen("compatQuiz")
-    assert not phone.page.is_visible("#compatPrev") or phone.page.evaluate(
-        "() => getComputedStyle(document.getElementById('compatPrev')).visibility") == "hidden"
+    assert (
+        not phone.page.is_visible("#compatPrev")
+        or phone.page.evaluate(
+            "() => getComputedStyle(document.getElementById('compatPrev')).visibility"
+        )
+        == "hidden"
+    )
 
     options = "#compatScale .compat-opt"
-    phone.page.locator(options).nth(3).click()          # question 1: «Скорее да»
+    phone.page.locator(options).nth(3).click()  # question 1: «Скорее да»
     phone.page.wait_for_function(
-        "() => document.getElementById('compatProgressNum').innerText.trim().startsWith('2 /')")
+        "() => document.getElementById('compatProgressNum').innerText.trim().startsWith('2 /')"
+    )
     phone.page.wait_for_selector(f"{options}:not([disabled])")
-    phone.page.locator(options).nth(1).click()          # question 2: «Скорее нет»
+    phone.page.locator(options).nth(1).click()  # question 2: «Скорее нет»
     phone.page.wait_for_function(
-        "() => document.getElementById('compatProgressNum').innerText.trim().startsWith('3 /')")
+        "() => document.getElementById('compatProgressNum').innerText.trim().startsWith('3 /')"
+    )
     phone.page.wait_for_selector("#compatPrev:not([disabled])")
 
     phone.page.click("#compatPrev")
     phone.page.wait_for_function(
-        "() => document.getElementById('compatProgressNum').innerText.trim().startsWith('2 /')")
+        "() => document.getElementById('compatProgressNum').innerText.trim().startsWith('2 /')"
+    )
     checked = phone.page.locator(f'{options}[aria-checked="true"]')
     assert checked.count() == 1 and checked.first.get_attribute("data-value") == "2"
     phone.shot("compat-back-one")
 
     with phone.page.expect_request(lambda r: "/answer" in r.url and r.method == "POST") as sent:
-        phone.page.locator(options).nth(4).click()      # changed: «Полностью да»
+        phone.page.locator(options).nth(4).click()  # changed: «Полностью да»
     assert json.loads(sent.value.post_data) == {"index": 1, "value": 5}
     phone.page.wait_for_function(
-        "() => document.getElementById('compatProgressNum').innerText.trim().startsWith('3 /')")
+        "() => document.getElementById('compatProgressNum').innerText.trim().startsWith('3 /')"
+    )
     assert alice.ok("GET", f"/api/compat/{test['code']}")["answered_indices"] == [0, 1]
 
 
@@ -133,16 +147,19 @@ def test_the_masterclass_puts_the_drawing_above_the_words_on_a_narrow_phone(
     phone.page.set_viewport_size({"width": 320, "height": 568})
     _open_masterclass(phone)
     columns = phone.page.evaluate(
-        "() => getComputedStyle(document.querySelector('#guide .guide-item')).gridTemplateColumns")
+        "() => getComputedStyle(document.querySelector('#guide .guide-item')).gridTemplateColumns"
+    )
     assert len(columns.split()) == 1, columns
     words = phone.page.evaluate(
-        "() => document.querySelector('#guide .guide-item-text').getBoundingClientRect().width")
+        "() => document.querySelector('#guide .guide-item-text').getBoundingClientRect().width"
+    )
     assert words > 220
     phone.shot("masterclass-320")
 
     phone.page.set_viewport_size({"width": 390, "height": 844})
     columns = phone.page.evaluate(
-        "() => getComputedStyle(document.querySelector('#guide .guide-item')).gridTemplateColumns")
+        "() => getComputedStyle(document.querySelector('#guide .guide-item')).gridTemplateColumns"
+    )
     assert columns.split()[0] == "136px", columns
 
 

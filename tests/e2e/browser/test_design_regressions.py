@@ -19,6 +19,7 @@ def _luminance(rgb: tuple[float, ...]) -> float:
     def channel(c: float) -> float:
         c /= 255
         return c / 12.92 if c <= 0.03928 else ((c + 0.055) / 1.055) ** 2.4
+
     r, g, b = (channel(c) for c in rgb[:3])
     return 0.2126 * r + 0.7152 * g + 0.0722 * b
 
@@ -29,14 +30,15 @@ def _contrast(a: tuple[float, ...], b: tuple[float, ...]) -> float:
 
 
 def _rgb(css: str) -> tuple[float, ...]:
-    inside = css[css.index("(") + 1: css.index(")")]
+    inside = css[css.index("(") + 1 : css.index(")")]
     return tuple(float(part) for part in inside.replace("/", ",").split(",")[:4])
 
 
 def _style(page: Any, html: str, selector: str, prop: str) -> str:
     """Mount `html` in the page, read one computed property of `selector`."""
-    return str(page.evaluate(
-        """([html, selector, prop]) => {
+    return str(
+        page.evaluate(
+            """([html, selector, prop]) => {
             const box = document.createElement('div');
             box.innerHTML = html;
             document.body.appendChild(box);
@@ -44,8 +46,9 @@ def _style(page: Any, html: str, selector: str, prop: str) -> str:
             box.remove();
             return value;
         }""",
-        [html, selector, prop],
-    ))
+            [html, selector, prop],
+        )
+    )
 
 
 def test_a_long_error_toast_fits_the_screen_and_can_be_read(server: Server, phones) -> None:
@@ -80,7 +83,9 @@ def test_the_masterclass_18_plus_door_is_drawn_in_the_apps_colours(server: Serve
     assert "Arial" not in family, family
 
 
-def test_a_ghost_button_outside_an_overlay_is_not_a_grey_system_button(server: Server, phones) -> None:
+def test_a_ghost_button_outside_an_overlay_is_not_a_grey_system_button(
+    server: Server, phones
+) -> None:
     phone = phones(server.player("Alice"))
     phone.screen("home")
     background = phone.page.evaluate(
@@ -95,7 +100,9 @@ def test_the_secret_hint_is_readable_on_the_light_card(server: Server, phones) -
     html = '<div class="s69-spoiler"><span class="hint">Нажмите, чтобы открыть</span></div>'
     color = _rgb(_style(phone.page, html, ".hint", "color"))
     opacity = float(_style(phone.page, html, ".hint", "opacity"))
-    seen = tuple(opacity * c + (1 - opacity) * bg for c, bg in zip(color[:3], LIGHT_CARD, strict=True))
+    seen = tuple(
+        opacity * c + (1 - opacity) * bg for c, bg in zip(color[:3], LIGHT_CARD, strict=True)
+    )
     assert _contrast(seen, LIGHT_CARD) >= 3.0, f"contrast {_contrast(seen, LIGHT_CARD):.2f}:1"
 
 
@@ -134,7 +141,9 @@ def test_the_card_keeps_its_shape_and_its_text_band_on_every_phone(server: Serve
         phone.shot(f"card-{width}x{height}")
         assert box["inside"], f"the card overflows the stage at {width}x{height}: {box}"
         assert abs(box["w"] / box["h"] - 340 / 470) < 0.01, f"card shape at {width}x{height}: {box}"
-        assert abs(box["band"] / box["h"] - 264 / 470) < 0.01, f"text band at {width}x{height}: {box}"
+        assert abs(box["band"] / box["h"] - 264 / 470) < 0.01, (
+            f"text band at {width}x{height}: {box}"
+        )
         assert 17 <= box["font"] <= 22, f"card text size at {width}x{height}: {box}"
     # The largest phone gets a larger card, not the same one in more space.
     assert measured["430x932"]["w"] > 340, measured

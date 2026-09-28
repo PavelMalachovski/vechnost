@@ -50,10 +50,12 @@ async def get_payment_keyboard(
     if telegram_user_id:
         referred = await user_is_referred(telegram_user_id)
     texts = get_payment_keyboard_text(language)
-    return InlineKeyboardMarkup([
-        [InlineKeyboardButton(texts["purchase"], url=await purchase_url_for(referred))],
-        [InlineKeyboardButton(texts["check_status"], callback_data="check_payment")],
-    ])
+    return InlineKeyboardMarkup(
+        [
+            [InlineKeyboardButton(texts["purchase"], url=await purchase_url_for(referred))],
+            [InlineKeyboardButton(texts["check_status"], callback_data="check_payment")],
+        ]
+    )
 
 
 async def check_and_register_user(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
@@ -79,4 +81,3 @@ async def check_and_register_user(update: Update, context: ContextTypes.DEFAULT_
             )
     except Exception as e:
         logger.error(f"Error registering user: {e}")
-

@@ -47,12 +47,20 @@ class LocalizedGameData:
                 continue
         return GameData(themes=themes)
 
-    def get_content(self, theme: Theme, level: int | None, content_type: ContentType, language: Language = Language.RUSSIAN) -> list[str]:
+    def get_content(
+        self,
+        theme: Theme,
+        level: int | None,
+        content_type: ContentType,
+        language: Language = Language.RUSSIAN,
+    ) -> list[str]:
         """Get content for a specific theme, level, and content type in the specified language."""
         game_data = self.get_game_data(language)
         return game_data.get_content(theme, level, content_type)
 
-    def get_available_levels(self, theme: Theme, language: Language = Language.RUSSIAN) -> list[int]:
+    def get_available_levels(
+        self, theme: Theme, language: Language = Language.RUSSIAN
+    ) -> list[int]:
         """Get available levels for a theme in the specified language."""
         game_data = self.get_game_data(language)
         return game_data.get_available_levels(theme)
