@@ -553,7 +553,8 @@ def test_a_finished_game_is_not_offered_to_continue(client):
     code = started_game(client)
     _walk_home(client, code)
     client.post(f"/api/steps69/{code}/finale", json={"choice": "sync"}, headers=ALICE)
-    assert client.get("/api/steps69/mine", headers=ALICE).status_code == 404
+    mine = client.get("/api/steps69/mine", headers=ALICE)
+    assert mine.status_code == 200 and mine.json() is None
 
 
 def test_starting_over_leaves_no_game_behind(client):
@@ -563,7 +564,7 @@ def test_starting_over_leaves_no_game_behind(client):
     with patch.object(steps69, "roll_dice", return_value=2):
         roll(client, code, ALICE)
     assert client.delete(f"/api/steps69/{code}", headers=ALICE).status_code == 200
-    assert client.get("/api/steps69/mine", headers=ALICE).status_code == 404
+    assert client.get("/api/steps69/mine", headers=ALICE).json() is None
 
 
 def test_either_partner_can_erase_the_game(client):

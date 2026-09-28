@@ -210,15 +210,18 @@ async def mine(
     lang: str = "ru",
     authorization: str | None = Header(default=None),
     x_guest_id: str | None = Header(default=None),
-) -> dict[str, Any]:
-    """The caller's latest completed test, with its result."""
+) -> dict[str, Any] | None:
+    """The caller's latest completed test, with its result, or null.
+
+    Nothing finished yet is an answer, not a missing resource: a 404 here
+    was a red line in the console every time someone asked (audit D-37)."""
     user_id, _ = _caller(authorization, x_guest_id)
     language = _language(lang)
 
     async with get_db() as session:
         test = await CompatTestRepository.latest_completed_for(session, user_id)
         if not test:
-            raise HTTPException(status_code=404, detail="no completed test")
+            return None
         result = build_result(test.creator_answers, test.guest_answers, language)
         return {"code": test.code, "result": result.model_dump()}
 

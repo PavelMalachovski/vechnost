@@ -517,7 +517,7 @@ class TwoUsers(RuleBasedStateMachine):
             if model.finished is not None and actor in model.seats()
         ]
         if not mine:
-            self.call(actor, "GET", "/api/compat/mine", expect=404)
+            assert self.call(actor, "GET", "/api/compat/mine", expect=200) is None
             return
         _, code, model = max(mine, key=lambda entry: entry[0])
         body = self.call(actor, "GET", "/api/compat/mine", expect=200)
@@ -728,7 +728,7 @@ class TwoUsers(RuleBasedStateMachine):
             if not model.finished and actor in model.seats()
         ]
         if not mine:
-            self.call(actor, "GET", "/api/steps69/mine", expect=404)
+            assert self.call(actor, "GET", "/api/steps69/mine", expect=200) is None
             return
         _, code = max(mine)
         assert self.call(actor, "GET", "/api/steps69/mine", expect=200)["code"] == code
