@@ -695,6 +695,27 @@ def test_every_custom_property_the_page_reads_is_declared():
     assert not missing, missing
 
 
+def test_every_weight_is_one_the_page_ships():
+    """D-26: the page ships Inter at 400, 600 and 700 and Lora at 400, and a
+    weight between them is not drawn. 800 came out as 700 and 500 as 400,
+    while nine rules said otherwise; the weight tokens hold the three."""
+    html = INDEX.read_text(encoding="utf-8")
+    shipped = set(re.findall(r"font-family: 'Inter'; src: url\('fonts/inter-(\d{3})", html))
+    assert shipped == {"400", "600", "700"}, shipped
+    tokens = dict(re.findall(r"(--fw-[a-z]+):\s*(\d{3})", html))
+    assert set(tokens.values()) == shipped, tokens
+    allowed = shipped | {f"var({name})" for name in tokens} | {"inherit", "normal", "bold"}
+    weights = {w.strip() for w in re.findall(r"font-weight:\s*([^;}\"']+)", html)}
+    assert weights <= allowed, weights - allowed
+
+
+def test_a_transition_names_what_it_animates():
+    """D-26: `transition: all` animates whatever the next change happens to
+    be, layout included, and hides which property the rule meant."""
+    html = INDEX.read_text(encoding="utf-8")
+    assert not re.search(r"transition(-property)?:\s*all\b", html)
+
+
 def test_a_phone_that_asks_for_less_motion_gets_no_confetti():
     """D-13: the CSS block stops the looping and travelling animations; the
     confetti is spawned from script, so the script asks too."""
@@ -763,14 +784,15 @@ class _LastChild(HTMLParser):
 
 
 def test_a_centred_column_ends_on_something_visible():
-    """#home, #themeList and #levelList centre their column with
-    margin-bottom:auto on :last-child, and :last-child counts a hidden
-    element too. The gift button, kept at the end of #home with
-    display:none, took the centring with it: the home screen sank to the
-    bottom of every tall phone. What may be hidden is added and removed."""
+    """#home centres its column with margin-bottom:auto on :last-child, and
+    :last-child counts a hidden element too. The gift button, kept at the
+    end of #home with display:none, took the centring with it: the home
+    screen sank to the bottom of every tall phone. What may be hidden is
+    added and removed. (The theme and level lists start at the top since
+    audit D-28, so there is nothing of theirs to sink.)"""
     html = INDEX.read_text(encoding="utf-8")
     assert "#home > :last-child" in html
-    for container in ("home", "themeList", "levelList"):
+    for container in ("home",):
         parser = _LastChild(container)
         parser.feed(html)
         if parser.last is None:

@@ -842,6 +842,18 @@ python scripts/smoke_production.py $URL --deep  # ...and its database and bot he
   change nothing is proved by comparing screenshots pixel for pixel.
   `tests/test_webapp_static.py` fails on a `var()` of a name nobody declares,
   which CSS itself would swallow silently.
+- **A list starts at the top; a door sits in the middle.** The theme,
+  level and Library lists begin right under their title, all at one height;
+  the home screen and a door (`.coop-box`: a few lines and one thing to
+  press) centre themselves with auto margins (audit D-28). A list inside a
+  screen reaches out to the phone's edges and takes its content back in
+  (`--screen-x`), so its scroller clips where the phone ends and a
+  full-width button's glow is not cut off in two straight lines (D-27).
+  Inside `.coop-box`, a paragraph with a class of its own is written
+  `p.class`, or `.coop-box p` wins (D-26). The page sets only the weights
+  it ships (400, 600, 700), and a transition names what it animates;
+  `tests/test_webapp_static.py` holds both and
+  `tests/e2e/browser/test_css_rules.py` the rest, as drawn.
 - New user-facing text is Russian. There is no second language to fill in.
 - **No gendered verb forms in user-facing text.** Not «уверен», and not the
   «уверен(а)» bracket either: the reader may be of any gender, and the
