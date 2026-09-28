@@ -47,6 +47,17 @@ WEBAPP_HTML = os.environ.get("E2E_WEBAPP_HTML", "")
 BENIGN_CONSOLE = re.compile(r"^(Failed to load resource|API 4\d\d )")
 
 
+def cancelled_by_webkit(text: str, base_url: str) -> bool:
+    """WebKit words a request it cancelled - the page was left, reloaded or
+    closed with it still in flight - as a fetch that failed "due to access
+    control checks", and Playwright hands that over as a page error. A
+    request to the app's own origin has no access control to fail, so for
+    the server under test the sentence only ever means "cancelled": the
+    harness leaving the page (the UI fuzzer's "closes the app and opens it
+    again"), not the app misbehaving."""
+    return "due to access control checks" in text and urlsplit(base_url).netloc in text
+
+
 def bot_token() -> str:
     """The token the server under test signs initData with."""
     return os.environ.get("E2E_BOT_TOKEN") or os.environ["TELEGRAM_BOT_TOKEN"]
@@ -272,8 +283,15 @@ class Phone:
         """Record what the app does wrong, and every /api call it makes."""
 
         def on_console(message: Any) -> None:
-            if message.type == "error" and not BENIGN_CONSOLE.match(message.text):
-                self.errors.append(f"console: {message.text}")
+            text = message.text
+            if message.type != "error" or BENIGN_CONSOLE.match(text):
+                return
+            if not cancelled_by_webkit(text, self.base_url):
+                self.errors.append(f"console: {text}")
+
+        def on_pageerror(error: Any) -> None:
+            if not cancelled_by_webkit(str(error), self.base_url):
+                self.errors.append(f"pageerror: {error}")
 
         def api_path(url: str) -> str | None:
             if not url.startswith(self.base_url):
@@ -304,7 +322,7 @@ class Phone:
                 self.api.append(ApiCall(request.method, path, 0, note))
 
         self.page.on("console", on_console)
-        self.page.on("pageerror", lambda error: self.errors.append(f"pageerror: {error}"))
+        self.page.on("pageerror", on_pageerror)
         self.page.on("response", on_response)
         self.page.on("requestfailed", on_failed)
 
