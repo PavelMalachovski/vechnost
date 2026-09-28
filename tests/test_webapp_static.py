@@ -23,8 +23,7 @@ CARDS = [
     "couples/couples_1.png",
     "couples/couples_2.png",
     "couples/couples_3.png",
-    "sex/questions.png",
-    "sex/tasks.png",
+    "sex/sex.png",
     "prov/prov.png",
     "library.png",
     "card_back.png",
@@ -167,11 +166,11 @@ def test_every_deck_face_the_mini_app_names_is_a_file_that_exists():
         assert (backgrounds / rel).is_file()
 
 
-def test_the_sex_deck_is_keyed_by_the_content_type_the_app_actually_uses():
-    """S.type is 'questions'/'tasks'; a 'q'/'t' key would never match."""
+def test_the_sex_deck_has_one_face_for_questions_and_tasks():
+    """D-42: the art was one picture under three names. The deck is keyed
+    by 'deck' now, as the bot's backgrounds.yml keys it by its default."""
     html = INDEX.read_text(encoding="utf-8")
-    assert "questions: 'sex/questions.png'" in html
-    assert "tasks: 'sex/tasks.png'" in html
+    assert "'Sex':          { by: 'deck',  faces: { deck: 'sex/sex.png' } }" in html
 
 
 def test_couple_mode_sets_the_state_the_card_art_is_chosen_from():
@@ -382,7 +381,7 @@ def test_the_home_screen_shows_decks_not_typographic_suits():
     html = INDEX.read_text(encoding="utf-8")
     assert 'class="suits"' not in html
     assert 'class="deck-fan"' in html
-    for card in ("acq/acq_1.png", "couples/couples_1.png", "sex/questions.png", "prov/prov.png"):
+    for card in ("acq/acq_1.png", "couples/couples_1.png", "sex/sex.png", "prov/prov.png"):
         assert card in html
 
 
@@ -400,7 +399,7 @@ def test_every_fan_card_wears_its_own_suit_as_a_centre_pip():
     for suit, card in (
         ("hearts", "acq/acq_1.png"),
         ("spades", "couples/couples_1.png"),
-        ("clubs", "sex/questions.png"),
+        ("clubs", "sex/sex.png"),
         ("diamonds", "prov/prov.png"),
     ):
         pair = f"url(/assets/suits/{suit}.png),url(/assets/deck_art/{card})"

@@ -13,9 +13,10 @@ from PIL import Image
 from vechnost_bot import renderer
 
 BACKGROUND = str(Path(__file__).parent.parent / "assets" / "backgrounds" / "acq" / "acq_1.png")
-# Wrapped naively at the size it is set in, this question leaves «год?» alone
-# on its last line.
-LONELY_LAST_WORD = "Что тебя удивило в нас за последний год?"
+# Wrapped greedily at the size it fits, this leaves «пор?» alone on the last
+# line. Which text does that depends on the face's metrics: the one here
+# before audit D-35 stopped doing it once the cards were set in SemiBold.
+LONELY_LAST_WORD = "Какую деталь нашего первого поцелуя ты помнишь до сих пор?"
 
 
 def test_a_card_is_a_full_size_jpeg():

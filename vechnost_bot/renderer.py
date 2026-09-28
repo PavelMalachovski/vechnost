@@ -76,8 +76,11 @@ TEXT_FOOTER_GAP = 14
 # *into* the backgrounds by scripts/generate_card_assets.py, which loads them
 # by filename itself; renderer.py only composites question text onto the
 # finished art. Look there, not here, if a wordmark or a rank looks wrong.
+#
+# SemiBold, as the Mini App sets the same card (`.q-text`, weight 600): the
+# bot drew it at 400, and one card read as two (audit D-35).
 _ASSETS_FONTS = ASSETS / "fonts"
-FONT_PATH = _ASSETS_FONTS / "Inter-Regular.ttf"
+FONT_PATH = _ASSETS_FONTS / "Inter-SemiBold.ttf"
 FALLBACK_FONT_PATH = _ASSETS_FONTS / "DejaVuSans.ttf"
 
 
@@ -538,7 +541,7 @@ def get_background_path(topic: str, level_or_0: int, category: str) -> str:
 
         # Get map from config or use empty dict
         map_config = config.get("map", {})
-        default_path = config.get("default", "assets/backgrounds/default.png")
+        default_path = config.get("default", "assets/backgrounds/library.png")
 
         # Resolve path based on topic
         if topic == "sex":
@@ -573,4 +576,4 @@ def get_background_path(topic: str, level_or_0: int, category: str) -> str:
 
     except Exception as e:
         logger.error(f"Error resolving background path: {e}")
-        return "assets/backgrounds/default.png"
+        return "assets/backgrounds/library.png"
