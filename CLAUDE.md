@@ -951,6 +951,24 @@ python scripts/smoke_production.py $URL --deep  # ...and its database and bot he
   `--focus-ring` under `:focus-visible`, so no tap changes a screen.
   `tests/test_webapp_a11y.py` holds the markup and
   `tests/e2e/browser/test_keyboard.py` presses the keys.
+- **Telegram's chrome is the app's colour, and the page clears its
+  controls** (audit D-24). `paintTelegram` in `webapp/index.html` paints
+  Telegram's header, the background behind the page and, from Bot API 7.10,
+  the bottom bar in `--c-aubergine-900`, read from the token; a client
+  before 6.9 takes only a theme key for the header (`bg_color`) and threw on
+  the hex, which also skipped the background in the same `try`. The glow
+  (`--bg-app-glow`) rises out of that colour, so the page meets the header
+  without the seam it had. `--safe-top` and `--safe-bottom` add Telegram's
+  controls' inset (`--tg-content-safe-area-inset-*`) to the device's (the
+  larger of `env()` and `--tg-safe-area-inset-*`): in full screen the
+  controls sit inside the device's safe area. Telegram's script keeps the
+  `--tg-*` insets current and repaints all three colours on a theme change,
+  so the page listens for neither event. The browser tests' stub
+  (`tests/e2e/browser/telegram_stub.js`) compares versions as the real
+  script does, throws where it throws, records the colours and sets the
+  insets a phone passes (`telegram={"version": ..., "safeAreaInset": ...}`);
+  `tests/e2e/browser/test_telegram_chrome.py` holds all of it, the top
+  edge of the page pixel by pixel included.
 - **Readable on every phone, and one Back.** Nothing on the page is set
   under 11px and the page may be zoomed; tile text reads at 4.5:1 on every
   stop of its tile's gradient (the light tiles carry the cards' ink); a

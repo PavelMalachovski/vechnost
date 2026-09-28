@@ -59,7 +59,12 @@
 
     /* 2. Roles. */
     --bg-app:          var(--c-aubergine-900);
-    --bg-app-glow:     radial-gradient(120% 90% at 50% 0%, var(--c-aubergine-700) 0%, var(--c-aubergine-900) 62%);
+    /* The glow rises out of the app's darkest aubergine, which is also the
+       colour Telegram's header is painted: it used to start at its brightest
+       right under the header, and the two met in a seam across the top of
+       every screen (audit D-24). */
+    --bg-app-glow:     linear-gradient(var(--c-aubergine-900), transparent 40px),
+                       radial-gradient(120% 90% at 50% 0%, var(--c-aubergine-700) 0%, var(--c-aubergine-900) 62%);
     --bg-scrim:        rgb(20 2 13 / .88);
     --surface-1:       rgb(255 255 255 / .05);   /* panels */
     --surface-2:       rgb(255 255 255 / .08);   /* buttons, chips, tiles */
@@ -137,9 +142,16 @@
     /* 8. Layers. */
     --z-raised: 2; --z-piece: 3; --z-overlay: 30; --z-confetti: 31; --z-toast: 40; --z-loader: 50;
 
-    /* 9. Safe area: the notch, and Telegram's own controls from Bot API 8.0. */
-    --safe-top: max(env(safe-area-inset-top, 0px), var(--tg-content-safe-area-inset-top, 0px));
-    --safe-bottom: max(env(safe-area-inset-bottom, 0px), var(--tg-safe-area-inset-bottom, 0px));
+    /* 9. Safe area: the notch, and Telegram's own controls from Bot API 8.0.
+       The device's inset comes from the browser or from Telegram, whichever
+       knows it; Telegram's controls sit inside it, so their inset adds on
+       (audit D-24: the page took the larger of the notch and the controls,
+       which in full screen put the title under Telegram's buttons).
+       Telegram's script keeps every --tg-* inset current as they change. */
+    --safe-top: calc(max(env(safe-area-inset-top, 0px), var(--tg-safe-area-inset-top, 0px))
+      + var(--tg-content-safe-area-inset-top, 0px));
+    --safe-bottom: calc(max(env(safe-area-inset-bottom, 0px), var(--tg-safe-area-inset-bottom, 0px))
+      + var(--tg-content-safe-area-inset-bottom, 0px));
 
     /* The names the rules below were written against, now aliases. */
     --ink: var(--c-ink);
@@ -168,7 +180,7 @@
   #shell {
     position: fixed; inset: 0;
     display: flex; flex-direction: column;
-    background: radial-gradient(120% 90% at 50% 0%, #47102F 0%, #1C0414 62%);
+    background: var(--bg-app-glow);
     transition: background .6s ease;
   }
 
@@ -1548,7 +1560,23 @@
   if (tg) {
     try { tg.ready(); tg.expand(); } catch (e) {}
     try { tg.disableVerticalSwipes(); } catch (e) {}
-    try { tg.setHeaderColor('#1C0414'); tg.setBackgroundColor('#1C0414'); } catch (e) {}
+    paintTelegram(tg);
+  }
+  // Telegram's own chrome in the app's colour, read from its token: the
+  // header, the background and, from Bot API 7.10, the bottom bar (audit
+  // D-24). A client before 6.9 takes no colour for the header, only a theme
+  // key, and threw on the hex - which also skipped the background after it.
+  // Telegram's script repaints all three on a theme change and keeps the
+  // --tg-* safe-area insets current, so the page listens for neither.
+  function paintTelegram(tg) {
+    const shell = getComputedStyle(document.documentElement)
+      .getPropertyValue('--c-aubergine-900').trim();
+    const since = (version) => {
+      try { return tg.isVersionAtLeast(version); } catch (e) { return false; }
+    };
+    try { tg.setHeaderColor(since('6.9') ? shell : 'bg_color'); } catch (e) {}
+    try { tg.setBackgroundColor(shell); } catch (e) {}
+    if (since('7.10')) { try { tg.setBottomBarColor(shell); } catch (e) {} }
   }
   const haptic = (type) => {
     try {
