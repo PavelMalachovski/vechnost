@@ -47,14 +47,19 @@ SCREENS_DIR = REPORT_DIR / "screens"
 # A toast is a moment, not a screen: it is hidden from the pictures.
 SHOT_STYLE = "#toast { visibility: hidden !important; }"
 # E2E_VISUAL=1: the pictures are for comparing with another tour's
-# (visual.py), so what is random by design is masked - an invite link
-# carries a fresh code, and a room deals its deck in a random order. Two
-# tours of the same code on one machine are otherwise pixel for pixel alike.
+# (visual.py), so what is random by design is masked or pinned - an invite
+# link carries a fresh code, and a room deals its deck in a random order, so
+# its dealt card is given one fixed question (prepare_room_playing) - and
+# the phones ask for less motion, which the app honours (audit D-13): no
+# floating fan, no confetti, no flight. Motion is random in time. Two tours
+# of master's own code differed on the home screen, the fan caught at two
+# heights although the screenshot disables animations, and the room's end
+# is thrown at the screen as sixty pieces of confetti from random places.
+# At rest, two tours of the same code on one machine are pixel for pixel
+# alike.
 VISUAL = os.environ.get("E2E_VISUAL") == "1"
 VISUAL_MASKS = {
     "room-waiting": ["#inviteCode"],
-    # The text band, not the text: a mask the size of a random text differs.
-    "room-playing": ["#stage .card .q-zone"],
     "compat-invite": ["#compatCode"],
     "s69-invite": ["#s69Code"],
 }
@@ -143,6 +148,7 @@ class Tour:
         self.bob = server.player("Bob")
         self.pat = server.player("Pat")
         self.room = self.test = self.game = ""
+        self.room_text = ""
 
     # -- the walk ------------------------------------------------------------
 
@@ -176,7 +182,7 @@ class Tour:
     def _phone(self, player: Player) -> Phone:
         phone = open_phone(
             self.engines, self.base_url, player, shots=self.out / "steps",
-            device=self.device, trace=False,
+            device=self.device, trace=False, reduced_motion=VISUAL,
         )
         self.phones.append(phone)
         wait_home(phone)
@@ -291,6 +297,27 @@ class Tour:
         self.pat.ok("POST", f"/api/rooms/{self.room}/join")
         self.paid.screen("deck", timeout=POLL)
         settle_card(self.paid)
+        self.room_text = next(
+            c.text for c in cards(self.alice) if c.theme == "Acquaintance" and c.kind == "questions"
+        )
+
+    def prepare_room_playing(self) -> None:
+        # The room's deck is dealt in a random order, so both tours put the
+        # deck's first question on the dealt card. A mask over the random
+        # text used to leave its edge in the picture: the row of text under
+        # the mask's last pixel, and the fade whenever that text overflowed
+        # the band - 158 px along the band's foot, twice, on screens the
+        # pull requests never touched. Two frames let the fade follow.
+        if not VISUAL:
+            return
+        self.paid.page.evaluate(
+            """(text) => {
+                const q = document.querySelector('#stage .card.top .q-text');
+                if (q) q.textContent = text;
+                return new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)));
+            }""",
+            self.room_text,
+        )
 
     def stop_room_finished(self) -> None:
         for _ in range(400):

@@ -27,7 +27,9 @@ from .broadcast import (
 )
 from .config import create_bot, settings
 from .handlers import (
+    ACTIVATE_PATTERN,
     about_command,
+    activate_callback,
     activate_certificate_command,
     free_text_hint,
     handle_callback_query,
@@ -289,6 +291,13 @@ def create_application() -> Application:
     application.add_handler(CommandHandler("delete_me", delete_me_command))
     application.add_handler(CallbackQueryHandler(
         delete_me_callback, pattern=DELETE_ME_PATTERN, block=False,
+    ))
+
+    # «Activate this certificate?», asked by a gift's or a voucher's link.
+    # Ahead of the game's catch-all, like /delete_me's: the registry does
+    # not know these buttons.
+    application.add_handler(CallbackQueryHandler(
+        activate_callback, pattern=ACTIVATE_PATTERN,
     ))
 
     # Somebody allowed the bot to write from the Mini App. Ahead of the

@@ -151,13 +151,19 @@ cannot make them differ. Two tours of the same code come out identical to
 the pixel. The comparison can therefore be strict: a screen changed when
 more than four pixels moved by more than 12 of 255 on a lightly blurred
 luminance difference (a full stop added to a 15 px line moves twelve).
-Invite codes and a room's shuffled deck are masked, because they are
-random by design (`screens.VISUAL_MASKS`, active with `E2E_VISUAL=1`).
+Invite codes are masked and a room's dealt card is given one fixed
+question, because they are random by design (`screens.VISUAL_MASKS` and
+`prepare_room_playing`, active with `E2E_VISUAL=1`), and
+the phones ask for reduced motion, because motion is random in time: with
+the home screen's fan floating, two tours of master's own code differed,
+and the end of a room throws confetti from random places. The app honours
+the setting (audit D-13), so every screen is photographed at rest.
 
 A changed screen fails the job unless the pull request carries the
-`visual-change` label. The artifact's `report/index.html` shows master,
-the pull request and the difference side by side. To compare two tours
-yourself:
+`visual-change` label. The job's log says where on each changed screen the
+pixels moved (`x 0-375, y 612-628`); the artifact's `report/index.html`
+shows master, the pull request and the difference side by side. To compare
+two tours yourself:
 
 ```bash
 E2E_VISUAL=1 E2E_REPORT_DIR=before E2E_BROWSER=1 pytest tests/e2e/browser/test_screens.py -n0

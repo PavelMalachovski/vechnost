@@ -4,13 +4,24 @@ Command handlers live here; all inline-keyboard callbacks are routed through
 the handler registry in callback_handlers.py.
 """
 
+import html
 import logging
 import re
+from typing import Any
 
-from telegram import Message, Update
+from telegram import (
+    InlineKeyboardButton,
+    InlineKeyboardMarkup,
+    Message,
+    MessageEntity,
+    Update,
+    WebAppInfo,
+)
+from telegram.error import BadRequest
 from telegram.ext import ContextTypes
 
 from .callback_handlers import features_block, welcome_screen
+from .config import settings
 from .i18n import Language, get_text
 from .keyboards import get_reset_confirmation_keyboard
 from .monitoring import (
@@ -176,44 +187,11 @@ async def start_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
                 return
 
         if param.startswith("activate_"):
-            # Extract certificate code
-            code = param.replace("activate_", "").strip().upper()
+            # A gift's card or a printed voucher's QR: asked, not done on
+            # the spot (`ask_to_activate`).
             logger.info("Certificate activation via deep link")
-
-            # Activate certificate with full user information
-            from .payments.services import activate_certificate
-
-            result = await activate_certificate(
-                code=code,
-                telegram_user_id=user_id,
-                username=user.username,
-                first_name=user.first_name,
-                last_name=user.last_name,
-            )
-
-            # Get session to determine language
-            session = await get_session(chat.id)
-            language = session.language
-
-            if result["status"] == "success":
-                success_text = get_text("certificate.activated", language)
-                await message.reply_text(success_text, parse_mode="HTML")
-                # Continue with normal start flow
-            elif result.get("code") == 404:
-                error_text = get_text("certificate.not_found", language)
-                await message.reply_text(error_text)
-                return
-            elif result.get("code") == 409:
-                error_text = get_text("certificate.already_used", language)
-                await message.reply_text(error_text)
-                return
-            elif result.get("code") == 410:
-                await message.reply_text(get_text("certificate.revoked", language))
-                return
-            else:
-                error_text = get_text("certificate.error", language)
-                await message.reply_text(error_text)
-                return
+            await ask_to_activate(message, user_id, param.removeprefix("activate_"))
+            return
 
     # There is nothing to choose any more: open straight on the greeting.
     # The logo goes first, as its own message and without a caption — the
@@ -399,20 +377,113 @@ async def activate_certificate_command(
         last_name=user.last_name,
     )
 
+    text, keyboard = activation_reply(result, language)
+    await message.reply_text(text, reply_markup=keyboard, parse_mode="HTML")
+
+
+def _app_keyboard(language: Language) -> InlineKeyboardMarkup | None:
+    """The one button into the Mini App, or None where there is no app."""
+    if not settings.webapp_url:
+        return None
+    return InlineKeyboardMarkup([[InlineKeyboardButton(
+        get_text("welcome.button_webapp", language),
+        web_app=WebAppInfo(url=settings.webapp_url),
+    )]])
+
+
+def activation_reply(
+    result: dict[str, Any], language: Language
+) -> tuple[str, InlineKeyboardMarkup | None]:
+    """What the bot answers an activation with, from /activate or a link."""
     if result["status"] == "success":
-        success_text = get_text("certificate.activated", language)
-        await message.reply_text(success_text, parse_mode="HTML")
-    elif result.get("code") == 404:
-        error_text = get_text("certificate.not_found", language)
-        await message.reply_text(error_text)
-    elif result.get("code") == 409:
-        error_text = get_text("certificate.already_used", language)
-        await message.reply_text(error_text)
-    elif result.get("code") == 410:
-        await message.reply_text(get_text("certificate.revoked", language))
+        return get_text("certificate.activated", language), _app_keyboard(language)
+    if result.get("code") == 409 and result.get("yours"):
+        return get_text("certificate.already_yours", language), _app_keyboard(language)
+    key = {
+        404: "certificate.not_found",
+        409: "certificate.already_used",
+        410: "certificate.revoked",
+    }.get(result.get("code"), "certificate.error")  # type: ignore[arg-type]
+    return get_text(key, language), None
+
+
+# The two buttons under «activate this?». The code is not in them.
+ACTIVATE = "gift_activate"
+NOT_NOW = "gift_later"
+ACTIVATE_PATTERN = f"^({ACTIVATE}|{NOT_NOW})$"
+
+
+async def ask_to_activate(message: Message, user_id: int, raw_code: str) -> None:
+    """The question a gift's or a voucher's link opens on.
+
+    Never activated on the spot: the first person to open a gift's link is
+    usually its buyer, checking it, and a code activates once, for whoever
+    gets there first. The code rides in the question's own text, which the
+    button reads back (`activate_callback`) - never in callback data, which
+    the callback registry logs, and a code is lifetime access to whoever
+    reads it.
+    """
+    from .payments.services import user_has_access
+
+    code = raw_code.strip().upper()
+    text = get_text("gift.confirm", Language.RUSSIAN, code=html.escape(code))
+    if await user_has_access(user_id):
+        text += get_text("gift.confirm_has_access", Language.RUSSIAN)
+    keyboard = InlineKeyboardMarkup([[
+        InlineKeyboardButton(get_text("gift.activate_button", Language.RUSSIAN),
+                             callback_data=ACTIVATE),
+        InlineKeyboardButton(get_text("gift.later_button", Language.RUSSIAN),
+                             callback_data=NOT_NOW),
+    ]])
+    await message.reply_text(text, reply_markup=keyboard, parse_mode="HTML")
+
+
+def _code_in(message: object) -> str | None:
+    """The code a question carries, read back from its own text: the
+    `<code>` it was set in, else the shape a code has."""
+    parse = getattr(message, "parse_entities", None)
+    if parse is not None:
+        codes = list(parse([MessageEntity.CODE]).values())
+        if codes:
+            return str(codes[0]).strip().upper()
+    match = _CERTIFICATE_CODE.search(getattr(message, "text", None) or "")
+    if match:
+        return f"VECH-{match.group(1)}-{match.group(2)}".upper()
+    return None
+
+
+async def activate_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """«Активировать» or «Не сейчас» under the question."""
+    query = update.callback_query
+    if query is None or query.from_user is None:
+        return
+    await query.answer()
+    language = Language.RUSSIAN
+    keyboard: InlineKeyboardMarkup | None = None
+    if query.data == NOT_NOW:
+        text = get_text("gift.later", language)
     else:
-        error_text = get_text("certificate.error", language)
-        await message.reply_text(error_text)
+        code = _code_in(query.message)
+        if code is None:
+            # The question is too old to read back: the command still works.
+            text = get_text("certificate.usage", language)
+        else:
+            from .payments.services import activate_certificate
+
+            user = query.from_user
+            result = await activate_certificate(
+                code=code,
+                telegram_user_id=user.id,
+                username=user.username,
+                first_name=user.first_name,
+                last_name=user.last_name,
+            )
+            text, keyboard = activation_reply(result, language)
+    try:
+        await query.edit_message_text(text, reply_markup=keyboard, parse_mode="HTML")
+    except BadRequest:
+        if isinstance(query.message, Message):
+            await query.message.reply_text(text, reply_markup=keyboard, parse_mode="HTML")
 
 
 # A gift or voucher code as people paste it: `VECH-XXXX-XXXX`, in any case,

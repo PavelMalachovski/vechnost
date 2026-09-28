@@ -6,6 +6,7 @@ every card in the Mini App silently loses its art and keeps its text.
 """
 
 import re
+from html.parser import HTMLParser
 from pathlib import Path
 
 import pytest
@@ -521,6 +522,17 @@ def test_every_board_cell_opens_its_action():
     assert "c.to" in info  # a portal says where it throws the piece
 
 
+def test_the_fade_follows_the_text_s_size_not_only_its_events():
+    """A late font or a stage that settles after the scroll re-flows a card's
+    text with no scroll, mutation or resize event; the flags now follow the
+    zone's and the text's size (tests/e2e/browser/test_touch.py shows it)."""
+    html = INDEX.read_text(encoding="utf-8")
+    refresh = html.split("function refreshZoneEdges() {")[1].split("\n  }\n")[0]
+    assert "zoneWatch.observe(z)" in refresh
+    assert "zoneWatch.unobserve(z)" in refresh  # a thrown-away card is let go
+    assert "new ResizeObserver(" in html
+
+
 def test_the_back_of_the_card_never_takes_a_touch():
     """The back face was eating the scroll gesture.
 
@@ -670,6 +682,69 @@ def test_a_phone_that_asks_for_less_motion_gets_no_confetti():
     assert "@media (prefers-reduced-motion: reduce)" in html
     body = html.split("function confetti() {", 1)[1]
     assert body.lstrip().startswith("if (REDUCED_MOTION) return;")
+    # The fan does not float even once: the block's .01ms left each card a
+    # float pending after its delay, drawn differently from one at rest.
+    block = html.split("@media (prefers-reduced-motion: reduce) {", 1)[1].split("\n  }\n", 1)[0]
+    assert ".deck-fan i { animation: none; }" in block
+
+
+def test_a_scroll_asked_for_by_script_asks_about_motion_too():
+    """D-13: the reduced-motion block sets scroll-behavior, which a
+    `behavior: 'smooth'` passed from script overrides. The board's map
+    travelled for half a second on a phone that asked for less motion."""
+    html = INDEX.read_text(encoding="utf-8")
+    script = html.split("<script>", 1)[1]
+    asked = re.findall(r"behavior\s*=\s*([^;]+);|[{,]\s*behavior:\s*([^,}]+)", script)
+    values = [a or b for a, b in asked]
+    assert values, "the map's scrollIntoView should be found"
+    for value in values:
+        if "smooth" in value:
+            assert "REDUCED_MOTION" in value, value
+
+
+class _LastChild(HTMLParser):
+    """The last element child of the element with this id, as (tag, attrs)."""
+
+    VOID = {"area", "base", "br", "col", "embed", "hr", "img", "input", "link",
+            "meta", "source", "track", "wbr"}
+
+    def __init__(self, container: str) -> None:
+        super().__init__()
+        self.container = container
+        self.depth = 0  # 0 outside the container, 1 among its children
+        self.last: tuple[str, dict[str, str | None]] | None = None
+
+    def handle_starttag(self, tag: str, attrs: list[tuple[str, str | None]]) -> None:
+        if self.depth == 0:
+            if dict(attrs).get("id") == self.container:
+                self.depth = 1
+            return
+        if self.depth == 1:
+            self.last = (tag, dict(attrs))
+        if tag not in self.VOID:
+            self.depth += 1
+
+    def handle_endtag(self, tag: str) -> None:
+        if self.depth and tag not in self.VOID:
+            self.depth -= 1
+
+
+def test_a_centred_column_ends_on_something_visible():
+    """#home, #themeList and #levelList centre their column with
+    margin-bottom:auto on :last-child, and :last-child counts a hidden
+    element too. The gift button, kept at the end of #home with
+    display:none, took the centring with it: the home screen sank to the
+    bottom of every tall phone. What may be hidden is added and removed."""
+    html = INDEX.read_text(encoding="utf-8")
+    assert "#home > :last-child" in html
+    for container in ("home", "themeList", "levelList"):
+        parser = _LastChild(container)
+        parser.feed(html)
+        if parser.last is None:
+            continue  # filled from script
+        tag, attrs = parser.last
+        style = (attrs.get("style") or "").replace(" ", "")
+        assert "display:none" not in style and "hidden" not in attrs, (container, tag, attrs)
 
 
 def test_the_launch_preload_is_quiet():

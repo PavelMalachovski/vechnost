@@ -111,6 +111,31 @@ def test_a_finger_scrolls_a_long_card_from_its_middle(server: Server, phones, de
     )
 
 
+def test_the_fade_follows_the_text_when_it_reflows_without_a_scroll(
+    server: Server, phones, device: Device
+) -> None:
+    """The flags on a card's face used to change only on a scroll, a resize
+    or a new card. A font that arrives late, or a stage that settles after
+    the scroll, re-flows the text with none of those, and the fade stayed
+    where the text had been: the WebKit screen tour once caught the long
+    card with a fade band in one tour and without it in the other. The face
+    now follows the text's own size."""
+    phone, _ = on_a_long_card(server, phones, device)
+    face = f"document.querySelector('{TOP_CARD} .front')"
+    text = f"document.querySelector('{TOP_CARD} .q-text')"
+    assert phone.page.evaluate(f"() => {face}.classList.contains('cut-bottom')")
+
+    # The text shrinks until it fits: nothing is hidden, so nothing fades.
+    phone.page.evaluate(f"() => {{ {text}.style.fontSize = '6px'; }}")
+    phone.page.wait_for_function(
+        f"() => !{face}.classList.contains('cut-bottom') && !{face}.classList.contains('cut-top')",
+        timeout=3_000,
+    )
+    # And grows back: the bottom hides something again.
+    phone.page.evaluate(f"() => {{ {text}.style.fontSize = ''; }}")
+    phone.page.wait_for_function(f"() => {face}.classList.contains('cut-bottom')", timeout=3_000)
+
+
 def test_a_vertical_drag_leaves_the_card_in_place(server: Server, phones, device: Device) -> None:
     """The gesture splits by axis at 8px: vertical belongs to the text, not the card."""
     phone, band = on_a_long_card(server, phones, device)

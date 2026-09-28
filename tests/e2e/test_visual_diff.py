@@ -7,6 +7,7 @@ larger, a screen of another size, a screen that is new or gone.
 
 from __future__ import annotations
 
+import re
 from pathlib import Path
 
 from PIL import Image, ImageDraw, ImageFont
@@ -90,6 +91,28 @@ def test_tours_are_compared_screen_by_screen_and_the_report_stands_alone(tmp_pat
     assert (out / "head" / "android" / "paywall@320x568.png").exists()
     assert "home@320x568" not in page, "an unchanged screen is not in the report"
     assert "3 of 4 screens changed" in (out / "summary.md").read_text(encoding="utf-8")
+
+
+def test_a_change_says_where_on_the_screen_it_is(tmp_path: Path, capsys) -> None:
+    # The job's log is what a reviewer can always read; the artifact is not.
+    base, head, out = tmp_path / "base", tmp_path / "head", tmp_path / "out"
+    screen(base / "iphone" / "paywall@320x568.png", "Открыть всё")
+    screen(head / "iphone" / "paywall@320x568.png", "Открыть всё!")
+    screen(base / "iphone" / "deck@320x568.png")
+    screen(head / "iphone" / "deck@320x568.png", dims=(320, 600))
+    assert visual.main([str(base), str(head), str(out)]) == 1
+
+    log = capsys.readouterr().out
+    line = next(line for line in log.splitlines() if "paywall@320x568" in line)
+    found = re.search(r"\(x (\d+)-(\d+), y (\d+)-(\d+)\)", line)
+    assert found, line
+    x0, x1, y0, y1 = map(int, found.groups())
+    # The exclamation mark at the end of the button's text, not the screen.
+    assert 70 < x0 < x1 < 280 and 200 <= y0 < y1 <= 250, line
+    assert x1 - x0 < 40, line
+    assert "(320x568 -> 320x600)" in log
+    summary = (out / "summary.md").read_text(encoding="utf-8")
+    assert f"x {x0}-{x1}, y {y0}-{y1}" in summary
 
 
 def test_two_identical_tours_pass(tmp_path: Path) -> None:
