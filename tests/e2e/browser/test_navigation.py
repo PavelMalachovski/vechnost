@@ -6,6 +6,7 @@ phone that asked for less motion.
 from __future__ import annotations
 
 from ..harness import Server
+from .app import PROGRESS_JS
 
 POLL = 12_000
 
@@ -72,7 +73,7 @@ def test_back_closes_the_open_overlay_before_the_screen_under_it(server: Server,
     for number in range(2, 6):
         phone.page.click("#btnNext")
         phone.page.wait_for_function(
-            "t => document.getElementById('progressNum').innerText.trim() === t",
+            "t => " + PROGRESS_JS + " === t",
             arg=f"{number} / 5",
         )
     phone.page.click("#btnNext")

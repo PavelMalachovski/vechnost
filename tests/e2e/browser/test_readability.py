@@ -103,18 +103,18 @@ def test_an_answer_can_be_changed_until_both_have_finished(server: Server, phone
     options = "#compatScale .compat-opt"
     phone.page.locator(options).nth(3).click()  # question 1: «Скорее да»
     phone.page.wait_for_function(
-        "() => document.getElementById('compatProgressNum').innerText.trim().startsWith('2 /')"
+        "() => document.getElementById('compatProgressNum').innerText.trim().startsWith('Вопрос 2 из')"
     )
     phone.page.wait_for_selector(f"{options}:not([disabled])")
     phone.page.locator(options).nth(1).click()  # question 2: «Скорее нет»
     phone.page.wait_for_function(
-        "() => document.getElementById('compatProgressNum').innerText.trim().startsWith('3 /')"
+        "() => document.getElementById('compatProgressNum').innerText.trim().startsWith('Вопрос 3 из')"
     )
     phone.page.wait_for_selector("#compatPrev:not([disabled])")
 
     phone.page.click("#compatPrev")
     phone.page.wait_for_function(
-        "() => document.getElementById('compatProgressNum').innerText.trim().startsWith('2 /')"
+        "() => document.getElementById('compatProgressNum').innerText.trim().startsWith('Вопрос 2 из')"
     )
     checked = phone.page.locator(f'{options}[aria-checked="true"]')
     assert checked.count() == 1 and checked.first.get_attribute("data-value") == "2"
@@ -124,7 +124,7 @@ def test_an_answer_can_be_changed_until_both_have_finished(server: Server, phone
         phone.page.locator(options).nth(4).click()  # changed: «Полностью да»
     assert json.loads(sent.value.post_data) == {"index": 1, "value": 5}
     phone.page.wait_for_function(
-        "() => document.getElementById('compatProgressNum').innerText.trim().startsWith('3 /')"
+        "() => document.getElementById('compatProgressNum').innerText.trim().startsWith('Вопрос 3 из')"
     )
     assert alice.ok("GET", f"/api/compat/{test['code']}")["answered_indices"] == [0, 1]
 

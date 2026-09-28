@@ -155,5 +155,15 @@ def resize(phone: Phone, viewport: dict[str, int]) -> None:
     phone.page.wait_for_timeout(150)
 
 
+# Where the deck is, as "6 / 30". The only counter a person sees is on the
+# card («Карта 6 из 30», audit D-30); this reads the bar above it, which
+# carries the same two numbers for a screen reader and does not fly away
+# with the card mid-swipe. An expression, for the tests' own predicates.
+PROGRESS_JS = (
+    "(() => { const bar = document.getElementById('progressTrack');"
+    " return bar.getAttribute('aria-valuenow') + ' / ' + bar.getAttribute('aria-valuemax'); })()"
+)
+
+
 def progress(phone: Phone) -> str:
-    return phone.text("#progressNum")
+    return str(phone.page.evaluate("() => " + PROGRESS_JS))

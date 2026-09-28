@@ -50,7 +50,7 @@ from typing import Any
 import pytest
 
 from ..harness import Player, Server, code_from_invite
-from .app import wait_home
+from .app import PROGRESS_JS, wait_home
 from .phones import REPORT_DIR, ApiCall, Device, Phone
 
 pytestmark = [pytest.mark.browser, pytest.mark.ui_fuzz]
@@ -533,12 +533,16 @@ class UiFuzz:
             return ""
         for name, phone in self.phones.items():
             st = states[name]
-            got = phone.page.evaluate("""() => ({
+            got = phone.page.evaluate(
+                """() => ({
                 coop: getComputedStyle(document.getElementById('turnChip')).display !== 'none',
-                progress: document.getElementById('progressNum').innerText.trim(),
+                progress: """
+                + PROGRESS_JS
+                + """,
                 text: (document.querySelector('#stage .card.top .q-text') || {}).innerText || '',
                 mine: document.getElementById('turnChipText').classList.contains('turn-you'),
-            })""")
+            })"""
+            )
             if not got["coop"]:
                 return ""  # a solo deck on the same screen: not this room
             want = f"{st['idx'] + 1} / {st['total']}"
