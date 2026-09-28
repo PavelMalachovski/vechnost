@@ -1,13 +1,14 @@
 """What only a finger shows: a card under real input, on both phones.
 
-Two faults in this deck were invisible to every check made from script and
+One fault in this deck was invisible to every check made from script and
 obvious to anyone holding the phone. The card's back face, hidden from the
 eye by `backface-visibility`, still took the compositor's hit test, so a
 finger in the middle of a long card landed on a face with no scroller behind
 it and the text could not be scrolled - while `elementFromPoint` kept
-answering `.q-text`. And a fade drawn as a mask on the scroller hid it from
-hit testing (CLAUDE.md, "Nothing but the front of a card may take a touch"
-and "A fade must never be a mask on a scroller").
+answering `.q-text`. A fade drawn as a mask on the scroller was blamed first
+and taken off, and the rule against it stays (CLAUDE.md, "Nothing but the
+front of a card may take a touch" and "A fade is an overlay, never a mask on
+the scroller"; audit H-02).
 
 So the input here is as real as each engine allows (touch.py): on the
 Android phone every gesture is CDP touch, which Chromium's compositor
@@ -253,7 +254,7 @@ FAULTS = [
     ),
     Fault(
         "fade-is-a-mask",
-        "A fade must never be a mask on a scroller",
+        "A fade is an overlay, never a mask on the scroller",
         # The fade as it was before 1c68692: a gradient mask on the scroller.
         ".q-zone { -webkit-mask-image: linear-gradient(180deg, transparent 0, #000 18px,"
         " #000 calc(100% - 18px), transparent 100%) !important;"
