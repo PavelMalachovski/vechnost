@@ -387,7 +387,11 @@ python scripts/smoke_production.py $URL --deep  # ...and its database and bot he
     phone away at the door. That was what "two phones do not work" meant.
   - **No emoji, no music, no reactions.** The board speaks in suits, drawn
     arrows and colour by block; the three were removed on purpose and the
-    column behind the reactions went with them.
+    column behind the reactions went with them. The map's fold button is a
+    drawn icon, the finale and its end show the pair's two suits in seat
+    order, and the turn chip leads with the mover's suit (audit D-39:
+    `tests/test_webapp_static.py` reads the board's markup, copy and code for
+    emoji, `tests/e2e/browser/test_board_suits.py` the screens).
   Content lives in `data/steps69_ru.yaml`. Portals are declared *on the
   cells* (`kind: ladder` + `to:`), never in a separate table, so a rewritten
   cell cannot lose its link. Ladders are 4→18, 22→40, 42→60, 65→68; snakes
@@ -948,12 +952,15 @@ python scripts/smoke_production.py $URL --deep  # ...and its database and bot he
   (`BackButton._cb()`), never a click on a `#…Back`: it is hidden.
 - **One swipe engine, one stage builder.** The game deck and the Library
   deck share `buildStage` and the same drag handler in
-  `webapp/index.html`; the Library plugs in through `drag.onAdvance` /
-  `drag.onBack` rather than owning a second copy. The gesture splits by axis
+  `webapp/index.html`; the Library plugs in through `drag.onAdvance` rather
+  than owning a second copy. The gesture splits by axis
   at 8px of travel — vertical scrolls the card text inside its fixed band
   (with a fade at whichever edge is hiding something; long text scrolls, it
-  no longer shrinks through size steps), horizontal swipes the card. Extend
-  those, don't fork them.
+  no longer shrinks through size steps), horizontal swipes the card. A swipe
+  either way is «дальше» and the card flies the way it was thrown (audit
+  D-40): right used to be next and left back, the opposite of what a thumb
+  expects. Back is the ↩ button and the left arrow key, and never flies.
+  Extend those, don't fork them.
 - **A deck's panel has three fixed slots, and a deck has one counter.**
   Back, forward and share each own a column of `.deck-controls`, so a deck
   without one of them – a room has no back, the Library no share – leaves
@@ -968,6 +975,17 @@ python scripts/smoke_production.py $URL --deep  # ...and its database and bot he
   12 из 40»). A browser test reads where a deck is from the bar's
   `aria-valuenow` and `aria-valuemax` (`PROGRESS_JS` in
   `tests/e2e/browser/app.py`).
+- **A web font is one file per face, cut to what the app sets** (audit
+  D-41). `webapp/fonts/` holds Inter 400, 600 and 700 and Lora 400, each one
+  woff2 of Cyrillic, printable ASCII and the punctuation of Russian
+  typography, and all four are preloaded (with `crossorigin`, or the preload
+  is a second download). `scripts/fetch_webapp_fonts.py` builds them from
+  Google's two subsets per face, keeping Google's glyphs, advances and
+  kerning, so text is drawn exactly as before at half the weight; Forum is
+  the card generator's and the page does not declare it. A character the
+  copy or the content starts using outside that set is caught by
+  `tests/test_webapp_fonts.py`, which reads each file's own table: add it to
+  `TEXT` in the script and run it (fontTools is in the dev extra).
 - Prefer adding tests next to the feature (`tests/test_<feature>.py`); the
   suite runs offline (no network, Tribute mocked).
 - **A script in `scripts/` answers `--help` and works through the app.**

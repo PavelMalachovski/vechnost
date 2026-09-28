@@ -59,6 +59,11 @@ dev = [
     "types-PyYAML>=6.0.0",
     # The two-user fuzzer in tests/e2e/test_duo_fuzz.py runs in every pytest.
     "hypothesis>=6.100",
+    # The Mini App's web fonts: scripts/fetch_webapp_fonts.py builds them,
+    # and tests/test_webapp_fonts.py reads what each file holds. WOFF2 is
+    # Brotli inside.
+    "fonttools>=4.50",
+    "brotli>=1.1",
 ]
 # Two real browsers driving the Mini App (tests/e2e/browser, opt-in with
 # E2E_BROWSER=1). Chromium itself: `python -m playwright install chromium`.

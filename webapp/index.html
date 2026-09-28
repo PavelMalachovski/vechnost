@@ -4,44 +4,29 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Vechnost – игра для близости</title>
+<link rel="preload" href="fonts/inter-400.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="preload" href="fonts/inter-600.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="preload" href="fonts/inter-700.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="preload" href="fonts/lora-400.woff2" as="font" type="font/woff2" crossorigin>
 <script src="https://telegram.org/js/telegram-web-app.js"></script>
 <style>
-  /* The brand three, the same faces the bot composites onto its cards:
-     Inter for text, Lora for the wordmark, Forum for the V/Λ emblem.
-     Each ships as two subsets — the bare file is Cyrillic-only and the
-     -latin one carries ASCII — so both are declared with the unicode-range
-     that selects them. Drop the -latin faces and every English string falls
-     back to the system sans. */
-  @font-face { font-family: 'Inter'; src: url('fonts/inter-400-latin.woff2') format('woff2');
-    font-weight: 400; font-style: normal; font-display: swap;
-    unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+2000-206F, U+20AC, U+2122, U+2212; }
+  /* The brand's two faces on the page, the same the bot composites onto its
+     cards: Inter for text, Lora for the wordmark. Each is one woff2 cut to
+     what the app sets - Cyrillic, printable ASCII and the punctuation of
+     Russian typography - by scripts/fetch_webapp_fonts.py, from the two
+     Google subsets the page used to load per face (audit D-41). An arrow, a
+     suit or an emoji falls through to the phone's own font, as it always
+     did. The faces the first screen sets are preloaded in <head>, with the
+     same URL and crossorigin: a font is fetched in CORS mode, and a preload
+     without it is a second download of the same file. */
   @font-face { font-family: 'Inter'; src: url('fonts/inter-400.woff2') format('woff2');
-    font-weight: 400; font-style: normal; font-display: swap;
-    unicode-range: U+0301, U+0400-045F, U+0490-0491, U+04B0-04B1, U+2116; }
-  @font-face { font-family: 'Inter'; src: url('fonts/inter-600-latin.woff2') format('woff2');
-    font-weight: 600; font-style: normal; font-display: swap;
-    unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+2000-206F, U+20AC, U+2122, U+2212; }
+    font-weight: 400; font-style: normal; font-display: swap; }
   @font-face { font-family: 'Inter'; src: url('fonts/inter-600.woff2') format('woff2');
-    font-weight: 600; font-style: normal; font-display: swap;
-    unicode-range: U+0301, U+0400-045F, U+0490-0491, U+04B0-04B1, U+2116; }
-  @font-face { font-family: 'Inter'; src: url('fonts/inter-700-latin.woff2') format('woff2');
-    font-weight: 700; font-style: normal; font-display: swap;
-    unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+2000-206F, U+20AC, U+2122, U+2212; }
+    font-weight: 600; font-style: normal; font-display: swap; }
   @font-face { font-family: 'Inter'; src: url('fonts/inter-700.woff2') format('woff2');
-    font-weight: 700; font-style: normal; font-display: swap;
-    unicode-range: U+0301, U+0400-045F, U+0490-0491, U+04B0-04B1, U+2116; }
-  @font-face { font-family: 'Lora'; src: url('fonts/lora-400-latin.woff2') format('woff2');
-    font-weight: 400; font-style: normal; font-display: swap;
-    unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+2000-206F, U+20AC, U+2122, U+2212; }
+    font-weight: 700; font-style: normal; font-display: swap; }
   @font-face { font-family: 'Lora'; src: url('fonts/lora-400.woff2') format('woff2');
-    font-weight: 400; font-style: normal; font-display: swap;
-    unicode-range: U+0301, U+0400-045F, U+0490-0491, U+04B0-04B1, U+2116; }
-  @font-face { font-family: 'Forum'; src: url('fonts/forum-400-latin.woff2') format('woff2');
-    font-weight: 400; font-style: normal; font-display: swap;
-    unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+2000-206F, U+20AC, U+2122, U+2212; }
-  @font-face { font-family: 'Forum'; src: url('fonts/forum-400.woff2') format('woff2');
-    font-weight: 400; font-style: normal; font-display: swap;
-    unicode-range: U+0301, U+0400-045F, U+0490-0491, U+04B0-04B1, U+2116; }
+    font-weight: 400; font-style: normal; font-display: swap; }
 
   /* Design tokens (docs/AUDIT_2026-09.md, section 4). The first step of a
      migration: every value here is one the page already uses, and nothing
@@ -406,6 +391,11 @@
     transition: transform .12s ease, background .15s;
   }
   .icon-btn:active { transform: scale(.92); }
+  /* A drawn icon takes the button's colour, like a letter would. */
+  .icon-btn svg {
+    width: 20px; height: 20px; fill: none; stroke: currentColor;
+    stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round;
+  }
   .icon-btn[disabled] { opacity: .35; pointer-events: none; }
   /* One Back, not two (audit D-25). Inside Telegram the header already has
      its own Back, and it does exactly what this button does - the handler
@@ -1042,6 +1032,15 @@
   .s69-suit.red { color: #FF89B8; }
   .s69-suit.on { background: rgba(232,107,181,.28); border-color: rgba(232,107,181,.9); }
   .s69-suit[disabled] { opacity: .25; pointer-events: none; }
+  /* The finales show the two pieces that made it, as the picker drew them
+     (audit D-39: fire and fireworks were emoji on a board that has none). */
+  .s69-pair { display: flex; justify-content: center; gap: 12px; margin-bottom: 16px; }
+  .s69-pair span {
+    width: 64px; height: 64px; border-radius: 18px; font-size: 32px; line-height: 1;
+    display: grid; place-items: center; color: var(--text-on-dark);
+    background: rgba(232,107,181,.16); border: 1px solid rgba(232,107,181,.55);
+  }
+  .s69-pair span.red { color: #FF89B8; }
 
   .s69-card {
     background: var(--card-bg); color: var(--ink); border-radius: var(--radius-card);
@@ -1388,7 +1387,7 @@
     <div class="top">
       <button class="icon-btn back" id="s69BoardBack" aria-label="Назад">←</button>
       <h1 class="title" id="s69BoardTitle"></h1>
-      <button class="icon-btn" id="s69MapToggle" data-i18n-aria="ariaMap" aria-controls="s69Map" aria-expanded="true">🗺</button>
+      <button class="icon-btn" id="s69MapToggle" data-i18n-aria="ariaMap" aria-controls="s69Map" aria-expanded="true"><svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M3 6.5 9 4l6 2.5L21 4v13.5L15 20l-6-2.5L3 20z M9 4v13.5 M15 6.5V20"/></svg></button>
     </div>
     <div class="s69-map" id="s69Map"></div>
     <p class="s69-map-hint" id="s69MapHint" data-i18n="s69MapHint"></p>
@@ -1477,14 +1476,14 @@
 
   <!-- PAYWALL overlay -->
   <div class="overlay" id="s69Finale" role="dialog" aria-modal="true" aria-labelledby="s69FinaleTitle" tabindex="-1">
-    <div class="big-emoji">🔥</div>
+    <div class="s69-pair" id="s69FinaleSuits" aria-hidden="true"></div>
     <h2 id="s69FinaleTitle"></h2>
     <p id="s69FinaleIntro"></p>
     <div class="s69-finale" id="s69FinaleChoices"></div>
   </div>
 
   <div class="overlay" id="s69Done" role="dialog" aria-modal="true" aria-labelledby="s69DoneTitle" tabindex="-1">
-    <div class="big-emoji">🎆</div>
+    <div class="s69-pair" id="s69DoneSuits" aria-hidden="true"></div>
     <h2 id="s69DoneTitle"></h2>
     <p id="s69DoneText"></p>
     <button class="btn btn-play" id="s69DoneAgain"></button>
@@ -1690,7 +1689,7 @@
       s69Joined: '{name} в игре. Бросайте кубик.',
       s69Roll: 'Бросить кубик',
       s69Rolling: 'Кубик летит…',
-      s69YourTurn: '✨ Ваш ход',
+      s69YourTurn: 'Ваш ход',
       s69PartnerTurn: 'Ходит {name}. Смотрите.',
       s69NotYourTurn: 'Сейчас ход партнёра',
       tooMany: 'Слишком много попыток. Подождите несколько минут.',
@@ -2475,7 +2474,7 @@
   function enterDeck(forceReset) {
     deckGen++;                                   // a new deck owns the stage
     track('deck_open', S.theme + ':' + (S.level || '') + ':' + S.type);
-    drag.onAdvance = null; drag.onBack = null;   // the Library's, if we came from it
+    drag.onAdvance = null;   // the Library's, if we came from it
     COOP.active = false;
     $('turnChip').style.display = 'none';
     $('btnShuffle').style.visibility = '';
@@ -2662,11 +2661,12 @@
   /* ---------------- swipe physics ---------------- */
   // Single global drag state: window listeners are registered once,
   // renderStage only points `drag.card` at the current top card.
-  // onAdvance/onBack are how a non-game deck borrows the physics: set, they
-  // replace flyOut's game transitions entirely. Null for the game and couple
-  // mode, and cleared on the way into both.
+  // onAdvance is how a non-game deck borrows the physics: set, it replaces
+  // flyOut's game transitions entirely. Null for the game and couple mode,
+  // and cleared on the way into both. A swipe only ever goes forward, so
+  // there is no onBack to borrow.
   const drag = { card: null, x0: 0, y0: 0, dx: 0, dy: 0, active: false, axis: null,
-                 onAdvance: null, onBack: null };
+                 onAdvance: null };
 
   function attachSwipe(card) {
     drag.card = card;
@@ -2720,19 +2720,18 @@
       drag.dx = 0; drag.dy = 0; drag.axis = null; drag.refused = false;
       return;
     }
-    // Right = next card, left = previous. A left swipe on the first card
-    // snaps back; couple mode is turn-based, so left never goes back there.
-    // A deck that installed its own callbacks (the Library) is asked about
-    // its own position — S.idx is the game's, and would let a swipe off
-    // either end of the Library fly the card away to nothing: there is no
-    // finishDeck() on that side to put something back on the stage.
-    const borrowed = !!drag.onAdvance;
-    const canGoBack = borrowed ? LS.idx > 0 : (!COOP.active && S.idx > 0);
-    const canGoOn = borrowed ? LS.idx < LS.items.length - 1 : true;
-    if (drag.dx > 84 && canGoOn) {
-      flyOut(drag.card, 1);
-    } else if (drag.dx < -84 && canGoBack) {
-      flyOut(drag.card, -1);
+    // A swipe either way is «дальше», and the card leaves the way it was
+    // thrown (audit D-40). Right used to be next and left previous, the
+    // opposite of every carousel a thumb already knows, so a left swipe
+    // meant for the next card went back one; back is the ↩ button, and
+    // the left arrow on a keyboard. A deck that installed its own callbacks
+    // (the Library) is asked about its own position — S.idx is the game's,
+    // and would let a swipe off the Library's last card fly it away to
+    // nothing: there is no finishDeck() on that side to put something back
+    // on the stage.
+    const canGoOn = drag.onAdvance ? LS.idx < LS.items.length - 1 : true;
+    if (Math.abs(drag.dx) > 84 && canGoOn) {
+      flyOut(drag.card, drag.dx > 0 ? 1 : -1);
     } else {
       drag.card.style.transition = 'transform .3s cubic-bezier(.2,.9,.3,1.2)';
       drag.card.style.transform = '';
@@ -2742,6 +2741,8 @@
   window.addEventListener('mousemove', dragMove);
   window.addEventListener('mouseup', dragEnd);
 
+  // Sends the top card off the stage and steps the deck forward. `dir` is
+  // only which way it flies: going back never flies (btnPrev, libPrev).
   function flyOut(card, dir) {
     if (deckDirty) return;
     deckDirty = true;
@@ -2751,7 +2752,7 @@
     // everything below used to be read after that: paging the Library and
     // leaving immediately stepped the *game's* saved position, and could put
     // the game's "done" overlay up over the Library.
-    const onAdvance = drag.onAdvance, onBack = drag.onBack;
+    const onAdvance = drag.onAdvance;
     const wasCoop = COOP.active;
     const screen = document.querySelector('.screen.active');
     const gen = deckGen;
@@ -2771,19 +2772,14 @@
       // reaches — leave it set and the second swipe is swallowed.
       if (onAdvance) {
         deckDirty = false;
-        (dir > 0 ? onAdvance : onBack)();
+        onAdvance();
         return;
       }
       if (wasCoop) {
         coopAdvanceAfterFly();  // couple mode is always forward, server-driven
         return;
       }
-      if (dir < 0) {
-        // Left swipe: step back to the previous card (guarded by the caller).
-        S.idx -= 1;
-        persistDeck();
-        renderStage(true);
-      } else if (S.idx + 1 >= S.order.length) {
+      if (S.idx + 1 >= S.order.length) {
         finishDeck();
       } else {
         S.idx += 1;
@@ -3204,7 +3200,7 @@
 
   function enterCoopDeck() {
     deckGen++;                                   // a new deck owns the stage
-    drag.onAdvance = null; drag.onBack = null;   // the Library's, if we came from it
+    drag.onAdvance = null;   // the Library's, if we came from it
     COOP.active = true;
     // cardHTML picks the printed face from all three of these, and the room
     // is the only thing that knows which deck the pair is actually playing.
@@ -3662,14 +3658,13 @@
     $('libDeckTitle').textContent = title;
     // The swipe engine belongs to whoever is on screen; these send it here.
     drag.onAdvance = libNext;
-    drag.onBack = libPrev;
     deckDirty = false;
     show('libDeck');
     renderLibStage(true);
   }
 
   function libDeckLeave() {
-    drag.onAdvance = null; drag.onBack = null;
+    drag.onAdvance = null;
     (LS.back || openLibrary)();
   }
 
@@ -5160,6 +5155,28 @@
            (mine ? ' mine' : '') + '">' + suit.glyph + '</span>';
   }
 
+  // The two pieces in seat order, as the map sets them: seat 0 on the left.
+  function s69PairHTML(st) {
+    return [st.you, st.partner].sort((a, b) => a.seat - b.seat).map(player => {
+      const suit = S69_SUITS[player.piece] || S69_SUITS.spades;
+      return '<span' + (suit.red ? ' class="red"' : '') + '>' + suit.glyph + '</span>';
+    }).join('');
+  }
+
+  // Whose turn it is, led by their suit: the board speaks in suits, and a
+  // sparkle in front of «Ваш ход» was an emoji on it (audit D-39). The suit
+  // is kept from a screen reader, which would read it as a word, and held
+  // to the first word by a no-break space.
+  function s69SayTurn(chip, st, seat, text) {
+    const player = st.you.seat === seat ? st.you : st.partner;
+    const suit = document.createElement('span');
+    suit.setAttribute('aria-hidden', 'true');
+    suit.textContent = (S69_SUITS[player.piece] || S69_SUITS.spades).glyph;
+    chip.textContent = '';
+    chip.appendChild(suit);
+    chip.appendChild(document.createTextNode('\u00a0' + text));
+  }
+
   // `overrideMine` puts the player's own piece on a square other than the one
   // the state reports, which is how the portal flight shows it landing before
   // it is thrown on.
@@ -5222,15 +5239,15 @@
     if (st.finished) { chip.textContent = T().s69Done; chip.className = 'chip'; return; }
     if (st.both_home) { chip.textContent = T().s69BothHome; chip.className = 'chip on'; return; }
     if (st.mode === 'solo') {
-      chip.textContent = T().s69Seat[st.turn === 0 ? 'creator' : 'guest'];
+      s69SayTurn(chip, st, st.turn, T().s69Seat[st.turn === 0 ? 'creator' : 'guest']);
       chip.className = 'chip on';
       return;
     }
     if (!st.started) { chip.textContent = T().s69Waiting; chip.className = 'chip waiting'; return; }
     if (st.you.home) { chip.textContent = T().s69YouAreHome; chip.className = 'chip waiting'; return; }
-    chip.textContent = st.your_turn
+    s69SayTurn(chip, st, st.turn, st.your_turn
       ? T().s69YourTurn
-      : fmt(T().s69PartnerTurn, { name: st.turn_name || '' });
+      : fmt(T().s69PartnerTurn, { name: st.turn_name || '' }));
     chip.className = 'chip' + (st.your_turn ? ' on' : '');
   }
 
@@ -5331,6 +5348,7 @@
     // whose down and up straddled the rebuild — "I chose and nothing
     // happened". Once shown, it stays as built.
     if ($('s69Finale').classList.contains('show')) return;
+    $('s69FinaleSuits').innerHTML = s69PairHTML(st);
     $('s69FinaleTitle').textContent = st.finale.title;
     $('s69FinaleIntro').textContent = st.finale.intro;
     const box = $('s69FinaleChoices');
@@ -5377,6 +5395,7 @@
     $('s69Finale').classList.remove('show');
     const choice = ((st.finale && st.finale.choices) || [])
       .filter(c => c.id === st.finale_choice)[0];
+    $('s69DoneSuits').innerHTML = s69PairHTML(st);
     $('s69DoneTitle').textContent = T().s69Done;
     $('s69DoneText').textContent = (choice ? choice.text + '\n\n' : '') +
       ((st.finale && st.finale.outro) || T().s69Again);

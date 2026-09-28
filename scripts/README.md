@@ -35,7 +35,10 @@ Telegram id. У каждого есть `--help`, и `tests/test_scripts.py` з�
 
 - **`generate_card_assets.py`** – детерминированная генерация карточных
   фонов и мастей (см. CLAUDE.md).
-- **`fetch_webapp_fonts.py`** – скачать woff2-шрифты для Mini App.
+- **`fetch_webapp_fonts.py`** – собрать woff2-шрифты Mini App: по одному
+  файлу на начертание из двух подмножеств Google, только то, что приложение
+  набирает (кириллица, ASCII, типографская пунктуация). Нужен fontTools из
+  extra `dev`.
 
 ## Разработка и деплой
 

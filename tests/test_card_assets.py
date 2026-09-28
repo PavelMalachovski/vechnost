@@ -61,7 +61,6 @@ def test_brand_font_covers_cyrillic(name):
 @pytest.mark.parametrize(
     "name",
     [
-        "forum-400.woff2",
         "lora-400.woff2",
         "inter-400.woff2",
         "inter-600.woff2",

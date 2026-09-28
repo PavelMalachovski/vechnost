@@ -165,5 +165,18 @@ PROGRESS_JS = (
 )
 
 
+# The board's turn chip on the phone whose turn it is: the player's own suit,
+# then «Ваш ход» (audit D-39: it led with a sparkle, an emoji on a board that
+# has none). The suit is held to the words by a no-break space.
+S69_SUIT = {"hearts": "♥", "spades": "♠", "clubs": "♣", "diamonds": "♦"}
+S69_CHIP = (
+    "t => document.querySelector('#s69TurnChip')?.innerText.replace(/\\u00a0/g, ' ').trim() === t"
+)
+
+
+def s69_your_turn(piece: str) -> str:
+    return f"{S69_SUIT[piece]} Ваш ход"
+
+
 def progress(phone: Phone) -> str:
     return str(phone.page.evaluate("() => " + PROGRESS_JS))

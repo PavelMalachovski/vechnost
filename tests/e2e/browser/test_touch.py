@@ -44,6 +44,7 @@ from .app import (
     open_deck,
     progress,
     resize,
+    settle_card,
     zone,
 )
 from .phones import REPORT_DIR, Device, Phone
@@ -162,31 +163,35 @@ def test_a_vertical_drag_leaves_the_card_in_place(server: Server, phones, device
     assert phone.page.evaluate(MOVED) in ("", "none")
 
 
-def test_a_horizontal_swipe_turns_the_card(server: Server, phones, device: Device) -> None:
-    """Right is "next" in this deck, and left goes back."""
+def test_a_swipe_either_way_turns_to_the_next_card(
+    server: Server, phones: Any, device: Device
+) -> None:
+    """«Дальше» both ways (audit D-40). Right used to be next and left went
+    back, the opposite of every carousel a thumb knows, so a left swipe meant
+    for the next card showed the previous one again. Back is the ↩ button."""
     phone, band = on_a_long_card(server, phones, device)
-    before = progress(phone)
-    text = phone.text(f"{TOP_CARD} .q-text")
-    x, y, width = band["x"], band["y"], band["width"]
-    phone.finger.drag((x - width * 0.3, y), (x + width * 0.45, y + 8))
-    phone.page.wait_for_function(
-        "(t) => " + PROGRESS_JS + " !== t",
-        arg=before,
-        timeout=5_000,
-    )
+    texts = [phone.text(f"{TOP_CARD} .q-text")]
+    numbers = [int(progress(phone).split(" / ")[0])]
+    for direction in (1, -1):
+        before = progress(phone)
+        x, y, width = band["x"], band["y"], band["width"]
+        phone.finger.drag((x - direction * width * 0.3, y), (x + direction * width * 0.45, y + 8))
+        phone.page.wait_for_function("(t) => " + PROGRESS_JS + " !== t", arg=before, timeout=5_000)
+        phone.page.wait_for_timeout(700)  # the new card turns over first
+        texts.append(phone.text(f"{TOP_CARD} .q-text"))
+        numbers.append(int(progress(phone).split(" / ")[0]))
+        band = zone(phone)
     phone.shot("next")
-    assert phone.text(f"{TOP_CARD} .q-text") != text
-    after = progress(phone)
-    phone.page.wait_for_timeout(700)  # the new card turns over first
-    band = zone(phone)
-    phone.finger.drag((band["x"] + width * 0.3, band["y"]), (band["x"] - width * 0.45, band["y"]))
+    assert numbers == [numbers[0], numbers[0] + 1, numbers[0] + 2], numbers
+    assert len(set(texts)) == 3, "a swipe showed a card already seen"
+
+    # Back is a button, and it does not fly.
+    phone.tap("#btnPrev")
     phone.page.wait_for_function(
-        "(t) => " + PROGRESS_JS + " !== t",
-        arg=after,
-        timeout=5_000,
+        "(n) => " + PROGRESS_JS + ".startsWith(n + ' / ')", arg=numbers[1], timeout=5_000
     )
-    assert progress(phone) == before
-    assert phone.text(f"{TOP_CARD} .q-text") == text
+    settle_card(phone)
+    assert phone.text(f"{TOP_CARD} .q-text") == texts[1]
 
 
 def test_a_tap_in_the_middle_of_a_card_lands_on_its_front(

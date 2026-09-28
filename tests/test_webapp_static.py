@@ -126,12 +126,14 @@ def test_the_mini_app_points_at_the_real_card_art():
 
 
 def test_the_mini_app_no_longer_ships_the_old_typography():
-    """Montserrat and Georgia are gone; the cards are set in the brand three."""
+    """Montserrat and Georgia are gone; the page is set in the brand's Inter
+    and Lora. Forum, the face of the cards' V and Λ, was declared too and
+    set nothing on the page (audit D-41): it is the card generator's."""
     html = INDEX.read_text(encoding="utf-8")
     assert "Montserrat" not in html
     assert "Georgia" not in html
-    for family in ("Inter", "Lora", "Forum"):
-        assert family in html
+    declared = set(re.findall(r"@font-face \{ font-family: '([^']+)'", html))
+    assert declared == {"Inter", "Lora"}, declared
 
 
 def test_the_mini_app_suits_match_the_printed_cards():
@@ -536,6 +538,41 @@ def test_every_board_cell_opens_its_action():
     info = html.split("function showS69CellInfo(")[1].split("\n  }")[0]
     assert "c.text" in info
     assert "c.to" in info  # a portal says where it throws the piece
+
+
+# Emoji and pictographs, the four card suits aside: those are the board's.
+EMOJI = re.compile(
+    "[\U0001f000-\U0001faff\u2300-\u23ff\u2600-\u265f\u2667-\u27bf\u2b00-\u2bff\ufe0f\u200d]"
+)
+
+
+def test_the_board_speaks_in_suits():
+    """No emoji on «69 ступеней» (CLAUDE.md; audit D-39). Three were left: a
+    map on the button that folds the map, fire over the finale and fireworks
+    over its end. The button is a drawing, both finales show the pair's two
+    suits, and the turn chip leads with the mover's suit instead of a
+    sparkle. What the board says is its screens, its overlays, its copy and
+    the code that writes into them; the home screen's button and the
+    invitation a player sends are not on the board."""
+    html = INDEX.read_text(encoding="utf-8")
+    parts = {
+        f"#{sid}": html.split(f'<section class="screen" id="{sid}">')[1].split("</section>")[0]
+        for sid in ("s69", "s69Invite", "s69Board")
+    }
+    for oid in ("s69Finale", "s69Done", "s69CellInfo"):
+        parts[f"#{oid}"] = html.split(f'<div class="overlay" id="{oid}"')[1].split("\n  </div>")[0]
+    i18n = html.split("const I18N = {", 1)[1].split("\n  };", 1)[0]
+    for key, text in re.findall(r"\b(s69\w*):\s*('[^']*'|\{[^}]*\})", i18n):
+        if key not in ("s69Btn", "s69InviteMsg"):
+            parts[f"I18N.{key}"] = text
+    parts["the board's code"] = html.split("const S69_SUITS = {")[1].split(
+        "/* ---------------- boot"
+    )[0]
+    found = {where: sorted(set(EMOJI.findall(text))) for where, text in parts.items()}
+    assert not {where: chars for where, chars in found.items() if chars}, found
+    assert "<svg" in parts["#s69Board"].split('id="s69MapToggle"')[1].split("</button>")[0]
+    for oid in ("s69FinaleSuits", "s69DoneSuits"):
+        assert f"$('{oid}').innerHTML = s69PairHTML(st)" in html, oid
 
 
 def test_the_fade_follows_the_text_s_size_not_only_its_events():
