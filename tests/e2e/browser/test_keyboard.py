@@ -6,6 +6,7 @@ this presses the keys, on both phones.
 from __future__ import annotations
 
 from ..harness import Server
+from .app import PROGRESS_JS
 
 
 def focused(phone) -> str:
@@ -23,7 +24,7 @@ def open_deck(phone) -> None:
 
 def wait_for_card(phone, number: int) -> None:
     phone.page.wait_for_function(
-        "n => document.getElementById('progressNum').innerText.trim().startsWith(n + ' /')",
+        "n => " + PROGRESS_JS + ".startsWith(n + ' /')",
         arg=number,
     )
 

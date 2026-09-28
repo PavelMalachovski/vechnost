@@ -3,9 +3,10 @@
 A `Tour` walks one phone model through the whole app - the deck, the 18+
 gate and the paywall, a room from its door to a finished deck, the
 compatibility test from its door to the result, «69 ступеней» from its door
-to the finale, the Library, a practice and the masterclass - and at every
-stop resizes the page through four phone screens, handing each one to the
-visitors: a screenshot, and whatever else wants to look at every screen.
+to the finale, the Library, a practice, the question of the day and the
+masterclass - and at every stop resizes the page through four phone
+screens, handing each one to the visitors: a screenshot, and whatever else
+wants to look at every screen.
 Two-player states are reached for real: a partner joins through the API and
 the phone catches up through its own poll.
 
@@ -90,6 +91,7 @@ STOPS = [
     ("library", "Practices (the Library)"),
     ("library-detail", "A module's categories"),
     ("practice", "A practice deck"),
+    ("daily", "The question of the day: a deck of one card"),
     ("guide", "The masterclass"),
 ]
 
@@ -422,6 +424,13 @@ class Tour:
         self.paid.press_back()
         self.paid.screen("library")
         self.paid.tap('#libraryList [data-module="practices_couples"]')
+        self.paid.screen("libDeck")
+        settle_card(self.paid, "#libStage")
+
+    def stop_daily(self) -> None:
+        self.paid.press_back()
+        self.paid.screen("library")
+        self.paid.tap('#libraryList [data-module="reflection"]')
         self.paid.screen("libDeck")
         settle_card(self.paid, "#libStage")
 

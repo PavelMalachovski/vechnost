@@ -36,7 +36,16 @@ from typing import Any
 import pytest
 
 from ..harness import Server
-from .app import SMALLEST, TOP_CARD, longest_card, open_deck, progress, resize, zone
+from .app import (
+    PROGRESS_JS,
+    SMALLEST,
+    TOP_CARD,
+    longest_card,
+    open_deck,
+    progress,
+    resize,
+    zone,
+)
 from .phones import REPORT_DIR, Device, Phone
 
 # Records what every touch and click reached: which face of which card.
@@ -161,7 +170,7 @@ def test_a_horizontal_swipe_turns_the_card(server: Server, phones, device: Devic
     x, y, width = band["x"], band["y"], band["width"]
     phone.finger.drag((x - width * 0.3, y), (x + width * 0.45, y + 8))
     phone.page.wait_for_function(
-        "(t) => document.querySelector('#progressNum').innerText.trim() !== t",
+        "(t) => " + PROGRESS_JS + " !== t",
         arg=before,
         timeout=5_000,
     )
@@ -172,7 +181,7 @@ def test_a_horizontal_swipe_turns_the_card(server: Server, phones, device: Devic
     band = zone(phone)
     phone.finger.drag((band["x"] + width * 0.3, band["y"]), (band["x"] - width * 0.45, band["y"]))
     phone.page.wait_for_function(
-        "(t) => document.querySelector('#progressNum').innerText.trim() !== t",
+        "(t) => " + PROGRESS_JS + " !== t",
         arg=after,
         timeout=5_000,
     )

@@ -940,6 +940,20 @@ python scripts/smoke_production.py $URL --deep  # ...and its database and bot he
   (with a fade at whichever edge is hiding something; long text scrolls, it
   no longer shrinks through size steps), horizontal swipes the card. Extend
   those, don't fork them.
+- **A deck's panel has three fixed slots, and a deck has one counter.**
+  Back, forward and share each own a column of `.deck-controls`, so a deck
+  without one of them – a room has no back, the Library no share – leaves
+  the slot empty and forward stays in the middle; it used to slide 36 px
+  either way (audit D-29). A deck of one card, the question of the day, is
+  marked `one-card` and shows no bar, hint or buttons. The count is printed
+  on the card with its unit – «Карта 3 из 20» (`cardOf`), «День 271 из
+  365» – and the bar above it is a gauge (`role="progressbar"`, set by
+  `showProgress`) that reads the same words to a screen reader; the bare
+  «3 / 20» beside it is gone (audit D-30). The compatibility test has no
+  card, so its one counter stays over the question, unit and all («Вопрос
+  12 из 40»). A browser test reads where a deck is from the bar's
+  `aria-valuenow` and `aria-valuemax` (`PROGRESS_JS` in
+  `tests/e2e/browser/app.py`).
 - Prefer adding tests next to the feature (`tests/test_<feature>.py`); the
   suite runs offline (no network, Tribute mocked).
 - **A script in `scripts/` answers `--help` and works through the app.**
