@@ -135,7 +135,7 @@ def test_two_phones_take_the_compatibility_test(server: Server, phones) -> None:
     for phone, value in ((a, "4"), (b, "2")):
         for number in range(1, TOTAL_QUESTIONS + 1):
             if number < TOTAL_QUESTIONS:
-                assert phone.text("#compatProgressNum") == f"{number} / {TOTAL_QUESTIONS}"
+                assert phone.text("#compatProgressNum") == f"Вопрос {number} из {TOTAL_QUESTIONS}"
             phone.page.locator(
                 f"#compatScale .compat-opt[data-value='{value}']:not([disabled])"
             ).click()

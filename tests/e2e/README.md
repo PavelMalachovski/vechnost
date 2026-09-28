@@ -89,10 +89,10 @@ every phone.
 decks, the 18+ question and the paywall, a room, the compatibility test and
 «69 ступеней» from their doors to their ends (a partner joins and plays
 through the API; the phone hears it through its own poll), the Library, a
-practice and the masterclass - and photographs each at 320×568, 375×667,
-393×852 and 430×932. `e2e-report/browser/screens/index.html` is the contact
-sheet; CI uploads it with the job's artifact and puts the table in the job
-summary.
+practice, the question of the day and the masterclass - and photographs
+each at 320×568, 375×667, 393×852 and 430×932.
+`e2e-report/browser/screens/index.html` is the contact sheet; CI uploads it
+with the job's artifact and puts the table in the job summary.
 
 ### The UI fuzzer
 

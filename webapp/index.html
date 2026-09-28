@@ -710,7 +710,20 @@
 
   .hint { text-align: center; font-size: 12.5px; color: var(--muted-on-dark); margin-bottom: 8px; }
 
-  .deck-controls { display: flex; justify-content: center; gap: 14px; }
+  /* Three fixed slots – back, forward, share – and a deck that has no use
+     for one leaves it empty rather than closing up (audit D-29): the room
+     hides back and the Library has no share, and the forward button used
+     to slide sideways between the three. */
+  .deck-controls {
+    display: grid; grid-template-columns: 58px 72px 58px;
+    justify-content: center; align-items: center; gap: 14px;
+  }
+  .deck-controls .ctrl { grid-row: 1; grid-column: 1; }
+  .deck-controls .ctrl.main { grid-column: 2; }
+  .deck-controls .ctrl.aside { grid-column: 3; }
+  /* A deck of one card, the question of the day, has nowhere to go: no
+     gauge, no hint, no buttons that could only ever be disabled. */
+  .one-card .progress-wrap, .one-card .hint, .one-card .deck-controls { display: none; }
   .ctrl {
     width: 58px; height: 58px; border-radius: 50%; border: 0; cursor: pointer;
     display: grid; place-items: center; font-size: 21px; color: #fff;
@@ -1202,14 +1215,14 @@
       <div class="top-spacer"></div>
     </div>
     <div class="progress-wrap">
-      <div class="progress-track"><div class="progress-fill" id="libProgressFill"></div></div>
-      <div class="progress-num" id="libProgressNum"></div>
+      <div class="progress-track" id="libProgressTrack" role="progressbar" aria-valuemin="0" data-i18n-aria="ariaProgress"><div class="progress-fill"></div></div>
     </div>
     <div id="libStage"></div>
     <div class="hint" data-i18n="hint"></div>
     <div class="deck-controls">
       <button class="ctrl" id="libPrev" data-i18n-aria="ariaPrev">↩</button>
       <button class="ctrl main" id="libNext" data-i18n-aria="ariaNext">→</button>
+      <!-- the third slot: no share here, and nothing moves into its place -->
     </div>
   </section>
 
@@ -1362,8 +1375,7 @@
       <button class="icon-btn" id="btnShuffle" title="shuffle" data-i18n-aria="ariaShuffle">🔀</button>
     </div>
     <div class="progress-wrap">
-      <div class="progress-track"><div class="progress-fill" id="progressFill"></div></div>
-      <div class="progress-num" id="progressNum"></div>
+      <div class="progress-track" id="progressTrack" role="progressbar" aria-valuemin="0" data-i18n-aria="ariaProgress"><div class="progress-fill"></div></div>
     </div>
     <div class="mode-row" id="modeRow" style="display:none">
       <button class="chip" id="modeQ"></button>
@@ -1375,7 +1387,7 @@
     <div class="deck-controls">
       <button class="ctrl" id="btnPrev" data-i18n-aria="ariaPrev">↩</button>
       <button class="ctrl main" id="btnNext" data-i18n-aria="ariaNext">→</button>
-      <button class="ctrl" id="btnShare" data-i18n-aria="ariaShare">📤</button>
+      <button class="ctrl aside" id="btnShare" data-i18n-aria="ariaShare">📤</button>
     </div>
   </section>
 
@@ -1497,7 +1509,7 @@
       doneTitle: 'Колода пройдена!', doneText: 'Вы разобрали все карты этой колоды. Это только начало разговора.',
       again: 'Начать заново', toThemes: 'К темам',
       shuffled: 'Колода перемешана', ordered: 'По порядку',
-      cardWord: 'Карта', resumed: 'Продолжаем с места остановки',
+      cardOf: 'Карта {n} из {total}', resumed: 'Продолжаем с места остановки',
       loadError: 'Не удалось загрузить вопросы. Проверьте соединение.',
       netError: 'Нет связи с сервером. Проверьте интернет и попробуйте ещё раз.',
       inviteBroken: 'Ссылка-приглашение не сработала. Попросите партнёра прислать её ещё раз.',
@@ -1586,6 +1598,7 @@
       compatResumeBtn: 'Продолжить тест',
       compatNotStarted: 'Партнёр ещё не присоединился',
       compatPrev: '← Предыдущий вопрос',
+      compatQuestionOf: 'Вопрос {n} из {total}',
       compatAnswered: 'Ответ уже есть, можно выбрать другой',
       compatDelete: 'Удалить результат и ответы',
       compatDeleteConfirm: 'Удалить тест? Ваши ответы и ответы партнёра будут стёрты навсегда.',
@@ -1656,7 +1669,9 @@
       // (audit D-14); applyI18n sets each as that button's aria-label.
       ariaPrev: 'Предыдущая карта', ariaNext: 'Следующая карта',
       ariaShare: 'Поделиться картой', ariaShuffle: 'Перемешать колоду',
-      ariaMap: 'Поле'
+      ariaMap: 'Поле',
+      // The deck's gauge; what it reads out is cardOf (audit D-30).
+      ariaProgress: 'Колода'
   };
 
   const THEME_ORDER = ['Acquaintance', 'For Couples', 'Sex', 'Provocation'];
@@ -2393,11 +2408,23 @@
     enterDeck();
   }
 
+  // One counter to a deck, and it says what it counts: «Карта 3 из 20»
+  // on the card itself (audit D-30). There used to be a second, «3 / 20»
+  // beside the bar, repeating the card's own number without saying of
+  // what. The bar is a gauge, and reads the card's words to a screen
+  // reader.
+  function cardOf(number, total) { return fmt(T().cardOf, { n: number, total: total }); }
+  function showProgress(track, cur, total) {
+    const bar = $(track);
+    bar.firstElementChild.style.width = (total ? (cur / total) * 100 : 0) + '%';
+    bar.setAttribute('aria-valuenow', String(cur));
+    bar.setAttribute('aria-valuemax', String(total));
+    bar.setAttribute('aria-valuetext', cardOf(cur, total));
+  }
+
   function updateProgress() {
     const total = S.order.length;
-    const cur = Math.min(S.idx + 1, total);
-    $('progressFill').style.width = (total ? (cur / total) * 100 : 0) + '%';
-    $('progressNum').textContent = cur + ' / ' + total;
+    showProgress('progressTrack', Math.min(S.idx + 1, total), total);
     $('btnPrev').disabled = S.idx <= 0;
   }
 
@@ -2408,7 +2435,7 @@
       '<div class="flipper">' +
         '<div class="face front"' + style + '>' +
           '<div class="q-zone"><div class="q-text">' + escapeHTML(text) + '</div></div>' +
-          '<div class="card-footer">' + T().cardWord + ' ' + number + ' / ' + total + '</div>' +
+          '<div class="card-footer">' + escapeHTML(cardOf(number, total)) + '</div>' +
         '</div>' +
         '<div class="face back"></div>' +
       '</div>'
@@ -3163,9 +3190,7 @@
 
   function updateCoopHud() {
     if (!C.st) return;
-    const total = C.st.total || 1;
-    $('progressFill').style.width = ((C.st.idx + 1) / total) * 100 + '%';
-    $('progressNum').textContent = (C.st.idx + 1) + ' / ' + total;
+    showProgress('progressTrack', C.st.idx + 1, C.st.total || 1);
     const chip = $('turnChipText');
     $('turnChip').style.display = 'flex';
     const yours = !!(C.st.started && C.st.your_turn);
@@ -3416,7 +3441,7 @@
     const cat = (data.categories || []).find(c => c.id === catId);
     if (!cat || !cat.items.length) return;
     const items = cat.items.map((t, i) => ({
-      text: escapeHTML(t), footer: (i + 1) + ' / ' + cat.items.length
+      text: escapeHTML(t), footer: cardOf(i + 1, cat.items.length)
     }));
     const lock = libLockCard(cat.items.length, cat.total);
     if (lock) items.push(lock);
@@ -3451,7 +3476,7 @@
       '<div class="flipper">' +
         '<div class="face front" style="--art:url(' + LIBRARY_ART + ')">' +
           '<div class="q-zone"><div class="q-text">' + item.text + '</div></div>' +
-          '<div class="card-footer">' + escapeHTML(item.footer || (number + ' / ' + total)) + '</div>' +
+          '<div class="card-footer">' + escapeHTML(item.footer || cardOf(number, total)) + '</div>' +
         '</div>' +
         '<div class="face back"></div>' +
       '</div>'
@@ -3470,7 +3495,7 @@
         text: '<b>' + escapeHTML(p.title) + '</b><br><br>' +
               '<span class="q-sub"><b>' + escapeHTML(T().libWhy) + ':</b> ' + escapeHTML(p.why) + '</span><br>' +
               '<span class="q-sub"><b>' + escapeHTML(T().libResult) + ':</b> ' + escapeHTML(p.result) + '</span>',
-        footer: (i + 1) + ' / ' + data.items.length
+        footer: cardOf(i + 1, data.items.length)
       }));
       const lock = libLockCard(data.items.length, data.total);
       if (lock) items.push(lock);
@@ -3507,9 +3532,8 @@
       b.onclick = () => { haptic('light'); showPaywall('library'); };
     });
     // The lock card is not content: the progress counts what there is to read.
-    const cur = Math.min(LS.idx + 1, LS.count);
-    $('libProgressFill').style.width = (LS.count ? (cur / LS.count) * 100 : 0) + '%';
-    $('libProgressNum').textContent = cur + ' / ' + LS.count;
+    showProgress('libProgressTrack', Math.min(LS.idx + 1, LS.count), LS.count);
+    $('libDeck').classList.toggle('one-card', LS.items.length <= 1);
     $('libPrev').disabled = LS.idx <= 0;
     $('libNext').disabled = LS.idx >= LS.items.length - 1;
   }
@@ -3693,7 +3717,7 @@
     const answered = given || (CT.st && (CT.st.answered_indices || []).indexOf(CT.idx) >= 0);
     $('compatSphereTitle').textContent = q.sphere;
     $('compatProgress').style.width = (CT.idx / total * 100) + '%';
-    $('compatProgressNum').textContent = (CT.idx + 1) + ' / ' + total;
+    $('compatProgressNum').textContent = fmt(T().compatQuestionOf, { n: CT.idx + 1, total: total });
     $('compatQuestion').innerHTML = '<p class="compat-q">' + escapeHTML(q.text) + '</p>' +
       (answered && !given ? '<p class="compat-hint">' + escapeHTML(T().compatAnswered) + '</p>' : '');
     $('compatScale').innerHTML = '<div class="compat-scale" role="radiogroup">' +

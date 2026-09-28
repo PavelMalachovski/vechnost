@@ -12,6 +12,7 @@ from __future__ import annotations
 import re
 
 from ..harness import Server, code_from_invite
+from .app import PROGRESS_JS, progress
 
 POLL = 12_000  # the app polls every ~2.5 s and backs off on errors
 YOUR_TURN = "✨ Ваш ход"
@@ -32,7 +33,7 @@ def press_back(phone) -> None:
 
 def progress_is(phone, text: str, timeout: float = POLL) -> None:
     phone.page.wait_for_function(
-        "t => document.getElementById('progressNum').innerText.trim() === t",
+        "t => " + PROGRESS_JS + " === t",
         arg=text,
         timeout=timeout,
     )
@@ -92,10 +93,10 @@ def test_paying_carries_on_at_the_next_card_not_at_card_one(server: Server, phon
     phone.page.evaluate("document.dispatchEvent(new Event('visibilitychange'))")
     phone.page.wait_for_selector("#paywall", state="hidden", timeout=POLL)
     phone.page.wait_for_function(
-        "() => /^6 \\/ \\d+$/.test(document.getElementById('progressNum').innerText.trim())",
+        "() => /^6 \\/ \\d+$/.test(" + PROGRESS_JS + ")",
         timeout=POLL,
     )
-    total = int(phone.text("#progressNum").split("/")[1])
+    total = int(progress(phone).split("/")[1])
     assert total > 5, "the whole deck, not the free five"
     phone.shot("after-payment")
 
@@ -170,7 +171,7 @@ def test_either_partner_paying_opens_a_free_room_for_both(server: Server, phones
     for phone in (a, b):
         phone.page.wait_for_selector("#paywall", state="hidden", timeout=POLL)
         phone.page.wait_for_function(
-            "() => /^6 \\/ \\d+$/.test(document.getElementById('progressNum').innerText.trim())",
+            "() => /^6 \\/ \\d+$/.test(" + PROGRESS_JS + ")",
             timeout=POLL,
         )
     assert a.text("#stage .card.top .q-text") == b.text("#stage .card.top .q-text")
