@@ -50,9 +50,6 @@ DOORS = frozenset({"deck", "room", "compat", "s69", "library", "guide"})
 INVITE_KINDS = frozenset({"duo", "cmp", "s69"})
 # Where the Mini App offers a gift from.
 GIFT_DOORS = frozenset({"home", "paywall"})
-# How a person reached the bot or the app when no `src_` tag says so; an
-# arrival stores one of these as its `source` (see `arrival_source`).
-VIA = frozenset({"ref", "invite", "gift", "push"})
 # The two arrivals. First touch is the source on a person's first one.
 ARRIVALS = frozenset({"bot_start", "app_open"})
 # What counts as having played: opening something, or sitting down with a
@@ -181,11 +178,6 @@ def clean_detail(name: str, detail: str | None) -> str | None:
         return None
     value = str(detail)
     return value if value in allowed else None
-
-
-def deck_detail(theme: str, level: int | str | None, content_type: str) -> str:
-    """The `deck_open` detail for a deck."""
-    return f"{theme}:{level or ''}:{content_type}"
 
 
 def event_row(
