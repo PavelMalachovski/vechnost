@@ -241,10 +241,11 @@
   .tagline { font-size: 15px; color: var(--muted-on-dark); max-width: 260px; line-height: 1.45; }
 
   /* Four real decks, overlapped like a hand of cards. The 72x108 tile is the
-     2:3 of the *source art* in assets/backgrounds (600x900), not of the
-     printed card, which renderer.py composites at 1080x1350 — 4:5. So the
-     art lands here unsquashed, and the fan is a narrower shape than the card
-     it advertises. */
+     2:3 of the hand-drawn art in assets/deck_art (600x900), which is what it
+     shows, not of the printed card: that is 4:5, the 1080x1350 face
+     scripts/generate_card_assets.py draws from the same art. So the art lands
+     here unsquashed, and the fan is a narrower shape than the card it
+     advertises. */
   .deck-fan { display: flex; justify-content: center; margin: 20px 0 4px; height: 108px; }
   .deck-fan i {
     /* The overlap used to be -14px, which hid a third of each card. That was
@@ -591,16 +592,18 @@
      the Mini App and the photos the bot sends are the same object. Only the
      text and the footer are drawn on top.
 
-     background-size is 100% 100%, not cover, because that is what the bot
-     does — renderer.py resizes the 600x900 art into its 1080x1350 frame.
-     Nothing is cropped either side, so every fraction of the art is the same
-     fraction of this box and the padding below can be read off renderer.py's
+     background-size is 100% 100%, not cover: the face is the bot's own
+     1080x1350 card, drawn by scripts/generate_card_assets.py from the 600x900
+     art with each mark where a plain resize would put it (and at the art's
+     proportions, which a resize did not keep – audit D-18). Nothing is
+     cropped either side, so every fraction of the face is the same fraction
+     of this box and the padding below can be read off renderer.py's
      TEXT_AREA_* constants rather than guessed around a crop. Measured: the
      text band sits at 0.219 from the top and 0.219 from the bottom of the
      face, against the renderer's central 56% — 0.22 to 0.78.
 
      The *box* is not the card's shape, though. 340x470 is 1:1.38 where the
-     printed card is 4:5, so the art is stretched about 11% taller here than
+     printed card is 4:5, so the face is drawn about 11% taller here than
      in the photo the same user gets in chat. Deliberate, and reviewed side by
      side against a bot-rendered JPEG — at this size it reads as the same
      card. Do not "fix" it by switching to cover: that would crop the corner
@@ -1119,10 +1122,10 @@
     <!-- Each card is its deck's real art with its own suit as the centre
          pip: ♥ Знакомство, ♠ Для пар, ♣ Секс, ♦ Провокации. -->
     <div class="deck-fan">
-      <i style="background-image:url(/assets/suits/hearts.png),url(/assets/backgrounds/acq/acq_1.png)"></i>
-      <i style="background-image:url(/assets/suits/spades.png),url(/assets/backgrounds/couples/couples_1.png)"></i>
-      <i style="background-image:url(/assets/suits/clubs.png),url(/assets/backgrounds/sex/questions.png)"></i>
-      <i style="background-image:url(/assets/suits/diamonds.png),url(/assets/backgrounds/prov/prov.png)"></i>
+      <i style="background-image:url(/assets/suits/hearts.png),url(/assets/deck_art/acq/acq_1.png)"></i>
+      <i style="background-image:url(/assets/suits/spades.png),url(/assets/deck_art/couples/couples_1.png)"></i>
+      <i style="background-image:url(/assets/suits/clubs.png),url(/assets/deck_art/sex/questions.png)"></i>
+      <i style="background-image:url(/assets/suits/diamonds.png),url(/assets/deck_art/prov/prov.png)"></i>
     </div>
     <button class="btn btn-play" id="btnPlay" data-i18n="play"></button>
     <button class="btn btn-second" id="btnCoop" data-i18n="coopBtn"></button>
