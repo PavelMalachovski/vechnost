@@ -127,7 +127,7 @@ CANDIDATES = """() => {
   const screen = document.querySelector('.screen.active');
   const scope = overlay || screen;
   const tappable = scope ? [...scope.querySelectorAll(
-      'button, summary, [role=button], .s69-cell, .s69-spoiler')]
+      'button, summary, [role=button], .s69-spoiler')]
     .filter(el => !el.disabled && visible(el) && !el.closest('.card.under')) : [];
   const scrollers = scope ? [scope, ...scope.querySelectorAll('*')].filter(el => {
       const cs = getComputedStyle(el);
@@ -137,14 +137,11 @@ CANDIDATES = """() => {
   window.__fuzzTargets = tappable;
   window.__fuzzScrollers = scrollers;
   // How often each is tapped: what moves a game on (the dice, «next», an
-  // answer, a finale) far more than the rest, and the 72 squares of the
-  // board together about as often as one button.
+  // answer, a finale) far more than the rest. The board's squares are a
+  // picture and take no tap.
   const forward = '#s69Dice, #btnNext, #libNext, .compat-opt, #s69FinaleChoices button';
-  const cells = tappable.filter(el => el.classList.contains('s69-cell')).length;
-  const weight = (el) => el.matches(forward) ? 8
-    : el.classList.contains('s69-cell') ? 2 / cells : 1;
+  const weight = (el) => el.matches(forward) ? 8 : 1;
   const label = (el) => el.id ? '#' + el.id
-    : el.dataset.id ? 'cell ' + el.dataset.id
     : el.dataset.module ? 'module ' + el.dataset.module
     : el.dataset.value ? 'answer ' + el.dataset.value
     : (el.className || el.tagName).toString().split(' ')[0];
@@ -173,7 +170,7 @@ AIM = """([kind, i]) => {
   const left = Math.max(r.left, 0), right = Math.min(r.right, innerWidth);
   if (right <= left || bottom <= top) return null;
   if (kind !== 'scroll') return [(left + right) / 2, (top + bottom) / 2, bottom - top];
-  const controls = 'button, a, summary, input, select, textarea, [role=button], .s69-cell';
+  const controls = 'button, a, summary, input, select, textarea, [role=button]';
   for (const fy of [0.5, 0.3, 0.7, 0.15, 0.85]) {
     for (const fx of [0.5, 0.15, 0.85]) {
       const x = left + (right - left) * fx, y = top + (bottom - top) * fy;
@@ -555,8 +552,10 @@ class UiFuzz:
         for name, phone in self.phones.items():
             st = states[name]
             got = phone.page.evaluate("""() => {
+                // A piece riding an arrow or a serpent is on no square yet.
                 const at = (sel) => { const p = document.querySelector('#s69Map ' + sel);
-                                      return p ? Number(p.closest('.s69-cell').dataset.id) : null; };
+                                      const cell = p && p.closest('.s69-cell');
+                                      return cell ? Number(cell.dataset.id) : null; };
                 return {mine: at('.s69-piece.mine'), theirs: at('.s69-piece:not(.mine)'),
                         rolling: document.getElementById('s69Dice').classList.contains('rolling'),
                         chip: document.getElementById('s69TurnChip').innerText

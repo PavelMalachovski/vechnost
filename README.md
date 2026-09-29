@@ -41,9 +41,11 @@ inside a polished Telegram Mini App.
   that player is moving, and a final cell that blocks the dice. Each partner
   picks a suit and walks their own board; the finale unlocks when both are
   standing on 69. Playable on two phones (the dice locks for whoever is not
-  on turn) or on one, passed back and forth. Behind the paywall in full. A
-  secret cell's instruction reaches only the player standing on it; their
-  partner gets the one line written for them.
+  on turn) or on one, passed back and forth. Behind the paywall in full. The
+  board is drawn after the Lila board, climbing from the bottom, with a
+  Cupid's arrow for each ladder and a serpent for each snake; a cell's task
+  reaches only the player standing on it, never earlier, and a secret
+  cell's partner gets the one line written for them.
 - **Compatibility test.** Forty questions across eight areas, taken separately
   by both partners and compared. The result names the areas where they are a
   team, the ones worth talking about, and the exact questions they answered

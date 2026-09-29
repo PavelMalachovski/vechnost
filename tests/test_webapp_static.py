@@ -545,17 +545,39 @@ def test_a_divergent_question_number_opens_its_text_on_a_tap():
     assert "r.questions" in body
 
 
-def test_every_board_cell_opens_its_action():
-    """The «69 ступеней» map is the printed game: a tap on any square shows
-    what it does. The detail card reads from the board payload, which
-    carries titles and action texts but never a secret or a Joker task."""
+def test_no_board_square_shows_what_lies_ahead():
+    """The «69 ступеней» map is a picture, not a row of buttons: a tap on a
+    square used to open its task, and a square the piece had not reached
+    read out what it would ask before it was dealt. No square takes a tap,
+    the overlay that showed one is gone, and the map is drawn without
+    reading any text (the board payload carries none: test_steps69)."""
+    html = INDEX.read_text(encoding="utf-8")
+    assert 'id="s69CellInfo"' not in html
+    assert "showS69CellInfo" not in html
+    build = html.split("function buildS69Map(")[1].split("\n  }")[0]
+    assert "onclick" not in build and "addEventListener" not in build
+    assert ".text" not in build
+    assert 'id="s69Map" role="img"' in html
+
+
+def test_the_board_draws_its_portals():
+    """A ladder is a Cupid's arrow from its square to the one it carries the
+    piece to, a snake a serpent with its head on its square and its tail on
+    the one it drops the piece to - drawn from each portal cell's `to`, over
+    the squares, with a lotus under them, and the piece rides the drawing."""
     html = INDEX.read_text(encoding="utf-8")
     build = html.split("function buildS69Map(")[1].split("\n  }")[0]
-    assert "showS69CellInfo" in build
-    assert 'id="s69CellInfo"' in html
-    info = html.split("function showS69CellInfo(")[1].split("\n  }")[0]
-    assert "c.text" in info
-    assert "c.to" in info  # a portal says where it throws the piece
+    assert "s69ArrowSVG(c)" in build and "s69SnakeSVG(c)" in build
+    assert "s69LotusSVG(" in build
+    arrow = html.split("function s69ArrowSVG(")[1].split("\n  }")[0]
+    assert "s69Point(cell.id)" in arrow and "s69Point(cell.to)" in arrow
+    assert "s69-heart" in arrow and "s69-feather" in arrow
+    spine = html.split("function s69Spine(")[1].split("\n  }")[0]
+    assert "s69Point(from)" in spine and "s69Point(to)" in spine
+    snake = html.split("function s69SnakeSVG(")[1].split("\n  }")[0]
+    assert "s69Spine(cell.id, cell.to)" in snake and "s69-tongue" in snake
+    fly = html.split("function flyS69Piece(")[1].split("\n  }")[0]
+    assert "s69Route(" in fly and "REDUCED_MOTION" in fly
 
 
 # Emoji and pictographs, the four card suits aside: those are the board's.
@@ -577,7 +599,7 @@ def test_the_board_speaks_in_suits():
         f"#{sid}": html.split(f'<section class="screen" id="{sid}">')[1].split("</section>")[0]
         for sid in ("s69", "s69Invite", "s69Board")
     }
-    for oid in ("s69Finale", "s69Done", "s69CellInfo"):
+    for oid in ("s69Finale", "s69Done"):
         parts[f"#{oid}"] = html.split(f'<div class="overlay" id="{oid}"')[1].split("\n  </div>")[0]
     i18n = html.split("const I18N = {", 1)[1].split("\n  };", 1)[0]
     for key, text in re.findall(r"\b(s69\w*):\s*('[^']*'|\{[^}]*\})", i18n):
@@ -798,12 +820,12 @@ def test_a_phone_that_asks_for_less_motion_gets_no_confetti():
 def test_a_scroll_asked_for_by_script_asks_about_motion_too():
     """D-13: the reduced-motion block sets scroll-behavior, which a
     `behavior: 'smooth'` passed from script overrides. The board's map
-    travelled for half a second on a phone that asked for less motion."""
+    travelled for half a second on a phone that asked for less motion; it
+    no longer scrolls at all, and whatever scrolls from script next asks."""
     html = INDEX.read_text(encoding="utf-8")
     script = html.split("<script>", 1)[1]
     asked = re.findall(r"behavior\s*=\s*([^;]+);|[{,]\s*behavior:\s*([^,}]+)", script)
     values = [a or b for a, b in asked]
-    assert values, "the map's scrollIntoView should be found"
     for value in values:
         if "smooth" in value:
             assert "REDUCED_MOTION" in value, value
@@ -879,6 +901,6 @@ def test_the_launch_preload_is_quiet():
 def test_every_overlay_with_a_way_out_names_it_for_the_back_button():
     """D-06: Back closes the top overlay the way its own button would."""
     html = INDEX.read_text(encoding="utf-8")
-    for button in ("nsfwNo", "s69DoneHome", "s69InfoClose", "paywallClose", "btnToThemes"):
+    for button in ("nsfwNo", "s69DoneHome", "paywallClose", "btnToThemes"):
         tag = html.split(f'id="{button}"', 1)[1].split(">", 1)[0]
         assert "data-dismiss" in tag, button

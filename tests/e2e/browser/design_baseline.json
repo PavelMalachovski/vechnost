@@ -1,19 +1,13 @@
 {
-  "_about": "Design findings known today, per phone, as `rule | stop | element` (tests/e2e/browser/design.py). The lint fails on a finding that is not listed and on an entry that no longer occurs, so this list can only shrink. What is left belongs to open audit item H-04: contrast and the board's hint size. D-11, D-12 and D-25 were fixed in #49, which took 46 entries off this list, and D-14 took the eleven icon-name entries per phone.",
+  "_about": "Design findings known today, per phone, as `rule | stop | element` (tests/e2e/browser/design.py). The lint fails on a finding that is not listed and on an entry that no longer occurs, so this list can only shrink. What is left belongs to open audit item H-04: contrast. The board's squares and its hint left the list when the board was redrawn and the hint went with the tap it described. D-11, D-12 and D-25 were fixed in #49, which took 46 entries off this list, and D-14 took the eleven icon-name entries per phone.",
   "android": [
     "contrast | guide | #guideBody span.art-cap",
     "contrast | guide | #guideBody span.guide-num",
-    "contrast | s69-board | #s69Dice span",
-    "contrast | s69-board | #s69Map div.s69-cell",
-    "contrast | s69-board | p#s69MapHint",
-    "font-size | s69-board | p#s69MapHint"
+    "contrast | s69-board | #s69Dice span"
   ],
   "iphone": [
     "contrast | guide | #guideBody span.art-cap",
     "contrast | guide | #guideBody span.guide-num",
-    "contrast | s69-board | #s69Dice span",
-    "contrast | s69-board | #s69Map div.s69-cell",
-    "contrast | s69-board | p#s69MapHint",
-    "font-size | s69-board | p#s69MapHint"
+    "contrast | s69-board | #s69Dice span"
   ]
 }

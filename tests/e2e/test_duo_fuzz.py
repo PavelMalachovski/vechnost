@@ -89,6 +89,8 @@ PIECES = ("hearts", "spades", "clubs", "diamonds")
 BOARD = steps69.BOARD_SIZE
 SECRETS = {c.id: c.secret for c in steps69.load_cells() if c.kind == "secret"}
 JOKERS = {t.id: t.text for tasks in steps69.load_jokers().values() for t in tasks}
+# What each square asks, which reaches a player only on that square.
+TASKS = {c.id: c.text for c in steps69.load_cells() if c.text}
 FINALES = [c.id for c in steps69.load_finale().choices]
 GHOST = st.builds(invites.new_code)
 
@@ -719,6 +721,9 @@ class TwoUsers(RuleBasedStateMachine):
         for task in JOKERS.values():
             if task in text:
                 raise LeakDetected("a Joker task is printed on the board")
+        for cell, task in TASKS.items():
+            if task in text:
+                raise LeakDetected(f"square {cell}'s task is printed on the board")
 
     @rule(actor=ACTORS)
     def resume_my_game(self, actor: str) -> None:

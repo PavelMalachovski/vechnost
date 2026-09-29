@@ -52,10 +52,12 @@
     --c-blush-50:      #FFE5FA;   /* the printed card's ground = generate_card_assets.PALE */
     --c-violet-500:    #7F2BFF;   /* the second accent, «69 ступеней» only */
     --c-magenta-500:   #E100C7;
-    --c-mint-300:      #9FEFC4;   /* success, ladders, the camera */
-    --c-amber-300:     #FFD96E;   /* the Joker, light, growth */
+    --c-mint-300:      #9FEFC4;   /* success, the camera */
+    --c-amber-300:     #FFD96E;   /* the Joker, light, growth, Cupid's arrows */
     --c-lilac-200:     #CFC0FF;   /* secrets */
-    --c-red-300:       #FF7896;   /* crisis, snakes, danger */
+    --c-red-300:       #FF7896;   /* crisis, danger, the serpents' tongues */
+    --c-emerald-500:   #1E9E78;   /* the serpents on the board */
+    --c-emerald-900:   #06382B;   /* their scales and outline */
 
     /* 2. Roles. */
     --bg-app:          var(--c-aubergine-900);
@@ -292,8 +294,8 @@
      no tumbling die, no card flights, no confetti (see confetti()). Motion
      that carries meaning - a card leaving, the board moving - still ends in
      the same place, only without the travel (audit D-13). What script
-     starts, this block cannot reach: the confetti and the map's scroll to
-     the piece (paintS69Map) ask REDUCED_MOTION themselves. */
+     starts, this block cannot reach: the confetti and a piece's ride on an
+     arrow or a serpent (flyS69Piece) ask REDUCED_MOTION themselves. */
   @media (prefers-reduced-motion: reduce) {
     *, *::before, *::after {
       animation-duration: .01ms !important;
@@ -911,103 +913,129 @@
   }
 
   /* ---- 69 ступеней ---- */
-  /* The board is a serpentine running downward: cells 1-6 left to right,
-     7-12 right to left, the way a physical snakes-and-ladders board does, so
-     a ladder that spans rows reads as a jump rather than as a renumbering.
-     Downward because a phone scrolls that way, and because the board's own
-     line is «Искушение ведёт вас глубже».
+  /* The board climbs from the bottom, nine squares a row, the way the Lila
+     board it is drawn after does: 1-9 left to right along the bottom, 10-18
+     back again, up to «Самадхи», a plaque across the rest of the top row.
+     A ladder is a Cupid's arrow from the square you land on to the one it
+     carries you to; a snake is a serpent with its head on the square you
+     land on and its tail on the one it drops you to. Both are drawn over
+     the squares (.s69-art), a lotus glows under them (.s69-lotus), and the
+     numbers and the pieces sit on top of both.
 
-     No emoji anywhere on it. A cell says what it is with colour, a drawn
-     arrow and the suit of whoever is standing on it — the same four suits
+     No emoji anywhere on it. A square says what it is with colour, a drawn
+     mark and the suit of whoever is standing on it — the same four suits
      the deck is printed with. */
   #s69Board { padding-left: 12px; padding-right: 12px; }
   p.s69-intro { font-size: 14px; color: var(--muted-on-dark); line-height: 1.55; text-align: center; }
   p.s69-age { font-size: 12.5px; color: rgba(255,150,190,.85); text-align: center; margin-top: 10px; }
 
-  /* Twelve rows of six do not fit above the dice on a phone, and the dice is
-     the one button that has to be pressable. So the map is capped and
-     scrolls inside itself, with scrollIntoView keeping the piece in frame. */
+  /* The whole board at once, never a scroller: as wide as the screen, and
+     no taller than leaves the card and the dice their room (the dice is the
+     one button that has to be pressable). The grid's nine columns and eight
+     rows are S69_COLS and the rows 69 squares take. */
   .s69-map {
-    display: grid; grid-template-columns: repeat(6, 1fr); gap: 4px;
-    margin: 4px 0 10px; flex: 0 0 auto;
-    max-height: 30vh; overflow-y: auto; -webkit-overflow-scrolling: touch;
-    padding: 4px;
+    position: relative; isolation: isolate; flex: 0 0 auto;
+    display: grid;
+    grid-template-columns: repeat(9, minmax(0, 1fr));
+    grid-template-rows: repeat(8, minmax(0, 1fr));
+    aspect-ratio: 9 / 8;
+    width: min(100%, calc(42vh * 9 / 8));
+    margin: 4px auto 10px;
+    border-radius: var(--r-md); overflow: hidden;
+    background: radial-gradient(90% 80% at 50% 55%, var(--c-plum-800) 0%, var(--c-aubergine-900) 100%);
+    box-shadow: 0 0 0 1px var(--border-1), var(--shadow-2);
   }
-  .s69-map::-webkit-scrollbar { display: none; }
   .s69-map.folded { display: none; }
+  .s69-lotus, .s69-art {
+    position: absolute; inset: 0; width: 100%; height: 100%;
+    pointer-events: none; overflow: visible;
+  }
+  .s69-art { z-index: var(--z-raised); }
 
-  /* Every cell is a button into its own action: a tap opens what the
-     square does, so the whole board reads like the printed game. */
+  /* A square is a picture, not a button: what it does reaches only the
+     piece that stands on it. Each block of the board has its own ground, so
+     the four stages read as colour before a single word is read. */
   .s69-cell {
-    position: relative; aspect-ratio: 1; border-radius: 8px;
-    display: grid; place-items: center; font-size: 11px; font-weight: 700;
-    color: rgba(251,233,244,.5); transition: transform .25s ease, box-shadow .25s ease;
-    border: 1px solid rgba(255,255,255,.08); cursor: pointer;
+    position: relative; min-width: 0; min-height: 0;
+    box-shadow: inset 0 0 0 .5px rgb(255 255 255 / .16);
+    color: var(--text-1);
   }
-  .s69-map-hint {
-    font-size: 11px; text-align: center; color: var(--muted-on-dark);
-    opacity: .8; margin: 0 0 8px; flex: 0 0 auto;
-  }
-  /* Each block of the board has its own ground, so the four stages are
-     visible as bands before a single word is read. */
-  .s69-cell.b-awakening   { background: linear-gradient(150deg, rgba(142,124,243,.42), rgba(200,109,215,.26)); }
-  .s69-cell.b-exploration { background: linear-gradient(150deg, rgba(243,93,138,.36), rgba(249,141,104,.26)); }
-  .s69-cell.b-temptation  { background: linear-gradient(150deg, rgba(196,37,110,.46), rgba(110,16,64,.4)); }
-  .s69-cell.b-samadhi     { background: linear-gradient(150deg, rgba(127,43,255,.5), rgba(225,0,199,.36)); }
-  .s69-cell { color: rgba(255,255,255,.82); }
+  .s69-cell.b-awakening   { background: linear-gradient(150deg, rgb(142 124 243 / .3), rgb(200 109 215 / .16)); }
+  .s69-cell.b-exploration { background: linear-gradient(150deg, rgb(243 93 138 / .28), rgb(249 141 104 / .14)); }
+  .s69-cell.b-temptation  { background: linear-gradient(150deg, rgb(196 37 110 / .34), rgb(110 16 64 / .26)); }
+  .s69-cell.b-samadhi     { background: linear-gradient(150deg, rgb(127 43 255 / .34), rgb(225 0 199 / .2)); }
+  .s69-cell.passed { background: rgb(20 2 13 / .5); }
+  .s69-cell.passed .s69-num { color: var(--text-2); }
+  .s69-cell.here { box-shadow: inset 0 0 0 2px var(--accent), inset 0 0 12px rgb(232 107 181 / .55); }
 
-  .s69-cell.k-ladder { border-color: rgba(120,220,160,.6); }
-  .s69-cell.k-snake  { border-color: rgba(255,110,140,.6); }
-  .s69-cell.k-joker  { border-color: rgba(255,214,110,.7); }
-  .s69-cell.k-secret { border-color: rgba(200,180,255,.55); }
-  .s69-cell.k-final {
-    background: linear-gradient(135deg,#7F2BFF,#E100C7);
-    border-color: transparent; color: #fff; font-size: 12px;
+  .s69-num, .s69-mark {
+    position: absolute; z-index: var(--z-piece);
+    font-size: var(--fs-2xs); font-weight: var(--fw-bold); line-height: 1;
+    text-shadow: 0 1px 2px var(--c-aubergine-950), 0 0 3px var(--c-aubergine-950);
   }
-  .s69-cell.passed { opacity: .5; }
-
-  /* The portal marks: a triangle pointing the way the piece will be thrown,
-     drawn rather than typed, and the destination beside it. */
-  .s69-mark {
-    position: absolute; top: 2px; right: 3px;
-    display: flex; align-items: center; gap: 1px;
-    font-size: 11px; font-weight: var(--fw-bold); letter-spacing: -.02em; line-height: 1;
-  }
-  .s69-mark i {
-    width: 0; height: 0; display: block;
-    border-left: 3px solid transparent; border-right: 3px solid transparent;
-  }
-  .k-ladder .s69-mark { color: #9FEFC4; }
-  .k-ladder .s69-mark i { border-bottom: 5px solid #9FEFC4; }
-  .k-snake .s69-mark { color: #FFA8BC; }
-  .k-snake .s69-mark i { border-top: 5px solid #FFA8BC; }
-  .k-joker .s69-mark { color: #FFD96E; }
-  .k-secret .s69-mark { color: #CFC0FF; }
+  .s69-num { top: 2px; left: 3px; }
+  .s69-mark { bottom: 2px; right: 3px; }
+  .k-joker .s69-mark { color: var(--c-amber-300); }
+  .k-secret .s69-mark { color: var(--secret); }
   .s69-cell.milestone::after {
-    content: ''; position: absolute; bottom: 3px; left: 50%; translate: -50% 0;
-    width: 10px; height: 2px; border-radius: 2px; background: rgba(255,255,255,.4);
+    content: ''; position: absolute; bottom: 2px; left: 50%; translate: -50% 0;
+    width: 10px; height: 2px; border-radius: 2px; background: rgb(255 255 255 / .45);
   }
 
-  /* A piece is the suit its player chose. Two of them share a cell by
-     sitting on opposite corners rather than on top of each other. */
+  /* The last square is a plaque across the rest of the top row. */
+  .s69-cell.k-final {
+    display: flex; align-items: center; justify-content: center; gap: 8px;
+    background: linear-gradient(135deg, var(--c-plum-800), var(--c-plum-600));
+    box-shadow: inset 0 0 0 1px rgb(255 217 110 / .55), inset 0 0 18px rgb(255 217 110 / .25);
+  }
+  .s69-cell.k-final .s69-num { position: static; font-size: var(--fs-sm); }
+  .s69-goal {
+    position: relative; z-index: var(--z-piece); font-family: var(--font-logo);
+    font-size: var(--fs-md); letter-spacing: var(--ls-caps); color: var(--c-amber-300);
+    text-shadow: 0 1px 2px var(--c-aubergine-950);
+  }
+
+  /* The drawings. A Cupid's arrow: a golden shaft, blush fletching, a heart
+     for a head. A serpent of temptation: emerald, gold diamonds down its
+     back, gold eyes and a forked tongue. */
+  .s69-shaft { fill: url(#s69Shaft); }
+  .s69-shaft-tail { stop-color: var(--c-blush-100); }
+  .s69-shaft-tip { stop-color: var(--c-amber-300); }
+  .s69-feather { fill: var(--c-rose-100); stroke: var(--c-rose-400); stroke-width: .8; }
+  .s69-heart { fill: var(--c-rose-600); stroke: var(--c-rose-100); stroke-width: 1.4; stroke-linejoin: round; }
+  .s69-arrow { filter: drop-shadow(0 0 3px rgb(255 217 110 / .65)) drop-shadow(0 1px 1px rgb(20 2 13 / .8)); }
+  .s69-body, .s69-skull { fill: var(--c-emerald-500); stroke: var(--c-emerald-900); stroke-width: 1.2; stroke-linejoin: round; }
+  .s69-diamonds { fill: var(--c-amber-300); stroke: var(--c-emerald-900); stroke-width: .8; opacity: .9; }
+  .s69-crown { fill: var(--c-amber-300); opacity: .9; }
+  .s69-eye { fill: var(--c-amber-300); }
+  .s69-pupil { stroke: var(--c-aubergine-950); stroke-width: 1.3; stroke-linecap: round; }
+  .s69-tongue { fill: none; stroke: var(--c-red-300); stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+  .s69-snake { filter: drop-shadow(0 1px 2px rgb(20 2 13 / .85)); }
+  /* The portal a piece is riding lights up for the ride. */
+  .s69-arrow.live, .s69-snake.live { filter: drop-shadow(0 0 6px var(--c-amber-300)); }
+
+  .s69-petal { fill: url(#s69Petal); stroke: var(--c-rose-100); stroke-opacity: .35; stroke-width: 1.5; opacity: .5; }
+  .s69-petal.back { opacity: .3; }
+  .s69-petal-root { stop-color: var(--c-violet-500); }
+  .s69-petal-tip { stop-color: var(--c-rose-300); }
+  .s69-glow-in { stop-color: var(--c-rose-400); stop-opacity: .35; }
+  .s69-glow-out { stop-color: var(--c-rose-400); stop-opacity: 0; }
+
+  /* A piece is the suit its player chose, standing in the middle of its
+     square over the drawings; two on one square stand side by side, seat 0
+     on the left. In flight it leaves its square for the map itself. */
   .s69-piece {
-    position: absolute; bottom: -3px; width: 17px; height: 17px;
-    border-radius: 50%; display: grid; place-items: center;
-    font-size: 11px; line-height: 1; font-weight: 700;
-    background: #FDEBF7; color: #350027;
-    box-shadow: 0 2px 6px rgba(0,0,0,.5); z-index: 3;
+    position: absolute; left: 50%; top: 55%; translate: -50% -50%; z-index: 4;
+    width: 18px; height: 18px; border-radius: 50%; display: grid; place-items: center;
+    font-size: var(--fs-2xs); line-height: 1; font-weight: var(--fw-bold);
+    background: var(--c-blush-50); color: var(--c-ink);
+    box-shadow: var(--shadow-1);
   }
-  .s69-piece.seat-0 { left: -3px; }
-  .s69-piece.seat-1 { right: -3px; }
-  .s69-piece.red { color: #C4256E; }
-  .s69-piece.mine { outline: 2px solid #E86BB5; }
-  .s69-cell.here { box-shadow: 0 0 0 2px rgba(232,107,181,.6); transform: scale(1.06); z-index: 2; }
-  .s69-cell.flying { animation: s69-fly .6s cubic-bezier(.3,.9,.3,1); }
-  @keyframes s69-fly {
-    0%   { transform: scale(1.06); }
-    45%  { transform: scale(1.45) rotate(6deg); }
-    100% { transform: scale(1.06); }
-  }
+  .s69-piece.red { color: var(--c-rose-600); }
+  .s69-piece.mine { outline: 2px solid var(--accent); }
+  .duo .s69-piece.seat-0 { left: calc(50% - 6px); }
+  .duo .s69-piece.seat-1 { left: calc(50% + 6px); }
+  .s69-piece.flight { z-index: 5; }
 
   /* The suit picker at the start of a game. */
   .s69-suits { display: flex; justify-content: center; gap: 10px; margin: 4px 0 2px; }
@@ -1092,10 +1120,6 @@
   .s69-finale .btn { margin-top: 0; }
   .s69-choice-text { font-size: 14px; line-height: 1.55; color: var(--muted-on-dark); margin-bottom: 18px; }
 
-  /* The cell card a tap on the map opens: what the square is, what it does,
-     and where a portal throws you. Deals (secrets, Joker tasks) are not in
-     the board payload, so nothing here can spoil them. The selectors carry
-     the overlay id because `.overlay p` would otherwise out-rank them. */
   /* The paywall says what the payment opens, as a list, so it reads the same
      at every door: the end of the free cards, a room, the test, the board,
      the Library and the masterclass. */
@@ -1112,16 +1136,6 @@
   #giftSheet .gift-text { margin-bottom: 14px; }
   #giftSheet .gift-price { margin-bottom: 14px; color: var(--text-on-dark); font-weight: 600; }
   #giftSheet .gift-note { margin-bottom: 18px; }
-
-  #s69CellInfo .s69-info-meta {
-    font-size: 12px; letter-spacing: .06em; text-transform: uppercase;
-    margin-bottom: 8px;
-  }
-  #s69CellInfo .s69-info-kind {
-    font-size: 13.5px; font-weight: 700; color: rgba(255,150,190,.9); margin-bottom: 10px;
-  }
-  #s69CellInfo .s69-info-text { margin-bottom: 16px; }
-  #s69CellInfo .s69-info-note { font-style: italic; font-size: 13.5px; margin-bottom: 16px; }
 
   /* Wraps inside the screen and is opaque. It used to be one nowrap line on
      translucent glass: an error such as «Нет связи с сервером…» ran off
@@ -1376,8 +1390,7 @@
       <h1 class="title" id="s69BoardTitle"></h1>
       <button class="icon-btn" id="s69MapToggle" data-i18n-aria="ariaMap" aria-controls="s69Map" aria-expanded="true"><svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M3 6.5 9 4l6 2.5L21 4v13.5L15 20l-6-2.5L3 20z M9 4v13.5 M15 6.5V20"/></svg></button>
     </div>
-    <div class="s69-map" id="s69Map"></div>
-    <p class="s69-map-hint" id="s69MapHint" data-i18n="s69MapHint"></p>
+    <div class="s69-map" id="s69Map" role="img"></div>
     <div class="s69-turn"><span class="chip" id="s69TurnChip"></span></div>
     <div class="s69-card" id="s69Cell"></div>
     <button class="s69-dice" id="s69Dice"></button>
@@ -1475,16 +1488,6 @@
     <p id="s69DoneText"></p>
     <button class="btn btn-play" id="s69DoneAgain"></button>
     <button class="btn btn-ghost" id="s69DoneHome" data-dismiss></button>
-  </div>
-
-  <!-- A tapped board cell: its number, its action, its portal. -->
-  <div class="overlay" id="s69CellInfo" role="dialog" aria-modal="true" aria-labelledby="s69InfoTitle" tabindex="-1">
-    <p class="s69-info-meta" id="s69InfoMeta"></p>
-    <h2 id="s69InfoTitle"></h2>
-    <p class="s69-info-kind" id="s69InfoKind"></p>
-    <p class="s69-info-text" id="s69InfoText"></p>
-    <p class="s69-info-note" id="s69InfoNote"></p>
-    <button class="btn btn-ghost" id="s69InfoClose" data-dismiss></button>
   </div>
 
   <div class="overlay" id="paywall" role="dialog" aria-modal="true" aria-labelledby="paywallTitle" tabindex="-1">
@@ -1701,13 +1704,7 @@
       s69Ladder: 'Стрела любви',
       s69Snake: 'Змея искушения',
       s69Reveal: 'Нажмите, чтобы открыть',
-      s69MapHint: 'Нажмите на клетку, чтобы прочитать её действие',
-      s69InfoCell: 'Клетка {n}',
-      s69InfoUp: 'переносит на клетку {n}',
-      s69InfoDown: 'спускает на клетку {n}',
-      s69InfoJoker: 'Задание рождается, когда фишка встаёт сюда',
-      s69InfoSecret: 'Полный текст откроется тому, кто встанет на эту клетку',
-      s69InfoClose: 'Закрыть',
+      s69MapAria: 'Поле',
 
       s69Milestone: 'Каждая десятая',
       s69FinaleTitle: 'Клетка 69',
@@ -4315,7 +4312,6 @@
     clubs:    { glyph: '♣', red: false },
     diamonds: { glyph: '♦', red: true }
   };
-  const S69_COLS = 6;
 
   function s69Error(e) {
     if (e.status === 402) { showPaywall('s69'); return; }
@@ -4488,7 +4484,6 @@
     G.invite = null;
     $('s69Finale').classList.remove('show');
     $('s69Done').classList.remove('show');
-    $('s69CellInfo').classList.remove('show');
     show('home');
   }
 
@@ -4541,18 +4536,163 @@
 
   /* ---- the map ---- */
 
-  function s69Slots() {
-    const slots = [];
-    for (let r = 0; r * S69_COLS < G.board.size; r++) {
-      const row = [];
-      for (let c = 0; c < S69_COLS; c++) {
-        const id = r * S69_COLS + c + 1;
-        row.push(id <= G.board.size ? id : null);
-      }
-      if (r % 2 === 1) row.reverse();
-      slots.push.apply(slots, row);
+  // The board climbs from the bottom, nine squares a row, the way the Lila
+  // board it is drawn after does: 1-9 left to right along the bottom, 10-18
+  // back again, and so on up to the finale. Sixty-nine squares leave three
+  // slots in the top row, and the last square takes them: «Самадхи» is a
+  // plaque, not a square. S69_COLS and the CSS grid (.s69-map) agree.
+  const S69_COLS = 9;
+  const S69_UNIT = 100;   // one square, in the drawing's own units
+
+  function s69Rows() { return Math.ceil(G.board.size / S69_COLS); }
+
+  // Where a square sits: its column from the left, its row from the bottom,
+  // and how many columns it spans.
+  function s69Slot(id) {
+    const row = Math.floor((id - 1) / S69_COLS);
+    const step = (id - 1) % S69_COLS;
+    const rightward = row % 2 === 0;
+    let col = rightward ? step : S69_COLS - 1 - step;
+    let span = 1;
+    if (id === G.board.size) {
+      span = rightward ? S69_COLS - col : col + 1;
+      if (!rightward) col = 0;
     }
-    return slots;
+    return { row: row, col: col, span: span };
+  }
+
+  // The middle of a square in the drawing's units, y growing downward.
+  function s69Point(id) {
+    const s = s69Slot(id);
+    return { x: (s.col + s.span / 2) * S69_UNIT, y: (s69Rows() - s.row - 0.5) * S69_UNIT };
+  }
+
+  function s69Num(v) { return Math.round(v * 10) / 10; }
+  function s69Pts(list) { return list.map(p => s69Num(p[0]) + ' ' + s69Num(p[1])).join('L'); }
+
+  // A heart whose tip is at (tip, 0) and points along +x: the head of a
+  // Cupid's arrow. Drawn from a heart standing on its tip, turned a quarter.
+  const S69_HEART = [
+    [0, 0], [-0.14, -0.12], [-0.58, -0.4], [-0.58, -0.72],
+    [-0.58, -0.96], [-0.38, -1.08], [-0.2, -1.02],
+    [-0.09, -0.98], [0, -0.9], [0, -0.8],
+    [0, -0.9], [0.09, -0.98], [0.2, -1.02],
+    [0.38, -1.08], [0.58, -0.96], [0.58, -0.72],
+    [0.58, -0.4], [0.14, -0.12], [0, 0]
+  ];
+  function s69HeartPath(tip, size) {
+    const p = S69_HEART.map(h => s69Num(tip + size * h[1]) + ' ' + s69Num(-size * h[0]));
+    let d = 'M' + p[0];
+    for (let i = 1; i < p.length; i += 3) d += 'C' + p[i] + ' ' + p[i + 1] + ' ' + p[i + 2];
+    return d + 'Z';
+  }
+
+  // A Cupid's arrow from a ladder square to the square it carries the piece
+  // to: the fletching on the square you land on, the heart on the one you
+  // reach. Drawn along +x and turned into place.
+  function s69ArrowSVG(cell) {
+    const a = s69Point(cell.id), b = s69Point(cell.to);
+    const len = Math.hypot(b.x - a.x, b.y - a.y);
+    const deg = Math.atan2(b.y - a.y, b.x - a.x) * 180 / Math.PI;
+    const tail = -26, tip = len + 6;
+    let feathers = '';
+    for (let i = 0; i < 3; i++) {
+      const x = tail + 3 + i * 8;
+      feathers += '<path class="s69-feather" d="M' + (x + 11) + ' -2L' + (x + 2) + ' -13L' +
+                  (x - 6) + ' -13L' + (x + 2) + ' -2ZM' + (x + 11) + ' 2L' + (x + 2) + ' 13L' +
+                  (x - 6) + ' 13L' + (x + 2) + ' 2Z"/>';
+    }
+    return '<g class="s69-arrow" data-from="' + cell.id + '" data-to="' + cell.to + '" transform="translate(' +
+      s69Num(a.x) + ' ' + s69Num(a.y) + ') rotate(' + s69Num(deg) + ')">' +
+      '<rect class="s69-shaft" x="' + tail + '" y="-2.6" width="' + s69Num(tip - 20 - tail) +
+      '" height="5.2" rx="2.6"/>' + feathers +
+      '<path class="s69-heart" d="' + s69HeartPath(tip, 27) + '"/></g>';
+  }
+
+  // The spine of a serpent, head to tail: a line from the snake square to
+  // the square it drops the piece on, swung from side to side. The swings
+  // come to nothing at both ends, so the head and the tail sit on their
+  // squares.
+  function s69Spine(from, to) {
+    const h = s69Point(from), t = s69Point(to);
+    const dx = t.x - h.x, dy = t.y - h.y, len = Math.hypot(dx, dy);
+    const ux = dx / len, uy = dy / len;
+    const halves = Math.max(2, Math.round(len / 85));
+    const amp = Math.min(26, 14 + len / 25);
+    const points = [];
+    const n = 60;
+    for (let i = 0; i <= n; i++) {
+      const f = i / n, s = len * f;
+      const off = amp * Math.sin(Math.PI * halves * f);
+      points.push([h.x + ux * s - uy * off, h.y + uy * s + ux * off]);
+    }
+    return points;
+  }
+
+  // A serpent of temptation: its head on the snake square, its body winding
+  // down to its tail on the square the piece slides to. The body tapers from
+  // the neck to a point and wears a row of diamonds down its back.
+  function s69SnakeSVG(cell) {
+    const spine = s69Spine(cell.id, cell.to);
+    const n = spine.length - 1;
+    // The head is drawn over the first stretch of the spine, so the body
+    // starts where the head ends and the head itself sits on the square.
+    let neck = 1;
+    while (neck < n - 4 && Math.hypot(spine[neck][0] - spine[0][0], spine[neck][1] - spine[0][1]) < 16) neck++;
+    const left = [], right = [];
+    let diamonds = '';
+    for (let i = neck; i <= n; i++) {
+      const p = spine[i], q = spine[Math.min(i + 1, n)], o = spine[i - 1];
+      let tx = q[0] - o[0], ty = q[1] - o[1];
+      const tl = Math.hypot(tx, ty) || 1;
+      tx /= tl; ty /= tl;
+      const w = 10 * Math.pow(1 - (i - neck) / (n - neck), 0.75) + 0.5;
+      left.push([p[0] - ty * w, p[1] + tx * w]);
+      right.push([p[0] + ty * w, p[1] - tx * w]);
+      if ((i - neck) % 4 === 2 && w > 2.5) {
+        const a = w * 0.9, b = w * 0.5;
+        diamonds += 'M' + s69Pts([[p[0] - tx * a, p[1] - ty * a], [p[0] - ty * b, p[1] + tx * b],
+                                  [p[0] + tx * a, p[1] + ty * a], [p[0] + ty * b, p[1] - tx * b]]) + 'Z';
+      }
+    }
+    const body = 'M' + s69Pts(left) + 'L' + s69Pts(right.slice().reverse()) + 'Z';
+
+    const p0 = spine[neck], p1 = spine[neck + 3];
+    const deg = Math.atan2(p0[1] - p1[1], p0[0] - p1[0]) * 180 / Math.PI;
+    const head =
+      '<g transform="translate(' + s69Num(p0[0]) + ' ' + s69Num(p0[1]) + ') rotate(' + s69Num(deg) + ')">' +
+      '<path class="s69-tongue" d="M30 0L40 0M40 0L46 -4.5M40 0L46 4.5"/>' +
+      '<path class="s69-skull" d="M-4 -10C5 -16.5 19 -16.5 26.5 -8.5C31.5 -3.4 31.5 3.4 26.5 8.5' +
+      'C19 16.5 5 16.5 -4 10Z"/>' +
+      '<path class="s69-crown" d="M4 0L12 -5L20 0L12 5Z"/>' +
+      '<ellipse class="s69-eye" cx="16" cy="-7.4" rx="3.8" ry="2.9"/>' +
+      '<ellipse class="s69-eye" cx="16" cy="7.4" rx="3.8" ry="2.9"/>' +
+      '<path class="s69-pupil" d="M14.6 -7.4L17.6 -7.4M14.6 7.4L17.6 7.4"/></g>';
+    return '<g class="s69-snake" data-from="' + cell.id + '" data-to="' + cell.to + '">' +
+      '<path class="s69-body" d="' + body + '"/>' +
+      '<path class="s69-diamonds" d="' + diamonds + '"/>' + head + '</g>';
+  }
+
+  // A lotus under the squares, after the one on the Lila board: petals
+  // fanning from one root, the back row taller than the front, and a glow
+  // where it opens.
+  function s69LotusSVG(w, h) {
+    const root = [w / 2, h * 0.74];
+    const petal = (deg, len, wide, cls) =>
+      '<path class="' + cls + '" transform="translate(' + root[0] + ' ' + root[1] + ') rotate(' + deg +
+      ')" d="M0 0C' + wide + ' ' + (-len * 0.28) + ' ' + (wide * 0.72) + ' ' + (-len * 0.78) + ' 0 ' +
+      (-len) + 'C' + (-wide * 0.72) + ' ' + (-len * 0.78) + ' ' + (-wide) + ' ' + (-len * 0.28) + ' 0 0Z"/>';
+    let petals = '';
+    [[-66, 250, 64], [66, 250, 64], [-40, 330, 78], [40, 330, 78], [-14, 380, 84], [14, 380, 84]]
+      .forEach(p => { petals += petal(p[0], p[1], p[2], 's69-petal back'); });
+    [[-52, 230, 70], [52, 230, 70], [-26, 290, 82], [26, 290, 82], [0, 320, 88]]
+      .forEach(p => { petals += petal(p[0], p[1], p[2], 's69-petal'); });
+    return '<defs>' +
+      '<radialGradient id="s69Glow"><stop offset="0" class="s69-glow-in"/><stop offset="1" class="s69-glow-out"/></radialGradient>' +
+      '<linearGradient id="s69Petal" x1="0" y1="1" x2="0" y2="0"><stop offset="0" class="s69-petal-root"/>' +
+      '<stop offset="1" class="s69-petal-tip"/></linearGradient></defs>' +
+      '<ellipse cx="' + (w / 2) + '" cy="' + (h * 0.42) + '" rx="' + (w * 0.46) + '" ry="' + (h * 0.44) +
+      '" fill="url(#s69Glow)"/>' + petals;
   }
 
   function s69BlockOf(id) {
@@ -4560,69 +4700,47 @@
     return block ? block.id : '';
   }
 
-  // The mark in a cell's corner: a drawn triangle pointing where the portal
-  // throws you, with the destination beside it. No emoji on the board.
+  // The mark in a square's corner: a Joker is a question, a secret a
+  // diamond. Portals need none: their arrows and serpents are drawn.
   function s69MarkHTML(cell) {
-    if (cell.kind === 'ladder' || cell.kind === 'snake') {
-      return '<span class="s69-mark"><i></i>' + cell.to + '</span>';
-    }
     if (cell.kind === 'joker') return '<span class="s69-mark">?</span>';
     if (cell.kind === 'secret') return '<span class="s69-mark">◆</span>';
     return '';
   }
 
+  // The map is a picture, not a row of buttons: a square says what it does
+  // only to the piece that stands on it, so there is nothing to tap and
+  // nothing ahead to read (the board payload carries no task either).
   function buildS69Map() {
     const box = $('s69Map');
-    box.innerHTML = '';
-    s69Slots().forEach(id => {
-      const el = document.createElement('div');
-      if (id === null) { el.style.visibility = 'hidden'; box.appendChild(el); return; }
-      const c = G.byId[id];
-      el.className = 's69-cell k-' + c.kind + ' b-' + s69BlockOf(id) +
-                     (c.milestone ? ' milestone' : '');
-      el.dataset.id = String(id);
-      el.innerHTML = (c.kind === 'final' ? '69' : String(id)) + s69MarkHTML(c);
-      el.title = c.title;
-      // The board is the printed game: any cell opens its own action.
-      el.onclick = () => showS69CellInfo(id);
-      box.appendChild(el);
+    const w = S69_COLS * S69_UNIT, h = s69Rows() * S69_UNIT;
+    const view = '0 0 ' + w + ' ' + h;
+    let cells = '';
+    G.board.cells.forEach(c => {
+      const s = s69Slot(c.id);
+      const place = 'grid-row:' + (s69Rows() - s.row) + ';grid-column:' + (s.col + 1) + ' / span ' + s.span;
+      const label = c.kind === 'final'
+        ? '<span class="s69-num">' + c.id + '</span><span class="s69-goal">' + escapeHTML(c.title || '') + '</span>'
+        : '<span class="s69-num">' + c.id + '</span>' + s69MarkHTML(c);
+      cells += '<div class="s69-cell k-' + c.kind + ' b-' + s69BlockOf(c.id) +
+               (c.milestone ? ' milestone' : '') + '" data-id="' + c.id + '" style="' + place + '">' +
+               label + '</div>';
     });
+    let art = '';
+    G.board.cells.forEach(c => {
+      if (c.kind === 'ladder' && c.to) art += s69ArrowSVG(c);
+    });
+    G.board.cells.forEach(c => {
+      if (c.kind === 'snake' && c.to) art += s69SnakeSVG(c);
+    });
+    box.innerHTML =
+      '<svg class="s69-lotus" viewBox="' + view + '" aria-hidden="true" focusable="false">' +
+        s69LotusSVG(w, h) + '</svg>' +
+      cells +
+      '<svg class="s69-art" viewBox="' + view + '" aria-hidden="true" focusable="false">' +
+        '<defs><linearGradient id="s69Shaft"><stop offset="0" class="s69-shaft-tail"/>' +
+        '<stop offset="1" class="s69-shaft-tip"/></linearGradient></defs>' + art + '</svg>';
   }
-
-  // What a tapped square does: its title, its action text, and for the
-  // special kinds what the mechanic is. The board payload carries no deal —
-  // no secret, no partner line, no Joker task — so nothing shown here can
-  // spoil what a player will be dealt on it.
-  function showS69CellInfo(id) {
-    const c = G.byId && G.byId[id];
-    if (!c) return;
-    haptic('light');
-    const block = (G.board.blocks || []).filter(b => id >= b.first && id <= b.last)[0];
-    $('s69InfoMeta').textContent = fmt(T().s69InfoCell, { n: id }) +
-      (block ? ' · ' + block.title : '');
-    $('s69InfoTitle').textContent = c.title || '';
-
-    const kind = $('s69InfoKind');
-    if (c.kind === 'ladder') kind.textContent = T().s69Ladder + ' · ' + fmt(T().s69InfoUp, { n: c.to });
-    else if (c.kind === 'snake') kind.textContent = T().s69Snake + ' · ' + fmt(T().s69InfoDown, { n: c.to });
-    else if (c.kind === 'joker') kind.textContent = T().s69InfoJoker;
-    else if (c.kind === 'secret') kind.textContent = T().s69InfoSecret;
-    else kind.textContent = '';
-    kind.style.display = kind.textContent ? '' : 'none';
-
-    $('s69InfoText').textContent = c.text || '';
-    $('s69InfoText').style.display = c.text ? '' : 'none';
-
-    const note = $('s69InfoNote');
-    note.textContent = c.milestone && G.board.system && G.board.system.milestone
-      ? G.board.system.milestone : '';
-    note.style.display = note.textContent ? '' : 'none';
-
-    $('s69InfoClose').textContent = T().s69InfoClose;
-    $('s69CellInfo').classList.add('show');
-  }
-
-  function s69MapCell(id) { return $('s69Map').querySelector('[data-id="' + id + '"]'); }
 
   function s69PieceHTML(player, mine) {
     const suit = S69_SUITS[player.piece] || S69_SUITS.spades;
@@ -4652,55 +4770,82 @@
     chip.appendChild(document.createTextNode('\u00a0' + text));
   }
 
-  // `overrideMine` puts the player's own piece on a square other than the one
-  // the state reports, which is how the portal flight shows it landing before
-  // it is thrown on.
-  function paintS69Map(overrideMine) {
+  // `moving` puts one piece on a square other than the one the state
+  // reports, which is how a portal shows the piece landing before it is
+  // carried on.
+  function paintS69Map(moving) {
     const st = G.st;
     if (!st) return;
-    const mineAt = overrideMine != null ? overrideMine : st.you.position;
-    const theirsAt = st.partner.position;
-    // Behind *both* pieces, not behind the leading one: a cell only one
-    // player has walked past is still ahead of the other, and dimming it
-    // told them their own road was already finished.
+    const at = (player) => (moving && moving.seat === player.seat ? moving.at : player.position);
+    const mineAt = at(st.you), theirsAt = at(st.partner);
+    // Behind *both* pieces, not behind the leading one: a square only one
+    // player has walked past is still ahead of the other.
     const behind = Math.min(mineAt, theirsAt);
 
-    $('s69Map').querySelectorAll('.s69-cell').forEach(el => {
+    const map = $('s69Map');
+    map.querySelectorAll('.s69-piece').forEach(p => p.remove());
+    map.querySelectorAll('.s69-cell').forEach(el => {
       const id = Number(el.dataset.id);
-      el.querySelectorAll('.s69-piece').forEach(p => p.remove());
       el.classList.toggle('here', id === mineAt);
       el.classList.toggle('passed', id < behind);
-      el.classList.remove('flying');
+      el.classList.toggle('duo', id === mineAt && id === theirsAt);
       let pieces = '';
       if (id === mineAt) pieces += s69PieceHTML(st.you, true);
       if (id === theirsAt) pieces += s69PieceHTML(st.partner, false);
       if (pieces) el.insertAdjacentHTML('beforeend', pieces);
     });
-
-    frameS69Cell(s69MapCell(mineAt));
+    // The picture in words, for a screen reader: which suit stands where.
+    map.setAttribute('aria-label', T().s69MapAria + ': ' +
+      [st.you, st.partner].sort((a, b) => a.seat - b.seat).map(player =>
+        (T().s69Suit[player.piece] || '') + ', ' + fmt(T().s69OnCell, { n: at(player) })).join('; '));
   }
 
-  // Asked for by script, so the reduced-motion block's scroll-behavior
-  // never reaches it: the map travelled for half a second on a phone that
-  // asked for less motion (audit D-13).
-  function frameS69Cell(cell) {
-    if (!cell || !cell.scrollIntoView) return;
-    const behavior = REDUCED_MOTION ? 'auto' : 'smooth';
-    try { cell.scrollIntoView({ block: 'nearest', behavior }); } catch (e) {}
+  // What a portal carries a piece through, in the drawing's units: along
+  // the arrow, or down the serpent from its head to its tail.
+  function s69Route(cell) {
+    if (cell.kind === 'snake') return s69Spine(cell.id, cell.to);
+    const a = s69Point(cell.id), b = s69Point(cell.to);
+    return [[a.x, a.y], [b.x, b.y]];
   }
 
-  // A portal fires with a visible flight and a system line, never as a piece
-  // that was simply somewhere else the next time you looked.
+  // A portal fires with a visible flight, never as a piece that was simply
+  // somewhere else the next time you looked: the piece lands on the square,
+  // rides the arrow up or slides down the serpent, and settles where the
+  // server already put it. A phone that asked for less motion sees it land
+  // and then settle, without the travel (audit D-13).
   function flyS69Piece(last) {
-    const mine = last.seat === G.st.you.seat;
-    paintS69Map(mine ? last.landed : undefined);
-    const el = s69MapCell(last.landed);
-    if (el) el.classList.add('flying');
+    paintS69Map({ seat: last.seat, at: last.landed });
     s69Haptic(last.event);
     toast((last.event === 'ladder' ? T().s69Ladder : T().s69Snake) + ': ' +
           (G.board.system[last.event] || ''));
     if (G.settling) clearTimeout(G.settling);
-    G.settling = setTimeout(() => { G.settling = null; paintS69Map(); }, 620);
+
+    // A roll can come before the last ride has settled (one phone, a quick
+    // second throw): only the portal ridden now is lit.
+    const map = $('s69Map');
+    const unlight = () => map.querySelectorAll('.s69-art .live').forEach(el => el.classList.remove('live'));
+    unlight();
+    const art = map.querySelector('.s69-art [data-from="' + last.landed + '"]');
+    if (art) art.classList.add('live');
+    const cell = G.byId[last.landed];
+    const piece = map.querySelector('.s69-cell[data-id="' + last.landed + '"] .s69-piece.seat-' + last.seat);
+    let ms = 620;
+    if (!REDUCED_MOTION && cell && cell.to && piece && piece.animate) {
+      const w = S69_COLS * S69_UNIT, h = s69Rows() * S69_UNIT;
+      const frames = s69Route(cell).map(pt => ({
+        left: (pt[0] / w * 100).toFixed(2) + '%', top: (pt[1] / h * 100).toFixed(2) + '%'
+      }));
+      const ride = cell.kind === 'snake' ? 1300 : 900;
+      piece.classList.add('flight');
+      map.appendChild(piece);
+      piece.animate(frames, { duration: ride, delay: 300, easing: 'ease-in-out', fill: 'both' });
+      ms = 300 + ride;
+    }
+    G.settling = setTimeout(() => {
+      G.settling = null;
+      unlight();
+      paintS69Map();
+    }, ms + 40);
   }
 
   /* ---- the current cell ---- */
@@ -4895,21 +5040,7 @@
   $('s69MapToggle').onclick = () => {
     haptic('light');
     const folded = $('s69Map').classList.toggle('folded');
-    $('s69MapHint').style.display = folded ? 'none' : '';
     $('s69MapToggle').setAttribute('aria-expanded', String(!folded));
-  };
-  // The piece stays in frame when the map itself changes size - a phone
-  // turned, the map unfolded, a window resized - not only when the state
-  // moves it. The frame used to wait for the next poll, and the visual check
-  // caught the map on either side of that poll behind the finale.
-  if (typeof ResizeObserver === 'function') {
-    new ResizeObserver(() => frameS69Cell($('s69Map').querySelector('.s69-cell.here')))
-      .observe($('s69Map'));
-  }
-  $('s69InfoClose').onclick = () => $('s69CellInfo').classList.remove('show');
-  // A tap beside the card closes it too; a scroll inside it does not.
-  $('s69CellInfo').onclick = (e) => {
-    if (e.target === $('s69CellInfo')) $('s69CellInfo').classList.remove('show');
   };
   $('btnS69Share').onclick = () => shareInvite(G.invite, T().s69InviteMsg);
   $('btnS69Copy').onclick = () => copyInvite(G.invite);
