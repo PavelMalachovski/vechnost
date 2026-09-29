@@ -314,9 +314,9 @@ def her_4():
         ground=0.0,
     )  # fmt: skip
     wrapped_sheet(her.h, bare="r", colliders=[ground])
-    # One lamp high to the left, as drawn; she looks down toward it, away
-    # from the phone.
-    spot((-160, 190, 60), (0, 45, 0), WARM, 520.0, radius=10.0, cone=40.0, blend=0.5, name="key")
+    # Soft light, as the card says, from high on the left, as drawn; she
+    # looks down toward it, away from the phone.
+    area((-160, 190, 60), (0, 45, 0), WARM, 330.0, size=90.0, name="key")
     area((150, 120, -100), (0, 50, 0), WARM, 60.0, size=60.0, name="rim")
     camera((40, 75, 330), (0, 35, 0), 24.0, fstop=2.8, focus=(5, 45, 20))
     return Shot()
@@ -454,9 +454,10 @@ def her_10():
         ),
         hair="bun",
     )  # fmt: skip
-    # High and to the camera's side, as drawn: a lamp grazing the back from
-    # the side lays the shoulder blade's shadow over the spine like a hole.
-    spot((-170, 210, 120), (0, 95, 0), WARM, 450.0, radius=15.0, cone=44.0, blend=0.5, name="key")
+    # From the side, as the card says, but high and broad: a small lamp
+    # grazing the back laid the shoulder blade's shadow over the spine like
+    # a hole.
+    spot((-200, 190, 40), (0, 95, 0), WARM, 480.0, radius=22.0, cone=44.0, blend=0.5, name="key")
     camera((20, 105, 360), (0, 85, 0), 25.0, fstop=2.8)
     return Shot()
 
@@ -550,7 +551,8 @@ def him_4():
         ),
         outfit="boxers", ground=0.0,
     )  # fmt: skip
-    spot((-200, 220, 80), (0, 140, 0), WARM, 700.0, radius=8.0, cone=40.0, blend=0.5, name="key")
+    # Frontal and diffused, as the card says; a rim keeps him off the wall.
+    area((40, 190, 330), (0, 130, 0), WARM, 300.0, size=140.0, name="key")
     spot((150, 180, -120), (0, 150, 0), WARM, 300.0, radius=8.0, cone=22.0, blend=0.5, name="rim")
     camera((60, 110, 400), (0, 138, 0), 27.0, fstop=2.8, focus=(0, 130, 0))
     return Shot()
@@ -592,8 +594,10 @@ def him_6():
     )  # fmt: skip
     # From behind and to the side, as drawn: the wall to the left, his body
     # one line from the feet to the hands on it, the lamp high over the wall.
-    spot((-40, 250, -20), (0, 120, 20), WARM, 900.0, radius=8.0, cone=45.0, blend=0.5, name="key")
-    area((-300, 120, 300), (0, 110, 0), FILL, 15.0, size=150.0, name="fill")
+    # From the side, between him and the wall, as the card says: it rakes
+    # along his flank and the back turns away into shadow.
+    spot((-200, 170, -20), (0, 130, 0), WARM, 700.0, radius=10.0, cone=45.0, blend=0.5, name="key")
+    area((-300, 120, 300), (0, 110, 0), FILL, 6.0, size=150.0, name="fill")
     camera((-300, 135, 250), (-5, 120, -5), 28.0, fstop=2.8, focus=(0, 125, 10))
     return Shot()
 
@@ -638,10 +642,10 @@ def him_8():
         ),
         ground=1.2, colliders=[rug],
     )  # fmt: skip
-    # One lamp low to the left, half the face in shadow; the room dark. A
-    # face looking into the lens under flat light is where these bodies
-    # look most like mannequins.
-    spot((-150, 110, 60), (0, 35, 0), WARM, 380.0, radius=6.0, cone=35.0, blend=0.5, name="key")
+    # A window to the side, as the card says, level with his face: half of
+    # it in shadow, the room dark. A face looking into the lens under flat
+    # light is where these bodies look most like mannequins.
+    area((-170, 55, -10), (0, 38, 5), DAY, 240.0, size=70.0, size_y=110.0, name="window")
     spot((120, 90, -150), (0, 40, -20), WARM, 160.0, radius=6.0, cone=30.0, blend=0.5, name="rim")
     area((60, 70, 320), (0, 30, 0), FILL, 4.0, size=160.0, name="fill")
     camera((15, 45, 300), (0, 32, 0), 22.0, fstop=2.8, focus=(0, 40, 20))
