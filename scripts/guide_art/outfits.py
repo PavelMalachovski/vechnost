@@ -284,9 +284,8 @@ def shell(
     field's region, `offset` cm out from the skin, each split into
     (cuts + 1)^2 so that an edge has vertices close to it; every new vertex
     takes its skin weights - and its side of the edge - from the body
-    vertices nearest it. `bridge` rounds of smoothing let the fabric span a
-    hollow - the crease of the groin - rather than sink into it, as cloth
-    does; what they pull under the skin elsewhere is put back on it."""
+    vertices nearest it. `bridge` rounds of `_bridge` let the fabric span
+    what cloth spans rather than follow the skin into it."""
     import bmesh
     from scipy.sparse import csr_matrix
     from scipy.spatial import cKDTree
@@ -301,10 +300,6 @@ def shell(
     for f in keep:
         bm.faces.new([verts[remap[i]] for i in f])
     bmesh.ops.subdivide_edges(bm, edges=bm.edges[:], cuts=cuts, use_grid_fill=True, smooth=1.0)
-    for _ in range(bridge):
-        bmesh.ops.smooth_vert(
-            bm, verts=bm.verts[:], factor=0.5, use_axis_x=True, use_axis_y=True, use_axis_z=True
-        )
     me = bpy.data.meshes.new(name)
     bm.to_mesh(me)
     bm.free()
@@ -321,6 +316,11 @@ def shell(
     limb = {k: blend @ v for k, v in fit.limb.items()}
     cut = me.attributes.new("cut", "FLOAT", "POINT")
     cut.data.foreach_set("value", np.asarray(field(co, limb), dtype=np.float32))
+    if bridge:
+        edges = np.zeros(len(me.edges) * 2, dtype=np.int64)
+        me.edges.foreach_get("vertices", edges)
+        spanned = _bridge(co, edges.reshape(-1, 2), blend @ fit.normals, bridge)
+        me.vertices.foreach_set("co", (spanned / 100.0).ravel())
     ob = bpy.data.objects.new(name, me)
     bpy.context.scene.collection.objects.link(ob)
     me.materials.append(material)
@@ -329,13 +329,33 @@ def shell(
     return ob
 
 
+def _bridge(co, edges, normals, rounds):
+    """Cloth spans a hollow instead of sinking into it: each round, every
+    vertex moves out along its normal toward the mean of its neighbours,
+    and never in. The crease of the groin fills, and a bra's band spans the
+    fold under the breasts."""
+    from scipy.sparse import coo_matrix
+
+    n = len(co)
+    nrm = normals / np.maximum(np.linalg.norm(normals, axis=1, keepdims=True), 1e-9)
+    i, j = edges[:, 0], edges[:, 1]
+    ring = coo_matrix((np.ones(2 * len(i)), (np.r_[i, j], np.r_[j, i])), shape=(n, n)).tocsr()
+    deg = np.maximum(np.asarray(ring.sum(axis=1)).ravel(), 1.0)
+    for _ in range(rounds):
+        out = (((ring @ co) / deg[:, None] - co) * nrm).sum(axis=1)
+        co = co + np.maximum(out, 0.0)[:, None] * nrm * 0.5
+    return co
+
+
 LINGERIE = (0.13, 0.018, 0.045)
 
 
 def lingerie(h: Human, color=LINGERIE):
     fit = Fit(h)
     satin = M.garment("bra", color, kind="satin")
-    bra = shell(h, fit, lambda co, limb: bra_field(fit, co, limb), satin, offset=0.28, name="bra")
+    bra = shell(
+        h, fit, lambda co, limb: bra_field(fit, co, limb), satin, offset=0.28, name="bra", bridge=40
+    )
     straps = [ribbon(h, fit, strap_path(fit, side), satin, name=f"strap.{side}") for side in "lr"]
     low = shell(
         h,

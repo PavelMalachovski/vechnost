@@ -10,12 +10,10 @@ the skin carries no colour of its own there.
 
 from __future__ import annotations
 
-import bmesh
 import bpy
 import numpy as np
 from mathutils import Matrix, Vector
 from PIL import Image
-from scipy.spatial import cKDTree
 
 from . import hair as H
 from . import makehuman as mh
@@ -61,10 +59,13 @@ class Human:
         ob.add_rest_position_attribute = True
         return ob
 
-    def _soften(self, ob, mask, radius):
-        """Relax a textured region into its surroundings: every vertex within
-        `radius` of one whose UV falls in the mask is drawn toward its
-        neighbours, so the surface there is as plain as the skin around it."""
+    def _soften(self, ob, mask, radius=0.02, support=0.035):
+        """Lay a textured patch flat into the skin round it: on each side of
+        the body, everything within `radius` of the middle of the mask is put
+        on the smooth surface (a quadric) fitted to the skin between `radius`
+        and `support` from it, and blended into it toward `support`. Drawing
+        each vertex toward its neighbours left a nipple's dense rings a
+        couple of millimetres proud of the breast, and a bra printed them."""
         img = np.asarray(Image.open(mh.texture(mask)).convert("L"), dtype=float) / 255.0
         h, w = img.shape
         me = ob.data
@@ -81,21 +82,27 @@ class Human:
         co = np.zeros(len(me.vertices) * 3)
         me.vertices.foreach_get("co", co)
         co = co.reshape(-1, 3)
-        d, _ = cKDTree(co[hit]).query(co)
-        region = np.where(d < radius)[0]
-        weight = np.clip(1.0 - d[region] / radius, 0, 1) ** 0.7
-        bm = bmesh.new()
-        bm.from_mesh(me)
-        bm.verts.ensure_lookup_table()
-        nbrs = [[e.other_vert(bm.verts[i]).index for e in bm.verts[i].link_edges] for i in region]
-        bm.free()
-        cur = co.copy()
-        for _ in range(12):
-            nxt = cur.copy()
-            for k, i in enumerate(region):
-                nxt[i] = cur[i] + (cur[nbrs[k]].mean(axis=0) - cur[i]) * 0.6 * weight[k]
-            cur = nxt
-        me.vertices.foreach_set("co", cur.ravel())
+
+        def quad(u, v):
+            return np.stack([u * u, u * v, v * v, u, v, np.ones_like(u)], axis=1)
+
+        for side in (co[hit, 0] > 0, co[hit, 0] < 0):
+            if not side.any():
+                continue
+            d = np.linalg.norm(co - co[hit[side]].mean(axis=0), axis=1)
+            ring = co[(d > radius) & (d < support)]
+            centre = ring.mean(axis=0)
+            U, V, N = np.linalg.svd(ring - centre)[2]
+            coef = np.linalg.lstsq(
+                quad((ring - centre) @ U, (ring - centre) @ V), (ring - centre) @ N, rcond=None
+            )[0]
+            near = np.flatnonzero(d < support)
+            q = co[near] - centre
+            u, v, height = q @ U, q @ V, q @ N
+            t = np.clip((support - d[near]) / (support - radius), 0.0, 1.0)
+            height += (quad(u, v) @ coef - height) * t * t * (3 - 2 * t)
+            co[near] = centre + np.outer(u, U) + np.outer(v, V) + np.outer(height, N)
+        me.vertices.foreach_set("co", co.ravel())
         me.update()
 
     def _eyes(self, iris):

@@ -466,10 +466,13 @@ python scripts/smoke_production.py $URL --deep  # ...and its database and bot he
     shoulder of a raised arm.
   - **The free steps are shot in lingerie; the poses show no anatomy.**
     Light, camera and editing are open without the 18+ question, so nobody
-    in them is undressed. The pose steps imply nudity: the nipples are
-    relaxed into the skin before anything is rendered (`Human._soften`) and
-    the skin has no colour of its own there, the base mesh carries no
-    genitals, and the pose, a sheet or the shadow does the rest. Close
+    in them is undressed. The pose steps imply nudity: before anything is
+    rendered each nipple is laid flat onto the breast's own curve - a
+    quadric fitted to the skin round it (`Human._soften`); drawing vertices
+    toward their neighbours left two millimetres standing, which a bra
+    printed through - and the skin has no colour of its own there, the base
+    mesh carries no genitals, and the pose, a sheet or the shadow does the
+    rest. Close
     garments are cut from the body's own surface, split finely and skinned
     with the weights of the skin under them (`outfits.py`); a signed field
     on the rest body says where the fabric ends and the material draws the
