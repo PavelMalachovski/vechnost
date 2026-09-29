@@ -421,30 +421,78 @@ python scripts/smoke_production.py $URL --deep  # ...and its database and bot he
   makes an ecstatic task land. Tasks already dealt this game are skipped.
 - **The masterclass is a `guide`, not a deck.** `library.py` grows a fourth
   module type: numbered `GuideStep`s of `GuideItem`s, each carrying an `art`
-  key. The Mini App renders it as a document (drawing left, words right,
-  tips under both) on its own `#guide` screen, and the drawings are
-  generated from joint coordinates in `ART_POSES` rather than authored as
-  path data, so twenty-nine schematics stay consistent and a pose is nudged
-  by moving one number. An unpaid caller gets the first step only.
-- **A pose drawing has to say which way the body faces.** The figures are
-  silhouettes — a torso of two masses joined at a waist, tapered limbs, a
-  nose wedge in profile or a mass of hair for a back view (`face:
-  'away-left'` is a back view with the head turned) — and each pose carries
-  a `view` and a `face`, printed under the drawing as «вид сбоку · свет
-  слева». Three things in `artFigure` are load-bearing: the perpendicular
-  across the spine is signed so `L` is the frame's left (the other sign
-  hangs every left limb off the right shoulder), a body seen edge-on gets a
-  narrow torso because shoulders spread in depth there, and **every limb
-  rides on a dark seam** (`art-seam`) — without it an arm crossing the
-  torso or a leg crossing a leg melts into one mass, which is what a whole
-  fresh-eyes audit of these drawings kept finding. The light is drawn as
-  the light: a translucent cone from the lamp (`aim` says what it falls
-  on), a glowing window pane, stripes lying on the body; a source at the
-  viewer's own position (`light: 'front'`, `cam: 'front'`) is named in the
-  caption and never drawn, because a glyph between the feet reads as a
-  third leg. A figure lit only from behind sets `dark: true` and renders as
-  a dark shape with a yellow rim — the rim is the lesson of those two
-  cards, not a decoration.
+  key. The Mini App renders it as a document (picture left, words right,
+  tips under both) on its own `#guide` screen. An unpaid caller gets the
+  first step only.
+- **The masterclass's pictures are photographs, rendered from scenes.**
+  Each `art` key is a scene in `scripts/guide_art/scenes.py` - a posed
+  person, one lamp where the card puts it, props, the camera where the phone
+  goes - photographed in Blender's Cycles and developed like a low-key
+  photograph by `scripts/render_guide_art.py` into
+  `data/library/art/nude_guide/<key>.webp`, 540 by 585, the old drawing's
+  12:13 frame. It needs Blender as a Python module (`bpy`), which is built
+  for Python 3.11 only: a venv of its own with `pip install -e ".[art]"`;
+  about two minutes a picture, an hour for all 29. The pictures replaced
+  line drawings generated in the page, then numpy renders of smooth
+  figures that read as plasticine. Six things hold them together:
+  - **Served like the words, never linked.** `GET
+    /api/library/<module>/art/<key>` answers only for an item the module
+    route would send this caller (the free step to anyone, the rest to a
+    paying reader, the poses with `nsfw=1`), and anything else is the same
+    404 an unknown key gets. The page fetches each with the reader's
+    initData as its card nears the screen (`loadGuideArt`) and keeps it for
+    the session; an `<img src>` cannot send initData, and a static file
+    would be the paywall's back door. `guide_art_path` looks a key up by
+    name and never uses it as a path.
+  - **The bodies are MakeHuman's.** The HM08 mesh, its morph targets and
+    the default skeleton with its weights, all CC0, read without MakeHuman
+    by `guide_art/makehuman.py` from the `anny` wheel on PyPI, which ships
+    exactly that folder: one file pinned by its hash, only its data taken,
+    none of its code imported (`MAKEHUMAN_DATA` points at a copy instead).
+    `cast.py` holds the two builds - a slim, toned woman about 172 cm tall
+    and an athletic man about 182 cm - generic, nobody's likeness, and faces
+    are mostly turned away or in shadow, which is also the guide's own
+    advice. Hair, brows and lashes are strands grown after the pose
+    (`hair.py`): from a scalp above a hairline drawn round the head
+    (`human.HAIRLINE`; MakeHuman's hair helper sits off the head and leaves
+    the forehead bald), along it first, then falling behind the shoulders
+    and over whatever the body lies on.
+  - **A pose is the old drawing's, reached for by the new body.**
+    `skeleton.py` resolves a scene's pose - the pelvis, the frames of
+    pelvis, chest and head, each limb by target points or in the body's own
+    axes - into joints, and `pose.py` puts MakeHuman's skeleton there: the
+    spine and neck share the turns, each limb is a two-segment reach with
+    the body's own lengths (never stretched), and a raised arm takes its
+    collarbone along. The rig is MakeHuman's `default` with linear
+    blending; the game-engine rig, and volume preservation, balloon the
+    shoulder of a raised arm.
+  - **The free steps are shot in lingerie; the poses show no anatomy.**
+    Light, camera and editing are open without the 18+ question, so nobody
+    in them is undressed. The pose steps imply nudity: before anything is
+    rendered each nipple is laid flat onto the breast's own curve - a
+    quadric fitted to the skin round it (`Human._soften`); drawing vertices
+    toward their neighbours left two millimetres standing, which a bra
+    printed through - and the skin has no colour of its own there, the base
+    mesh carries no genitals, and the pose, a sheet or the shadow does the
+    rest. Close
+    garments are cut from the body's own surface, split finely and skinned
+    with the weights of the skin under them (`outfits.py`); a signed field
+    on the rest body says where the fabric ends and the material draws the
+    edge there, and a shrinkwrap puts back on top whatever a pose pushed
+    under the skin. A strap is narrower than that surface is fine - it
+    broke into beads over the shoulder - so straps are ribbons of their
+    own, laid along a path on the skin. A wrapped sheet is cloth, hung
+    round the posed body and left to settle; a towel is cloth laid across
+    a seated lap, dropped with the arms left out so the hands rest on it.
+  - **The caption says the view and the light** (`ART_CAPTIONS`): at 136px
+    a body turned away and a body in profile read nearly alike. Four cards
+    about the phone's screen carry its controls over the photo in the old
+    120 by 130 frame (`ART_OVERLAYS`): the timer, the exposure sun, the
+    focus square, the colour-to-b/w line and the crop that leaves the face
+    out.
+  - **Every key has its picture and its scene**, and nothing else is in the
+    folder (`tests/test_library.py`); path tracing and its denoiser differ a
+    little between machines, so the pictures are not pinned by hash.
 - **Nothing but the front of a card may take a touch.** `.card .back`
   carries `pointer-events: none`. `backface-visibility: hidden` hides the
   back face from the eye but not from the compositor's touch hit test — both

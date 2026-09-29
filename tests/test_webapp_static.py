@@ -478,18 +478,37 @@ def test_a_long_compatibility_question_scrolls_instead_of_pushing_the_answers_of
     assert "min-height:0" in block
 
 
-def test_the_pose_drawings_show_which_way_the_body_faces():
-    """A stick figure draws «спиной к камере» and «боком к окну» the same
-    way. The silhouette carries a face mark, and the caption says the view
-    outright."""
+def test_every_guide_picture_says_its_view_and_its_light():
+    """At 136px a photograph shows a body turned away and a body in profile
+    nearly alike, so every picture has a caption, and a pose's caption says
+    the view and where the light stands outright."""
+    from vechnost_bot.i18n import Language
+    from vechnost_bot.library import load_guide
+
     html = INDEX.read_text(encoding="utf-8")
-    assert "ART_FACE_DIR" in html
-    assert "art-cap" in html
-    for label in ("вид сбоку", "вид со спины", "вид спереди"):
-        assert label in html, label
-    # Every pose names the view its caption will print.
-    poses = html.split("const ART_POSES = {")[1].split("\n  };")[0]
-    assert poses.count("view:") == poses.count("light:")
+    captions = dict(
+        re.findall(
+            r"'([a-z0-9-]+)': '([^']+)'",
+            html.split("const ART_CAPTIONS = {")[1].split("\n  };")[0],
+        )
+    )
+    for step in load_guide("nude_guide", Language.RUSSIAN):
+        for item in step.items:
+            assert item.art in captions, item.art
+            if step.id in ("her", "him"):
+                caption = captions[item.art]
+                assert caption.startswith(("вид ", "кадр ")) and "свет" in caption, caption
+
+
+def test_guide_pictures_are_fetched_with_the_reader_never_linked():
+    """The pose pictures are paid and 18+ like the words beside them, so the
+    page asks the Library API for each with the reader's initData; a link to
+    a file anyone can open would be the paywall's back door."""
+    html = INDEX.read_text(encoding="utf-8")
+    loader = html.split("async function loadArt(")[1].split("\n  }")[0]
+    assert "'/api/library/' + moduleId + '/art/'" in loader
+    assert "Authorization" in loader and "libNsfwParam()" in loader
+    assert ".webp" not in html and "library/art" not in html
 
 
 def test_the_compat_result_reads_in_the_agreed_order():

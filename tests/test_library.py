@@ -1,13 +1,19 @@
 """Tests for the Library content loader and its YAML files."""
 
+import re
+from pathlib import Path
+
 import pytest
+from PIL import Image
 
 from vechnost_bot.i18n import Language
 from vechnost_bot.library import (
+    GUIDE_ART_DIR,
     MODULES,
     REFLECTION_TOTAL,
     LibraryCategory,
     Practice,
+    guide_art_path,
     guide_intro,
     load_categories,
     load_guide,
@@ -15,6 +21,8 @@ from vechnost_bot.library import (
     load_reflection,
     question_of_the_day,
 )
+
+REPO = Path(__file__).resolve().parent.parent
 
 DATE_CATEGORY_SIZES = {
     "home": 25,
@@ -123,6 +131,37 @@ def test_every_guide_item_carries_a_drawing():
         for item in step.items:
             assert item.art.strip(), f"{step.id}/{item.id} has no art key"
             assert item.title.strip() and item.text.strip()
+
+
+def test_every_guide_item_has_its_picture_and_nothing_else_is_shipped():
+    """The Mini App shows data/library/art/<module>/<key>.webp beside each
+    item. A key without one leaves an empty frame; a picture without a key
+    is paid content nobody can reach. Rendered at 540x585, the frame's
+    12:13, by scripts/render_guide_art.py."""
+    keys = {i.art for s in load_guide("nude_guide", Language.RUSSIAN) for i in s.items}
+    folder = GUIDE_ART_DIR / "nude_guide"
+    assert {path.stem for path in folder.glob("*.webp")} == keys
+    assert [path.name for path in folder.iterdir() if path.suffix != ".webp"] == []
+    for key in keys:
+        path = guide_art_path("nude_guide", key)
+        assert path is not None, key
+        with Image.open(path) as picture:
+            assert (picture.format, picture.size) == ("WEBP", (540, 585)), key
+
+
+def test_every_picture_has_the_scene_it_is_rendered_from():
+    """A picture with no scene behind it could never be rendered again.
+    Read from the source, so the test needs no numpy."""
+    source = (REPO / "scripts" / "guide_art" / "scenes.py").read_text(encoding="utf-8")
+    scenes = set(re.findall(r'@scene\("([a-z0-9-]+)"\)', source))
+    keys = {i.art for s in load_guide("nude_guide", Language.RUSSIAN) for i in s.items}
+    assert scenes == keys
+
+
+def test_a_picture_key_is_looked_up_never_used_as_a_path():
+    for key in ("../questions", "..", "light-side.webp", "Light-Side", "", "light--side"):
+        assert guide_art_path("nude_guide", key) is None, key
+    assert guide_art_path("dates", "light-side") is None
 
 
 def test_guide_art_keys_are_unique():

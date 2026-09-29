@@ -10,6 +10,7 @@ from datetime import date
 from typing import Any
 
 from fastapi import APIRouter, Header, HTTPException
+from fastapi.responses import FileResponse
 
 from ..config import settings
 from ..freemium import FREE_LIBRARY_ITEMS_PER_LIST, free_library_slice
@@ -20,6 +21,7 @@ from ..library import (
     GuideStep,
     LibraryCategory,
     LibraryModule,
+    guide_art_path,
     guide_intro,
     load_categories,
     load_guide,
@@ -46,6 +48,15 @@ def _visible_categories(module_id: str, language: Language, nsfw: int) -> list[L
 def _visible_steps(module_id: str, language: Language, nsfw: int) -> list[GuideStep]:
     """A guide's steps, minus any withheld because they are nsfw."""
     return [s for s in load_guide(module_id, language) if not s.nsfw or nsfw == 1]
+
+
+def _guide_shown(
+    module: LibraryModule, language: Language, nsfw: int, locked: bool
+) -> list[GuideStep]:
+    """The steps of a guide this caller gets: past the 18+ question or not,
+    and all of them or the free first one."""
+    steps = _visible_steps(module.id, language, nsfw)
+    return steps[:1] if locked else steps
 
 
 def _module_count(module: LibraryModule, language: Language, nsfw: int) -> int:
@@ -157,8 +168,7 @@ async def library_module(
         # steps out as a document, so they arrive whole and in order. The
         # unpaid slice is the first step, which is the one about light and
         # is genuinely useful on its own.
-        steps = _visible_steps(module_id, language, nsfw)
-        shown = steps[:1] if locked else steps
+        shown = _guide_shown(module, language, nsfw, locked)
         payload.update(
             {
                 "intro": guide_intro(module_id, language),
@@ -196,3 +206,32 @@ async def library_module(
     payload["total"] = sum(len(c.items) for c in categories)
     payload["free_count"] = sum(len(entry["items"]) for entry in payload["categories"])
     return payload
+
+
+@router.get("/{module_id}/art/{key}")
+async def library_art(
+    module_id: str,
+    key: str,
+    lang: str = "ru",
+    nsfw: int = 0,
+    authorization: str | None = Header(default=None),
+) -> FileResponse:
+    """The picture beside one guide item, under the rules of its words.
+
+    The pose steps' pictures are paid and 18+ exactly like their text, so
+    they are served here and not as static files: a caller gets the picture
+    of an item the module route would have sent it, and any other key - one
+    it may not see, one that does not exist - the same 404."""
+    module = MODULES.get(module_id)
+    if module is None or module.type != "guide":
+        raise HTTPException(status_code=404, detail="unknown picture")
+    locked = module.paid and not await _caller_is_paid(authorization)
+    shown = _guide_shown(module, _language(lang), nsfw, locked)
+    path = guide_art_path(module_id, key)
+    if path is None or key not in {item.art for step in shown for item in step.items}:
+        raise HTTPException(status_code=404, detail="unknown picture")
+    # Private: whether a picture is served depends on who asks, so no shared
+    # cache may keep one for the next person.
+    return FileResponse(
+        path, media_type="image/webp", headers={"Cache-Control": "private, max-age=86400"}
+    )

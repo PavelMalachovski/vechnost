@@ -279,6 +279,12 @@ class Phone:
                     return
             # Each phone on its own network, as far as the proxy can tell.
             route.continue_(headers={**request.headers, "x-forwarded-for": self.player.ip})
+        elif url.startswith("blob:" + self.base_url):
+            # Bytes the app fetched itself and shows from memory - the
+            # masterclass's pictures. Chromium never routes a blob: load;
+            # WebKit does, and aborting it left every picture on the iPhone
+            # a skeleton.
+            route.continue_()
         else:
             route.abort()
 
