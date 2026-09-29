@@ -247,7 +247,10 @@ def test_every_item_the_guide_sends_has_its_picture():
 
 
 def test_a_picture_key_is_never_a_path():
-    for key in ("..", "...", "LIGHT-SIDE", "light_side", "light-side.webp", "-light", "light-"):
+    # A dot segment travels encoded: the client resolves a bare `..` before
+    # sending, and the request lands on the module's own route instead.
+    keys = ("%2E%2E", "%2E%2E%2Flight-side", "...", "LIGHT-SIDE", "light_side", "light-side.webp")
+    for key in (*keys, "-light", "light-"):
         assert client.get(f"/api/library/nude_guide/art/{key}?nsfw=1").status_code == 404, key
 
 
