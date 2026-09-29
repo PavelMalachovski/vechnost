@@ -231,24 +231,38 @@ def test_a_joker_task_can_be_found_by_id():
 # ---------------------------------------------------------------------------
 
 
-def test_the_map_shows_every_cells_action_but_never_a_deal():
-    """A printed board lets both players read every cell, so the map
-    carries each cell's action text. What must never be in it is a *deal*:
-    a secret's instruction, its partner line, or any Joker task."""
+def _strings(value):
+    """Every string anywhere in a payload."""
+    if isinstance(value, str):
+        yield value
+    elif isinstance(value, dict):
+        for item in value.values():
+            yield from _strings(item)
+    elif isinstance(value, list | tuple):
+        for item in value:
+            yield from _strings(item)
+
+
+def test_the_map_carries_no_task():
+    """The map is drawn from the board payload: the squares, their titles,
+    the portals. It used to carry every square's action text too, and a tap
+    on a square the piece had not reached read its task out before it was
+    dealt. A task reaches a player only through `cell_view`, on the square
+    their piece stands on, so nothing a square asks - an action, a secret,
+    a partner line, a Joker task - is anywhere in the map."""
     view = steps69.board_view()
     assert view["size"] == 69
     assert len(view["cells"]) == 69
-    by_id = {c["id"]: c for c in view["cells"]}
-    flat = repr(view)
+    for c in view["cells"]:
+        assert set(c) == {"id", "kind", "title", "to", "milestone"}, c
+    printed = "\n".join(_strings(view))
     for c in steps69.load_cells():
-        assert by_id[c.id]["text"] == c.text
-        if c.secret:
-            assert c.secret not in flat
-        if c.partner:
-            assert c.partner not in flat
+        for task in (c.text, c.secret, c.partner):
+            if task:
+                assert task not in printed, f"cell {c.id} can be read on the map"
     for tasks in steps69.load_jokers().values():
         for task in tasks:
-            assert task.text not in flat
+            assert task.text not in printed
     assert view["cells"][3]["to"] == 18
 
 

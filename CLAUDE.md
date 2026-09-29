@@ -406,12 +406,14 @@ python scripts/smoke_production.py $URL --deep  # ...and its database and bot he
   no second device to withhold anything from. With two pieces the state
   carries two cells: yours as `"mover"`, your partner's as `"partner"`. One
   phone shows the seat that just *moved*, never the one on turn next, or
-  nobody ever reads the task they were dealt. The board payload
-  (`board_view`) is the printed game: titles, portal arrows **and each
-  cell's action text**, so a tap on any map square opens what it does (the
-  `s69CellInfo` overlay). What can never be read ahead are the deals –
-  secrets, partner lines and Joker tasks are not in the board payload; for
-  a secret or Joker square the board `text` is its printed teaser.
+  nobody ever reads the task they were dealt. **Nothing on the board can
+  be read ahead.** The board payload (`board_view`) is what the map is
+  drawn from - each square's number, kind, title and portal target - and
+  carries no task: no action text, secret, partner line or Joker task. A
+  square is a picture, not a button; it used to open its action text in an
+  overlay (`s69CellInfo`), and a tap on a square the piece had not reached
+  read its task before it was dealt, so the text left the payload and the
+  overlay went. `test_duo_fuzz.py` fails on any task found on the map.
 - **The Joker reads tempo before stage.** `pick_joker` normally draws from
   the third of the board the pair are standing on, but a pair covering more
   than `RUSH_CELLS_PER_TURN` cells per roll get a tender task wherever they
@@ -929,13 +931,26 @@ python scripts/smoke_production.py $URL --deep  # ...and its database and bot he
   the home screen rather than behind a «Библиотека» button (the `#library`
   screen stays: the daily push still deep-links to it, so `LIB_BACK_TO`
   records which way a module was entered), and reuses `coopFetch` for auth rather
-  than the swipe engine for movement: there is nothing to swipe. The map is a
-  serpentine running *downward* (cells 1-6 left to right, 7-12 right to
-  left), capped at `30vh` and scrolling inside itself, because twelve rows of
-  six otherwise push the dice — the only button that has to be pressable —
-  off the bottom of the screen. The music presets are synthesised WebAudio
-  beds, not files; swap them for licensed stems when there are any and keep
-  the control surface.
+  than the swipe engine for movement: there is nothing to swipe. The music
+  presets are synthesised WebAudio beds, not files; swap them for licensed
+  stems when there are any and keep the control surface.
+- **The board is drawn after the Lila board.** Nine squares a row climbing
+  from the bottom (1-9 left to right, 10-18 back, ...), eight rows, and
+  «Самадхи» (69) a plaque across the rest of the top row: `s69Slot` in
+  `webapp/index.html` places a square, and `S69_COLS` agrees with the CSS
+  grid of `.s69-map`. The map is shown whole, never a scroller: as wide as
+  the screen and no taller than `42vh`, so the card and the dice keep their
+  room (it used to be six wide, capped at `30vh` and scrolled to the piece).
+  Over the squares one SVG (`.s69-art`, drawn from the portals' `to` in the
+  drawing's own units, a square being 100) carries a Cupid's arrow for each
+  ladder - fletching on the ladder square, a heart on its target - and a
+  serpent of temptation for each snake - head on the snake square, body
+  winding down to its tail on the target (`s69Spine`); a lotus lies under
+  them (`.s69-lotus`), and the numbers and pieces sit on top of both. A
+  piece that lands on a portal rides it (`flyS69Piece` along `s69Route`),
+  and a phone that asked for less motion sees it land and then settle.
+  `tests/e2e/browser/test_board_art.py` checks each drawing joins its two
+  squares, as drawn.
 - **A keyboard and a screen reader reach what a finger does** (audit
   D-14). Every screen has one `h1` (its header title; the wordmark on the
   home screen). Every overlay is a modal dialog labelled by its own

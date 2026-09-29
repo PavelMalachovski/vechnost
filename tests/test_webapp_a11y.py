@@ -53,7 +53,7 @@ def test_every_screen_has_one_h1():
 
 def test_every_layer_is_a_labelled_modal_dialog():
     layers = _layers()
-    assert len(layers) >= 8
+    assert len(layers) >= 7
     for layer, (attrs, markup) in layers.items():
         assert attrs.get("role") == "dialog", layer
         assert attrs.get("aria-modal") == "true", layer

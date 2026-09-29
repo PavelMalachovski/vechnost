@@ -15,13 +15,15 @@ game the mechanic borrows from:
   `test_steps69.py` holds that invariant, because a portal landing on a
   portal would loop here.
 
-The board is printed, the deals are private. `board_view` carries every
-cell's title and action text, so the map can show what each square does —
-but never a secret, a partner line, or a Joker task. Those reach exactly
-one player through `cell_view`: the one standing on the cell. That is the
-mechanic ("уникальным для каждого игрока") and also the only way to keep a
-deal out of the other partner's devtools — the "partner" audience gets no
-task of the other player at all, only the one line written for them.
+The board is a picture, the tasks are private. `board_view` carries the
+squares, their titles and the portals, so the map can be drawn — but no
+task at all: not an action text, not a secret, not a partner line, not a
+Joker task. A task reaches exactly one player through `cell_view`: the one
+standing on the cell. That is the mechanic ("уникальным для каждого
+игрока"), it keeps what lies ahead unread until a piece gets there, and it
+is the only way to keep a deal out of the other partner's devtools — the
+"partner" audience gets no task of the other player at all, only the one
+line written for them.
 """
 
 import random
@@ -273,15 +275,13 @@ def pick_joker(
 
 
 def board_view(language: Language = Language.RUSSIAN) -> dict:
-    """The map: 69 squares, each saying what it does.
+    """The map: 69 squares, what kind each is, and where the portals lead.
 
-    A printed board game lets both players read every cell, and this one
-    does too — title and action text travel with the map, so a tap on any
-    square can show what awaits there. What stays private is the *deals*:
-    a secret's instruction and its partner line, and the Joker's drawn
-    task, reach a player only through `cell_view` when a piece is standing
-    there. For a secret or Joker square the `text` is its printed teaser,
-    never the task itself.
+    Enough to draw the board — the squares, the four blocks, the arrows and
+    the serpents — and nothing to read ahead. The map used to carry every
+    square's action text, and a tap on a square the piece had not reached
+    yet showed its task before it was dealt. A task reaches a player only
+    through `cell_view`, when a piece is standing on its square.
     """
     return {
         "size": BOARD_SIZE,
@@ -294,7 +294,6 @@ def board_view(language: Language = Language.RUSSIAN) -> dict:
                 "id": c.id,
                 "kind": c.kind,
                 "title": c.title,
-                "text": c.text,
                 "to": c.to,
                 "milestone": c.is_milestone,
             }

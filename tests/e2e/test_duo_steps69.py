@@ -154,6 +154,8 @@ def test_two_phones_play_to_the_finale(server: Server, round_: int) -> None:
         assert secret not in board_text, "the printed board carries no secret"
     for task in JOKER_TEXTS.values():
         assert task not in board_text, "the printed board carries no Joker task"
+    for cell in steps69.load_cells():
+        assert cell.text not in board_text, f"the board shows square {cell.id}'s task ahead"
     assert len(board["cells"]) == BOARD
 
     choice_id = steps69.load_finale().choices[0].id
