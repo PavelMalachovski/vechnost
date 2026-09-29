@@ -33,6 +33,7 @@ in it.
 
 from __future__ import annotations
 
+from collections.abc import Callable
 from typing import Any
 
 Point = tuple[float, float]
@@ -52,8 +53,17 @@ class Finger:
     def tap(self, x: float, y: float) -> None:
         raise NotImplementedError
 
-    def drag(self, start: Point, end: Point, *, steps: int = 12, step_ms: int = 16) -> None:
-        """A swipe from `start` to `end`."""
+    def drag(
+        self,
+        start: Point,
+        end: Point,
+        *,
+        steps: int = 12,
+        step_ms: int = 16,
+        hold: Callable[[], None] | None = None,
+    ) -> None:
+        """A swipe from `start` to `end`. `hold` runs at `end` with the finger
+        still down: what the page shows mid-swipe, before it lets go."""
         raise NotImplementedError
 
     def scroll(self, x: float, y: float, dy: float) -> None:
@@ -94,12 +104,22 @@ class CdpFinger(Finger):
         self.page.wait_for_timeout(40)
         self._send("touchEnd", [])
 
-    def drag(self, start: Point, end: Point, *, steps: int = 12, step_ms: int = 16) -> None:
+    def drag(
+        self,
+        start: Point,
+        end: Point,
+        *,
+        steps: int = 12,
+        step_ms: int = 16,
+        hold: Callable[[], None] | None = None,
+    ) -> None:
         self._send("touchStart", [start])
         for point in self._along(start, end, steps):
             self.page.wait_for_timeout(step_ms)
             self._send("touchMove", [point])
         self.page.wait_for_timeout(step_ms)
+        if hold:
+            hold()
         self._send("touchEnd", [])
 
     def scroll(self, x: float, y: float, dy: float) -> None:
@@ -120,7 +140,15 @@ class WebKitFinger(Finger):
     def tap(self, x: float, y: float) -> None:
         self.page.touchscreen.tap(x, y)
 
-    def drag(self, start: Point, end: Point, *, steps: int = 12, step_ms: int = 16) -> None:
+    def drag(
+        self,
+        start: Point,
+        end: Point,
+        *,
+        steps: int = 12,
+        step_ms: int = 16,
+        hold: Callable[[], None] | None = None,
+    ) -> None:
         mouse = self.page.mouse
         mouse.move(*start)
         mouse.down()
@@ -128,6 +156,8 @@ class WebKitFinger(Finger):
             self.page.wait_for_timeout(step_ms)
             mouse.move(x, y)
         self.page.wait_for_timeout(step_ms)
+        if hold:
+            hold()
         mouse.up()
 
     def scroll(self, x: float, y: float, dy: float) -> None:

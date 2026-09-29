@@ -18,7 +18,7 @@ from vechnost_bot import steps69
 from vechnost_bot.compat import TOTAL_QUESTIONS
 
 from ..harness import Server, code_from_invite
-from .app import S69_CHIP, s69_your_turn
+from .app import LEFT, RIGHT, S69_CHIP, s69_your_turn, settle_card, swipe
 
 # The room's chip; the board's leads with the player's suit (app.s69_your_turn).
 YOUR_TURN = "✨ Ваш ход"
@@ -69,6 +69,8 @@ def test_two_phones_share_one_deck(server: Server, phones) -> None:
     a.shot("joined")
     b.shot("joined")
 
+    asked: list[str] = []
+    a.page.on("request", lambda r: asked.append(r.url) if r.url.endswith("/advance") else None)
     for turn in range(4):
         mover, waiter = (a, b) if turn % 2 == 0 else (b, a)
         assert mover.text("#turnChipText") == YOUR_TURN
@@ -96,7 +98,18 @@ def test_two_phones_share_one_deck(server: Server, phones) -> None:
         )
         assert card_text(waiter) == before
 
-        mover.page.click("#btnNext")
+        settle_card(mover)
+        if turn == 0:
+            # A room only goes forward: the server turns its cards. A swipe
+            # right springs back and asks the server nothing.
+            swipe(mover, RIGHT)
+            mover.page.wait_for_timeout(700)  # longer than a card's flight
+            assert card_text(mover) == before
+            assert asked == [], asked
+        if turn % 2:
+            swipe(mover, LEFT)  # «дальше», as the button is
+        else:
+            mover.page.click("#btnNext")
         mover.page.wait_for_function(
             "t => document.querySelector('#stage .card.top .q-text')?.innerText.replace(/\\u00a0/g, ' ').trim() !== t",
             arg=before,

@@ -301,15 +301,20 @@ def test_the_library_deck_stands_on_the_same_geometry_as_the_game_deck():
 
 def test_the_library_deck_hands_the_swipe_engine_its_own_transitions():
     """flyOut() ends in the game's S/COOP state unless told otherwise, and
-    dragEnd decides 'can I go back?' from S.idx. Both must ask the Library."""
+    dragEnd decides 'can I go on, can I go back?' - from S.idx, were it not
+    for canGoOn and canGoBack. All of it must ask the Library."""
     html = INDEX.read_text(encoding="utf-8")
     end = html.split("function dragEnd(")[1].split("\n  }")[0]
-    assert "LS.idx" in end
+    assert "canGoOn()" in end and "canGoBack()" in end
+    for fn in ("function canGoOn(", "function canGoBack("):
+        assert "LS.idx" in html.split(fn)[1].split("\n")[0], fn
     fly = html.split("function flyOut(")[1].split("\n  }")[0]
-    assert "drag.onAdvance" in fly
+    assert "drag.onAdvance" in fly and "drag.onBack" in fly
+    assert "drag.onBack = libPrev" in html.split("function libDeckOpen(")[1].split("\n  }")[0]
     # Stale callbacks would send a game swipe into the Library.
-    for fn in ("function enterDeck(", "function enterCoopDeck("):
-        assert "drag.onAdvance = null" in html.split(fn)[1].split("\n  }")[0]
+    for fn in ("function enterDeck(", "function enterCoopDeck(", "function libDeckLeave("):
+        body = html.split(fn)[1].split("\n  }")[0]
+        assert "drag.onAdvance = null" in body and "drag.onBack = null" in body, fn
 
 
 def test_a_truncated_library_deck_says_so_on_its_last_card():
@@ -326,7 +331,7 @@ def test_both_decks_lay_their_cards_out_through_one_builder():
     """Two copies of the stage layout means two places to tune the animation,
     and one of them silently drifts."""
     html = INDEX.read_text(encoding="utf-8")
-    assert html.count("className = 'card under'") == 1
+    assert html.count("className = 'card under") == 1
     assert html.count("classList.add('faced')") == 1
     for fn in ("function renderStage(", "function renderLibStage("):
         assert "buildStage(" in html.split(fn)[1].split("\n  }")[0]
@@ -341,9 +346,11 @@ def test_a_card_that_flies_out_lands_in_the_deck_that_launched_it():
     before, after = fly.split("setTimeout(", 1)
     # Captured on the way in...
     assert "drag.onAdvance" in before
+    assert "drag.onBack" in before
     assert "COOP.active" in before
     # ...and not re-read on the way out.
     assert "drag.onAdvance" not in after
+    assert "drag.onBack" not in after
     assert "COOP.active" not in after
     # Left the deck mid-flight: step nothing.
     assert "classList.contains('active')" in after

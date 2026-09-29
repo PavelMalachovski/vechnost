@@ -1045,15 +1045,20 @@ python scripts/smoke_production.py $URL --deep  # ...and its database and bot he
   (`BackButton._cb()`), never a click on a `#…Back`: it is hidden.
 - **One swipe engine, one stage builder.** The game deck and the Library
   deck share `buildStage` and the same drag handler in
-  `webapp/index.html`; the Library plugs in through `drag.onAdvance` rather
-  than owning a second copy. The gesture splits by axis
+  `webapp/index.html`; the Library plugs in through `drag.onAdvance` and
+  `drag.onBack` rather than owning a second copy. The gesture splits by axis
   at 8px of travel — vertical scrolls the card text inside its fixed band
   (with a fade at whichever edge is hiding something; long text scrolls, it
   no longer shrinks through size steps), horizontal swipes the card. A swipe
-  either way is «дальше» and the card flies the way it was thrown (audit
-  D-40): right used to be next and left back, the opposite of what a thumb
-  expects. Back is the ↩ button and the left arrow key, and never flies.
-  Extend those, don't fork them.
+  left is «дальше» and a swipe right goes back, as in a gallery, and the
+  card flies the way it was thrown. Beneath it lies the card the swipe
+  would bring: the next one, and the one before it while the top card is
+  dragged right (`reveal-prev`; `canGoOn` and `canGoBack` say where a deck
+  can go). Right used to be next, so a left swipe meant for the next card
+  showed the last one again (audit D-40); then both ways went on, and
+  nothing but the ↩ button went back. The ↩ button and the left arrow key
+  go back without a flight; a room has no back, so a swipe right there
+  springs back. Extend those, don't fork them.
 - **A deck's panel has three fixed slots, and a deck has one counter.**
   Back, forward and share each own a column of `.deck-controls`, so a deck
   without one of them – a room has no back, the Library no share – leaves
