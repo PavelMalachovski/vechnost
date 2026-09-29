@@ -30,6 +30,7 @@ phone is written to `touch-canary-<phone>.json` in the report.
 from __future__ import annotations
 
 import json
+from collections.abc import Callable
 from dataclasses import dataclass
 from typing import Any
 
@@ -37,14 +38,20 @@ import pytest
 
 from ..harness import Server
 from .app import (
-    PROGRESS_JS,
+    LEFT,
+    RIGHT,
     SMALLEST,
     TOP_CARD,
+    beneath,
+    cards,
     longest_card,
     open_deck,
+    open_module,
     progress,
     resize,
     settle_card,
+    swipe,
+    wait_home,
     zone,
 )
 from .phones import REPORT_DIR, Device, Phone
@@ -163,35 +170,102 @@ def test_a_vertical_drag_leaves_the_card_in_place(server: Server, phones, device
     assert phone.page.evaluate(MOVED) in ("", "none")
 
 
-def test_a_swipe_either_way_turns_to_the_next_card(
+def at(phone: Phone, track: str = "progressTrack") -> int:
+    """Which card the deck is on, from its gauge."""
+    return int(phone.page.get_attribute("#" + track, "aria-valuenow") or 0)
+
+
+def turned(
+    phone: Phone, throw: Callable[[], None], track: str = "progressTrack", stage: str = "#stage"
+) -> None:
+    """Throw the top card, then wait for the deck to turn and the new card to lie face up."""
+    before = at(phone, track)
+    throw()
+    phone.page.wait_for_function(
+        "([id, n]) => document.getElementById(id).getAttribute('aria-valuenow') !== String(n)",
+        arg=[track, before],
+        timeout=5_000,
+    )
+    settle_card(phone, stage)
+
+
+def test_a_swipe_left_goes_on_and_a_swipe_right_goes_back(
     server: Server, phones: Any, device: Device
 ) -> None:
-    """«Дальше» both ways (audit D-40). Right used to be next and left went
-    back, the opposite of every carousel a thumb knows, so a left swipe meant
-    for the next card showed the previous one again. Back is the ↩ button."""
-    phone, band = on_a_long_card(server, phones, device)
+    """Left is «дальше» and right goes back, as in a gallery. Right used to be
+    next, so a left swipe meant for the next card showed the last one again
+    (audit D-40); then both ways went on, and only the ↩ button went back.
+    While the card is dragged right, the card beneath it is the one it goes
+    back to - not the next, which lies there otherwise."""
+    phone, _ = on_a_long_card(server, phones, device)
+    start = at(phone)
     texts = [phone.text(f"{TOP_CARD} .q-text")]
-    numbers = [int(progress(phone).split(" / ")[0])]
-    for direction in (1, -1):
-        before = progress(phone)
-        x, y, width = band["x"], band["y"], band["width"]
-        phone.finger.drag((x - direction * width * 0.3, y), (x + direction * width * 0.45, y + 8))
-        phone.page.wait_for_function("(t) => " + PROGRESS_JS + " !== t", arg=before, timeout=5_000)
-        phone.page.wait_for_timeout(700)  # the new card turns over first
+    for _ in range(2):
+        turned(phone, lambda: swipe(phone, LEFT))
         texts.append(phone.text(f"{TOP_CARD} .q-text"))
-        numbers.append(int(progress(phone).split(" / ")[0]))
-        band = zone(phone)
-    phone.shot("next")
-    assert numbers == [numbers[0], numbers[0] + 1, numbers[0] + 2], numbers
-    assert len(set(texts)) == 3, "a swipe showed a card already seen"
+    assert at(phone) == start + 2
+    assert len(set(texts)) == 3, "a swipe left showed a card already seen"
 
-    # Back is a button, and it does not fly.
+    seen: list[list[str]] = []
+    turned(phone, lambda: swipe(phone, RIGHT, hold=lambda: seen.append(beneath(phone))))
+    phone.shot("back")
+    assert seen == [[texts[1]]], f"dragged right, the card lay over {seen}, not the one before"
+    assert at(phone) == start + 1
+    assert phone.text(f"{TOP_CARD} .q-text") == texts[1]
+    assert beneath(phone) == [texts[2]], "at rest the next card lies beneath again"
+
+    # The ↩ button goes back too, without a flight.
     phone.tap("#btnPrev")
     phone.page.wait_for_function(
-        "(n) => " + PROGRESS_JS + ".startsWith(n + ' / ')", arg=numbers[1], timeout=5_000
+        "(n) => document.getElementById('progressTrack').getAttribute('aria-valuenow') === String(n)",
+        arg=start,
+        timeout=5_000,
     )
     settle_card(phone)
-    assert phone.text(f"{TOP_CARD} .q-text") == texts[1]
+    assert phone.text(f"{TOP_CARD} .q-text") == texts[0]
+
+
+def test_the_first_card_has_nothing_to_go_back_to(server: Server, phones: Any) -> None:
+    """A swipe right on a deck's first card springs back, with the next card
+    still beneath it: there is nothing before it to bring."""
+    alice = server.player("Alice", paid=True)
+    phone = phones(alice)
+    open_deck(phone, cards(alice)[0])
+    first = phone.text(f"{TOP_CARD} .q-text")
+    under = beneath(phone)
+    seen: list[list[str]] = []
+    swipe(phone, RIGHT, hold=lambda: seen.append(beneath(phone)))
+    phone.page.wait_for_timeout(700)  # longer than a card's flight
+    assert at(phone) == 1
+    assert phone.text(f"{TOP_CARD} .q-text") == first
+    assert seen == [under], f"dragged right, the first card lay over {seen}"
+    assert phone.page.evaluate(MOVED) in ("", "none"), "the card did not spring back"
+
+
+def test_the_library_deck_swipes_the_same_way(server: Server, phones: Any) -> None:
+    """The Library borrows the same physics: left on, right back, and nothing
+    before its first card."""
+    phone = phones(server.player("Alice", paid=True))
+    wait_home(phone)
+    open_module(phone, "practices_couples")
+    stage, track = "#libStage", "libProgressTrack"
+    top = f"{stage} .card.top .q-text"
+    first = phone.text(top)
+    swipe(phone, RIGHT, stage)
+    phone.page.wait_for_timeout(700)  # longer than a card's flight
+    assert at(phone, track) == 1 and phone.text(top) == first
+
+    turned(phone, lambda: swipe(phone, LEFT, stage), track, stage)
+    assert at(phone, track) == 2 and phone.text(top) != first
+    seen: list[list[str]] = []
+    turned(
+        phone,
+        lambda: swipe(phone, RIGHT, stage, hold=lambda: seen.append(beneath(phone, stage))),
+        track,
+        stage,
+    )
+    assert seen == [[first]], f"dragged right, the card lay over {seen}, not the one before"
+    assert at(phone, track) == 1 and phone.text(top) == first
 
 
 def test_a_tap_in_the_middle_of_a_card_lands_on_its_front(

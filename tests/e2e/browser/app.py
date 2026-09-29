@@ -9,9 +9,11 @@ person holding the phone would see.
 from __future__ import annotations
 
 import json
+from collections.abc import Callable
 from dataclasses import dataclass
 from typing import Any
 
+from ...wording import plain
 from ..harness import Player
 from .phones import Phone
 
@@ -144,6 +146,48 @@ def zone(phone: Phone, stage: str = "#stage") -> dict[str, float]:
             stage,
         )
     )
+
+
+# Which way a finger throws the top card: left is «дальше», right goes back,
+# as in a gallery.
+LEFT, RIGHT = -1, 1
+
+# The cards lying beneath the top one that the eye can see: the one a swipe
+# would bring. The card before is laid there too, hidden until a drag goes
+# right.
+BENEATH_JS = """(stage) => [...document.querySelectorAll(stage + ' .card.under')]
+    .filter(el => getComputedStyle(el).visibility !== 'hidden')
+    .map(el => el.querySelector('.q-text').innerText)"""
+
+
+def swipe(
+    phone: Phone,
+    direction: int,
+    stage: str = "#stage",
+    hold: Callable[[], None] | None = None,
+) -> None:
+    """Throw the top card LEFT or RIGHT across its text band; `hold` runs with
+    the finger still down, at the end of the throw."""
+    band = zone(phone, stage)
+    x, y, width = band["x"], band["y"], band["width"]
+    phone.finger.drag(
+        (x - direction * width * 0.3, y), (x + direction * width * 0.45, y + 8), hold=hold
+    )
+
+
+def beneath(phone: Phone, stage: str = "#stage") -> list[str]:
+    """The text of each card the eye can see beneath the top one."""
+    return [plain(text).strip() for text in phone.page.evaluate(BENEATH_JS, stage)]
+
+
+def open_module(phone: Phone, module: str) -> None:
+    """A Library module's deck, entered from «Практики»."""
+    phone.tap("#btnPractices")
+    phone.screen("library")
+    phone.page.wait_for_selector("#libraryList [data-module]")
+    phone.tap(f'#libraryList [data-module="{module}"]')
+    phone.screen("libDeck")
+    settle_card(phone, "#libStage")
 
 
 def resize(phone: Phone, viewport: dict[str, int]) -> None:

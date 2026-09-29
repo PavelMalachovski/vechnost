@@ -19,7 +19,7 @@ from __future__ import annotations
 import re
 
 from ..harness import Server, code_from_invite
-from .app import settle_card, wait_home
+from .app import open_module, settle_card, wait_home
 
 POLL = 12_000
 
@@ -56,15 +56,6 @@ def open_first_deck(phone) -> None:
     phone.page.locator("#themeList .theme-card").first.tap()
     phone.screen("levels")
     phone.page.locator("#levelList .level-card").first.tap()
-
-
-def open_module(phone, module: str) -> None:
-    phone.tap("#btnPractices")
-    phone.screen("library")
-    phone.page.wait_for_selector("#libraryList [data-module]")
-    phone.tap(f'#libraryList [data-module="{module}"]')
-    phone.screen("libDeck")
-    settle_card(phone, "#libStage")
 
 
 def test_forward_stands_in_the_middle_of_every_deck(server: Server, phones) -> None:

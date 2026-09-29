@@ -731,9 +731,13 @@
     text-align: center; font-size: 12px; font-weight: 600; color: #7A3F64; letter-spacing: .06em;
   }
 
-  /* Inert: it is a preview of the next card, and it sticks out 14px below the
-     top one — enough to catch a tap meant for something else. */
+  /* Inert: it is a preview of the card a swipe would bring, and it sticks
+     out 14px below the top one — enough to catch a tap meant for something
+     else. Beneath lies the next card, and the one before it only while the
+     top card is dragged right, back to it (dragMove sets `reveal-prev`). */
   .card.under { transition: transform .3s ease, opacity .3s ease; pointer-events: none; }
+  .card.under.prev, .reveal-prev > .card.under.next { visibility: hidden; }
+  .reveal-prev > .card.under.prev { visibility: visible; }
 
   .flipper { position: absolute; inset: 0; transform-style: preserve-3d; transition: transform .45s cubic-bezier(.2,.7,.25,1); }
   .flipper.faced { transform: rotateY(180deg); }
@@ -1571,7 +1575,7 @@
       tagline: 'Интерактивный проект о любви «от больше никогда» до «навсегда»',
       play: 'Играть', chooseTheme: 'Выберите тему', level: 'Уровень',
       questions: 'Вопросы', tasks: 'Задания',
-      hint: 'Свайп по карте или кнопка →',
+      hint: 'Свайп влево или кнопка →',
       nsfwTitle: 'Контент 18+',
       nsfwText: 'В этой теме откровенные вопросы и задания для взрослых. Продолжая, вы подтверждаете, что вам есть 18 лет.',
       nsfwLibText: 'В этой категории откровенные идеи для взрослых. Продолжая, вы подтверждаете, что вам есть 18 лет.',
@@ -2475,7 +2479,7 @@
   function enterDeck(forceReset) {
     deckGen++;                                   // a new deck owns the stage
     track('deck_open', S.theme + ':' + (S.level || '') + ':' + S.type);
-    drag.onAdvance = null;   // the Library's, if we came from it
+    drag.onAdvance = null; drag.onBack = null;   // the Library's, if we came from it
     COOP.active = false;
     $('turnChip').style.display = 'none';
     $('btnShuffle').style.visibility = '';
@@ -2619,24 +2623,28 @@
     }, 260));
   }
 
-  // Lays out a deck's stage: the next card peeking from beneath, the current
-  // one on top, swipe attached. `htmlAt(index, number, total)` is the only
-  // thing that differs between the game deck and the Library's — everything
-  // about how a card sits on the stage is here, once. Returns the top card,
-  // or null when there is nothing to show.
+  // Lays out a deck's stage: the next card peeking from beneath, the one
+  // before it hidden there until a drag back shows it, the current one on
+  // top, swipe attached. `htmlAt(index, number, total)` is the only thing
+  // that differs between the game deck and the Library's — everything about
+  // how a card sits on the stage is here, once. Returns the top card, or
+  // null when there is nothing to show.
   function buildStage(stage, htmlAt, count, idx, withFlip) {
     stage.innerHTML = '';
+    stage.classList.remove('reveal-prev');
     if (!count) return null;
 
-    // under-card (next in deck), peeking from beneath
-    if (idx + 1 < count) {
+    // under-cards, peeking from beneath: the next in the deck, and the one
+    // before it, which a swipe right goes back to
+    [[idx + 1, 'next'], [idx - 1, 'prev']].forEach(([i, which]) => {
+      if (i < 0 || i >= count) return;
       const under = document.createElement('div');
-      under.className = 'card under';
+      under.className = 'card under ' + which;
       under.style.transform = 'translateY(14px) scale(.94)';
       under.style.opacity = '.7';
-      under.innerHTML = htmlAt(idx + 1, idx + 2, count);
+      under.innerHTML = htmlAt(i, i + 1, count);
       stage.appendChild(under);
-    }
+    });
 
     // top card
     const top = document.createElement('div');
@@ -2662,12 +2670,19 @@
   /* ---------------- swipe physics ---------------- */
   // Single global drag state: window listeners are registered once,
   // renderStage only points `drag.card` at the current top card.
-  // onAdvance is how a non-game deck borrows the physics: set, it replaces
-  // flyOut's game transitions entirely. Null for the game and couple mode,
-  // and cleared on the way into both. A swipe only ever goes forward, so
-  // there is no onBack to borrow.
+  // onAdvance/onBack are how a non-game deck borrows the physics: set, they
+  // replace flyOut's game transitions entirely. Null for the game and couple
+  // mode, and cleared on the way into both.
   const drag = { card: null, x0: 0, y0: 0, dx: 0, dy: 0, active: false, axis: null,
-                 onAdvance: null };
+                 onAdvance: null, onBack: null };
+
+  // Which ways the deck on screen can go. A deck that installed its own
+  // callbacks (the Library) is asked about its own position — S.idx is the
+  // game's, and would let a swipe off either end of the Library fly the card
+  // away to nothing: there is no finishDeck() on that side to put something
+  // back on the stage. A room only goes forward: the server turns its cards.
+  function canGoOn() { return drag.onAdvance ? LS.idx < LS.items.length - 1 : true; }
+  function canGoBack() { return drag.onAdvance ? LS.idx > 0 : (!COOP.active && S.idx > 0); }
 
   function attachSwipe(card) {
     drag.card = card;
@@ -2707,6 +2722,10 @@
     // The partner's turn: a sideways drag does not move the card.
     if (drag.refused) return;
 
+    // Beneath the card lies the one this swipe would bring: the card before
+    // it while the drag goes right and there is one to go back to.
+    const stage = drag.card.parentElement;
+    if (stage) stage.classList.toggle('reveal-prev', drag.dx > 0 && canGoBack());
     drag.card.style.transform =
       'translate(' + drag.dx + 'px,' + (drag.dy * .35) + 'px) rotate(' + (drag.dx * .055) + 'deg)';
   }
@@ -2721,19 +2740,17 @@
       drag.dx = 0; drag.dy = 0; drag.axis = null; drag.refused = false;
       return;
     }
-    // A swipe either way is «дальше», and the card leaves the way it was
-    // thrown (audit D-40). Right used to be next and left previous, the
-    // opposite of every carousel a thumb already knows, so a left swipe
-    // meant for the next card went back one; back is the ↩ button, and
-    // the left arrow on a keyboard. A deck that installed its own callbacks
-    // (the Library) is asked about its own position — S.idx is the game's,
-    // and would let a swipe off the Library's last card fly it away to
-    // nothing: there is no finishDeck() on that side to put something back
-    // on the stage.
-    const canGoOn = drag.onAdvance ? LS.idx < LS.items.length - 1 : true;
-    if (Math.abs(drag.dx) > 84 && canGoOn) {
-      flyOut(drag.card, drag.dx > 0 ? 1 : -1);
+    // Left is «дальше» and right is back, as in every gallery a thumb
+    // already knows. Right used to be next and left back, so a left swipe
+    // meant for the next card showed the last one again (audit D-40); then
+    // both ways went on, and nothing but the ↩ button went back. The card
+    // leaves the way it was thrown.
+    if (drag.dx < -84 && canGoOn()) {
+      flyOut(drag.card, -1);
+    } else if (drag.dx > 84 && canGoBack()) {
+      flyOut(drag.card, 1);
     } else {
+      if (drag.card.parentElement) drag.card.parentElement.classList.remove('reveal-prev');
       drag.card.style.transition = 'transform .3s cubic-bezier(.2,.9,.3,1.2)';
       drag.card.style.transform = '';
     }
@@ -2742,8 +2759,10 @@
   window.addEventListener('mousemove', dragMove);
   window.addEventListener('mouseup', dragEnd);
 
-  // Sends the top card off the stage and steps the deck forward. `dir` is
-  // only which way it flies: going back never flies (btnPrev, libPrev).
+  // Sends the top card off the stage the way it was thrown and steps the
+  // deck that way: thrown left (dir -1) on to the next card, thrown right
+  // (dir 1) back to the one before, which a drag right has already laid
+  // beneath it. The ↩ button goes back without a flight (btnPrev, libPrev).
   function flyOut(card, dir) {
     if (deckDirty) return;
     deckDirty = true;
@@ -2753,7 +2772,8 @@
     // everything below used to be read after that: paging the Library and
     // leaving immediately stepped the *game's* saved position, and could put
     // the game's "done" overlay up over the Library.
-    const onAdvance = drag.onAdvance;
+    const back = dir > 0;
+    const onStep = back ? drag.onBack : drag.onAdvance;
     const wasCoop = COOP.active;
     const screen = document.querySelector('.screen.active');
     const gen = deckGen;
@@ -2771,16 +2791,20 @@
       // A deck that installed its own transitions (the Library) takes it from
       // here. deckDirty is cleared by buildStage, which this branch never
       // reaches — leave it set and the second swipe is swallowed.
-      if (onAdvance) {
+      if (onStep) {
         deckDirty = false;
-        onAdvance();
+        onStep();
         return;
       }
       if (wasCoop) {
-        coopAdvanceAfterFly();  // couple mode is always forward, server-driven
+        coopAdvanceAfterFly();  // couple mode is always forward (canGoBack), server-driven
         return;
       }
-      if (S.idx + 1 >= S.order.length) {
+      if (back) {
+        S.idx = Math.max(0, S.idx - 1);
+        persistDeck();
+        renderStage(true);
+      } else if (S.idx + 1 >= S.order.length) {
         finishDeck();
       } else {
         S.idx += 1;
@@ -2793,7 +2817,7 @@
   $('btnNext').onclick = () => {
     if (COOP.active && (!C.st || !C.st.your_turn)) { refuseTurn(); return; }
     const top = document.querySelector('#stage .card.top');
-    if (top) flyOut(top, 1);
+    if (top) flyOut(top, -1);
   };
   $('btnPrev').onclick = () => {
     if (S.idx <= 0 || deckDirty) return;
@@ -3201,7 +3225,7 @@
 
   function enterCoopDeck() {
     deckGen++;                                   // a new deck owns the stage
-    drag.onAdvance = null;   // the Library's, if we came from it
+    drag.onAdvance = null; drag.onBack = null;   // the Library's, if we came from it
     COOP.active = true;
     // cardHTML picks the printed face from all three of these, and the room
     // is the only thing that knows which deck the pair is actually playing.
@@ -3659,20 +3683,21 @@
     $('libDeckTitle').textContent = title;
     // The swipe engine belongs to whoever is on screen; these send it here.
     drag.onAdvance = libNext;
+    drag.onBack = libPrev;
     deckDirty = false;
     show('libDeck');
     renderLibStage(true);
   }
 
   function libDeckLeave() {
-    drag.onAdvance = null;
+    drag.onAdvance = null; drag.onBack = null;
     (LS.back || openLibrary)();
   }
 
   $('libPrev').onclick = () => { if (!deckDirty) libPrev(); };
   $('libNext').onclick = () => {
     const top = document.querySelector('#libStage .card.top');
-    if (top && LS.idx < LS.items.length - 1) flyOut(top, 1);
+    if (top && LS.idx < LS.items.length - 1) flyOut(top, -1);
   };
   $('libDeckBack').onclick = libDeckLeave;
 
