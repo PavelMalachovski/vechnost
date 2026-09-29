@@ -70,6 +70,12 @@ dev = [
 e2e = [
     "playwright>=1.49",
 ]
+# Rendering the masterclass's pictures (scripts/render_guide_art.py). The
+# pictures are committed, so neither the app nor the tests need it, and it
+# is in neither lock.
+art = [
+    "numpy>=2.0",
+]
 
 [project.scripts]
 vechnost-bot = "vechnost_bot.main:main"
@@ -170,7 +176,7 @@ ignore_names = [
 
 [tool.deptry]
 known_first_party = ["vechnost_bot"]
-optional_dependencies_dev_groups = ["dev", "e2e"]
+optional_dependencies_dev_groups = ["dev", "e2e", "art"]
 
 [tool.deptry.per_rule_ignores]
 # The database drivers SQLAlchemy loads by the name in the URL: asyncpg and

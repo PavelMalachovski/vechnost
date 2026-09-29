@@ -192,3 +192,65 @@ def test_an_unpaid_caller_never_receives_the_pose_text():
     ]
     for text in poses:
         assert text not in response.text
+
+
+# --- the masterclass's pictures ------------------------------------------
+
+
+def _unpaid_caller():
+    return (
+        patch.object(settings, "enable_payment", True),
+        patch(
+            "vechnost_bot.payments.library_api.validate_init_data",
+            return_value={"user": {"id": 4244, "first_name": "Unpaid"}},
+        ),
+        patch("vechnost_bot.payments.library_api.user_has_access", return_value=False),
+    )
+
+
+def test_a_guide_picture_is_served_as_webp():
+    res = client.get("/api/library/nude_guide/art/light-side")
+    assert res.status_code == 200
+    assert res.headers["content-type"] == "image/webp"
+    assert res.content[:4] == b"RIFF" and res.content[8:12] == b"WEBP"
+    # Whether it is served depends on who asks: no shared cache may keep it.
+    assert "private" in res.headers["cache-control"]
+    assert "content-encoding" not in res.headers
+
+
+def test_a_pose_picture_waits_for_the_age_confirmation():
+    assert client.get("/api/library/nude_guide/art/her-1").status_code == 404
+    assert client.get("/api/library/nude_guide/art/her-1?nsfw=1").status_code == 200
+
+
+def test_an_unpaid_caller_gets_the_free_steps_pictures_and_no_more():
+    """The pictures of a paid step are paid like its words, and a refused
+    one is the same 404 as a key that does not exist - no oracle."""
+    headers = {"Authorization": "tma x"}
+    first, second, third = _unpaid_caller()
+    with first, second, third:
+        free = client.get("/api/library/nude_guide/art/light-side", headers=headers)
+        assert free.status_code == 200
+        missing = client.get("/api/library/nude_guide/art/no-such-picture?nsfw=1", headers=headers)
+        for key in ("camera-height", "her-1", "him-10", "edit-privacy"):
+            res = client.get(f"/api/library/nude_guide/art/{key}?nsfw=1", headers=headers)
+            assert res.status_code == 404, key
+            assert res.content == missing.content, key
+
+
+def test_every_item_the_guide_sends_has_its_picture():
+    body = client.get("/api/library/nude_guide?nsfw=1").json()
+    for step in body["steps"]:
+        for item in step["items"]:
+            res = client.get(f"/api/library/nude_guide/art/{item['art']}?nsfw=1")
+            assert res.status_code == 200, item["art"]
+
+
+def test_a_picture_key_is_never_a_path():
+    for key in ("..", "...", "LIGHT-SIDE", "light_side", "light-side.webp", "-light", "light-"):
+        assert client.get(f"/api/library/nude_guide/art/{key}?nsfw=1").status_code == 404, key
+
+
+def test_only_a_guide_has_pictures():
+    assert client.get("/api/library/dates/art/light-side").status_code == 404
+    assert client.get("/api/library/nope/art/light-side").status_code == 404

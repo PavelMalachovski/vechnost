@@ -39,6 +39,10 @@ Telegram id. У каждого есть `--help`, и `tests/test_scripts.py` з�
   файлу на начертание из двух подмножеств Google, только то, что приложение
   набирает (кириллица, ASCII, типографская пунктуация). Нужен fontTools из
   extra `dev`.
+- **`render_guide_art.py`** – отрисовать картинки мастер-класса из сцен
+  `guide_art/scenes.py` в `data/library/art/nude_guide/` (WebP 540×585).
+  Нужен numpy из extra `art`; все 29 – около часа на четырёх ядрах,
+  `--only KEY` и `--preview` – быстрее.
 
 ## Разработка и деплой
 

@@ -6,7 +6,9 @@ python-telegram-bot so it can be used from the web API, the bot, and tests
 alike.
 """
 
+import re
 from functools import cache
+from pathlib import Path
 from typing import Literal
 
 import yaml
@@ -16,6 +18,11 @@ from .i18n import Language
 from .paths import DATA
 
 LIBRARY_DIR = DATA / "library"
+# The masterclass's pictures: one WebP per `art` key, rendered from a scene
+# by scripts/render_guide_art.py and served by the Library API under the
+# guide's own rules, never as static files.
+GUIDE_ART_DIR = LIBRARY_DIR / "art"
+_ART_KEY = re.compile(r"^[a-z0-9]+(?:-[a-z0-9]+)*$")
 
 
 class Practice(BaseModel):
@@ -32,14 +39,15 @@ class LibraryCategory(BaseModel):
 
 
 class GuideItem(BaseModel):
-    """One thing to do, with the schematic that shows how it looks."""
+    """One thing to do, with the picture that shows how it looks."""
 
     id: str
     title: str
     text: str
-    # The key of the line drawing the Mini App renders beside the text.
-    # Every item carries one; `test_library.py` checks that none is blank,
-    # because a missing key draws nothing and reads as a layout fault.
+    # The key of the picture the Mini App shows beside the text
+    # (data/library/art/<module>/<key>.webp). Every item carries one, and
+    # `test_library.py` checks each has its picture: a missing one leaves
+    # an empty frame that reads as a layout fault.
     art: str
     tips: list[str] = []
 
@@ -130,6 +138,18 @@ def load_guide(module_id: str, language: Language = Language.RUSSIAN) -> list[Gu
     """The numbered steps of a `guide`-type module, in authored order."""
     data = _load_yaml(module_id, language)
     return [GuideStep(**step) for step in data.get("steps", [])]
+
+
+def guide_art_path(module_id: str, key: str) -> Path | None:
+    """The picture for a guide item's `art` key, or None if there is none.
+
+    A key is looked up by name, never used as a path: anything that is not
+    lowercase words joined by hyphens is refused before it touches the disk.
+    """
+    if module_id not in MODULES or not _ART_KEY.match(key):
+        return None
+    path = GUIDE_ART_DIR / module_id / f"{key}.webp"
+    return path if path.is_file() else None
 
 
 def guide_intro(module_id: str, language: Language = Language.RUSSIAN) -> str:
