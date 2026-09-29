@@ -424,12 +424,15 @@ python scripts/smoke_production.py $URL --deep  # ...and its database and bot he
   first step only.
 - **The masterclass's pictures are photographs, rendered from scenes.**
   Each `art` key is a scene in `scripts/guide_art/scenes.py` - a posed
-  body, one lamp where the card puts it, props, the camera where the phone
-  goes - traced and developed like a low-key photograph by
-  `scripts/render_guide_art.py` (numpy: `pip install -e ".[art]"`; about
-  an hour for all 29) into `data/library/art/nude_guide/<key>.webp`, 540 by
-  585, the old drawing's 12:13 frame. They replaced line drawings generated
-  in the page. Five things hold them together:
+  person, one lamp where the card puts it, props, the camera where the phone
+  goes - photographed in Blender's Cycles and developed like a low-key
+  photograph by `scripts/render_guide_art.py` into
+  `data/library/art/nude_guide/<key>.webp`, 540 by 585, the old drawing's
+  12:13 frame. It needs Blender as a Python module (`bpy`), which is built
+  for Python 3.11 only: a venv of its own with `pip install -e ".[art]"`;
+  about two minutes a picture, an hour for all 29. The pictures replaced
+  line drawings generated in the page, then numpy renders of smooth
+  figures that read as plasticine. Six things hold them together:
   - **Served like the words, never linked.** `GET
     /api/library/<module>/art/<key>` answers only for an item the module
     route would send this caller (the free step to anyone, the rest to a
@@ -439,16 +442,37 @@ python scripts/smoke_production.py $URL --deep  # ...and its database and bot he
     the session; an `<img src>` cannot send initData, and a static file
     would be the paywall's back door. `guide_art_path` looks a key up by
     name and never uses it as a path.
-  - **The free steps are shot in lingerie.** Light, camera and editing are
-    open without the 18+ question, so nobody in them is undressed; the pose
-    steps imply nudity and show none - a smooth body with no anatomy, and
-    the pose, a sheet or the shadow doing the covering.
-  - **The body is built in groups** (torso, head, each limb) that melt into
-    each other only around their joint, so an arm on a knee keeps its
-    crease; a pose names limbs by target points or in the body's own axes,
-    and bone lengths are fixed, so no pose stretches an arm. The build is a
-    slim, toned model's; no face is anybody's, and faces are mostly turned
-    away or in shadow, which is also the guide's own advice.
+  - **The bodies are MakeHuman's.** The HM08 mesh, its morph targets and
+    the default skeleton with its weights, all CC0, read without MakeHuman
+    by `guide_art/makehuman.py` from the `anny` wheel on PyPI, which ships
+    exactly that folder: one file pinned by its hash, only its data taken,
+    none of its code imported (`MAKEHUMAN_DATA` points at a copy instead).
+    `cast.py` holds the two builds - a slim, toned woman about 172 cm tall
+    and an athletic man about 182 cm - generic, nobody's likeness, and faces
+    are mostly turned away or in shadow, which is also the guide's own
+    advice. Hair, brows and lashes are strands grown after the pose
+    (`hair.py`): along the scalp first, then falling over the shoulders and
+    whatever the body lies on.
+  - **A pose is the old drawing's, reached for by the new body.**
+    `skeleton.py` resolves a scene's pose - the pelvis, the frames of
+    pelvis, chest and head, each limb by target points or in the body's own
+    axes - into joints, and `pose.py` puts MakeHuman's skeleton there: the
+    spine and neck share the turns, each limb is a two-segment reach with
+    the body's own lengths (never stretched), and a raised arm takes its
+    collarbone along. The rig is MakeHuman's `default` with linear
+    blending; the game-engine rig, and volume preservation, balloon the
+    shoulder of a raised arm.
+  - **The free steps are shot in lingerie; the poses show no anatomy.**
+    Light, camera and editing are open without the 18+ question, so nobody
+    in them is undressed. The pose steps imply nudity: the nipples are
+    relaxed into the skin before anything is rendered (`Human._soften`) and
+    the skin has no colour of its own there, the base mesh carries no
+    genitals, and the pose, a sheet or the shadow does the rest. Close
+    garments are cut from the body's own surface and skinned with its
+    weights (`outfits.py`); a signed field on the rest body says where the
+    fabric ends and the material draws the edge there, so it is smooth
+    however coarse the mesh. A towel and a wrapped sheet are cloth, dropped
+    on the posed body and left to settle.
   - **The caption says the view and the light** (`ART_CAPTIONS`): at 136px
     a body turned away and a body in profile read nearly alike. Four cards
     about the phone's screen carry its controls over the photo in the old
@@ -456,8 +480,8 @@ python scripts/smoke_production.py $URL --deep  # ...and its database and bot he
     focus square, the colour-to-b/w line and the crop that leaves the face
     out.
   - **Every key has its picture and its scene**, and nothing else is in the
-    folder (`tests/test_library.py`); a numpy float or two may differ
-    between machines, so the pictures are not pinned by hash.
+    folder (`tests/test_library.py`); path tracing and its denoiser differ a
+    little between machines, so the pictures are not pinned by hash.
 - **Nothing but the front of a card may take a touch.** `.card .back`
   carries `pointer-events: none`. `backface-visibility: hidden` hides the
   back face from the eye but not from the compositor's touch hit test — both
