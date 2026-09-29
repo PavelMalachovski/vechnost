@@ -18,6 +18,19 @@ PICTURES = """() => [...document.querySelectorAll('#guide .art-photo')].map(slot
     ready: slot.classList.contains('ready'),
     width: slot.querySelector('img').naturalWidth,
 }))"""
+# What became of each picture: still a skeleton (never asked for, or still
+# on its way), ready, or failed (the fetch or the image itself).
+STATES = """() => [...document.querySelectorAll('#guide .art-photo')].map(
+    slot => slot.dataset.art + ': ' + (slot.className.replace('art-photo', '').trim() || 'waiting')
+)"""
+
+
+def _until(phone, predicate: str, arg: str | None = None) -> None:
+    """Wait for the pictures, and say what each one became if they never come."""
+    try:
+        phone.page.wait_for_function(predicate, arg=arg, timeout=POLL)
+    except Exception as error:
+        raise AssertionError(f"pictures not ready: {phone.page.evaluate(STATES)}") from error
 
 
 def _open(phone, adult: bool = False) -> None:
@@ -39,9 +52,7 @@ def test_an_unpaid_reader_sees_the_light_step_in_pictures(server: Server, phones
     asked: list[str] = []
     phone.page.on("request", lambda r: asked.append(r.url) if "/art/" in r.url else None)
     _open(phone)
-    phone.page.wait_for_function(
-        "() => document.querySelectorAll('#guide .art-photo.ready').length === 4", timeout=POLL
-    )
+    _until(phone, "() => document.querySelectorAll('#guide .art-photo.ready').length === 4")
     pictures = phone.page.evaluate(PICTURES)
     keys = [p["key"] for p in pictures]
     assert keys == ["light-side", "light-rim", "light-soft", "light-stripes"], keys
@@ -55,8 +66,6 @@ def test_a_paying_reader_scrolls_into_the_poses(server: Server, phones) -> None:
     _open(phone, adult=True)
     slot = '#guide .art-photo[data-art="her-1"]'
     phone.page.locator(slot).scroll_into_view_if_needed()
-    phone.page.wait_for_function(
-        "(s) => document.querySelector(s).classList.contains('ready')", arg=slot, timeout=POLL
-    )
+    _until(phone, "(s) => document.querySelector(s).classList.contains('ready')", arg=slot)
     assert phone.page.locator(slot).evaluate("el => el.querySelector('img').naturalWidth") == 540
     phone.shot("masterclass-her-1")

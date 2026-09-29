@@ -4265,10 +4265,12 @@
       }
       const img = slot.querySelector('img');
       img.onload = () => { slot.classList.remove('skeleton'); slot.classList.add('ready'); };
+      img.onerror = () => { slot.classList.remove('skeleton'); slot.classList.add('failed'); };
       img.src = ART_CACHE[id];
     } catch (e) {
       // A quiet frame rather than a broken picture: the words still teach.
       slot.classList.remove('skeleton');
+      slot.classList.add('failed');
     }
   }
 
