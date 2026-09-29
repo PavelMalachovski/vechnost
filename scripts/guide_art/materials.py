@@ -203,13 +203,15 @@ def garment(name, color, kind="satin", band=0.0, band_color=None):
     )
     co = t.coords()
     if kind == "satin":
+        # Microfibre with a satin face: a soft, stretched sheen, never latex.
         col = color
         fabric_in = {
-            "Roughness": 0.3,
-            "Anisotropic": 0.5,
-            "Sheen Weight": 0.6,
-            "Sheen Tint": color,
-            "Specular IOR Level": 0.7,
+            "Roughness": 0.62,
+            "Anisotropic": 0.2,
+            "Sheen Weight": 0.9,
+            "Sheen Roughness": 0.4,
+            "Sheen Tint": tuple(min(1.0, c * 2.5) for c in color),
+            "Specular IOR Level": 0.2,
         }
     elif kind == "denim":
         twill = t.node(
@@ -292,10 +294,19 @@ def lampshade(color=(1.0, 0.72, 0.52), glow=4.0):
     return t.surface(add)
 
 
-def skin(tone=(0.60, 0.40, 0.31), rough=0.56, wet=False, name="skin"):
+def _uv_mask(t, path):
+    """A grey mask painted on MakeHuman's UV layout, read as 0-1."""
+    tex = t.node("ShaderNodeTexImage", Vector=t.coords("UV"))
+    tex.image = bpy.data.images.load(str(path), check_existing=True)
+    tex.image.colorspace_settings.name = "Non-Color"
+    return tex.outputs["Color"]
+
+
+def skin(tone=(0.60, 0.40, 0.31), rough=0.56, wet=False, name="skin", lips=None):
     """Skin: light scattered deep and red beneath it, pores in the normal, a
     faint mottle and flush in the colour, a thin oily coat - and, wet, a film
-    of water standing in drops."""
+    of water standing in drops. `lips` is MakeHuman's lip mask: redder and
+    a little glossier there."""
     t = Tree(name)
     co = t.coords()
     mottle = t.node("ShaderNodeTexNoise", Vector=co, Scale=14.0, Detail=6.0, Roughness=0.55)
@@ -311,6 +322,14 @@ def skin(tone=(0.60, 0.40, 0.31), rough=0.56, wet=False, name="skin"):
     t.link(flush.outputs[0], red.inputs[0])
     t.link(base, red.inputs[6])
     red.inputs[7].default_value = (1.0, 0.82, 0.80, 1.0)
+    colour = red.outputs[2]
+    if lips is not None:
+        mask = _uv_mask(t, lips)
+        lip = t.node("ShaderNodeMix", _data_type="RGBA", _blend_type="MULTIPLY")
+        t.link(mask, lip.inputs[0])
+        t.link(colour, lip.inputs[6])
+        lip.inputs[7].default_value = (0.78, 0.46, 0.46, 1.0)
+        colour = lip.outputs[2]
     pores = t.node("ShaderNodeTexVoronoi", Vector=co, Scale=1400.0, _feature="F1", Randomness=1.0)
     fine = t.node("ShaderNodeTexNoise", Vector=co, Scale=700.0, Detail=4.0, Roughness=0.7)
     relief = t.node("ShaderNodeMath", _operation="ADD")
@@ -324,10 +343,12 @@ def skin(tone=(0.60, 0.40, 0.31), rough=0.56, wet=False, name="skin"):
     b = t.node(
         "ShaderNodeBsdfPrincipled",
         **{
-            "Base Color": red.outputs[2],
+            "Base Color": colour,
             "Subsurface Weight": 1.0,
             "Subsurface Radius": (1.0, 0.36, 0.18),
-            "Subsurface Scale": 0.012,
+            # Deep enough to soften, shallow enough that a backlit crease
+            # does not glow orange.
+            "Subsurface Scale": 0.007,
             "Subsurface IOR": 1.4,
             "Specular IOR Level": 0.5,
             "Coat Weight": 0.9 if wet else 0.06,

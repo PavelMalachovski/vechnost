@@ -2,16 +2,18 @@
 
 Close-fitting garments - the bra and briefs, boxers, jeans - are cut from
 the body's own surface: the faces around a region, pushed a few
-millimetres out along the rest normals and skinned with the body's own
-weights, so they move with every pose exactly as the skin under them does.
-Where the region ends is decided per vertex by a signed field (centimetres,
-positive inside) written in the rest pose from the body's landmarks, stored
-on the garment, and read by its material, which draws the edge at zero -
-a smooth line, however coarse the mesh under it.
+millimetres out along the rest normals, split sixteen ways, and skinned
+with the weights of the body vertices under them, so they move with every
+pose as the skin does; whatever a pose still pushes under the skin is put
+back on top of it. Where the region ends is decided per vertex by a signed
+field (centimetres, positive inside) written in the rest pose from the
+body's landmarks, stored on the garment, and read by its material, which
+draws the edge at zero. A bra's straps are narrower than that surface is
+fine, so they are ribbons of their own, laid along a path on the skin.
 
-What hangs rather than clings - a towel round the hips, a sheet wrapped
-round a seated body - is cloth, dropped over the posed body and left to
-settle.
+What hangs rather than clings - a sheet wrapped round a seated body, a
+towel across a seated lap - is cloth, dropped over the posed body and left
+to settle.
 """
 
 from __future__ import annotations
@@ -89,49 +91,159 @@ class Fit:
         return {"l": pts[pts[:, 0] > 0].mean(0), "r": pts[pts[:, 0] < 0].mean(0)}
 
 
-def _polyline_dist(px, pz, pts):
-    """Distance in the x-z plane from each point to a polyline."""
-    best = np.full(len(px), 1e9)
-    for (ax, az), (bx, bz) in zip(pts[:-1], pts[1:], strict=True):
-        vx, vz = bx - ax, bz - az
-        t = np.clip(((px - ax) * vx + (pz - az) * vz) / (vx * vx + vz * vz), 0, 1)
-        best = np.minimum(best, np.hypot(px - (ax + vx * t), pz - (az + vz * t)))
+def _segment_dist(p, pts):
+    """Distance in 3D from each point to a polyline."""
+    best = np.full(len(p), 1e9)
+    for a, b in zip(pts[:-1], pts[1:], strict=True):
+        v = b - a
+        t = np.clip(((p - a) @ v) / (v @ v), 0, 1)
+        best = np.minimum(best, np.linalg.norm(p - (a + t[:, None] * v), axis=1))
     return best
 
 
-def bra_field(f: Fit):
-    x, y, z = f.co.T
-    out = np.full(len(x), -1e3)
+def _on_skin(f: Fit, p, toward):
+    """The point of the rest body nearest `p`, looked for from `toward`
+    (so a point meant for the back lands on the back)."""
+    d = np.linalg.norm(f.co - p, axis=1) + 0.3 * np.linalg.norm(f.co - toward, axis=1)
+    return f.co[np.argmin(d)]
+
+
+def _skin_path(f: Fit, pts, n=40):
+    """A path over the skin through `pts`: split into `n` points, each laid
+    on the skin (the tangent plane of its nearest rest vertex), twice over.
+    Straight chords between a few points sink under a curved shoulder, and
+    a band measured from them vanishes there; snapping to the vertices
+    themselves zigzags."""
+    from scipy.spatial import cKDTree
+
+    pts = np.asarray(pts, dtype=float)
+    s = np.concatenate([[0.0], np.cumsum(np.linalg.norm(np.diff(pts, axis=0), axis=1))])
+    t = np.linspace(0.0, s[-1], n)
+    path = np.stack([np.interp(t, s, pts[:, k]) for k in range(3)], axis=1)
+    tree = cKDTree(f.co)
+    for _ in range(2):
+        i = tree.query(path, k=4)[1]
+        v, nrm = f.co[i].mean(1), f.normals[i].mean(1)
+        nrm /= np.linalg.norm(nrm, axis=1, keepdims=True)
+        path = path - (((path - v) * nrm).sum(1))[:, None] * nrm
+        path[1:-1] = (path[:-2] + 2 * path[1:-1] + path[2:]) / 4
+    return path
+
+
+def _half_plane(x, z, a, b):
+    """Signed distance to the line a-b in the x-z plane, positive to its left."""
+    ex, ez = b[0] - a[0], b[1] - a[1]
+    n = np.hypot(ex, ez)
+    return ((x - a[0]) * (-ez) + (z - a[1]) * ex) / n
+
+
+def _cup(f: Fit, side):
+    """One triangle of the bralette, in the front view (x, z): the corner at
+    the centre, the outer corner, and the tip over the nipple."""
+    sgn = 1.0 if side == "l" else -1.0
+    n = f.nipples[side]
     ub = min(f.nipples["l"][2], f.nipples["r"][2]) - 7.0  # the underbust line
+    return (sgn * 1.0, ub + 1.0), (n[0] + sgn * 8.5, ub + 1.0), (n[0] + sgn * 0.8, n[2] + 7.0)
+
+
+def bra_field(f: Fit, co, limb):
+    """A triangle bralette: two triangles of fabric over the breasts and a
+    band round the ribs under them. The straps are ribbons of their own
+    (`strap_path`): a centimetre is narrower than this surface is fine."""
+    x, y, z = co.T
+    out = np.full(len(x), -1e3)
+    ub = min(f.nipples["l"][2], f.nipples["r"][2]) - 7.0
+    front = f.chest_mid_y - y
     for side, sgn in (("l", 1.0), ("r", -1.0)):
-        n = f.nipples[side]
-        dx, dz = (x - n[0]) * sgn, z - n[2]
-        rz = np.where(dz < 0, 7.8, 9.0)
-        ell = (1.0 - np.sqrt((dx / 9.0) ** 2 + (dz / rz) ** 2)) * 8.0
-        top = (n[2] + 5.2 - 0.12 * dx) - z  # a balconette's straight top
-        inner = x * sgn - 0.4  # the cups nearly meet in the middle
-        front = f.chest_mid_y - y
-        out = np.maximum(out, np.minimum.reduce([ell, top, inner, front]))
-        # The strap: from the cup's outer top over the shoulder, down the back.
-        s = f.shoulder[side]
-        up = (n[0] + sgn * 2.5, n[2] + 3.5)
-        over = (s[0] - sgn * 5.5, s[2] + 3.0)
-        back = (n[0] + sgn * 0.5, ub + 2.5)
-        d_front = _polyline_dist(x, z, [up, over])
-        d_back = _polyline_dist(x, z, [over, back])
-        d = np.where(y < f.chest_mid_y, d_front, d_back)
-        out = np.maximum(out, 0.65 - d)
-    # The band under the cups and round the back, a little higher behind,
-    # and the gore joining the cups in front.
-    zb = ub + 1.8 * _smooth(f.chest_mid_y - 4, f.chest_mid_y + 6, y)
-    out = np.maximum(out, 1.0 - np.abs(z - zb))
-    gore = np.minimum(1.2 - np.abs(x), np.minimum(z - ub, (ub + 5.0) - z))
-    out = np.maximum(out, np.where(y < f.chest_mid_y, gore, -5.0))
-    return np.where(f.limb["arm"] > 0.5, -5.0, out)
+        inner, outer, tip = _cup(f, side)
+        # The triangle's three edges, each positive inside. Inner, outer,
+        # tip run anticlockwise on the left cup and clockwise on its mirror,
+        # so the inside is on the left of each edge there and on the right
+        # here.
+        e1 = _half_plane(x, z, inner, outer) * sgn
+        e2 = _half_plane(x, z, outer, tip) * sgn
+        e3 = _half_plane(x, z, tip, inner) * sgn
+        out = np.maximum(out, np.minimum.reduce([e1, e2, e3, front + 2.0]))
+    # The band under the cups and round the back, a little higher behind.
+    zb = ub + 0.3 + 1.8 * _smooth(f.chest_mid_y - 4, f.chest_mid_y + 6, y)
+    out = np.maximum(out, 0.9 - np.abs(z - zb))
+    return np.where(limb["arm"] > 0.5, -5.0, out)
 
 
-def briefs_field(f: Fit, rise=4.5, cheek=6.0):
-    x, y, z = f.co.T
+def strap_path(f: Fit, side):
+    """A strap's line on the rest body: from the cup's tip up over the
+    shoulder, beside the neck, and down the back to the band."""
+    sgn = 1.0 if side == "l" else -1.0
+    n, s = f.nipples[side], f.shoulder[side]
+    ub = min(f.nipples["l"][2], f.nipples["r"][2]) - 7.0
+    tip = _cup(f, side)[2]
+    a = _on_skin(f, np.array([tip[0], n[1] - 1.0, tip[1]]), np.array([tip[0], n[1] - 30.0, tip[1]]))
+    top = _on_skin(
+        f,
+        np.array([s[0] - sgn * 6.0, s[1], s[2] + 6.0]),
+        np.array([s[0] - sgn * 6.0, s[1], s[2] + 40.0]),
+    )
+    back = _on_skin(
+        f, np.array([n[0], s[1] + 12.0, ub + 2.5]), np.array([n[0], s[1] + 40.0, ub + 2.5])
+    )
+    mid1 = _on_skin(f, (a + top) / 2, (a + top) / 2 + np.array([0, -20.0, 20.0]))
+    mid2 = _on_skin(f, (top + back) / 2, (top + back) / 2 + np.array([0, 20.0, 20.0]))
+    return _skin_path(f, [a, mid1, top, mid2, back])
+
+
+def ribbon(h: Human, fit: Fit, path, material, width=1.1, offset=0.45, name="strap"):
+    """A strap: a strip `width` cm wide along `path` (rest body, cm),
+    `offset` cm off the skin, skinned like the skin under it."""
+    from scipy.sparse import csr_matrix
+    from scipy.spatial import cKDTree
+
+    tree = cKDTree(fit.co)
+    nrm = fit.normals[tree.query(path, k=4)[1]].mean(1)
+    nrm /= np.linalg.norm(nrm, axis=1, keepdims=True)
+    tan = np.gradient(path, axis=0)
+    side = np.cross(nrm, tan)
+    side /= np.linalg.norm(side, axis=1, keepdims=True)
+    mid = path + nrm * offset
+    co = np.concatenate([mid - side * width / 2, mid + side * width / 2])
+    n = len(path)
+    me = bpy.data.meshes.new(name)
+    me.from_pydata((co / 100.0).tolist(), [], [(k, k + 1, n + k + 1, n + k) for k in range(n - 1)])
+    me.update()
+    me.shade_smooth()
+    # The garment material draws where `cut` is positive: all of a strap.
+    me.attributes.new("cut", "FLOAT", "POINT").data.foreach_set(
+        "value", np.ones(len(co), dtype=np.float32)
+    )
+    me.materials.append(material)
+    ob = bpy.data.objects.new(name, me)
+    bpy.context.scene.collection.objects.link(ob)
+    dist, idx = tree.query(co, k=3)
+    w = 1.0 / np.maximum(dist, 0.05) ** 2
+    w /= w.sum(axis=1, keepdims=True)
+    rows = np.repeat(np.arange(len(co)), 3)
+    h.bind(
+        ob,
+        subdiv=1,
+        blend=csr_matrix((w.ravel(), (rows, idx.ravel())), shape=(len(co), len(fit.co))),
+    )
+    _keep_outside(ob, h, offset)
+    return ob
+
+
+def _keep_outside(ob, h: Human, offset):
+    """Posed, the skin under a garment is not where the rest pose left it: a
+    lowered arm bunches the top of the shoulder, and the body is smoothed
+    one level more than its clothes. Whatever of a garment ends up under
+    the skin is put back on top of it."""
+    keep = ob.modifiers.new("outside", "SHRINKWRAP")
+    keep.target = h.ob
+    keep.wrap_method = "NEAREST_SURFACEPOINT"
+    keep.wrap_mode = "OUTSIDE_SURFACE"
+    keep.offset = offset / 100.0 * 0.6
+
+
+def briefs_field(f: Fit, co, limb, rise=4.5, cheek=6.0):
+    x, y, z = co.T
     ax = np.abs(x)
     behind = _smooth(f.hip[1] - 3, f.hip[1] + 4, y)
     top = (f.hip[2] + rise + 0.03 * ax + 1.5 * behind) - z
@@ -140,43 +252,80 @@ def briefs_field(f: Fit, rise=4.5, cheek=6.0):
     slope = slope_front * (1 - behind) + slope_back * behind
     leg = (z - f.crotch + 1.2) - slope * np.maximum(ax - 3.2, 0)
     out = np.minimum(top, leg)
-    return np.where(f.limb["arm"] > 0.3, -5.0, out)
+    return np.where(limb["arm"] > 0.3, -5.0, out)
 
 
-def boxers_field(f: Fit):
-    x, y, z = f.co.T
+def boxers_field(f: Fit, co, limb):
+    z = co[:, 2]
     top = (f.hip[2] + 5.0) - z
     bottom = z - (f.hip[2] - 21.0)
-    return np.where(f.limb["arm"] > 0.3, -5.0, np.minimum(top, bottom))
+    return np.where(limb["arm"] > 0.3, -5.0, np.minimum(top, bottom))
 
 
-def jeans_field(f: Fit):
-    x, y, z = f.co.T
+def jeans_field(f: Fit, co, limb):
+    z = co[:, 2]
     top = (f.hip[2] + 6.0) - z
     ankle = z - 9.0
-    return np.where(f.limb["arm"] > 0.3, -5.0, np.minimum(top, ankle))
+    return np.where(limb["arm"] > 0.3, -5.0, np.minimum(top, ankle))
 
 
-def shell(h: Human, fit: Fit, field, material, offset=0.25, margin=2.5, name="garment", subdiv=2):
-    """A garment cut from the body: faces within `margin` cm of the field's
-    region, `offset` cm out from the skin, skinned like it."""
+def shell(
+    h: Human,
+    fit: Fit,
+    field,
+    material,
+    offset=0.25,
+    margin=2.5,
+    name="garment",
+    cuts=3,
+    bridge=0,
+):
+    """A garment cut from the body: the faces within `margin` cm of the
+    field's region, `offset` cm out from the skin, each split into
+    (cuts + 1)^2 so that an edge has vertices close to it; every new vertex
+    takes its skin weights - and its side of the edge - from the body
+    vertices nearest it. `bridge` rounds of smoothing let the fabric span a
+    hollow - the crease of the groin - rather than sink into it, as cloth
+    does; what they pull under the skin elsewhere is put back on it."""
+    import bmesh
+    from scipy.sparse import csr_matrix
+    from scipy.spatial import cKDTree
+
+    coarse = field(fit.co, fit.limb)
     faces = [f for f, _ in mh.base().faces["body"]]
-    keep = [f for f in faces if max(field[i] for i in f) > -margin]
+    keep = [f for f in faces if max(coarse[i] for i in f) > -margin]
     used = sorted({i for f in keep for i in f})
     remap = {v: k for k, v in enumerate(used)}
-    co = (fit.co[used] + fit.normals[used] * offset) / 100.0
+    bm = bmesh.new()
+    verts = [bm.verts.new((fit.co[i] + fit.normals[i] * offset) / 100.0) for i in used]
+    for f in keep:
+        bm.faces.new([verts[remap[i]] for i in f])
+    bmesh.ops.subdivide_edges(bm, edges=bm.edges[:], cuts=cuts, use_grid_fill=True, smooth=1.0)
+    for _ in range(bridge):
+        bmesh.ops.smooth_vert(
+            bm, verts=bm.verts[:], factor=0.5, use_axis_x=True, use_axis_y=True, use_axis_z=True
+        )
     me = bpy.data.meshes.new(name)
-    me.from_pydata(co.tolist(), [], [[remap[i] for i in f] for f in keep])
-    me.update()
+    bm.to_mesh(me)
+    bm.free()
     me.shade_smooth()
-    idx = me.attributes.new("mh_index", "INT", "POINT")
-    idx.data.foreach_set("value", np.asarray(used, dtype=np.int32))
+    co = np.zeros(len(me.vertices) * 3)
+    me.vertices.foreach_get("co", co)
+    co = co.reshape(-1, 3) * 100.0
+    # Each vertex as a blend of the three body vertices nearest it at rest.
+    dist, idx = cKDTree(fit.co).query(co, k=3)
+    w = 1.0 / np.maximum(dist, 0.05) ** 2
+    w /= w.sum(axis=1, keepdims=True)
+    rows = np.repeat(np.arange(len(co)), 3)
+    blend = csr_matrix((w.ravel(), (rows, idx.ravel())), shape=(len(co), len(fit.co)))
+    limb = {k: blend @ v for k, v in fit.limb.items()}
     cut = me.attributes.new("cut", "FLOAT", "POINT")
-    cut.data.foreach_set("value", np.asarray(field[used], dtype=np.float32))
+    cut.data.foreach_set("value", np.asarray(field(co, limb), dtype=np.float32))
     ob = bpy.data.objects.new(name, me)
     bpy.context.scene.collection.objects.link(ob)
     me.materials.append(material)
-    h.bind(ob, subdiv)
+    h.bind(ob, subdiv=1, blend=blend)
+    _keep_outside(ob, h, offset)
     return ob
 
 
@@ -185,18 +334,19 @@ LINGERIE = (0.13, 0.018, 0.045)
 
 def lingerie(h: Human, color=LINGERIE):
     fit = Fit(h)
-    bra = shell(
-        h, fit, bra_field(fit), M.garment("bra", color, kind="satin"), offset=0.28, name="bra"
-    )
+    satin = M.garment("bra", color, kind="satin")
+    bra = shell(h, fit, lambda co, limb: bra_field(fit, co, limb), satin, offset=0.28, name="bra")
+    straps = [ribbon(h, fit, strap_path(fit, side), satin, name=f"strap.{side}") for side in "lr"]
     low = shell(
         h,
         fit,
-        briefs_field(fit),
+        lambda co, limb: briefs_field(fit, co, limb),
         M.garment("briefs", color, kind="satin"),
         offset=0.22,
         name="briefs",
+        bridge=30,
     )
-    return [bra, low]
+    return [bra, *straps, low]
 
 
 def boxers(h: Human):
@@ -204,7 +354,8 @@ def boxers(h: Human):
     m = M.garment(
         "boxers", (0.025, 0.025, 0.03), kind="cotton", band=3.2, band_color=(0.012, 0.012, 0.014)
     )
-    return [shell(h, fit, boxers_field(fit), m, offset=0.5, name="boxers")]
+    field = lambda co, limb: boxers_field(fit, co, limb)  # noqa: E731
+    return [shell(h, fit, field, m, offset=0.5, name="boxers", bridge=30)]
 
 
 def jeans(h: Human):
@@ -212,10 +363,11 @@ def jeans(h: Human):
     ob = shell(
         h,
         fit,
-        jeans_field(fit),
-        M.garment("jeans", (0.07, 0.11, 0.19), kind="denim", band=3.8),
+        lambda co, limb: jeans_field(fit, co, limb),
+        M.garment("jeans", (0.06, 0.12, 0.26), kind="denim", band=3.8),
         offset=1.2,
         name="jeans",
+        bridge=30,
     )
     # Folds: denim bunches at the knees and the hips.
     tex = bpy.data.textures.new("folds", "CLOUDS")
@@ -306,13 +458,42 @@ def body_wrap(
 
 
 def towel(h: Human, colliders=()):
-    """A bath towel round the hips, falling over the thighs."""
-    waist = float(((h.bone_now("upperleg01.L") + h.bone_now("upperleg01.R")) / 2)[2]) + 0.09
-    ob, _f, _r = body_wrap(
-        h, lambda t: waist - 0.015 * np.cos(t), waist - 0.5, M.terry(), colliders,
-        name="towel", shrink=0.15, flare=1.05,
-    )  # fmt: skip
-    ob.modifiers["thick"].thickness = 0.012
+    """A bath towel across the lap of someone sitting: tucked in front of
+    the belly, laid on the thighs, falling past the knees and down both
+    sides. The arms are left out of the drop, so hands resting on the knees
+    lie on top of it rather than under it."""
+    names, W = h.weights()
+    stems = [n.split(".")[0] for n in names]
+    cols = [k for k, st in enumerate(stems) if st in ARM_BONES[1:] or st.startswith("finger")]
+    share = np.asarray(W[:, cols].sum(axis=1)).ravel()
+    arm = share > 0.5
+
+    def cm(b):  # Blender metres to the scenes' centimetres
+        return np.asarray(b)[..., [0, 2, 1]] * np.array([100.0, 100.0, -100.0])
+
+    hips = cm((h.bone_now("upperleg01.L") + h.bone_now("upperleg01.R")) / 2)
+    knees = cm((h.bone_now("lowerleg01.L") + h.bone_now("lowerleg01.R")) / 2)
+    body = cm(_posed_points(h.ob))[: len(share)]
+    torso = body[~arm]
+    x, y, z = torso.T
+    near = np.abs(x - hips[0]) < 12.0
+    belly = z[near & (y > hips[1] + 4.0) & (y < hips[1] + 14.0)].max()
+    # The thighs' top, below whatever of a bowed head or chest is over them.
+    thighs = (np.abs(x - hips[0]) < 26.0) & (z > belly) & (z < knees[2]) & (y < hips[1] + 18.0)
+    top = y[thighs].max() + 3.0
+    w, d = 72.0, knees[2] - belly + 16.0
+    centre = ((hips[0] + knees[0]) / 2, top, belly + 1.0 + d / 2)
+    ob = P.cloth_sheet(centre, (w, d), M.terry(), res=1.6, noise=1.0, seed=9, name="towel")
+    tuck = [v.index for v in ob.data.vertices if -v.co.y * 100.0 < belly + 2.5]
+    ob.vertex_groups.new(name="tuck").add(tuck, 1.0, "REPLACE")
+    arms = h.ob.vertex_groups.new(name="arms")
+    arms.add([int(i) for i in np.flatnonzero(arm)], 1.0, "REPLACE")
+    mask = h.ob.modifiers.new("no_arms", "MASK")
+    mask.vertex_group = "arms"
+    mask.invert_vertex_group = True
+    P.drape([ob], [h.ob, *colliders], frames=70, mass=0.4, bend=0.4, thickness=1.2, pin="tuck")
+    h.ob.modifiers.remove(mask)
+    h.ob.vertex_groups.remove(arms)
     return [ob]
 
 

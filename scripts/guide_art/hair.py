@@ -171,10 +171,21 @@ def head_up_fallback(n):
     return t if t is not None else np.array([0.0, 1.0, 0.0])
 
 
-def interpolate(guides, groots, roots, rng, k=3, clump=0.5, frizz=0.0006, shorten=0.12):
+def interpolate(
+    guides,
+    groots,
+    roots,
+    rng,
+    k=3,
+    clump=0.5,
+    frizz=0.0006,
+    shorten=0.12,
+    wave=(0.004, 0.006, 0.07, 0.05),
+):
     """Strands between the guides: each root takes the shape of its nearest
     guides, weighted by distance, and is drawn toward the nearest one at
-    its end (a lock)."""
+    its end (a lock). `wave` is a lock's sway: its least amplitude and how
+    much more it may have, its shortest wavelength and how much longer."""
     from scipy.spatial import cKDTree
 
     tree = cKDTree(groots)
@@ -190,8 +201,8 @@ def interpolate(guides, groots, roots, rng, k=3, clump=0.5, frizz=0.0006, shorte
     gi = idx[:, 0]
     grng = np.random.default_rng(len(guides))
     phase = grng.random(len(guides)) * 6.283
-    amp = 0.004 + 0.006 * grng.random(len(guides))
-    wl = 0.07 + 0.05 * grng.random(len(guides))
+    amp = wave[0] + wave[1] * grng.random(len(guides))
+    wl = wave[2] + wave[3] * grng.random(len(guides))
     seglen = np.linalg.norm(np.diff(guides, axis=1), axis=2)
     arc = np.concatenate([np.zeros((len(guides), 1)), np.cumsum(seglen, axis=1)], axis=1)
     tang = np.gradient(guides, axis=1)

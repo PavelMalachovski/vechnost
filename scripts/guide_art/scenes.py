@@ -95,7 +95,7 @@ def light_side():
         ),
         outfit="lingerie", ground=0.0,
     )  # fmt: skip
-    spot((-175, 135, 20), (0, 125, 0), WARM, 420.0, radius=4.0, cone=40.0, blend=0.4, name="key")
+    spot((-175, 135, 20), (0, 125, 0), WARM, 360.0, radius=10.0, cone=40.0, blend=0.4, name="key")
     camera((0, 128, 390), (0, 125, 0), 16.5, fstop=2.8)
     return Shot()
 
@@ -253,21 +253,23 @@ def her_2():
     reset()
     solid = bedroom(-110.0, -150.0, 110.0, -80.0, 45.0, pillow=(85.0, -40.0))
     Person(
+        # On her right side, her back to the camera: the line from the waist
+        # over the hip is the horizon the card is named for.
         f_pose(
-            (-5.0, 58.0, 0.0), ((0, 0.1, 1), (1, 0.12, 0)), 0, 0,
-            chest=((0, -0.2, 1), (0.75, 0.66, 0)), head=((0.1, -0.05, 1), (0.5, 0.86, 0)),
-            arm_l=to((46, 49, 15), (68, 48, 22), (82, 47, 20)),
-            arm_r=to((34, 114, 14), (48, 108, 2), (52, 104, 10)),
-            leg_l=to((-50, 49, 6), (-92, 49, 8), (-112, 47, 4)),
-            leg_r=to((-25, 52, 32), (-55, 50, 6), (-72, 48, 0)),
+            (-5.0, 58.0, 0.0), ((0, 0.1, -1), (1, 0.12, 0)), 0, 0,
+            chest=((0, -0.2, -1), (0.75, 0.66, 0)), head=((0.1, -0.05, -1), (0.5, 0.86, 0)),
+            arm_r=to((46, 49, -15), (68, 48, -22), (82, 47, -20)),
+            arm_l=to((34, 114, -14), (48, 108, -2), (52, 104, -10)),
+            leg_r=to((-50, 49, -6), (-92, 49, -8), (-112, 47, -4)),
+            leg_l=to((-25, 52, -32), (-55, 50, -6), (-72, 48, 0)),
         ),
         colliders=solid,
     )  # fmt: skip
     spot((40, 230, -150), (0, 70, 0), WARM, 1500.0, radius=12.0, cone=60.0, blend=0.6, name="key")
     spot((-120, 160, -120), (-20, 70, 0), WARM, 500.0, radius=6.0, cone=50.0, blend=0.6, name="rim")
-    area((-150, 120, 250), (0, 70, 0), FILL, 8.0, size=180.0, name="fill")
+    area((-150, 120, 250), (0, 70, 0), FILL, 20.0, size=180.0, name="fill")
     camera((-10, 105, 390), (-10, 70, 0), 30.0, fstop=2.8, focus=(10, 80, 0))
-    return Shot()
+    return Shot(exposure=0.5)
 
 
 @scene("her-3")
@@ -281,7 +283,10 @@ def her_3():
             (0.0, 95.0, 0.0), 180, 0, -5, chest=(180, -4, 4), head=(-125, -5, 0),
             arm_l=rel((10, 24, -4), (-4, 36, -8), (-12, 38, -9)),
             arm_r=rel((10, 24, -4), (-4, 36, -8), (-12, 38, -9)),
-            leg_l=rel((-3, -44, -8), (-2, -85, -4), (-1, -91, -22)),
+            # A hand's width between the thighs, as drawn: pressed together
+            # they overlap, and the window shines through the seam.
+            leg_l=rel((3, -44, -8), (5, -85, -4), (6, -91, -22)),
+            leg_r=rel((3, -45, 0.5), (4, -87, -1.0), (5, -93, 18.0)),
         ),
         hair="held", ground=0.0,
     )  # fmt: skip
@@ -297,7 +302,7 @@ def her_4():
     P.wall(-130.0)
     her = Person(
         f_pose(
-            (0.0, 13.0, 0.0), 25, -15, 0, chest=(25, 20, 0), head=(-15, 28, 0),
+            (0.0, 13.0, 0.0), 25, -15, 0, chest=(25, 20, 0), head=(-50, 30, 0),
             leg_l=to((14, 50, 24), (16, 7, 36), (22, 2, 55)),
             leg_r=to((2, 50, 30), (4, 7, 42), (12, 2, 60)),
             arm_l=to((26, 36, 22), (10, 36, 44), (-2, 36, 46)),
@@ -306,7 +311,9 @@ def her_4():
         ground=0.0,
     )  # fmt: skip
     wrapped_sheet(her.h, bare="r", colliders=[ground])
-    area((-180, 160, 80), (0, 40, 0), (1.0, 0.92, 0.84), 320.0, size=90.0, name="key")
+    # One lamp high to the left, as drawn; she looks down toward it, away
+    # from the phone.
+    spot((-160, 190, 60), (0, 45, 0), WARM, 520.0, radius=10.0, cone=40.0, blend=0.5, name="key")
     area((150, 120, -100), (0, 50, 0), WARM, 60.0, size=60.0, name="rim")
     camera((40, 75, 330), (0, 35, 0), 24.0, fstop=2.8, focus=(5, 45, 20))
     return Shot()
@@ -337,24 +344,28 @@ def her_5():
 @scene("her-6")
 def her_6():
     reset()
-    solid = bedroom(-130.0, -120.0, 120.0, -130.0, 110.0)
+    solid = bedroom(-200.0, -100.0, 100.0, -175.0, 85.0)
     her = Person(
         f_pose(
-            (0.0, 58.0, 20.0), ((0, 1, 0), (0, 0, -1)), 0, 0,
-            chest=((0, 1, 0.1), (0, 0.05, -1)), head=((0.35, 0.94, 0), (0, 0, -1)),
+            (0.0, 58.0, -25.0), ((0.35, 0.94, 0), (0, 0, -1)), 0, 0,
+            chest=((-0.1, 1, 0), (0, 0.05, -1)),
+            head=((-0.25, 0.83, -0.5), (0, -0.5, -0.87)),
             arm_l=rel((14, 22, 2), (-2, 30, -4), (-10, 26, -6)),
             arm_r=rel((14, 22, 2), (-2, 30, -4), (-10, 26, -6)),
-            leg_l=to((28, 68, 55), (22, 52, 95), (22, 49, 112)),
-            leg_r=to((15, 74, 52), (10, 54, 92), (10, 50, 109)),
+            leg_l=to((32, 64, 8), (14, 53, 40), (12, 49, 56)),
+            leg_r=to((20, 76, 7), (2, 55, 39), (0, 51, 55)),
         ),
         hair="lying", colliders=solid,
     )  # fmt: skip
-    # A sheet thrown over her hips: the knees tilted aside and this do the covering.
+    # The phone at her feet, as the card draws it: the knees, tilted aside
+    # under the sheet, fill the front of the frame; the chin is lifted away.
     cover = P.mat("duvet", M.fabric, "duvet", (0.62, 0.58, 0.55), 0.55, 0.92, 900.0, 0.1)
-    sheet = P.cloth_sheet((12.0, 82.0, 45.0), (130.0, 80.0), cover, noise=5.0, seed=6)
+    sheet = P.cloth_sheet((6.0, 86.0, 6.0), (150.0, 136.0), cover, noise=3.0, seed=6)
     P.drape([sheet], [her.body, *solid], frames=60, bend=0.06, mass=0.4)
-    area((-160, 200, -40), (0, 50, 20), WARM, 380.0, size=50.0, name="key")
-    camera((10, 290, 60), (0, 50, 0), 38.0, up=(0.0, 0.0, -1.0), fstop=4.0, focus=(0, 60, 10))
+    # The lamp stands behind the bed-head, above her, and rakes down the body.
+    spot((-70, 190, -170), (5, 62, -5), WARM, 900.0, radius=12.0, cone=60.0, blend=0.6, name="key")
+    area((120, 150, 260), (0, 60, -20), FILL, 14.0, size=150.0, name="fill")
+    camera((60, 205, 190), (0, 60, -30), 27.0, fstop=4.0, focus=(10, 68, 0))
     return Shot()
 
 
@@ -366,7 +377,8 @@ def her_7():
         f_pose(
             (0.0, 95.0, 0.0), 15, 0, 3, chest=(10, 0, -2), head=(-30, 10, 0),
             arm_l=to((21, 117, 7), (12, 136, 15), (6, 144, 9)),
-            arm_r=to((-19, 127.5, 11), (7, 132, 17.5), (15, 133, 14.5)),
+            # The forearm across both breasts, the hand over the far one.
+            arm_r=to((-19, 133, 13), (7, 136, 18.5), (15, 136, 15)),
         ),
         ground=0.0,
     )  # fmt: skip
@@ -393,7 +405,8 @@ def her_8():
     )  # fmt: skip
     spot((0, 150, -140), (0, 40, 0), WARM, 600.0, radius=10.0, cone=70.0, blend=0.6, name="key")
     area((0, 110, 400), (0, 40, 0), FILL, 10.0, size=200.0, name="fill")
-    camera((0, 90, 300), (0, 36, 10), 22.0, fstop=2.8)
+    # From above and to one side: her head and crossed arms hide the lap.
+    camera((70, 185, 230), (0, 30, 10), 26.0, fstop=2.8, focus=(0, 40, 25))
     return Shot()
 
 
@@ -404,7 +417,9 @@ def her_9():
     P.wall(-110.0)
     Person(
         f_pose(
-            (0.0, 95.0, 0.0), -35, 0, -4, chest=(-30, 0, 3), head=(-60, -6, 0),
+            # In profile, facing the blinds: the stripes wrap her front and
+            # side, and the near thigh covers what a front view shows.
+            (0.0, 95.0, 0.0), -90, 0, -4, chest=(-85, 0, 3), head=(-95, -6, 0),
             arm_l=rel((13, -17, -6), (-4, -31, 1), (-9, -36, 5)),
             arm_r=rel((13, -17, -6), (-4, -31, 1), (-9, -36, 5)),
             leg_l=rel((-3, -44, 10), (-2, -85, 4), (-1, -91, 22)),
@@ -414,6 +429,8 @@ def her_9():
     lamp = (-230, 150, 60)
     P.blinds(lamp, (0, 120, 0), period=8.0, duty=0.55, gap=0.55)
     spot(lamp, (0, 120, 0), WARM, 1000.0, radius=1.5, cone=28.0, blend=0.3, name="key")
+    # A rim behind her draws the back the blinds leave dark.
+    spot((140, 160, -90), (0, 110, 0), WARM, 260.0, radius=8.0, cone=40.0, blend=0.5, name="rim")
     camera((10, 118, 400), (0, 112, 0), 26.0, fstop=2.8)
     return Shot(exposure=0.5)
 
@@ -432,8 +449,11 @@ def her_10():
             arm_l=rel((12, -14, 18), (-10, -12, 24), (-20, -11, 22)),
             arm_r=rel((12, -14, 18), (-10, -12, 24), (-20, -11, 22)),
         ),
+        hair="bun",
     )  # fmt: skip
-    spot((-200, 140, 20), (0, 95, 0), WARM, 450.0, radius=4.0, cone=44.0, blend=0.5, name="key")
+    # High and to the camera's side, as drawn: a lamp grazing the back from
+    # the side lays the shoulder blade's shadow over the spine like a hole.
+    spot((-170, 210, 120), (0, 95, 0), WARM, 450.0, radius=15.0, cone=44.0, blend=0.5, name="key")
     camera((20, 105, 360), (0, 85, 0), 25.0, fstop=2.8)
     return Shot()
 
@@ -480,10 +500,11 @@ def him_2():
     Person(
         m_pose(
             (0.0, 14.0, -26.0), 15, -20, 0, chest=(15, -10, 0), head=(30, 25, 5),
-            leg_l=to((22, 10, 18), (40, 7, 60), (44, 21, 79)),
-            leg_r=to((-10, 52, -6), (-8, 9, 18), (-6, 2, 40)),
-            arm_r=to((-10, 56, -4), (0, 76, -22), (4, 84, -20)),
-            arm_l=to((20, 34, -36), (26, 16, -6), (28, 12, 10)),
+            # The knee nearer the camera is the one drawn up: it hides the lap.
+            leg_l=to((10, 52, -6), (8, 9, 18), (6, 2, 40)),
+            leg_r=to((-22, 10, 18), (-40, 7, 60), (-44, 21, 79)),
+            arm_l=to((10, 56, -4), (0, 76, -22), (-4, 84, -20)),
+            arm_r=to((-20, 34, -36), (-26, 16, -6), (-28, 12, 10)),
         ),
         ground=0.0,
     )  # fmt: skip
@@ -515,16 +536,20 @@ def him_4():
     reset()
     P.floor()
     P.wall(-140.0)
+    # A stretch, turned toward the lamp: one hand holds the other wrist
+    # over the head, the face lifted to the light and away from the phone,
+    # which stands at navel height.
     Person(
         m_pose(
-            (0.0, 103.0, 0.0), 0, 0, 0, chest=(0, -6, 0), head=(0, -10, 0),
-            arm_l=rel((4, 30, 1), (6, 56, 1), (-10, 70, 0)),
-            arm_r=rel((4, 30, 1), (6, 56, 1), (-10, 70, 0)),
+            (0.0, 103.0, 0.0), -30, 0, 0, chest=(-25, -8, 3), head=(-55, -25, 0),
+            arm_l=rel((8, 24, 3), (-15, 50, 4), (-22, 56, 5)),
+            arm_r=rel((8, 24, 3), (-17, 53, 3), (-24, 64, 2)),
         ),
         outfit="boxers", ground=0.0,
     )  # fmt: skip
-    area((60, 190, 330), (0, 120, 0), WARM, 320.0, size=120.0, name="key")
-    camera((0, 135, 470), (0, 130, 0), 25.0, fstop=2.8)
+    spot((-200, 220, 80), (0, 140, 0), WARM, 700.0, radius=8.0, cone=40.0, blend=0.5, name="key")
+    spot((150, 180, -120), (0, 150, 0), WARM, 300.0, radius=8.0, cone=22.0, blend=0.5, name="rim")
+    camera((60, 110, 400), (0, 138, 0), 27.0, fstop=2.8, focus=(0, 130, 0))
     return Shot()
 
 
@@ -554,15 +579,19 @@ def him_6():
     Person(
         m_pose(
             (0.0, 100.0, 25.0), 180, 15, 0, chest=(180, 35, 0), head=(180, 50, 0),
-            arm_l=rel((6, 22, 22), (4, 36, 44), (4, 44, 56)),
-            arm_r=rel((6, 22, 22), (4, 36, 44), (4, 44, 56)),
+            # The palms flat on the wall a hand over the head, the elbows out.
+            arm_l=to((-32, 168, -12), (-14, 186, -25), (-12, 204, -27)),
+            arm_r=to((32, 168, -12), (14, 186, -25), (12, 204, -27)),
             leg_l=rel((2, -44, -12), (3, -88, -16), (3, -95, 6)),
             leg_r=rel((2, -44, -12), (3, -88, -16), (3, -95, 6)),
         ),
         ground=0.0,
     )  # fmt: skip
-    spot((-210, 150, 60), (0, 130, 0), WARM, 650.0, radius=4.0, cone=40.0, blend=0.5, name="key")
-    camera((120, 130, 400), (0, 115, 0), 27.0, fstop=2.8)
+    # From behind and to the side, as drawn: the wall to the left, his body
+    # one line from the feet to the hands on it, the lamp high over the wall.
+    spot((-40, 250, -20), (0, 120, 20), WARM, 900.0, radius=8.0, cone=45.0, blend=0.5, name="key")
+    area((-300, 120, 300), (0, 110, 0), FILL, 15.0, size=150.0, name="fill")
+    camera((-300, 135, 250), (-5, 120, -5), 28.0, fstop=2.8, focus=(0, 125, 10))
     return Shot()
 
 
@@ -606,8 +635,12 @@ def him_8():
         ),
         ground=1.2, colliders=[rug],
     )  # fmt: skip
-    area((-170, 120, -40), (0, 30, -30), DAY, 200.0, size=80.0, size_y=120.0, name="window")
-    area((60, 70, 320), (0, 30, 0), FILL, 6.0, size=160.0, name="fill")
+    # One lamp low to the left, half the face in shadow; the room dark. A
+    # face looking into the lens under flat light is where these bodies
+    # look most like mannequins.
+    spot((-150, 110, 60), (0, 35, 0), WARM, 380.0, radius=6.0, cone=35.0, blend=0.5, name="key")
+    spot((120, 90, -150), (0, 40, -20), WARM, 160.0, radius=6.0, cone=30.0, blend=0.5, name="rim")
+    area((60, 70, 320), (0, 30, 0), FILL, 4.0, size=160.0, name="fill")
     camera((15, 45, 300), (0, 32, 0), 22.0, fstop=2.8, focus=(0, 40, 20))
     return Shot()
 

@@ -451,8 +451,10 @@ python scripts/smoke_production.py $URL --deep  # ...and its database and bot he
     and an athletic man about 182 cm - generic, nobody's likeness, and faces
     are mostly turned away or in shadow, which is also the guide's own
     advice. Hair, brows and lashes are strands grown after the pose
-    (`hair.py`): along the scalp first, then falling over the shoulders and
-    whatever the body lies on.
+    (`hair.py`): from a scalp above a hairline drawn round the head
+    (`human.HAIRLINE`; MakeHuman's hair helper sits off the head and leaves
+    the forehead bald), along it first, then falling behind the shoulders
+    and over whatever the body lies on.
   - **A pose is the old drawing's, reached for by the new body.**
     `skeleton.py` resolves a scene's pose - the pelvis, the frames of
     pelvis, chest and head, each limb by target points or in the body's own
@@ -468,11 +470,15 @@ python scripts/smoke_production.py $URL --deep  # ...and its database and bot he
     relaxed into the skin before anything is rendered (`Human._soften`) and
     the skin has no colour of its own there, the base mesh carries no
     genitals, and the pose, a sheet or the shadow does the rest. Close
-    garments are cut from the body's own surface and skinned with its
-    weights (`outfits.py`); a signed field on the rest body says where the
-    fabric ends and the material draws the edge there, so it is smooth
-    however coarse the mesh. A towel and a wrapped sheet are cloth, dropped
-    on the posed body and left to settle.
+    garments are cut from the body's own surface, split finely and skinned
+    with the weights of the skin under them (`outfits.py`); a signed field
+    on the rest body says where the fabric ends and the material draws the
+    edge there, and a shrinkwrap puts back on top whatever a pose pushed
+    under the skin. A strap is narrower than that surface is fine - it
+    broke into beads over the shoulder - so straps are ribbons of their
+    own, laid along a path on the skin. A wrapped sheet is cloth, hung
+    round the posed body and left to settle; a towel is cloth laid across
+    a seated lap, dropped with the arms left out so the hands rest on it.
   - **The caption says the view and the light** (`ART_CAPTIONS`): at 136px
     a body turned away and a body in profile read nearly alike. Four cards
     about the phone's screen carry its controls over the photo in the old

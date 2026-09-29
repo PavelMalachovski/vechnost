@@ -8,6 +8,7 @@ import bpy
 import numpy as np
 
 from . import cast, outfits
+from . import makehuman as mh
 from . import materials as M
 from .human import Human, grow_brows, grow_hair, grow_lashes
 from .pose import Poser, target
@@ -45,7 +46,9 @@ class Person:
     ):
         self.sk = Skeleton(pose)
         sex = self.sk.sex
-        self.skin = M.skin(cast.SKIN[sex], wet=wet, name=f"skin_{sex}")
+        self.skin = M.skin(
+            cast.SKIN[sex], wet=wet, name=f"skin_{sex}", lips=mh.texture("mpfb_lips.jpg")
+        )
         self.h = Human(
             cast.HER if sex == "f" else cast.HIM,
             name="her" if sex == "f" else "him",
@@ -69,7 +72,7 @@ class Person:
             # Between the hands, where the fingers close round it.
             grip = sum(self.h.bone_now(f"finger3-1.{s}") for s in "LR") / 2
         hair_mat = M.hair(melanin=melanin, redness=0.3, wet=wet, name="hair")
-        many = style in ("long", "held")
+        many = style in ("long", "held", "bun")
         self.hair = grow_hair(
             self.h, style, [self.h.ob, *colliders], hair_mat, grip=grip,
             strands=65000 if many else 70000, guides=600 if many else 900,

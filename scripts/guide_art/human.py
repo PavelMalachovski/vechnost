@@ -138,19 +138,37 @@ class Human:
         arm.hide_render = True
         return arm
 
-    def bind(self, ob, subdiv=2):
-        """Skin any mesh made of this body's vertices (the body, a garment
-        cut from it) to the skeleton with MakeHuman's weights. Its vertices
-        must carry an integer attribute `mh_index`: which body vertex each is."""
-        idx = np.zeros(len(ob.data.vertices), dtype=np.int32)
-        ob.data.attributes["mh_index"].data.foreach_get("value", idx)
-        where = {int(v): k for k, v in enumerate(idx)}
-        for bone, pairs in mh.weights(RIG).items():
-            vg = ob.vertex_groups.new(name=bone)
-            for i, w in pairs:
-                k = where.get(i)
-                if k is not None:
-                    vg.add([k], w, "REPLACE")
+    def weights(self):
+        """MakeHuman's skin weights as a matrix: body vertex by bone."""
+        from scipy.sparse import csr_matrix
+
+        names = list(mh.weights(RIG))
+        rows, cols, vals = [], [], []
+        for b, name in enumerate(names):
+            for i, w in mh.weights(RIG)[name]:
+                if i < self.n_body:
+                    rows.append(i)
+                    cols.append(b)
+                    vals.append(w)
+        return names, csr_matrix((vals, (rows, cols)), shape=(self.n_body, len(names)))
+
+    def bind(self, ob, subdiv=2, blend=None):
+        """Skin a mesh to the skeleton with MakeHuman's weights: the body
+        itself (vertex for vertex), or anything made from it - a garment -
+        whose vertices blend the body's by `blend` (a sparse matrix, one row
+        per vertex of `ob`, one column per body vertex)."""
+        names, W = self.weights()
+        if blend is not None:
+            W = blend @ W
+        W = W.tocsc()
+        for b, name in enumerate(names):
+            col = W.getcol(b)
+            if not col.nnz:
+                continue
+            vg = ob.vertex_groups.new(name=name)
+            for k, w in zip(col.indices, col.data, strict=True):
+                if w > 1e-4:
+                    vg.add([int(k)], float(w), "REPLACE")
         mod = ob.modifiers.new("rig", "ARMATURE")
         mod.object = self.arm
         # Linear blend: on this skeleton it keeps a raised arm's shoulder in
@@ -163,8 +181,6 @@ class Human:
         ob.parent = self.arm
 
     def _bind(self):
-        attr = self.ob.data.attributes.new("mh_index", "INT", "POINT")
-        attr.data.foreach_set("value", np.arange(self.n_body, dtype=np.int32))
         self.bind(self.ob)
         bone = self.arm.data.bones["head"]
         for eye in self.eyes:
@@ -248,6 +264,59 @@ def head_frame(h: Human):
     return head, Mx
 
 
+def _uv_mask_per_vertex(me, mask, threshold=0.3):
+    """Which vertices of the body fall inside one of MakeHuman's UV masks."""
+    img = np.asarray(Image.open(mh.texture(mask)).convert("L"), dtype=float) / 255.0
+    h, w = img.shape
+    uv = np.zeros(len(me.loops) * 2, dtype=np.float32)
+    me.uv_layers[0].data.foreach_get("uv", uv)
+    uv = uv.reshape(-1, 2)
+    vidx = np.zeros(len(me.loops), dtype=np.int64)
+    me.loops.foreach_get("vertex_index", vidx)
+    px = np.clip((uv[:, 0] * (w - 1)).round().astype(int), 0, w - 1)
+    py = np.clip(((1 - uv[:, 1]) * (h - 1)).round().astype(int), 0, h - 1)
+    inside = np.zeros(len(me.vertices), dtype=bool)
+    inside[vidx[img[py, px] > threshold]] = True
+    return inside
+
+
+# Where hair starts, in centimetres above the eyes, going round the head
+# from the middle of the forehead (0 degrees) to the nape (180).
+HAIRLINE = (
+    (0, 6.5),
+    (35, 5.8),
+    (62, 3.5),
+    (80, 1.0),
+    (95, 2.5),
+    (115, -1.5),
+    (150, -6.0),
+    (180, -7.5),
+)
+
+
+def scalp(h: Human):
+    """The scalp: the skin the head bone carries alone, above a hairline
+    drawn round the head from the eyes - high over the forehead, down in
+    front of the ears, up over them, low at the nape - less the ears.
+    Faces as vertex index lists into the body."""
+    names, W = h.weights()
+    head_w = np.asarray(W.getcol(names.index("head")).todense()).ravel()
+    me = h.ob.data
+    ears = _uv_mask_per_vertex(me, "mpfb_ears.jpg", 0.2)
+    co = np.zeros(len(me.vertices) * 3)
+    me.vertices.foreach_get("co", co)
+    co = co.reshape(-1, 3) * 100.0
+    eyes = (h.landmark("joint-l-eye") + h.landmark("joint-r-eye")) / 2 * 100.0
+    axis = eyes + np.array([0.0, 8.5, 0.0])  # the head's vertical axis, behind the eyes
+    rel = co - axis
+    phi = np.degrees(np.abs(np.arctan2(rel[:, 0], -rel[:, 1])))
+    deg, cm = zip(*HAIRLINE, strict=True)
+    line = eyes[2] + np.interp(phi, deg, cm)
+    ok = (head_w > 0.9) & ~ears & (co[:, 2] > line)
+    polys = [tuple(p.vertices) for p in me.polygons if all(ok[i] for i in p.vertices)]
+    return polys, ok
+
+
 def grow_hair(
     h: Human,
     style,
@@ -259,37 +328,31 @@ def grow_hair(
     strands=60000,
     length=0.56,
 ):
-    """Strands from the scalp MakeHuman's hair helper marks out, grown in a
-    style: long and loose, fanned out round a head lying down, held up in
-    the hands at `grip`, or short (and wet, for him out of the bath)."""
+    """Strands from the scalp, grown in a style: long and loose, fanned out
+    round a head lying down, tied up in a bun, held up in the hands at
+    `grip`, or short (and wet, for him out of the bath)."""
     rng = rng or np.random.default_rng(7)
     head, Mx = head_frame(h)
-    cap, faces = _helper(h, "helper-hair")
-    cap = _posed(Mx, cap)
+    polys, _ok = scalp(h)
+    me = h.ob.data
+    rest = np.zeros(len(me.vertices) * 3)
+    me.vertices.foreach_get("co", rest)
+    skin = _posed(Mx, rest.reshape(-1, 3))
     trees = H.colliders(colliders)
     head_tree = trees[0]
     short = style in ("short", "wet")
+    wave = (0.004, 0.006, 0.07, 0.05)
 
     def roots(count):
-        """The helper also hangs a long shape down the back for long wigs to
-        fit to, and comes low on the forehead; roots come only from what is
-        scalp - on the head, above the nape, behind the hairline."""
+        """Roots spread evenly over the scalp; a short cut stops a finger
+        higher over the temples and the nape than long hair does."""
         out_r, out_n, need = [], [], count
         while need > 0:
-            r, n = _sample_faces(cap, faces, need * 2, rng)
-            rel = r - head.c
-            up, fwd = rel @ head.up, rel @ head.fwd
-            keep = (up > -0.075) & ~((fwd > 0.045) & (up < (0.06 if short else 0.045)))
-            r, n = r[keep], n[keep]
-            near = np.array(
-                [
-                    np.linalg.norm(np.array(head_tree.find_nearest(Vector(x))[0]) - x) < 0.02
-                    for x in r
-                ],
-                dtype=bool,
-            )
-            r, n = r[near][:need], n[near][:need]
+            r, n = _sample_faces(skin, polys, need * 2, rng)
             n[(n * (r - head.c)).sum(1) < 0] *= -1
+            up = (r - head.c) @ head.up
+            keep = up > (-0.05 if short else -0.075)
+            r, n = r[keep][:need], n[keep][:need]
             out_r.append(r)
             out_n.append(n)
             need -= len(r)
@@ -318,7 +381,19 @@ def grow_hair(
         crown = head.c + head.up * 0.5
         g = H.grow(head_tree, trees, groots, gnormals, H.flow_to(crown), L, points=30,
                    offset=(0.002, 0.010), inertia=0.6, leave=2.0, rng=rng)  # fmt: skip
-        clump, frizz, radii = 0.7, 0.0012, (0.00008, 0.00004)
+        # Loose, wide waves and little clumping: spread on a sheet, locks
+        # drawn to a point read as spikes round the head.
+        clump, frizz, radii = 0.25, 0.0008, (0.00008, 0.00004)
+        wave = (0.010, 0.012, 0.10, 0.08)
+    elif style == "bun":
+        # Tied up at the back of the crown: every strand runs there, and a
+        # short tail is left over. For a bowed head, whose loose hair would
+        # lie down the spine like a crack in the back.
+        grip = head.c + (head.up * 0.045 - head.fwd * 0.085) * 1.15
+        L = np.linalg.norm(grip - groots, axis=1) * 1.1 + 0.03 + 0.04 * rng.random(guides)
+        g = H.grow(head_tree, trees, groots, gnormals, H.flow_to(grip), L, points=24,
+                   offset=(0.002, 0.006), grip=grip, rng=rng)  # fmt: skip
+        clump, frizz, radii = 0.7, 0.0005, (0.00006, 0.00003)
     elif style == "held":
         L = (
             np.linalg.norm(np.asarray(grip) - groots, axis=1) * 1.15
@@ -339,22 +414,23 @@ def grow_hair(
     else:
         raise ValueError(style)
     r, _n = roots(strands)
-    kids = H.interpolate(g, groots, r, rng, clump=clump, frizz=frizz)
+    kids = H.interpolate(g, groots, r, rng, clump=clump, frizz=frizz, wave=wave)
     return H.curves_object("hair", kids, radii[0], radii[1], material)
 
 
-def grow_brows(h: Human, material, rng=None, count=260):
+def grow_brows(h: Human, material, rng=None, count=170):
     """Eyebrows: short strands on an arch above each eye, lying along the
     skin toward the temple."""
     rng = rng or np.random.default_rng(11)
     head, Mx = head_frame(h)
     tree = H.colliders([h.ob])[0]
     out = []
-    for side, sgn in (("l", 1.0), ("r", -1.0)):
+    # head.right is the person's own right: the left brow runs the other way.
+    for side, sgn in (("l", -1.0), ("r", 1.0)):
         eye = _posed(Mx, h.landmark(f"joint-{side}-eye")[None])[0]
-        s = rng.random(count)
-        lateral = (-0.011 + 0.040 * s) * sgn
-        rise = 0.017 + 0.004 * np.sin(np.pi * np.clip(s * 1.2, 0, 1)) - 0.006 * s**2
+        s = rng.random(count) ** 0.8
+        lateral = (-0.004 + 0.034 * s) * sgn
+        rise = 0.013 + 0.005 * np.sin(np.pi * np.clip(s * 1.25, 0, 1)) - 0.004 * s**2
         guess = eye + head.right * lateral[:, None] + head.up * rise[:, None] + head.fwd * 0.02
         tang = head.right * sgn * 0.8 + head.up * 0.45
         k = np.linspace(0, 1, 5)[:, None]
@@ -367,8 +443,8 @@ def grow_brows(h: Human, material, rng=None, count=260):
             n = n if n @ d > 0 else -n
             t = tang - (tang @ n) * n
             t /= np.linalg.norm(t)
-            ln = 0.006 + 0.003 * rng.random()
-            out.append(q + n * 0.0003 + t * ln * k + n * 0.0012 * np.sin(np.pi * k * 0.8))
+            ln = 0.004 + 0.003 * rng.random()
+            out.append(q + n * 0.0002 + t * ln * k + n * 0.0006 * np.sin(np.pi * k * 0.8))
     return H.curves_object("brows", np.array(out), 0.00005, 0.00002, material)
 
 
