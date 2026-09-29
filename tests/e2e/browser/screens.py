@@ -87,7 +87,6 @@ STOPS = [
     ("s69-invite", "69: waiting for the partner"),
     ("s69-board", "69: the board"),
     ("s69-resume", "69: its door, with a game under way"),
-    ("s69-cell-info", "69: a square's action"),
     ("s69-finale", "69: the finale"),
     ("s69-done", "69: the path is walked"),
     ("library", "Practices (the Library)"),
@@ -410,14 +409,9 @@ class Tour:
         self.paid.screen("s69")
         self.paid.page.wait_for_selector("#btnS69Restart", state="visible")
 
-    def stop_s69_cell_info(self) -> None:
+    def stop_s69_finale(self) -> None:
         self.paid.tap("#btnS69Resume")
         self.paid.screen("s69Board", timeout=POLL)
-        self.paid.tap('#s69Map [data-id="4"]')
-        self.paid.page.wait_for_selector("#s69CellInfo.show")
-
-    def stop_s69_finale(self) -> None:
-        self.paid.tap("#s69InfoClose")
         for _ in range(600):
             state = self.alice.ok("GET", f"/api/steps69/{self.game}")
             if state["both_home"]:

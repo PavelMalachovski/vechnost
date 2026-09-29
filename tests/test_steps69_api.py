@@ -438,10 +438,12 @@ def test_the_joker_clears_when_the_piece_moves_on(client):
 # ---------------------------------------------------------------------------
 
 
-def test_the_board_shows_every_action_but_never_a_deal(client):
-    """The map is the printed game: every cell carries its title and its
-    action text, so a tap on any square can say what happens there. The
-    deals stay out of it: no secret, no partner line, no Joker task."""
+def test_the_board_prints_no_task(client):
+    """The map is drawn from this payload - every square's number, kind and
+    title, and where each portal leads - and nothing a square asks is in it:
+    no action text, no secret, no partner line, no Joker task. It used to
+    carry every action text, and a tap on a square the piece had not reached
+    showed its task before it was dealt."""
     code = started_game(client)
     board = client.get(f"/api/steps69/{code}/board", headers=BOB)
     assert board.status_code == 200
@@ -449,15 +451,13 @@ def test_the_board_shows_every_action_but_never_a_deal(client):
     assert payload["size"] == 69
     assert len(payload["cells"]) == 69
     assert all(c["title"] for c in payload["cells"])
-    by_id = {c["id"]: c for c in payload["cells"]}
+    assert not any("text" in c for c in payload["cells"])
 
     body = board.text
     for c in steps69.load_cells():
-        assert by_id[c.id]["text"] == c.text
-        if c.secret:
-            assert c.secret not in body, f"cell {c.id} secret leaked into the map"
-        if c.partner:
-            assert c.partner not in body, f"cell {c.id} partner line leaked into the map"
+        for task in (c.text, c.secret, c.partner):
+            if task:
+                assert task not in body, f"cell {c.id} can be read on the map"
     for tasks in steps69.load_jokers().values():
         for task in tasks:
             assert task.text not in body, f"joker {task.id} leaked into the map"

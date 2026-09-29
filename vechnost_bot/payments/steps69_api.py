@@ -18,9 +18,9 @@ payment covers both. Three things differ, and each is deliberate:
 
 Each partner has their own piece and walks their own board. A player who
 reaches 69 stops rolling and waits; the finale unlocks when both are home.
-The board payload is the printed game — every cell's title and action —
-but secrets and Joker tasks are not in it: a deal reaches the player
-standing on the cell through `steps69.cell_view`, and their partner gets
+The board payload is what the map is drawn from - the squares, their
+titles and the portals - and carries no task: a task reaches the player
+standing on its cell through `steps69.cell_view`, and their partner gets
 only the one line written for them, never the other player's task.
 """
 
@@ -401,8 +401,8 @@ async def board(
     Bound to a game and to its players rather than served flat, so the paid
     content is never reachable by anyone who has not been dealt into a game.
     Access is not asked again here: the game was paid for when it was
-    created, and its guest plays on the creator's payment. Deals are not
-    here; they arrive with the square you land on.
+    created, and its guest plays on the creator's payment. Tasks are not
+    here; each arrives with the square you land on.
     """
     user_id, _ = _caller(authorization, x_guest_id)
     async with get_db() as session:
