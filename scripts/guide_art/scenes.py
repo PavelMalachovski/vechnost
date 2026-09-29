@@ -137,6 +137,9 @@ def light_soft():
         ),
         outfit="lingerie", colliders=solid,
     )  # fmt: skip
+    # The shaded lamp lights her from behind; a little warmth from the
+    # camera's side keeps the lingerie from melting into her shadow.
+    area((120, 110, 260), (0, 95, -10), PINK, 30.0, size=120.0, name="fill")
     camera((60, 85, 340), (-25, 70, -20), 32.0, fstop=2.8, focus=(5, 90, -10))
     return Shot()
 
