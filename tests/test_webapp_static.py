@@ -337,6 +337,23 @@ def test_both_decks_lay_their_cards_out_through_one_builder():
         assert "buildStage(" in html.split(fn)[1].split("\n  }")[0]
 
 
+def test_a_card_cannot_be_saved_or_sent_out_of_the_app():
+    """The deck had a share button: the card as a picture, through the
+    phone's share sheet (save it, send it on), Telegram's share link or a
+    download. The owner asked for all of it to go - a card is played here
+    and goes nowhere else - so the deck has back and forward only, and the
+    page keeps no way of handing a card to anything. An invite still goes
+    out by Telegram's share link: that is a link to a game, not a card."""
+    html = INDEX.read_text(encoding="utf-8")
+    assert "btnShare" not in html and "/api/card" not in html
+    assert "navigator.share" not in html and "canShare" not in html
+    assert ".download =" not in html and "new File(" not in html
+    deck = html.split('<section class="screen" id="deck">')[1].split("</section>")[0]
+    assert deck.count('<button class="ctrl') == 2
+    sharing = html.split("function shareInvite(")[1].split("\n  }")[0]
+    assert "t.me/share/url" in sharing
+
+
 def test_a_card_that_flies_out_lands_in_the_deck_that_launched_it():
     """flyOut's callback runs 300ms later — long enough to leave the deck.
     Reading drag.onAdvance/COOP.active at landing time drove whatever screen

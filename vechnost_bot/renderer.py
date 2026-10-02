@@ -505,7 +505,7 @@ def render_card_bytes(
     each is composited once per process. Callers on the event loop reach
     this through `asyncio.to_thread`, because a composite is ~25 ms of
     Pillow (145 ms cold) and used to run on the loop itself, where a burst
-    of `/api/card` requests stalled webhooks and every game at once.
+    of taps stalled every other chat at once.
 
     Bytes rather than BytesIO so a cached value cannot be consumed by one
     reader and handed empty to the next.

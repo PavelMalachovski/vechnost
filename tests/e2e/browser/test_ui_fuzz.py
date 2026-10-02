@@ -109,7 +109,6 @@ EXPECTED: list[tuple[str, re.Pattern[str], frozenset[int], str]] = [
             {404, 410},
             "already deleted by the partner",
         ),
-        ("GET", r"^/api/card\?", {403}, "an unpaid partner shares a card outside a room"),
     ]
 ]
 

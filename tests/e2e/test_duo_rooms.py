@@ -214,45 +214,19 @@ def test_somebody_elses_payment_does_not_open_the_room(server: Server) -> None:
         assert state["total"] == FREE_CARDS_PER_DECK and state["trimmed"] is True
 
 
-def test_the_partner_who_did_not_pay_can_share_the_card_on_the_table(server: Server) -> None:
-    """The share button renders the card as an image, and a card past the
-    free prefix is paid. In a paid room the partner who did not pay is dealt
-    those cards all the same, so their share goes through the room."""
+def test_neither_partner_can_take_a_card_out_of_the_room(server: Server) -> None:
+    """The share button rendered the card on the table as a picture to save
+    or send, and in a paid room the partner who did not pay could take any
+    card the room had dealt them. Both went: the cards stay in the game."""
     alice = server.player("Alice", paid=True)
     bob = server.player("Bob")
-    carol = server.player("Carol")
     code = open_room(alice)
     bob.ok("POST", f"/api/rooms/{code}/join")
-    dealt: list[int] = []
-    for _ in range(DECK_SIZE):
-        state = bob.ok("GET", f"/api/rooms/{code}")
-        dealt.append(state["card_index"])
-        if state["card_index"] >= FREE_CARDS_PER_DECK:
-            break
-        (alice if not state["your_turn"] else bob).ok("POST", f"/api/rooms/{code}/advance")
-    card = f"/api/card?theme=Acquaintance&level=1&type=questions&idx={dealt[-1]}"
+    idx = bob.ok("GET", f"/api/rooms/{code}")["card_index"]
+    card = f"/api/card?theme=Acquaintance&level=1&type=questions&idx={idx}"
 
-    assert bob.status("GET", card) == 403, "on its own a paid card is still paid"
-    shared = bob.call("GET", f"{card}&room={code}", expect=200)
-    assert shared.headers["content-type"] == "image/jpeg"
-
-    # Only what the room has dealt, only to who sits in it, only that deck.
-    undealt = next(i for i in range(FREE_CARDS_PER_DECK, DECK_SIZE) if i not in dealt)
-    assert (
-        bob.status(
-            "GET", f"/api/card?theme=Acquaintance&level=1&type=questions&idx={undealt}&room={code}"
-        )
-        == 403
-    )
-    assert carol.status("GET", f"{card}&room={code}") == 403
-    assert (
-        bob.status(
-            "GET",
-            f"/api/card?theme=Acquaintance&level=2&type=questions&idx={dealt[-1]}&room={code}",
-        )
-        == 403
-    )
-    assert bob.status("GET", f"{card}&room={invites.new_code()}") == 403
+    assert alice.status("GET", card) == 404
+    assert bob.status("GET", f"{card}&room={code}") == 404
 
 
 def test_an_18_plus_room_seats_nobody_who_has_not_said_they_are_18(server: Server) -> None:

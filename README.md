@@ -30,9 +30,9 @@ inside a polished Telegram Mini App.
 - **Freemium.** The first 5 cards of every deck are free, and the first 3
   items of every Library list; full access unlocks the rest via a one-time
   Tribute payment. «69 ступеней» has no free prefix and is paid outright.
-- **Growth features.** Branded shareable card images, a daily
-  self-reflection question, and gift certificates you can buy for another
-  couple.
+- **Growth features.** A daily self-reflection question, and gift
+  certificates you can buy for another couple. Cards stay inside: the Mini
+  App has no button that saves a card or sends it out of the app.
 - **Couple mode.** Two phones, one shared deck, taking turns — one payment
   covers both partners.
 - **69 Steps (18+).** A board game of temptation: 69 cells, four ladders that
@@ -88,7 +88,7 @@ vechnost/
 │   ├── steps69_notify.py  # "Your piece is waiting on cell 45" nudge
 │   ├── storage.py         # Bot sessions: memory, or the Redis REDIS_URL names
 │   └── payments/          # Tribute integration + Mini App API
-│       ├── web.py         # FastAPI app: /app, /api/questions, /api/card, webhooks
+│       ├── web.py         # FastAPI app: /app, /api/questions, webhooks
 │       ├── library_api.py # /api/library
 │       ├── rooms.py       # Couple mode: /api/rooms
 │       ├── compat_api.py  # Compatibility test: /api/compat
@@ -163,7 +163,7 @@ essentials:
 |----------|---------|
 | `TELEGRAM_BOT_TOKEN` | Bot token from @BotFather (**required**) |
 | `ENVIRONMENT` | `production` on the production service: it then refuses to start on a development default (SQLite, an unset `ENABLE_PAYMENT`, no Tribute key with payments on, a Mini App URL that is not `https://`) and lists what to set. Default `development` |
-| `BOT_USERNAME` | Bot handle without `@`, used in card watermark & share links |
+| `BOT_USERNAME` | Bot handle without `@`, used in card watermarks and in invite, referral and gift links |
 | `WEBAPP_URL` | HTTPS URL of the Mini App (`…/app/`); enables the "Play in app" button |
 | `WEBAPP_MAIN_APP` | `true` when the bot has a **Main** Mini App (BotFather → Bot Settings → Configure Mini App). Invites become one-tap links: `t.me/<bot>?startapp=…` |
 | `WEBAPP_SHORT_NAME` | Short name of a **named** Mini App (BotFather `/newapp`). Invites become `t.me/<bot>/<name>?startapp=…`. Wins over `WEBAPP_MAIN_APP` if both are set |

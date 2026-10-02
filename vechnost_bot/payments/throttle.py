@@ -1,13 +1,11 @@
 """Request throttling for the public HTTP surface.
 
-Three of the endpoints here are worth spending an attacker's time on, and
-none of them cost the attacker anything today:
+Two of the endpoints here are worth spending an attacker's time on, and
+neither costs the attacker anything today:
 
 * joining a room, a compatibility test or a game by code. The code is six
   characters of a 32-symbol alphabet, and a hit hands over a paid deck or a
   couple's answers about their sex life. Guessing is the whole attack.
-* rendering a share card. Every request composites a JPEG through Pillow,
-  so a laptop can saturate the box.
 * the admin token. Unlimited guesses turn a shared secret into a countdown.
 
 The window is in-process on purpose: every throttled endpoint lives in the
@@ -69,7 +67,6 @@ LIMITS: dict[str, tuple[int, int]] = {
     # suit. Hitting it looked like the game was broken, because a 429 was
     # not one of the statuses the client had a sentence for.
     "create": (60, 3600),
-    "render": (30, 60),  # /api/card, one Pillow composite each
     "admin": (5, 60),  # the admin bearer token
     "write": (120, 60),  # ordinary in-game writes: dice, answers, reactions
     # Tribute delivers a handful of events a day and retries a failed one
@@ -86,7 +83,7 @@ LIMITS: dict[str, tuple[int, int]] = {
 # so may budget the person rather than the address. Not "admin" or
 # "webhook": neither is a Mini App request, and a budget there must not be
 # something a caller can pick by attaching initData of their own.
-BY_PERSON = frozenset({"create", "join", "write", "render", "events"})
+BY_PERSON = frozenset({"create", "join", "write", "events"})
 
 # Ceilings applied across every client at once. Only the buckets where a
 # single success is worth a lot to a stranger need one; ordinary gameplay
@@ -95,10 +92,6 @@ GLOBAL_LIMITS: dict[str, tuple[int, int]] = {
     "join": (600, 300),
     "admin": (30, 60),
     "webhook": (600, 60),
-    # Each render is a Pillow composite; ten a second across everyone is a
-    # quarter of a core, and the cache in `renderer.render_card_bytes` means
-    # legitimate traffic rarely gets near it.
-    "render": (600, 60),
     # Thirty rooms, tests or boards a minute across all couples, which is
     # far above an evening's worth and far below what fills a table.
     "create": (1800, 3600),

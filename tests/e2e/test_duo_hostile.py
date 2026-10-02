@@ -71,7 +71,6 @@ def test_a_forged_authorization_is_a_401_not_a_500(server: Server, authorization
         ("POST", "/api/rooms"),
         ("GET", "/api/compat/mine"),
         ("GET", "/api/steps69/mine"),
-        ("GET", "/api/card?theme=Acquaintance&idx=10&level=1"),
     ):
         body = (
             {"theme": "Acquaintance", "level": 1, "type": "questions"} if method == "POST" else None

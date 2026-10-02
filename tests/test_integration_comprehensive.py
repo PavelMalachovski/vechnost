@@ -107,13 +107,19 @@ class TestCompleteUserFlows:
             mock_update.callback_query.data = "q:acq:1:0"
             mock_update.callback_query.edit_message_text = AsyncMock()
             mock_update.callback_query.edit_message_media = AsyncMock()
+            reply_photo = mock_update.callback_query.message.reply_photo
+            photos_before = reply_photo.await_count  # /start's logo
 
             await handle_callback_query(mock_update, mock_context)
 
-            # A card is a rendered PNG, so it replaces the message's media -
-            # `edit_message_text` is the fallback for when rendering fails,
-            # and asserting on it passed only while the render was broken.
-            mock_update.callback_query.edit_message_media.assert_called_once()
+            # A card is a rendered picture - `edit_message_text` is the
+            # fallback for when rendering fails, and asserting on it passed
+            # only while the render was broken. Picked from the calendar, a
+            # text message sent unprotected, it arrives as a new photo that
+            # Telegram will not let anyone forward or save.
+            assert reply_photo.await_count == photos_before + 1
+            assert reply_photo.await_args.kwargs["protect_content"] is True
+            mock_update.callback_query.edit_message_media.assert_not_called()
             mock_update.callback_query.edit_message_text.assert_not_called()
 
     @pytest.mark.integration

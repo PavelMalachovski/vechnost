@@ -184,16 +184,6 @@ def test_guessing_room_codes_is_throttled(client):
     assert statuses[:limit].count(429) == 0
 
 
-def test_rendering_cards_is_throttled(client):
-    throttle.reset()
-    limit, _ = throttle.LIMITS["render"]
-    statuses = [
-        client.get("/api/card?theme=Acquaintance&level=1&idx=0").status_code
-        for _ in range(limit + 2)
-    ]
-    assert statuses[-1] == 429
-
-
 def _request(headers, peer):
     from starlette.requests import Request
 
@@ -298,7 +288,7 @@ def test_only_the_mini_app_buckets_budget_a_person():
         request = _request(
             {"authorization": _person(501), "x-forwarded-for": "1.2.3.4"}, "10.0.0.1"
         )
-        for bucket in ("join", "write", "create", "render"):
+        for bucket in ("join", "write", "create"):
             assert throttle.caller_key(request, bucket) == "tg:501"
         for bucket in ("webhook", "admin"):
             assert throttle.caller_key(request, bucket) == "1.2.3.4"
@@ -320,8 +310,8 @@ def test_the_global_ceiling_still_bounds_many_people():
 
 def test_every_bucket_that_costs_the_box_has_a_global_ceiling():
     """A per-client budget is a courtesy; the ceiling is the guarantee.
-    Rendering burns CPU, creating fills tables, writes hold row locks."""
-    for bucket in ("render", "create", "write", "join", "webhook"):
+    Creating fills tables, writes hold row locks."""
+    for bucket in ("create", "write", "join", "webhook"):
         assert bucket in throttle.GLOBAL_LIMITS, bucket
 
 

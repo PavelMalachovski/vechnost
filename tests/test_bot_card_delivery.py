@@ -23,11 +23,14 @@ from vechnost_bot.i18n import get_text
 
 
 def _query(*, on_a_photo: bool) -> MagicMock:
+    """A tap under a card (a photo, sent protected) or under a text message."""
     query = MagicMock()
     query.from_user.id = 7
     query.message.chat.id = 7
     query.message.photo = (MagicMock(),) if on_a_photo else ()
+    query.message.has_protected_content = True if on_a_photo else None
     query.message.reply_photo = AsyncMock()
+    query.message.delete = AsyncMock()
     query.message.reply_text = AsyncMock()
     query.edit_message_media = AsyncMock()
     query.edit_message_text = AsyncMock()
@@ -51,6 +54,7 @@ async def test_the_fallback_photo_is_the_card_not_an_empty_file(data):
     query.message.reply_photo.assert_awaited_once()
     payload = _payload(query.message.reply_photo.await_args.kwargs["photo"])
     assert payload.startswith(b"\xff\xd8"), "the JPEG itself, not a spent BytesIO"
+    assert query.message.reply_photo.await_args.kwargs["protect_content"] is True
     query.message.reply_text.assert_not_awaited()
 
 

@@ -368,15 +368,20 @@ class TestQuestionHandler:
 
     @pytest.mark.asyncio
     async def test_handle_question_selection(self, handler, mock_query, session):
-        """The first card is free, and arrives as a rendered photo."""
+        """The first card is free, and arrives as a rendered photo - a new,
+        protected one: the calendar it was picked from is plain text, sent
+        unprotected, and is never edited into a card."""
         callback_data = QuestionCallbackData.parse("q:acq:1:0")
 
         await handler.handle(mock_query, callback_data, session)
 
         assert session.theme == Theme.ACQUAINTANCE
         assert session.level == 1
-        mock_query.edit_message_media.assert_called_once()
-        targets = _callback_targets(_keyboard_of(mock_query.edit_message_media))
+        mock_query.edit_message_media.assert_not_called()
+        mock_query.message.reply_photo.assert_awaited_once()
+        assert mock_query.message.reply_photo.call_args.kwargs["protect_content"] is True
+        mock_query.message.delete.assert_not_called()  # the calendar stays
+        targets = _callback_targets(_keyboard_of(mock_query.message.reply_photo))
         assert "nav:acq:1:1:q" in targets
 
     @pytest.mark.asyncio
@@ -386,6 +391,7 @@ class TestQuestionHandler:
         await handler.handle(mock_query, callback_data, session)
 
         mock_query.edit_message_media.assert_not_called()
+        mock_query.message.reply_photo.assert_not_called()
         mock_query.edit_message_text.assert_called_once()
 
     @pytest.mark.asyncio
@@ -409,7 +415,7 @@ class TestQuestionHandler:
 
         await handler.handle(mock_query, callback_data, session)
 
-        targets = _callback_targets(_keyboard_of(mock_query.edit_message_media))
+        targets = _callback_targets(_keyboard_of(mock_query.message.reply_photo))
         assert f"nav:acq:1:{last - 1}:q" in targets
         assert f"nav:acq:1:{last + 1}:q" not in targets
 
@@ -424,8 +430,11 @@ class TestNavigationHandler:
 
     @pytest.fixture
     def mock_query(self):
-        """Create mock callback query."""
-        return _make_query()
+        """A tap under a card: a photo, sent protected."""
+        query = _make_query()
+        query.message.photo = (MagicMock(),)
+        query.message.has_protected_content = True
+        return query
 
     @pytest.fixture
     def session(self):
@@ -433,7 +442,8 @@ class TestNavigationHandler:
 
     @pytest.mark.asyncio
     async def test_handle_navigation(self, handler, mock_query, session):
-        """Stepping to the next card keeps the deck and moves the index."""
+        """Stepping to the next card keeps the deck and moves the index, in
+        the same protected message."""
         callback_data = NavigationCallbackData.parse("nav:acq:1:1")
 
         await handler.handle(mock_query, callback_data, session)
@@ -441,8 +451,33 @@ class TestNavigationHandler:
         assert session.theme == Theme.ACQUAINTANCE
         assert session.level == 1
         mock_query.edit_message_media.assert_called_once()
+        mock_query.message.reply_photo.assert_not_called()
         targets = _callback_targets(_keyboard_of(mock_query.edit_message_media))
         assert "nav:acq:1:0:q" in targets and "nav:acq:1:2:q" in targets
+
+    @pytest.mark.asyncio
+    async def test_a_card_from_before_is_replaced_by_a_protected_one(
+        self, handler, mock_query, session
+    ):
+        """A card sent before cards were protected can be forwarded and
+        saved, and editing it would keep it that way: the next card arrives
+        protected, as a new message, and the old one is deleted."""
+        mock_query.message.has_protected_content = None
+
+        await handler.handle(mock_query, NavigationCallbackData.parse("nav:acq:1:1"), session)
+
+        mock_query.edit_message_media.assert_not_called()
+        assert mock_query.message.reply_photo.call_args.kwargs["protect_content"] is True
+        mock_query.message.delete.assert_awaited_once()
+
+    @pytest.mark.asyncio
+    async def test_a_failed_edit_still_sends_a_protected_card(self, handler, mock_query, session):
+        mock_query.edit_message_media.side_effect = RuntimeError("message is not modified")
+
+        await handler.handle(mock_query, NavigationCallbackData.parse("nav:acq:1:1"), session)
+
+        assert mock_query.message.reply_photo.call_args.kwargs["protect_content"] is True
+        mock_query.message.delete.assert_not_called()
 
 
 class TestToggleHandler:

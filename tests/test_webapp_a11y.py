@@ -6,7 +6,7 @@ browser test (tests/e2e/browser/test_keyboard.py) presses the keys.
 - Every screen has one h1: its title, or the wordmark on the home screen.
 - Every layer is a modal dialog labelled by its own heading, and can take
   the focus (tabindex -1): `trackLayerFocus` moves it in and back out.
-- A button that shows only a sign (↩, →, 📤, 🔀, 🗺) says what it does, by
+- A button that shows only a sign (↩, →, 🔀, 🗺) says what it does, by
   an I18N key that `applyI18n` sets as its aria-label.
 - Keyboard focus is visible, drawn with the design token for it.
 """

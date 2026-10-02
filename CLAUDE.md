@@ -287,8 +287,7 @@ python scripts/smoke_production.py $URL --deep  # ...and its database and bot he
   carries on from the next one. It used to be decided once, by the creator,
   at creation (audit B-20). An 18+ room also keeps its seat empty until the
   person opening the link sends `nsfw=1` (403 until then), so a partner who
-  says no is never seated. `/api/card?room=` lets the partner who did not
-  pay share a card the room has dealt them, and only such a card.
+  says no is never seated.
 - **Taking a seat makes a pair.** Whichever door the guest came in by,
   the join calls `payments/partners.py::seat_taken` in its transaction,
   right after the conditional UPDATE and never for a creator reopening their
@@ -671,14 +670,14 @@ python scripts/smoke_production.py $URL --deep  # ...and its database and bot he
   dependencies (the client's budget is checked before the global one, and an
   attempt counts only once it passes both - refused requests used to spend
   everyone's ceiling, so one address could lock every couple out): `throttle("join")` on anything that takes a six-character
-  code, `throttle("render")` on `/api/card`, `throttle("admin")` on the
+  code, `throttle("admin")` on the
   admin routes, `throttle("write")` on in-game writes. Windows are
   in-process (every throttled endpoint lives in the single web process;
   the bot runs beside it as a second process), and the `join` bucket also
   has a **global** ceiling because `X-Forwarded-For` is client-settable and
   a per-client budget alone would not bound a code sweep. The per-client
   budget is the **person** where the Mini App calls (`BY_PERSON`: create,
-  join, write, render) and the initData validates, keyed `tg:<id>`; the
+  join, write, events) and the initData validates, keyed `tg:<id>`; the
   address otherwise (anonymous requests, the webhook, admin). Keyed by
   address, strangers behind one carrier NAT shared one `join` and `write`
   budget, and initData that fails validation still counts against its
@@ -1059,20 +1058,34 @@ python scripts/smoke_production.py $URL --deep  # ...and its database and bot he
   nothing but the ↩ button went back. The ↩ button and the left arrow key
   go back without a flight; a room has no back, so a swipe right there
   springs back. Extend those, don't fork them.
-- **A deck's panel has three fixed slots, and a deck has one counter.**
-  Back, forward and share each own a column of `.deck-controls`, so a deck
-  without one of them – a room has no back, the Library no share – leaves
-  the slot empty and forward stays in the middle; it used to slide 36 px
-  either way (audit D-29). A deck of one card, the question of the day, is
-  marked `one-card` and shows no bar, hint or buttons. The count is printed
-  on the card with its unit – «Карта 3 из 20» (`cardOf`), «День 271 из
-  365» – and the bar above it is a gauge (`role="progressbar"`, set by
+- **A deck's panel has fixed slots, and a deck has one counter.** Back
+  and forward each own a column of `.deck-controls`, forward the middle of
+  three, so a deck without a back – a room has none – leaves the slot empty
+  and forward stays in the middle; it used to slide 36 px either way (audit
+  D-29). The third column held a share button and stays empty, keeping
+  forward centred under the card (see the next bullet). A deck of one
+  card, the question of the day, is marked `one-card` and shows no bar,
+  hint or buttons. The count is printed on the card with its unit –
+  «Карта 3 из 20» (`cardOf`), «День 271 из 365» – and the bar above it is
+  a gauge (`role="progressbar"`, set by
   `showProgress`) that reads the same words to a screen reader; the bare
   «3 / 20» beside it is gone (audit D-30). The compatibility test has no
   card, so its one counter stays over the question, unit and all («Вопрос
   12 из 40»). A browser test reads where a deck is from the bar's
   `aria-valuenow` and `aria-valuemax` (`PROGRESS_JS` in
   `tests/e2e/browser/app.py`).
+- **A card is played, not kept.** The owner asked for the way to save a
+  card and send it on to go: the deck's share button (the card as a JPEG
+  through the phone's share sheet, Telegram's share link or a download)
+  is gone, and `/api/card`, which rendered that JPEG, with it. In the bot
+  each card goes out with `protect_content`, which Telegram honours by
+  refusing to forward or save it; protection is fixed when a message is
+  sent, so `callback_handlers._show_card` edits only a protected card into
+  the next one and sends anything else - the calendar's text, a card from
+  before - the card as a new message, deleting an old unprotected card. An
+  invite still goes out by Telegram's share link: a link to a game is not
+  a card. `tests/test_webapp_static.py` and `test_bot_card_delivery.py`
+  hold it.
 - **A web font is one file per face, cut to what the app sets** (audit
   D-41). `webapp/fonts/` holds Inter 400, 600 and 700 and Lora 400, each one
   woff2 of Cyrillic, printable ASCII and the punctuation of Russian
@@ -1095,7 +1108,7 @@ python scripts/smoke_production.py $URL --deep  # ...and its database and bot he
   hand, could not see a lifetime purchase. To grant access by hand, mint one
   certificate (`generate_certificates.py 1`) and send the code.
 - Brand: dark aubergine background, pink gradient accents, playing-card
-  motifs (suits, "V" emblem). Keep card watermarks/share images on-brand.
+  motifs (suits, "V" emblem). Keep card watermarks on-brand.
 
 ## Gotchas
 
