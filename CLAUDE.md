@@ -1097,11 +1097,11 @@ python scripts/smoke_production.py $URL --deep  # ...and its database and bot he
   each card goes out with `protect_content`, which Telegram honours by
   refusing to forward or save it; protection is fixed when a message is
   sent, so `callback_handlers._show_card` edits only a protected card into
-  the next one and sends anything else - the calendar's text, a card from
-  before - the card as a new message, deleting an old unprotected card. An
-  invite still goes out by Telegram's share link: a link to a game is not
-  a card. `tests/test_webapp_static.py` and `test_bot_card_delivery.py`
-  hold it.
+  the next one; under anything else - the calendar's text, a card from
+  before - the card arrives as a new message, and an old unprotected card
+  is deleted. An invite still goes out by Telegram's share link: a link to
+  a game is not a card. `tests/test_webapp_static.py` and
+  `test_bot_card_delivery.py` hold it.
 - **A web font is one file per face, cut to what the app sets** (audit
   D-41). `webapp/fonts/` holds Inter 400, 600 and 700 and Lora 400, each one
   woff2 of Cyrillic, printable ASCII and the punctuation of Russian
