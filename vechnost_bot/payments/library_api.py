@@ -22,6 +22,7 @@ from ..library import (
     LibraryCategory,
     LibraryModule,
     guide_art_path,
+    guide_art_rev,
     guide_intro,
     load_categories,
     load_guide,
@@ -57,6 +58,15 @@ def _guide_shown(
     and all of them or the free first one."""
     steps = _visible_steps(module.id, language, nsfw)
     return steps[:1] if locked else steps
+
+
+def _guide_step(module_id: str, step: GuideStep) -> dict[str, Any]:
+    """A step as the client reads it: each item with the fingerprint of its
+    picture (`art_rev`), which the page puts in the picture's address."""
+    out = step.model_dump()
+    for item in out["items"]:
+        item["art_rev"] = guide_art_rev(module_id, item["art"])
+    return out
 
 
 def _module_count(module: LibraryModule, language: Language, nsfw: int) -> int:
@@ -172,7 +182,7 @@ async def library_module(
         payload.update(
             {
                 "intro": guide_intro(module_id, language),
-                "steps": [s.model_dump() for s in shown],
+                "steps": [_guide_step(module_id, s) for s in shown],
                 "nsfw_withheld": [
                     {"id": s.id, "title": s.title, "total": len(s.items)}
                     for s in load_guide(module_id, language)

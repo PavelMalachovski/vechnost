@@ -1735,7 +1735,7 @@
       // What a screen reader says for a button that shows only a sign
       // (audit D-14); applyI18n sets each as that button's aria-label.
       ariaPrev: 'Предыдущая карта', ariaNext: 'Следующая карта',
-      ariaShare: 'Поделиться картой', ariaShuffle: 'Перемешать колоду',
+      ariaShuffle: 'Перемешать колоду',
       ariaMap: 'Поле',
       // The deck's gauge; what it reads out is cardOf (audit D-30).
       ariaProgress: 'Колода'
@@ -4064,7 +4064,7 @@
         item.tips.map(t => '<li>' + escapeHTML(t) + '</li>').join('') + '</ul>'
       : '';
     return '<div class="guide-item">' +
-             guideArt(item.art) +
+             guideArt(item.art, item.art_rev) +
              '<div>' +
                '<div class="guide-item-title">' + escapeHTML(item.title) + '</div>' +
                '<div class="guide-item-text">' + escapeHTML(item.text) + '</div>' +
@@ -4194,15 +4194,19 @@
   };
 
   // The one entry point: a key in, a frame out. The picture itself arrives
-  // later (loadGuideArt), so the frame holds its place until it does.
-  function guideArt(key) {
+  // later (loadGuideArt), so the frame holds its place until it does. `rev`
+  // is the picture's fingerprint from the server: it rides in the picture's
+  // address, so a re-rendered picture is fetched again rather than taken
+  // from what the browser kept of the old one.
+  function guideArt(key, rev) {
     if (!key) return '';
     const over = ART_OVERLAYS[key]
       ? '<svg class="art-over" viewBox="0 0 120 130" aria-hidden="true">' + ART_OVERLAYS[key] + '</svg>'
       : '';
     const cap = ART_CAPTIONS[key];
     return '<div class="art-wrap">' +
-             '<div class="art-photo skeleton" data-art="' + escapeHTML(key) + '">' +
+             '<div class="art-photo skeleton" data-art="' + escapeHTML(key) + '"' +
+               (rev ? ' data-rev="' + escapeHTML(rev) + '"' : '') + '>' +
                '<img class="guide-art" alt="" aria-hidden="true" decoding="async" width="540" height="585">' +
                over +
              '</div>' +
@@ -4223,7 +4227,8 @@
         const headers = {};
         if (tg && tg.initData) headers['Authorization'] = 'tma ' + tg.initData;
         const path = '/api/library/' + moduleId + '/art/' + encodeURIComponent(slot.dataset.art) +
-                     '?lang=' + lang + libNsfwParam();
+                     '?lang=' + lang + libNsfwParam() +
+                     (slot.dataset.rev ? '&v=' + encodeURIComponent(slot.dataset.rev) : '');
         const res = await timedFetch(path, { headers });
         if (!res.ok) throw await httpError(res, path);
         ART_CACHE[id] = URL.createObjectURL(await res.blob());

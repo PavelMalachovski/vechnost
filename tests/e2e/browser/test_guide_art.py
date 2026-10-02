@@ -58,6 +58,9 @@ def test_an_unpaid_reader_sees_the_light_step_in_pictures(server: Server, phones
     assert keys == ["light-side", "light-rim", "light-soft", "light-stripes"], keys
     assert all(p["ready"] and p["width"] == 540 for p in pictures), pictures
     assert asked and all("/art/light-" in url for url in asked), asked
+    # Each asked for at its fingerprint: a picture re-rendered under the
+    # same key is a new address, never the copy the browser kept.
+    assert all("&v=" in url for url in asked), asked
     phone.shot("masterclass-unpaid")
 
 

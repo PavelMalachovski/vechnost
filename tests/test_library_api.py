@@ -246,6 +246,25 @@ def test_every_item_the_guide_sends_has_its_picture():
             assert res.status_code == 200, item["art"]
 
 
+def test_each_picture_travels_with_its_fingerprint():
+    """A browser keeps a picture for a day, and a re-rendered picture keeps
+    its key («Вдохновение» took over him-8 from «Взгляд»): the fingerprint
+    of the bytes goes in the address the page asks for, so the new picture
+    is fetched rather than yesterday's shown."""
+    import hashlib
+
+    from vechnost_bot.library import guide_art_path
+
+    body = client.get("/api/library/nude_guide?nsfw=1").json()
+    items = [item for step in body["steps"] for item in step["items"]]
+    for item in items:
+        data = guide_art_path("nude_guide", item["art"]).read_bytes()
+        assert item["art_rev"] == hashlib.sha256(data).hexdigest()[:12], item["art"]
+        res = client.get(f"/api/library/nude_guide/art/{item['art']}?nsfw=1&v={item['art_rev']}")
+        assert res.status_code == 200 and res.content == data, item["art"]
+    assert len({item["art_rev"] for item in items}) == len(items)
+
+
 def test_a_picture_key_is_never_a_path():
     # A dot segment travels encoded: the client resolves a bare `..` before
     # sending, and the request lands on the module's own route instead.

@@ -442,7 +442,10 @@ python scripts/smoke_production.py $URL --deep  # ...and its database and bot he
     initData as its card nears the screen (`loadGuideArt`) and keeps it for
     the session; an `<img src>` cannot send initData, and a static file
     would be the paywall's back door. `guide_art_path` looks a key up by
-    name and never uses it as a path.
+    name and never uses it as a path. The browser may keep a picture for a
+    day, and a re-rendered one keeps its key, so each item carries the
+    fingerprint of its picture (`art_rev`, `library.guide_art_rev`) and the
+    page asks for `…/art/<key>?v=<art_rev>`: a new picture is a new address.
   - **The bodies are MakeHuman's.** The HM08 mesh, its morph targets and
     the default skeleton with its weights, all CC0, read without MakeHuman
     by `guide_art/makehuman.py` from the `anny` wheel on PyPI, which ships

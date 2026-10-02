@@ -6,6 +6,7 @@ python-telegram-bot so it can be used from the web API, the bot, and tests
 alike.
 """
 
+import hashlib
 import re
 from functools import cache
 from pathlib import Path
@@ -150,6 +151,20 @@ def guide_art_path(module_id: str, key: str) -> Path | None:
         return None
     path = GUIDE_ART_DIR / module_id / f"{key}.webp"
     return path if path.is_file() else None
+
+
+@cache
+def guide_art_rev(module_id: str, key: str) -> str | None:
+    """A short fingerprint of a picture's bytes, for the address the Mini
+    App asks for it at. The picture route lets a browser keep a picture for
+    a day, and a re-rendered one keeps its key: without the fingerprint a
+    reader who looked yesterday is shown yesterday's photograph under
+    today's words. The pictures change only with a deploy, which starts a
+    new process, so the fingerprint is taken once."""
+    path = guide_art_path(module_id, key)
+    if path is None:
+        return None
+    return hashlib.sha256(path.read_bytes()).hexdigest()[:12]
 
 
 def guide_intro(module_id: str, language: Language = Language.RUSSIAN) -> str:

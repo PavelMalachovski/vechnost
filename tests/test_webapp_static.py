@@ -533,6 +533,10 @@ def test_guide_pictures_are_fetched_with_the_reader_never_linked():
     assert "'/api/library/' + moduleId + '/art/'" in loader
     assert "Authorization" in loader and "libNsfwParam()" in loader
     assert ".webp" not in html and "library/art" not in html
+    # The picture's fingerprint rides in its address: a re-rendered picture
+    # under an old key is fetched, not taken from the browser's cache.
+    assert "'&v=' + encodeURIComponent(slot.dataset.rev)" in loader
+    assert "guideArt(item.art, item.art_rev)" in html
 
 
 def test_the_compat_result_reads_in_the_agreed_order():
