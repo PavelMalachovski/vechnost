@@ -188,13 +188,22 @@ def terry(color=(0.80, 0.79, 0.76)):
     return fabric("terry", color, sheen=1.0, rough=1.0, weave=300.0, bump=0.2, fuzz=0.6)
 
 
-def garment(name, color, kind="satin", band=0.0, band_color=None):
+def garment(name, color, kind="satin", band=0.0, band_color=None, band_attr="cut", band_rough=None):
     """A close-fitting garment cut from the body: its edge is where the
     `cut` field it carries crosses zero; a band that wide along the edge
-    (a hem, a waistband) takes `band_color`."""
+    (a hem, a waistband) takes `band_color`. The band follows `band_attr`,
+    another field the garment carries, when only one of its edges has one
+    (a belt round the waist and none at the ankles); with `band_rough` it
+    is a material of its own, as leather is."""
     t = Tree(name)
     attr = t.node("ShaderNodeAttribute", _attribute_name="cut", _attribute_type="GEOMETRY")
     cut = attr.outputs["Fac"]
+    if band_attr != "cut":
+        edge_of = t.node(
+            "ShaderNodeAttribute", _attribute_name=band_attr, _attribute_type="GEOMETRY"
+        ).outputs["Fac"]
+    else:
+        edge_of = cut
     mask = t.node(
         "ShaderNodeMapRange",
         Value=cut,
@@ -229,6 +238,26 @@ def garment(name, color, kind="satin", band=0.0, band_color=None):
             tuple(min(1, c * 1.6) for c in color),
         )
         fabric_in = {"Roughness": 0.9, "Sheen Weight": 0.5, "Specular IOR Level": 0.2}
+    elif kind == "wool":
+        # Suiting: a fine twill, a faint heather in the colour and the soft
+        # sheen of a worsted, which is what tells trousers from leggings
+        # under one hard lamp.
+        twill = t.node(
+            "ShaderNodeTexWave",
+            Vector=co,
+            Scale=1100.0,
+            _wave_type="BANDS",
+            _bands_direction="DIAGONAL",
+        )
+        heather = t.node("ShaderNodeTexNoise", Vector=co, Scale=60.0, Detail=4.0)
+        col = _mix(t, heather.outputs["Fac"], tuple(c * 0.82 for c in color), color)
+        fabric_in = {
+            "Roughness": 0.72,
+            "Sheen Weight": 0.2,
+            "Sheen Roughness": 0.5,
+            "Sheen Tint": (0.6, 0.6, 0.62),
+            "Specular IOR Level": 0.25,
+        }
     else:
         col = color
         fabric_in = {
@@ -237,24 +266,44 @@ def garment(name, color, kind="satin", band=0.0, band_color=None):
             "Sheen Tint": color,
             "Specular IOR Level": 0.3,
         }
+    edge = None
     if band > 0:
         edge = t.node(
             "ShaderNodeMapRange",
-            Value=cut,
+            Value=edge_of,
             **{"From Min": band - 0.15, "From Max": band + 0.15, "To Min": 1.0, "To Max": 0.0},
         )
-        col = _mix(t, edge.outputs[0], col, band_color or tuple(c * 0.5 for c in color))
+        if band_rough is None:
+            col = _mix(t, edge.outputs[0], col, band_color or tuple(c * 0.5 for c in color))
     b = t.node("ShaderNodeBsdfPrincipled", **{"Base Color": col}, **fabric_in)
-    if kind == "denim":
-        t.link(_bump(t, twill.outputs["Fac"], 0.35, 0.0015).outputs[0], b.inputs["Normal"])
+    if kind in ("denim", "wool"):
+        depth = 0.35 if kind == "denim" else 0.18
+        t.link(_bump(t, twill.outputs["Fac"], depth, 0.0015).outputs[0], b.inputs["Normal"])
     else:
         weave = t.node("ShaderNodeTexNoise", Vector=co, Scale=900.0, Detail=2.0)
         t.link(_bump(t, weave.outputs["Fac"], 0.05, 0.0008).outputs[0], b.inputs["Normal"])
+    cloth = b.outputs[0]
+    if edge is not None and band_rough is not None:
+        leather = t.node(
+            "ShaderNodeBsdfPrincipled",
+            **{
+                "Base Color": band_color or tuple(c * 0.5 for c in color),
+                "Roughness": band_rough,
+                "Specular IOR Level": 0.35,
+            },
+        )
+        grain = t.node("ShaderNodeTexNoise", Vector=co, Scale=500.0, Detail=3.0)
+        t.link(_bump(t, grain.outputs["Fac"], 0.1, 0.0008).outputs[0], leather.inputs["Normal"])
+        belt = t.node("ShaderNodeMixShader")
+        t.link(edge.outputs[0], belt.inputs[0])
+        t.link(cloth, belt.inputs[1])
+        t.link(leather.outputs[0], belt.inputs[2])
+        cloth = belt.outputs[0]
     clear = t.node("ShaderNodeBsdfTransparent")
     mix = t.node("ShaderNodeMixShader")
     t.link(mask.outputs[0], mix.inputs[0])
     t.link(clear.outputs[0], mix.inputs[1])
-    t.link(b.outputs[0], mix.inputs[2])
+    t.link(cloth, mix.inputs[2])
     return t.surface(mix)
 
 

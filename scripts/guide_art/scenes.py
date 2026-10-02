@@ -1,4 +1,4 @@
-"""The twenty-nine pictures of the masterclass, one scene each.
+"""The twenty-eight pictures of the masterclass, one scene each.
 
 Every scene is a photograph taken in a dark room with one lamp, the way the
 masterclass teaches: the light stands where the card says, the camera where
@@ -6,6 +6,8 @@ the phone would be. The free steps (light, camera, editing) are shot in
 lingerie, because nobody has confirmed their age to read them; the pose
 steps sit behind the 18+ question and the paywall and imply nudity without
 showing any anatomy - the pose, a sheet or the shadow does the covering.
+Every pose for him is shot in trousers (jeans in «Контраст», which names
+them): the poses are about his back, shoulders and arms.
 
 Units are centimetres; x runs to the frame's right, y up, z toward the
 camera. A body at yaw 0 faces the camera. Poses are the old drawings'
@@ -19,7 +21,7 @@ from dataclasses import dataclass
 
 from . import materials as M
 from . import props as P
-from .outfits import wrapped_sheet
+from .outfits import shoulder_towel, wrapped_sheet
 from .people import Person
 from .skeleton import pose, rel, to
 from .studio import COLD, DAY, FILL, PINK, WARM, area, camera, point, reset, spot
@@ -395,21 +397,28 @@ def her_8():
     reset()
     P.floor()
     P.wall(-140.0)
-    rug = P.rug((0, 0.6, 5), (70, 60))
+    rug = P.rug((0, 0.6, 12), (75, 65))
     Person(
         f_pose(
-            (0.0, 12.0, 0.0), 0, -5, 0, chest=(0, 55, 0), head=(12, 75, 8),
-            leg_l=to((30, 28, 30), (-8, 8, 42), (-20, 4, 34)),
-            leg_r=to((-30, 28, 30), (8, 10, 46), (20, 6, 38)),
-            arm_l=to((30, 33, 31), (4, 34, 38), (-10, 34, 36)),
-            arm_r=to((-30, 33, 31), (-4, 36, 40), (10, 36, 38)),
+            # Cross-legged, the knees up and wide, leaning forward: the
+            # elbows on the knees, the forearms crossed between them and the
+            # forehead resting on them. Long hair falls from the bowed head
+            # over the arms.
+            (0.0, 11.0, -4.0), 0, 22, 0, chest=(0, 57, 0), head=(0, 98, 0),
+            arm_l=to((13.5, 20.8, 44.0), (-7.0, 33.0, 47.0), (-17.0, 34.0, 41.0)),
+            arm_r=to((-12.6, 23.2, 46.6), (7.0, 37.0, 46.0), (17.0, 38.0, 40.0)),
+            leg_l=to((30.4, 24.0, 33.4), (-8.0, 6.0, 30.0), (-21.0, 3.0, 27.0)),
+            leg_r=to((-30.3, 24.8, 33.1), (8.0, 7.0, 38.0), (21.0, 4.0, 35.0)),
         ),
-        ground=1.2, colliders=[rug],
+        hair="down", melanin=0.72, ground=1.2, colliders=[rug],
     )  # fmt: skip
-    spot((0, 150, -140), (0, 40, 0), WARM, 600.0, radius=10.0, cone=70.0, blend=0.6, name="key")
-    area((0, 110, 400), (0, 40, 0), FILL, 10.0, size=200.0, name="fill")
-    # From above and to one side: her head and crossed arms hide the lap.
-    camera((70, 185, 230), (0, 30, 10), 26.0, fstop=2.8, focus=(0, 40, 25))
+    # The lamp behind her, as the card says: it draws the line of the
+    # shoulders and the back and shines through the edge of the hair.
+    spot((-40, 150, -130), (0, 35, 10), WARM, 650.0, radius=10.0, cone=60.0, blend=0.6, name="key")
+    area((150, 90, 250), (0, 30, 20), FILL, 8.0, size=160.0, name="fill")
+    # From her side and a little in front: the curve of the back, the soft
+    # line of the shoulders and the hair falling over the arms.
+    camera((230, 78, 100), (0, 26, 21), 30.0, fstop=2.8, focus=(0, 38, 18))
     return Shot()
 
 
@@ -438,30 +447,6 @@ def her_9():
     return Shot(exposure=0.5)
 
 
-@scene("her-10")
-def her_10():
-    reset()
-    P.floor()
-    P.wall(-130.0)
-    P.chair(0.0, -5.0, 0.0)
-    Person(
-        f_pose(
-            (0.0, 58.0, 0.0), 180, -5, 0, chest=(180, 20, 0), head=(165, 55, 0),
-            leg_l=rel((16, -8, 38), (18, -48, 34), (18, -54, 48)),
-            leg_r=rel((16, -8, 38), (18, -48, 34), (18, -54, 48)),
-            arm_l=rel((12, -14, 18), (-10, -12, 24), (-20, -11, 22)),
-            arm_r=rel((12, -14, 18), (-10, -12, 24), (-20, -11, 22)),
-        ),
-        hair="bun",
-    )  # fmt: skip
-    # From the side, as the card says, but high and broad: a small lamp
-    # grazing the back laid the shoulder blade's shadow over the spine like
-    # a hole.
-    spot((-200, 190, 40), (0, 95, 0), WARM, 480.0, radius=22.0, cone=44.0, blend=0.5, name="key")
-    camera((20, 105, 360), (0, 85, 0), 25.0, fstop=2.8)
-    return Shot()
-
-
 # Step 4 - poses for him.
 
 
@@ -479,7 +464,7 @@ def him_1():
             arm_l=to((-44, 172, 6), (-14, 176, 12), (0, 176, 12.5)),
             arm_r=to((44, 172, 6), (14, 176, 12), (0, 176, 12.5)),
         ),
-        ground=0.0,
+        outfit="trousers", ground=0.0,
     )  # fmt: skip
     spot(
         (-190, 250, 150),
@@ -510,7 +495,7 @@ def him_2():
             arm_l=to((10, 56, -4), (0, 76, -22), (-4, 84, -20)),
             arm_r=to((-20, 34, -36), (-26, 16, -6), (-28, 12, 10)),
         ),
-        ground=0.0,
+        outfit="trousers", ground=0.0,
     )  # fmt: skip
     area((15, 230, 20), (0, 60, -25), WARM, 380.0, size=45.0, name="key")
     camera((70, 75, 330), (5, 55, -20), 27.0, fstop=2.8)
@@ -549,7 +534,7 @@ def him_4():
             arm_l=rel((8, 24, 3), (-15, 50, 4), (-22, 56, 5)),
             arm_r=rel((8, 24, 3), (-17, 53, 3), (-24, 64, 2)),
         ),
-        outfit="boxers", ground=0.0,
+        outfit="trousers", ground=0.0,
     )  # fmt: skip
     # Frontal and diffused, as the card says; a rim keeps him off the wall.
     area((40, 190, 330), (0, 130, 0), WARM, 300.0, size=140.0, name="key")
@@ -568,7 +553,7 @@ def him_5():
             (0.0, 103.0, 0.0), 90, 0, 0, chest=(90, -3, 0), head=(90, -5, 0),
             leg_r=rel((1, -44, 10), (0, -87, 6), (1, -93, 26)),
         ),
-        ground=0.0,
+        outfit="trousers", ground=0.0,
     )  # fmt: skip
     P.halo(-100.0, 0.0, 120.0, DAY, 900.0, cone=70.0)
     area((-20, 130, -80), (0, 120, 60), DAY, 350.0, size=80.0, name="back")
@@ -580,25 +565,26 @@ def him_5():
 def him_6():
     reset()
     P.floor()
-    P.wall(-28.0)
+    P.wall(-51.8)
     Person(
         m_pose(
-            (0.0, 100.0, 25.0), 180, 15, 0, chest=(180, 35, 0), head=(180, 50, 0),
-            # The palms flat on the wall a hand over the head, the elbows out.
-            arm_l=to((-32, 168, -12), (-14, 186, -25), (-12, 204, -27)),
-            arm_r=to((32, 168, -12), (14, 186, -25), (12, 204, -27)),
-            leg_l=rel((2, -44, -12), (3, -88, -16), (3, -95, 6)),
-            leg_r=rel((2, -44, -12), (3, -88, -16), (3, -95, 6)),
+            # One line from the heels to the hands: a step back from the
+            # wall, leaning into it, the palms flat on it over the head and
+            # the head bowed between the arms.
+            (0.0, 91.3, 14.0), 180, 25, 0, chest=(180, 27, 0), head=(180, 55, 0),
+            arm_l=to((-37.7, 154.4, -29.4), (-28.0, 171.0, -49.0), (-30.0, 186.0, -44.0)),
+            arm_r=to((37.7, 154.4, -29.4), (28.0, 171.0, -49.0), (30.0, 186.0, -44.0)),
+            leg_l=to((-10.3, 41.6, 19.7), (-9.0, 8.2, 52.8), (-9.5, 1.0, 34.0)),
+            leg_r=to((10.3, 41.6, 19.7), (9.0, 8.2, 52.8), (9.5, 1.0, 34.0)),
         ),
-        ground=0.0,
+        outfit="trousers", ground=0.0,
     )  # fmt: skip
-    # From behind and to the side, as drawn: the wall to the left, his body
-    # one line from the feet to the hands on it, the lamp high over the wall.
-    # From the side, between him and the wall, as the card says: it rakes
-    # along his flank and the back turns away into shadow.
-    spot((-200, 170, -20), (0, 130, 0), WARM, 700.0, radius=10.0, cone=45.0, blend=0.5, name="key")
-    area((-300, 120, 300), (0, 110, 0), FILL, 6.0, size=150.0, name="fill")
-    camera((-300, 135, 250), (-5, 120, -5), 28.0, fstop=2.8, focus=(0, 125, 10))
+    # From behind and to his right; the lamp on his left, level with him,
+    # rakes across the back and along the wall: the near half of the back
+    # turns away into shadow, as the card says.
+    spot((-200, 180, 30), (0, 130, -15), WARM, 800.0, radius=10.0, cone=40.0, blend=0.5, name="key")
+    area((220, 120, 300), (0, 110, 0), FILL, 6.0, size=150.0, name="fill")
+    camera((135, 125, 300), (0, 112, -15), 30.0, fstop=4.0, focus=(0, 130, -10))
     return Shot()
 
 
@@ -609,7 +595,7 @@ def him_7():
     P.floor(tiles)
     P.wall(-70.0, tiles)
     tub = P.tub((0.0, 26.0, -30.0))
-    Person(
+    him = Person(
         m_pose(
             (0.0, 60.0, 6.0), 15, -5, 0, chest=(15, 42, 0), head=(15, 62, 0),
             leg_l=to((20, 53, 51), (21, 6, 53), (26, 1, 76)),
@@ -617,8 +603,9 @@ def him_7():
             arm_l=to((24, 66, 40), (14, 56, 56), (10, 44, 60)),
             arm_r=to((-8, 68, 46), (6, 56, 60), (8, 44, 62)),
         ),
-        outfit="towel", wet=True, colliders=[tub],
+        outfit="trousers", wet=True, colliders=[tub],
     )  # fmt: skip
+    shoulder_towel(him.h, "l", colliders=[tub])
     area((-90, 210, 170), (0, 70, 0), COLD, 300.0, size=40.0, name="key")
     area((80, 90, 260), (0, 70, 0), (0.6, 0.65, 0.7), 25.0, size=140.0, name="fill")
     camera((60, 95, 330), (0, 70, 0), 29.0, fstop=2.8)
@@ -629,26 +616,26 @@ def him_7():
 def him_8():
     reset()
     P.floor()
-    P.wall(-200.0)
-    rug = P.rug((0, 0.6, -40), (90, 120))
+    P.wall(-130.0)
+    P.chair(0.0, 5.0, 0.0, seat=48.0)
     Person(
         m_pose(
-            (0.0, 20.0, -60.0), ((0, -1, 0.05), (0, 0.15, 1)), 0, 0,
-            chest=((0, -0.94, 0.34), (0, 0.34, 0.94)), head=((0, 0.1, 1), (0, 1, -0.1)),
-            arm_l=to((18, 3.5, -2), (6, 3.5, 22), (-4, 3, 32)),
-            arm_r=to((-18, 3.5, -2), (-6, 3.5, 22), (4, 3, 32)),
-            leg_l=to((10, 7, -108), (11, 5, -155), (11, 1, -178)),
-            leg_r=to((-10, 7, -108), (-11, 5, -155), (-11, 1, -178)),
+            # Astride the chair, facing its back: a leg down either side of
+            # the seat, the forearms folded on its top rail, the head bowed
+            # over them.
+            (0.0, 60.0, 12.0), 180, -5, 0, chest=(180, 25, 0), head=(165, 58, 0),
+            arm_l=to((-17.8, 85.6, -21.6), (6.0, 98.5, -17.0), (18.0, 98.5, -16.0)),
+            arm_r=to((19.2, 84.6, -20.5), (-6.0, 95.0, -17.0), (-18.0, 95.0, -16.0)),
+            leg_l=to((-22.8, 49.2, -34.4), (-26.0, 8.0, -12.0), (-27.0, 1.0, -30.0)),
+            leg_r=to((22.8, 49.2, -34.4), (26.0, 8.0, -12.0), (27.0, 1.0, -30.0)),
         ),
-        ground=1.2, colliders=[rug],
+        outfit="trousers",
     )  # fmt: skip
-    # A window to the side, as the card says, level with his face: half of
-    # it in shadow, the room dark. A face looking into the lens under flat
-    # light is where these bodies look most like mannequins.
-    area((-170, 55, -10), (0, 38, 5), DAY, 240.0, size=70.0, size_y=110.0, name="window")
-    spot((120, 90, -150), (0, 40, -20), WARM, 160.0, radius=6.0, cone=30.0, blend=0.5, name="rim")
-    area((60, 70, 320), (0, 30, 0), FILL, 4.0, size=160.0, name="fill")
-    camera((15, 45, 300), (0, 32, 0), 22.0, fstop=2.8, focus=(0, 40, 20))
+    # From the side, as the card says, high and broad, so the shoulder
+    # blades and the line of the shoulders carry the picture.
+    spot((-200, 170, 50), (0, 100, 0), WARM, 520.0, radius=18.0, cone=44.0, blend=0.5, name="key")
+    area((180, 120, 260), (0, 90, 0), FILL, 5.0, size=150.0, name="fill")
+    camera((20, 108, 360), (0, 88, 0), 25.0, fstop=2.8, focus=(0, 100, 5))
     return Shot()
 
 
@@ -665,6 +652,7 @@ def him_9():
             leg_r=rel((-6, 6, 44), (-14, -26, 64), (-16, -34, 82)),
             arm_r=rel((2, -26, 8), (-2, -36, 30), (-4, -38, 44)),
         ),
+        outfit="trousers",
     )  # fmt: skip
     spot(
         (160, 190, 120),
@@ -686,14 +674,21 @@ def him_10():
     P.wall(-140.0)
     Person(
         m_pose(
-            (0.0, 103.0, 0.0), 90, 0, 0, chest=(90, -2, 0), head=(90, 5, 0),
-            arm_l=to((6, 133, -20), (16, 141, -2), (13, 142, 12)),
-            arm_r=to((6, 130, 20), (15, 138, 2), (12, 140, -12)),
+            # Face on, as the card says: the arms folded across the chest,
+            # the right forearm over the left, each hand on the other arm.
+            (0.0, 103.0, 0.0), 0, 0, 0, chest=(0, 2, 0), head=(0, 8, 0),
+            arm_l=to((20.0, 124.9, 7.8), (-3.0, 130.0, 22.0), (-15.0, 135.0, 15.0)),
+            arm_r=to((-15.5, 127.2, 12.6), (4.0, 128.0, 32.0), (17.0, 134.0, 15.0)),
         ),
-        ground=0.0,
+        outfit="trousers", ground=0.0,
     )  # fmt: skip
-    spot((170, 190, 60), (0, 136, 0), WARM, 500.0, radius=1.5, cone=30.0, blend=0.3, name="key")
-    camera((0, 124, 330), (0, 123, 0), 11.0, fstop=2.8, focus=(0, 126, 12))
+    # A hard lamp from the right: one half of the torso and the folded arms
+    # in light, the other in deep shadow, every muscle drawn by the edge.
+    spot((210, 160, 30), (0, 128, 5), WARM, 650.0, radius=1.5, cone=30.0, blend=0.3, name="key")
+    # A faint rim behind the dark side keeps its outline off the wall.
+    spot((-160, 175, -130), (0, 130, 0), WARM, 90.0, radius=4.0, cone=30.0, blend=0.5, name="rim")
+    # Only the torso: from under the chin to the belt.
+    camera((0, 128.5, 330), (0, 128.5, 0), 9.8, fstop=2.8, focus=(0, 128.5, 20))
     return Shot()
 
 

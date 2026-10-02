@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Render the masterclass's pictures from their scenes.
 
-Each of the twenty-nine pictures of the nude masterclass is a scene in
+Each of the twenty-eight pictures of the nude masterclass is a scene in
 scripts/guide_art/scenes.py - a posed person, a lamp where the card says,
 props, a camera - photographed in Blender's Cycles and developed like a
 low-key photograph. The pictures land in data/library/art/nude_guide/ as
@@ -16,7 +16,7 @@ module, which is built for Python 3.11 only - a venv of its own:
     python3.11 -m venv .venv-art && .venv-art/bin/pip install -e ".[art]"
     .venv-art/bin/python scripts/render_guide_art.py
 
-About two minutes a picture on four cores, an hour for all 29; --only
+About two minutes a picture on four cores, an hour for all 28; --only
 renders a few and --preview renders them small, as PNG, somewhere else.
 """
 

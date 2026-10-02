@@ -43,7 +43,7 @@ Telegram id. У каждого есть `--help`, и `tests/test_scripts.py` з�
   `guide_art/scenes.py` в `data/library/art/nude_guide/` (WebP 540×585):
   тела MakeHuman (CC0), съёмка в Blender Cycles. Нужен Blender как модуль
   Python (`bpy`, только Python 3.11) из extra `art`, в отдельном окружении;
-  данные MakeHuman скачиваются при первом запуске. Все 29 – около часа на
+  данные MakeHuman скачиваются при первом запуске. Все 28 – около часа на
   четырёх ядрах, `--only KEY` и `--preview` – быстрее.
 
 ## Разработка и деплой

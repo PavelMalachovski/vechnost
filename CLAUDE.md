@@ -431,7 +431,7 @@ python scripts/smoke_production.py $URL --deep  # ...and its database and bot he
   `data/library/art/nude_guide/<key>.webp`, 540 by 585, the old drawing's
   12:13 frame. It needs Blender as a Python module (`bpy`), which is built
   for Python 3.11 only: a venv of its own with `pip install -e ".[art]"`;
-  about two minutes a picture, an hour for all 29. The pictures replaced
+  about two minutes a picture, an hour for all 28. The pictures replaced
   line drawings generated in the page, then numpy renders of smooth
   figures that read as plasticine. Six things hold them together:
   - **Served like the words, never linked.** `GET
@@ -455,7 +455,10 @@ python scripts/smoke_production.py $URL --deep  # ...and its database and bot he
     (`hair.py`): from a scalp above a hairline drawn round the head
     (`human.HAIRLINE`; MakeHuman's hair helper sits off the head and leaves
     the forehead bald), along it first, then falling behind the shoulders
-    and over whatever the body lies on.
+    and over whatever the body lies on. A head bowed low gets the `down`
+    style, hair that leaves the scalp at once and hangs: combed back, it
+    wound round a skull whose back faces the ceiling, and the lotus woman
+    read as a man with a crop.
   - **A pose is the old drawing's, reached for by the new body.**
     `skeleton.py` resolves a scene's pose - the pelvis, the frames of
     pelvis, chest and head, each limb by target points or in the body's own
@@ -464,25 +467,35 @@ python scripts/smoke_production.py $URL --deep  # ...and its database and bot he
     the body's own lengths (never stretched), and a raised arm takes its
     collarbone along. The rig is MakeHuman's `default` with linear
     blending; the game-engine rig, and volume preservation, balloon the
-    shoulder of a raised arm.
-  - **The free steps are shot in lingerie; the poses show no anatomy.**
-    Light, camera and editing are open without the 18+ question, so nobody
-    in them is undressed. The pose steps imply nudity: before anything is
-    rendered each nipple is laid flat onto the breast's own curve - a
-    quadric fitted to the skin round it (`Human._soften`); drawing vertices
-    toward their neighbours left two millimetres standing, which a bra
-    printed through - and the skin has no colour of its own there, the base
-    mesh carries no genitals, and the pose, a sheet or the shadow does the
-    rest. Close
-    garments are cut from the body's own surface, split finely and skinned
-    with the weights of the skin under them (`outfits.py`); a signed field
-    on the rest body says where the fabric ends and the material draws the
-    edge there, and a shrinkwrap puts back on top whatever a pose pushed
-    under the skin. A strap is narrower than that surface is fine - it
-    broke into beads over the shoulder - so straps are ribbons of their
-    own, laid along a path on the skin. A wrapped sheet is cloth, hung
-    round the posed body and left to settle; a towel is cloth laid across
-    a seated lap, dropped with the arms left out so the hands rest on it.
+    shoulder of a raised arm. Only her breasts settle toward the floor
+    (`Poser.apply(settle=...)`): settled, his chest read as soft as hers
+    under a hard side light.
+  - **The free steps are shot in lingerie; the poses show no anatomy; he
+    wears trousers.** Light, camera and editing are open without the 18+
+    question, so nobody in them is undressed. Every pose for him is shot in
+    trousers - jeans in «Контраст», whose card names them - because the
+    owner asked for it: his poses are about the back, the shoulders and
+    the arms (`test_library.py` reads each scene). The pose steps for her
+    imply nudity: before anything is rendered each nipple is laid flat onto
+    the breast's own curve - a quadric fitted to the skin round it
+    (`Human._soften`); drawing vertices toward their neighbours left two
+    millimetres standing, which a bra printed through - and the skin has no
+    colour of its own there, the base mesh carries no genitals, and the
+    pose, a sheet or the shadow does the rest. Close garments are cut from
+    the body's own surface, split finely and skinned with the weights of
+    the skin under them (`outfits.py`); a signed field on the rest body says
+    where the fabric ends and the material draws the edge there, and a
+    shrinkwrap puts back on top whatever a pose pushed under the skin. A
+    strap is narrower than that surface is fine - it broke into beads over
+    the shoulder - so straps are ribbons of their own, laid along a path on
+    the skin. Trousers stand off the shin (`_ease_legs`), span the seat in
+    one surface over both cheeks (`_ease_seat`), and keep only what a pose
+    pushed under the skin out of it (shrinkwrap `OUTSIDE`): laid on the
+    skin all the way, as the close garments are, they read as leggings and
+    showed the cleft. The hand counts as part of the arm when a garment is
+    cut, or a hand hanging level with the hips was dressed in the garment's
+    fabric. A wrapped sheet is cloth, hung round the posed body and left to
+    settle; a towel is cloth thrown over a shoulder and dropped there.
   - **The caption says the view and the light** (`ART_CAPTIONS`): at 136px
     a body turned away and a body in profile read nearly alike. Four cards
     about the phone's screen carry its controls over the photo in the old

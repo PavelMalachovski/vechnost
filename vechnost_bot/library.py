@@ -108,7 +108,7 @@ MODULES: dict[str, LibraryModule] = {
             emoji="📸",
             type="guide",
             paid=True,
-            count=29,
+            count=28,
         ),
         LibraryModule(
             id="reflection", title="Вопрос дня", emoji="🌙", type="daily", paid=False, count=365

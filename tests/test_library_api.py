@@ -137,7 +137,7 @@ def test_a_guides_pose_steps_wait_for_the_age_confirmation():
     the Library's categories follow, and the only way the gate is reachable."""
     body = client.get("/api/library/nude_guide").json()
     withheld = {w["id"]: w["total"] for w in body["nsfw_withheld"]}
-    assert withheld == {"her": 10, "him": 10}
+    assert withheld == {"her": 9, "him": 10}
     assert "her" not in [s["id"] for s in body["steps"]]
 
     confirmed = client.get("/api/library/nude_guide?nsfw=1").json()
@@ -168,7 +168,7 @@ def test_an_unpaid_caller_gets_the_first_step_and_no_more():
     assert body["locked"] is True
     assert [s["id"] for s in body["steps"]] == ["light"]
     assert body["free_count"] == 4
-    assert body["total"] == 29
+    assert body["total"] == 28
 
 
 def test_an_unpaid_caller_never_receives_the_pose_text():

@@ -111,7 +111,7 @@ def test_the_nude_guide_is_five_numbered_steps():
     assert {s.id: len(s.items) for s in steps} == {
         "light": 4,
         "camera": 3,
-        "her": 10,
+        "her": 9,
         "him": 10,
         "edit": 2,
     }
@@ -156,6 +156,44 @@ def test_every_picture_has_the_scene_it_is_rendered_from():
     scenes = set(re.findall(r'@scene\("([a-z0-9-]+)"\)', source))
     keys = {i.art for s in load_guide("nude_guide", Language.RUSSIAN) for i in s.items}
     assert scenes == keys
+
+
+def _scene_sources() -> dict[str, str]:
+    """Each scene's function body in scenes.py, by its key."""
+    source = (REPO / "scripts" / "guide_art" / "scenes.py").read_text(encoding="utf-8")
+    parts = re.split(r'@scene\("([a-z0-9-]+)"\)', source)[1:]
+    return dict(zip(parts[::2], parts[1::2], strict=True))
+
+
+def test_every_pose_for_him_is_shot_dressed():
+    """The owner asked for the man in trousers in every pose for him: the
+    poses are about his back, shoulders and arms. «Контраст» names jeans and
+    keeps them; a pose that wants a towel throws it over his shoulder."""
+    scenes = _scene_sources()
+    poses = [
+        i for s in load_guide("nude_guide", Language.RUSSIAN) if s.id == "him" for i in s.items
+    ]
+    for item in poses:
+        body = scenes[item.art]
+        assert "m_pose(" in body, item.art
+        assert 'outfit="trousers"' in body or 'outfit="jeans"' in body, item.art
+    assert "на бёдрах" not in " ".join(i.text for i in poses)
+
+
+def test_the_poses_are_where_the_owner_put_them():
+    """«Вдохновение» is a pose for him, shot with him; «Взгляд» is gone;
+    «Текстура» is face on, not in profile; the lotus is hers, with her."""
+    steps = {s.id: s for s in load_guide("nude_guide", Language.RUSSIAN)}
+    titles = {key: [i.title for i in steps[key].items] for key in ("her", "him")}
+    assert "Вдохновение" in titles["him"] and "Вдохновение" not in titles["her"]
+    assert "Взгляд" not in titles["him"]
+    assert "Поза лотоса" in titles["her"]
+    texture = next(i for i in steps["him"].items if i.title == "Текстура")
+    assert "анфас" in texture.text and "профиль" not in texture.text
+    scenes = _scene_sources()
+    for step, maker in (("her", "f_pose("), ("him", "m_pose(")):
+        for item in steps[step].items:
+            assert maker in scenes[item.art], f"{item.art} is shot with the wrong body"
 
 
 def test_a_picture_key_is_looked_up_never_used_as_a_path():

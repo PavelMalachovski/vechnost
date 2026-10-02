@@ -336,8 +336,9 @@ def grow_hair(
     length=0.56,
 ):
     """Strands from the scalp, grown in a style: long and loose, fanned out
-    round a head lying down, tied up in a bun, held up in the hands at
-    `grip`, or short (and wet, for him out of the bath)."""
+    round a head lying down, hanging from a head bowed low, tied up in a
+    bun, held up in the hands at `grip`, or short (and wet, for him out of
+    the bath)."""
     rng = rng or np.random.default_rng(7)
     head, Mx = head_frame(h)
     polys, _ok = scalp(h)
@@ -392,6 +393,24 @@ def grow_hair(
         # drawn to a point read as spikes round the head.
         clump, frizz, radii = 0.25, 0.0008, (0.00008, 0.00004)
         wave = (0.010, 0.012, 0.10, 0.08)
+    elif style == "down":
+        # A head bowed low over the knees: combed back, the hair wound round
+        # a skull whose back faces the ceiling and read as a man's crop. It
+        # leaves the scalp at once and hangs instead, a curtain from the
+        # crown past the face and down over the arms.
+        # Shoulder length, so it ends over the arms rather than standing on
+        # the floor like a column, and fanning a little out from the head.
+        L = 0.4 * (0.85 + 0.3 * rng.random(guides))
+
+        def fan(root):
+            out = root - head.c
+            out = out - (out @ H.G) * H.G
+            return 0.3 * out / max(np.linalg.norm(out), 1e-6)
+
+        g = H.grow(head_tree, trees, groots, gnormals, lambda p, n: H.G, L, points=30,
+                   offset=(0.002, 0.010), inertia=0.6, leave=2.0, rng=rng, drift=fan)  # fmt: skip
+        clump, frizz, radii = 0.6, 0.0007, (0.00007, 0.00003)
+        wave = (0.006, 0.010, 0.08, 0.06)
     elif style == "bun":
         # Tied up at the back of the crown: every strand runs there, and a
         # short tail is left over. For a bowed head, whose loose hair would
