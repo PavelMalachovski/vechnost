@@ -137,7 +137,7 @@ def test_a_guides_pose_steps_wait_for_the_age_confirmation():
     the Library's categories follow, and the only way the gate is reachable."""
     body = client.get("/api/library/nude_guide").json()
     withheld = {w["id"]: w["total"] for w in body["nsfw_withheld"]}
-    assert withheld == {"her": 10, "him": 10}
+    assert withheld == {"her": 9, "him": 10}
     assert "her" not in [s["id"] for s in body["steps"]]
 
     confirmed = client.get("/api/library/nude_guide?nsfw=1").json()
@@ -168,7 +168,7 @@ def test_an_unpaid_caller_gets_the_first_step_and_no_more():
     assert body["locked"] is True
     assert [s["id"] for s in body["steps"]] == ["light"]
     assert body["free_count"] == 4
-    assert body["total"] == 29
+    assert body["total"] == 28
 
 
 def test_an_unpaid_caller_never_receives_the_pose_text():
@@ -244,6 +244,25 @@ def test_every_item_the_guide_sends_has_its_picture():
         for item in step["items"]:
             res = client.get(f"/api/library/nude_guide/art/{item['art']}?nsfw=1")
             assert res.status_code == 200, item["art"]
+
+
+def test_each_picture_travels_with_its_fingerprint():
+    """A browser keeps a picture for a day, and a re-rendered picture keeps
+    its key («Вдохновение» took over him-8 from «Взгляд»): the fingerprint
+    of the bytes goes in the address the page asks for, so the new picture
+    is fetched rather than yesterday's shown."""
+    import hashlib
+
+    from vechnost_bot.library import guide_art_path
+
+    body = client.get("/api/library/nude_guide?nsfw=1").json()
+    items = [item for step in body["steps"] for item in step["items"]]
+    for item in items:
+        data = guide_art_path("nude_guide", item["art"]).read_bytes()
+        assert item["art_rev"] == hashlib.sha256(data).hexdigest()[:12], item["art"]
+        res = client.get(f"/api/library/nude_guide/art/{item['art']}?nsfw=1&v={item['art_rev']}")
+        assert res.status_code == 200 and res.content == data, item["art"]
+    assert len({item["art_rev"] for item in items}) == len(items)
 
 
 def test_a_picture_key_is_never_a_path():

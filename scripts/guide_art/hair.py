@@ -110,15 +110,23 @@ def grow(
     drift=None,
 ):
     """Guides: along the scalp with `flow`, then falling - toward `drift`
-    as well as down, so long hair clears the shoulders behind them. With
+    as well as down, so long hair clears the shoulders behind them; a
+    callable `drift` gives each strand its own, from its root. With
     `grip`, a strand leaves the scalp as soon as it can see the grip, runs
     straight to it, and what is left of it hangs from there."""
-    fall = _unit(G + (np.zeros(3) if drift is None else np.asarray(drift, dtype=float)))
+
+    def falling(root):
+        if drift is None:
+            return G
+        lean = drift(root) if callable(drift) else drift
+        return _unit(G + np.asarray(lean, dtype=float))
+
     rng = rng or np.random.default_rng(0)
     n = len(roots)
     lens = np.broadcast_to(np.asarray(length, dtype=float), (n,))
     out = np.zeros((n, points, 3))
     for i in range(n):
+        fall = falling(roots[i])
         seg = lens[i] / (points - 1)
         off = rng.uniform(*offset)
         p = roots[i] + normals[i] * off

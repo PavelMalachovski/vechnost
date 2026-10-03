@@ -1,6 +1,5 @@
 """FastAPI web server for handling Tribute webhooks and the Mini App."""
 
-import asyncio
 import hmac
 import json
 import logging
@@ -22,20 +21,17 @@ from starlette.types import Scope
 
 from .. import analytics, referrals
 from ..config import settings
-from ..freemium import FREE_CARDS_PER_DECK, free_slice, is_index_free
+from ..freemium import FREE_CARDS_PER_DECK, free_slice
 from ..heartbeat import deep_status
-from ..i18n import Language, get_text
+from ..i18n import Language
 from ..logic import localized_game_data
-from ..models import ContentType, Theme
 from ..paths import ASSETS, WEBAPP
-from ..renderer import get_background_path, render_card_bytes
 from .compat_api import router as compat_router
 from .database import close_db, get_db, init_db
 from .gifts import gift_offer
 from .grant_notify import notify_access_granted
 from .library_api import router as library_router
 from .repositories import UserRepository
-from .rooms import room_dealt_card
 from .rooms import router as rooms_router
 from .services import (
     apply_webhook_event,
@@ -474,77 +470,12 @@ async def get_questions(
         if gift_price:
             access["gift_price"] = gift_price
 
-    bot_url = f"https://t.me/{settings.bot_username}" if settings.bot_username else None
-
     return JSONResponse(
         content={
             "lang": language.value,
             "themes": themes,
             "access": access,
-            "bot_url": bot_url,
         },
-        headers={"Cache-Control": "private, max-age=3600"},
-    )
-
-
-@app.get("/api/card", dependencies=[Depends(throttle("render"))])
-async def get_card_image(
-    theme: str,
-    idx: int,
-    level: int = 0,
-    type: str = "questions",
-    lang: str = "ru",
-    room: str | None = None,
-    authorization: str | None = Header(default=None),
-) -> Response:
-    """
-    One card rendered as a branded share image (JPEG).
-
-    Free-preview cards are public; cards past the free prefix require the
-    same paid initData as the full question list - or, with `room`, a seat
-    in a room that has dealt the caller this card: the partner who did not
-    pay plays a paid room's whole deck and may share it like the one who did.
-    """
-    try:
-        theme_enum = Theme(theme)
-        content_type = ContentType(type)
-    except ValueError as e:
-        raise HTTPException(status_code=404, detail="unknown deck") from e
-
-    language = Language.coerce(lang)
-
-    items = localized_game_data.get_content(theme_enum, level or None, content_type, language)
-    if not items or idx < 0 or idx >= len(items):
-        raise HTTPException(status_code=404, detail="card not found")
-
-    if (
-        not is_index_free(idx)
-        and not await _request_is_paid(authorization)
-        and not (
-            room
-            and await room_dealt_card(
-                room, authorization, theme_enum, level or None, content_type, idx
-            )
-        )
-    ):
-        raise HTTPException(status_code=403, detail="payment_required")
-
-    bg_path = get_background_path(
-        theme_enum.value_short(),
-        level,
-        "q" if content_type == ContentType.QUESTIONS else "t",
-    )
-    theme_label = get_text(f"themes.{theme_enum.value}", language)
-    plain_label = "".join(ch for ch in theme_label if ch.isalpha() or ch.isspace()).strip()
-    footer = f"{plain_label} · {idx + 1}/{len(items)}"
-    watermark = f"VECHNOST · @{settings.bot_username}" if settings.bot_username else "VECHNOST"
-
-    # Off the loop, and memoised per card: a composite is ~25 ms of Pillow,
-    # and running it inline here stalled the webhook and every game.
-    image = await asyncio.to_thread(render_card_bytes, items[idx], bg_path, footer, watermark)
-    return Response(
-        content=image,
-        media_type="image/jpeg",
         headers={"Cache-Control": "private, max-age=3600"},
     )
 

@@ -64,7 +64,10 @@ def test_forward_stands_in_the_middle_of_every_deck(server: Server, phones) -> N
     open_first_deck(solo)
     solo.screen("deck")
     settle_card(solo)
-    assert solo.page.is_visible("#btnPrev") and solo.page.is_visible("#btnShare")
+    assert solo.page.is_visible("#btnPrev")
+    # Back and forward only: the share button is gone, and with it every way
+    # of saving a card or sending it out of the app.
+    assert solo.page.locator("#deck .deck-controls .ctrl").count() == 2
     assert abs(forward_offset(solo, "deck")) < 1
 
     host = phones(server.player("Carol", paid=True))

@@ -1,6 +1,6 @@
-"""What they wear on the free cards and a few paid ones.
+"""What they wear on the free cards and on every pose for him.
 
-Close-fitting garments - the bra and briefs, boxers, jeans - are cut from
+Close-fitting garments - the bra and briefs, jeans, trousers - are cut from
 the body's own surface: the faces around a region, pushed a few
 millimetres out along the rest normals, split sixteen ways, and skinned
 with the weights of the body vertices under them, so they move with every
@@ -10,10 +10,12 @@ field (centimetres, positive inside) written in the rest pose from the
 body's landmarks, stored on the garment, and read by its material, which
 draws the edge at zero. A bra's straps are narrower than that surface is
 fine, so they are ribbons of their own, laid along a path on the skin.
+Trousers stand off the shin and span the seat, as trousers do, rather
+than follow the skin.
 
 What hangs rather than clings - a sheet wrapped round a seated body, a
-towel across a seated lap - is cloth, dropped over the posed body and left
-to settle.
+towel thrown over a shoulder - is cloth, dropped over the posed body and
+left to settle.
 """
 
 from __future__ import annotations
@@ -27,6 +29,9 @@ from . import props as P
 from .human import Human
 
 ARM_BONES = ("shoulder01", "upperarm01", "upperarm02", "lowerarm01", "lowerarm02", "wrist")
+# The hand is part of the arm too: a hand hanging at rest is level with the
+# hips, and a garment cut by height alone dressed it in its own fabric.
+HAND_BONES = ("metacarpal", "finger")
 LEG_BONES = ("upperleg01", "upperleg02", "lowerleg01", "lowerleg02", "foot")
 
 
@@ -65,7 +70,8 @@ class Fit:
         arm, leg = np.zeros(n), np.zeros(n)
         for bone, pairs in mh.weights("default").items():
             stem = bone.split(".")[0]
-            dest = arm if stem in ARM_BONES else leg if stem in LEG_BONES else None
+            hand = stem.startswith(HAND_BONES)
+            dest = arm if stem in ARM_BONES or hand else leg if stem in LEG_BONES else None
             if dest is None:
                 continue
             for i, w in pairs:
@@ -230,15 +236,17 @@ def ribbon(h: Human, fit: Fit, path, material, width=1.1, offset=0.45, name="str
     return ob
 
 
-def _keep_outside(ob, h: Human, offset):
+def _keep_outside(ob, h: Human, offset, snap="OUTSIDE_SURFACE"):
     """Posed, the skin under a garment is not where the rest pose left it: a
     lowered arm bunches the top of the shoulder, and the body is smoothed
     one level more than its clothes. Whatever of a garment ends up under
-    the skin is put back on top of it."""
+    the skin is put back on top of it. `OUTSIDE_SURFACE` lays the whole
+    garment on the skin, which is what a close fit wants; `OUTSIDE` moves
+    only what went under it, and leaves a looser fit standing off the body."""
     keep = ob.modifiers.new("outside", "SHRINKWRAP")
     keep.target = h.ob
     keep.wrap_method = "NEAREST_SURFACEPOINT"
-    keep.wrap_mode = "OUTSIDE_SURFACE"
+    keep.wrap_mode = snap
     keep.offset = offset / 100.0 * 0.6
 
 
@@ -255,18 +263,35 @@ def briefs_field(f: Fit, co, limb, rise=4.5, cheek=6.0):
     return np.where(limb["arm"] > 0.3, -5.0, out)
 
 
-def boxers_field(f: Fit, co, limb):
-    z = co[:, 2]
-    top = (f.hip[2] + 5.0) - z
-    bottom = z - (f.hip[2] - 21.0)
-    return np.where(limb["arm"] > 0.3, -5.0, np.minimum(top, bottom))
-
-
 def jeans_field(f: Fit, co, limb):
     z = co[:, 2]
     top = (f.hip[2] + 6.0) - z
     ankle = z - 9.0
     return np.where(limb["arm"] > 0.3, -5.0, np.minimum(top, ankle))
+
+
+TROUSERS_RISE = 8.5  # the waist, in cm over the hip joints: a mid rise
+TROUSERS_BACK = 4.0  # and this much higher behind, as trousers are cut
+
+
+def _waist(f: Fit, co):
+    """The waistband's top edge at each point, a little higher at the back:
+    level all round, it slid down a back that bends over a chair."""
+    behind = _smooth(f.hip[1] - 3, f.hip[1] + 6, co[:, 1])
+    return f.hip[2] + TROUSERS_RISE + TROUSERS_BACK * behind
+
+
+def trousers_field(f: Fit, co, limb):
+    """Trousers: to a mid-rise waist, and down over the ankle bone."""
+    z = co[:, 2]
+    top = _waist(f, co) - z
+    hem = z - 5.5
+    return np.where(limb["arm"] > 0.3, -5.0, np.minimum(top, hem))
+
+
+def waist_field(f: Fit, co, limb):
+    """How far below the waistband's top edge a point is: where a belt goes."""
+    return _waist(f, co) - co[:, 2]
 
 
 def shell(
@@ -279,13 +304,17 @@ def shell(
     name="garment",
     cuts=3,
     bridge=0,
+    extra=None,
+    snap="OUTSIDE_SURFACE",
 ):
     """A garment cut from the body: the faces within `margin` cm of the
     field's region, `offset` cm out from the skin, each split into
     (cuts + 1)^2 so that an edge has vertices close to it; every new vertex
     takes its skin weights - and its side of the edge - from the body
     vertices nearest it. `bridge` rounds of `_bridge` let the fabric span
-    what cloth spans rather than follow the skin into it."""
+    what cloth spans rather than follow the skin into it. `extra` names
+    more fields to store beside `cut`, for the material to read (where a
+    belt runs)."""
     import bmesh
     from scipy.sparse import csr_matrix
     from scipy.spatial import cKDTree
@@ -316,6 +345,10 @@ def shell(
     limb = {k: blend @ v for k, v in fit.limb.items()}
     cut = me.attributes.new("cut", "FLOAT", "POINT")
     cut.data.foreach_set("value", np.asarray(field(co, limb), dtype=np.float32))
+    for key, more in (extra or {}).items():
+        me.attributes.new(key, "FLOAT", "POINT").data.foreach_set(
+            "value", np.asarray(more(co, limb), dtype=np.float32)
+        )
     if bridge:
         edges = np.zeros(len(me.edges) * 2, dtype=np.int64)
         me.edges.foreach_get("vertices", edges)
@@ -325,7 +358,7 @@ def shell(
     bpy.context.scene.collection.objects.link(ob)
     me.materials.append(material)
     h.bind(ob, subdiv=1, blend=blend)
-    _keep_outside(ob, h, offset)
+    _keep_outside(ob, h, offset, snap)
     return ob
 
 
@@ -369,15 +402,6 @@ def lingerie(h: Human, color=LINGERIE):
     return [bra, *straps, low]
 
 
-def boxers(h: Human):
-    fit = Fit(h)
-    m = M.garment(
-        "boxers", (0.025, 0.025, 0.03), kind="cotton", band=3.2, band_color=(0.012, 0.012, 0.014)
-    )
-    field = lambda co, limb: boxers_field(fit, co, limb)  # noqa: E731
-    return [shell(h, fit, field, m, offset=0.5, name="boxers", bridge=30)]
-
-
 def jeans(h: Human):
     fit = Fit(h)
     ob = shell(
@@ -396,6 +420,129 @@ def jeans(h: Human):
     d.texture = tex
     d.texture_coords = "LOCAL"
     d.strength = 0.007
+    return [ob]
+
+
+TROUSERS = (0.026, 0.025, 0.029)  # charcoal
+
+
+def _ease_legs(ob, fit: Fit, radius=7.2, fade=16.0, soft=1.5):
+    """Trouser legs hang straight from the knee: every point below it is
+    moved out from its leg's own axis (knee to ankle, carried on below)
+    until it is at least `radius` cm from it, the minimum fading away over
+    `fade` cm above the knee, where the thigh is wider anyway. A shell that
+    follows the skin all the way down reads as leggings."""
+    me = ob.data
+    co = np.zeros(len(me.vertices) * 3)
+    me.vertices.foreach_get("co", co)
+    co = co.reshape(-1, 3) * 100.0
+    out = co.copy()
+    for side, mine in (("l", co[:, 0] > 0), ("r", co[:, 0] <= 0)):
+        knee = fit.h.landmark(f"joint-{side}-knee") * 100.0
+        ankle = fit.h.landmark(f"joint-{side}-ankle") * 100.0
+        axis = (knee - ankle) / np.linalg.norm(knee - ankle)
+        p = co[mine]
+        t = (p - ankle) @ axis
+        radial = p - (ankle + np.outer(t, axis))
+        r = np.linalg.norm(radial, axis=1)
+        want = radius * (1 - _smooth(knee[2], knee[2] + fade, p[:, 2]))
+        # A soft maximum, so the ease starts without a crease.
+        new = (r + want + np.sqrt((r - want) ** 2 + soft * soft)) / 2 - soft / 2
+        new = np.maximum(new, r)
+        out[mine] = p + radial / np.maximum(r, 1e-6)[:, None] * (new - r)[:, None]
+    me.vertices.foreach_set("co", (out / 100.0).ravel())
+    me.update()
+
+
+def _upper_hull(t, v):
+    """The upper convex hull of the points (t, v), as v over t at each t:
+    whatever dips below the line between two higher points is lifted to
+    it."""
+    order = np.argsort(t)
+    hull = []
+    for k in order:
+        while len(hull) >= 2:
+            (t1, v1), (t2, v2) = (t[hull[-2]], v[hull[-2]]), (t[hull[-1]], v[hull[-1]])
+            if (t2 - t1) * (v[k] - v1) - (v2 - v1) * (t[k] - t1) >= 0:
+                hull.pop()
+            else:
+                break
+        hull.append(k)
+    return np.interp(t, t[hull], v[hull])
+
+
+def _ease_seat(ob, fit: Fit, half=9.0, band=1.5, column=1.0):
+    """The seat of trousers is one surface over both cheeks and down onto
+    the thighs. Near the middle of the back each point is lifted back to
+    the cheeks' rear contour at its own height (fully at the middle, not at
+    all `half` cm to either side), and then each column of the back from
+    the thigh to the waist to the envelope of its own profile, so the
+    folds under the cheeks are spanned. A shell that follows the skin
+    showed the cleft, down to a dark gap at the crotch."""
+    me = ob.data
+    co = np.zeros(len(me.vertices) * 3)
+    me.vertices.foreach_get("co", co)
+    co = co.reshape(-1, 3) * 100.0  # Blender axes, cm: x left, -y front, z up
+    x, y, z = co.T
+    behind = y > fit.hip[1]
+    seat = behind & (np.abs(x) < half) & (z > fit.crotch - 4.0) & (z < fit.hip[2] + 10.0)
+    cheeks = behind & (np.abs(x) > 3.0) & (np.abs(x) < 11.0)
+    out = y.copy()
+    for i in np.flatnonzero(seat):
+        near = cheeks & (np.abs(z - z[i]) < band)
+        if not near.any():
+            continue
+        # Fading in above the crotch, or the lifted seat ends in a ledge
+        # over it and its shadow reads as a slit.
+        w = (1.0 - _smooth(0.0, half, abs(x[i]))) * _smooth(
+            fit.crotch - 4.0, fit.crotch + 8.0, z[i]
+        )
+        out[i] = max(y[i], y[i] + (y[near].max() - y[i]) * w)
+    back = behind & (np.abs(x) < 17.0) & (z > fit.crotch - 16.0) & (z < fit.hip[2] + 10.0)
+    for xc in np.arange(-17.0, 17.0 + column, column):
+        col = np.flatnonzero(back & (np.abs(x - xc) < column / 2))
+        if len(col) >= 3:
+            out[col] = np.maximum(out[col], _upper_hull(z[col], out[col]))
+    co[:, 1] = out
+    me.vertices.foreach_set("co", (co / 100.0).ravel())
+    me.update()
+
+
+def trousers(h: Human, color=TROUSERS):
+    """Dark wool trousers and a black leather belt: what every pose for him
+    wears, so that a pose shows a back, shoulders and arms and nothing a
+    reader has to look away from."""
+    fit = Fit(h)
+    m = M.garment(
+        "trousers",
+        color,
+        kind="wool",
+        band=3.4,
+        band_color=(0.010, 0.008, 0.007),
+        band_attr="waist",
+        band_rough=0.55,
+    )
+    ob = shell(
+        h,
+        fit,
+        lambda co, limb: trousers_field(fit, co, limb),
+        m,
+        offset=1.4,
+        name="trousers",
+        bridge=40,
+        extra={"waist": lambda co, limb: waist_field(fit, co, limb)},
+        snap="OUTSIDE",
+    )
+    _ease_legs(ob, fit)
+    _ease_seat(ob, fit)
+    # A crease at the knee and the hip, softer than denim's: deeper, a hard
+    # lamp raking across the front drew them as stains.
+    tex = bpy.data.textures.new("trouser_folds", "CLOUDS")
+    tex.noise_scale = 0.05
+    d = ob.modifiers.new("folds", "DISPLACE")
+    d.texture = tex
+    d.texture_coords = "LOCAL"
+    d.strength = 0.004
     return [ob]
 
 
@@ -477,43 +624,30 @@ def body_wrap(
     return ob, fwd, right
 
 
-def towel(h: Human, colliders=()):
-    """A bath towel across the lap of someone sitting: tucked in front of
-    the belly, laid on the thighs, falling past the knees and down both
-    sides. The arms are left out of the drop, so hands resting on the knees
-    lie on top of it rather than under it."""
-    names, W = h.weights()
-    stems = [n.split(".")[0] for n in names]
-    cols = [k for k, st in enumerate(stems) if st in ARM_BONES[1:] or st.startswith("finger")]
-    share = np.asarray(W[:, cols].sum(axis=1)).ravel()
-    arm = share > 0.5
+def shoulder_towel(h: Human, side="l", colliders=(), size=(28.0, 96.0)):
+    """A bath towel thrown over one shoulder: laid level across the top of
+    it, between the neck and the arm, its length running front to back,
+    and dropped, so one end hangs down the chest and over the arm and the
+    other down the back."""
+    from mathutils import Matrix, Vector
 
-    def cm(b):  # Blender metres to the scenes' centimetres
-        return np.asarray(b)[..., [0, 2, 1]] * np.array([100.0, 100.0, -100.0])
-
-    hips = cm((h.bone_now("upperleg01.L") + h.bone_now("upperleg01.R")) / 2)
-    knees = cm((h.bone_now("lowerleg01.L") + h.bone_now("lowerleg01.R")) / 2)
-    body = cm(_posed_points(h.ob))[: len(share)]
-    torso = body[~arm]
-    x, y, z = torso.T
-    near = np.abs(x - hips[0]) < 12.0
-    belly = z[near & (y > hips[1] + 4.0) & (y < hips[1] + 14.0)].max()
-    # The thighs' top, below whatever of a bowed head or chest is over them.
-    thighs = (np.abs(x - hips[0]) < 26.0) & (z > belly) & (z < knees[2]) & (y < hips[1] + 18.0)
-    top = y[thighs].max() + 3.0
-    w, d = 72.0, knees[2] - belly + 16.0
-    centre = ((hips[0] + knees[0]) / 2, top, belly + 1.0 + d / 2)
-    ob = P.cloth_sheet(centre, (w, d), M.terry(), res=1.6, noise=1.0, seed=9, name="towel")
-    tuck = [v.index for v in ob.data.vertices if -v.co.y * 100.0 < belly + 2.5]
-    ob.vertex_groups.new(name="tuck").add(tuck, 1.0, "REPLACE")
-    arms = h.ob.vertex_groups.new(name="arms")
-    arms.add([int(i) for i in np.flatnonzero(arm)], 1.0, "REPLACE")
-    mask = h.ob.modifiers.new("no_arms", "MASK")
-    mask.vertex_group = "arms"
-    mask.invert_vertex_group = True
-    P.drape([ob], [h.ob, *colliders], frames=70, mass=0.4, bend=0.4, thickness=1.2, pin="tuck")
-    h.ob.modifiers.remove(mask)
-    h.ob.vertex_groups.remove(arms)
+    s = "L" if side == "l" else "R"
+    shoulder = h.bone_now(f"upperarm01.{s}")
+    neck = h.bone_now("neck01")
+    other = h.bone_now(f"upperarm01.{'R' if s == 'L' else 'L'}")
+    top = shoulder * 0.55 + neck * 0.45
+    # Scene centimetres (x right, y up, z toward the camera), as props take.
+    centre = (top[0] * 100.0, top[2] * 100.0 + 9.0, -top[1] * 100.0)
+    ob = P.cloth_sheet(centre, size, M.terry(), res=1.6, noise=0.5, seed=5, name="towel")
+    # Turn it so its width lies along the shoulders, whichever way he faces.
+    across = other - shoulder
+    turn = float(np.arctan2(across[1], across[0]))
+    pivot = Vector(P.V(centre))
+    ob.data.transform(
+        Matrix.Translation(pivot) @ Matrix.Rotation(turn, 4, "Z") @ Matrix.Translation(-pivot)
+    )
+    ob.data.update()
+    P.drape([ob], [h.ob, *colliders], frames=70, mass=0.4, bend=0.5, thickness=1.2)
     return [ob]
 
 

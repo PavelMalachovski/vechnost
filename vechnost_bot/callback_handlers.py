@@ -129,6 +129,35 @@ def _card_watermark() -> str:
     return "VECHNOST"
 
 
+async def _show_card(query: Any, image: bytes, keyboard: Any) -> None:
+    """Put a card's picture in the chat, to be read there and kept nowhere.
+
+    A card goes out with `protect_content`, and Telegram then neither
+    forwards it nor saves it: a card is not something to send on (the Mini
+    App lost its share button for the same reason). Protection is fixed
+    when a message is sent, so only a protected card is edited into the
+    next one. Anything else under the button - the calendar's text, a card
+    sent before cards were protected - gets the card as a new message, and
+    an old unprotected card is deleted rather than left forwardable above.
+    """
+    message = query.message
+    protected = getattr(message, "has_protected_content", None) is True
+    if protected:
+        try:
+            await query.edit_message_media(
+                media=InputMediaPhoto(media=image), reply_markup=keyboard
+            )
+            return
+        except Exception as edit_error:
+            logger.warning(f"Could not edit the card: {edit_error}, sending a new one")
+    await message.reply_photo(photo=image, reply_markup=keyboard, protect_content=True)
+    if not protected and message.photo:
+        try:
+            await message.delete()
+        except Exception as delete_error:
+            logger.warning(f"Could not delete an unprotected card: {delete_error}")
+
+
 async def _card_is_locked_for(query: Any, index: int) -> bool:
     """Freemium gate: True if this card index is paid and the user hasn't paid."""
     from .config import settings
@@ -637,20 +666,10 @@ class QuestionHandler(CallbackHandler):
             )
             logger.info(f"Card rendered successfully, size: {len(image)} bytes")
 
-            # Try to edit message to photo, fallback to new message if that fails.
             # Bytes, not a BytesIO: InputMediaPhoto reads a file object to
             # the end, and the fallback used to send what was left of it -
             # an empty file, which Telegram refuses.
-            try:
-                await query.edit_message_media(
-                    media=InputMediaPhoto(media=image), reply_markup=keyboard
-                )
-            except Exception as edit_error:
-                logger.warning(
-                    f"Could not edit message to photo: {edit_error}, sending new message"
-                )
-                # Fallback: send new photo message
-                await query.message.reply_photo(photo=image, reply_markup=keyboard)
+            await _show_card(query, image, keyboard)
         except Exception as e:
             logger.error(f"Error rendering card image: {e}", exc_info=True)
             # Fallback to text message
@@ -750,20 +769,10 @@ class NavigationHandler(CallbackHandler):
             )
             logger.info(f"Card rendered successfully, size: {len(image)} bytes")
 
-            # Try to edit message to photo, fallback to new message if that fails.
             # Bytes, not a BytesIO: InputMediaPhoto reads a file object to
             # the end, and the fallback used to send what was left of it -
             # an empty file, which Telegram refuses.
-            try:
-                await query.edit_message_media(
-                    media=InputMediaPhoto(media=image), reply_markup=keyboard
-                )
-            except Exception as edit_error:
-                logger.warning(
-                    f"Could not edit message to photo: {edit_error}, sending new message"
-                )
-                # Fallback: send new photo message
-                await query.message.reply_photo(photo=image, reply_markup=keyboard)
+            await _show_card(query, image, keyboard)
         except Exception as e:
             logger.error(f"Error rendering card image: {e}", exc_info=True)
             # Fallback to text message

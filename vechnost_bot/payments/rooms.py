@@ -250,45 +250,6 @@ async def _opened(code: str, user_id: int, language: Language) -> dict[str, Any]
         return _room_state(room, user_id, language)
 
 
-async def room_dealt_card(
-    code: str,
-    authorization: str | None,
-    theme: Theme,
-    level: int | None,
-    content_type: ContentType,
-    index: int,
-) -> bool:
-    """Whether the caller sits in this room and it has dealt them this card.
-
-    What `/api/card` asks before refusing a card past the free prefix to an
-    unpaid caller: in a room the creator paid for (or one a payment opened),
-    the partner who did not pay is shown every card, and must be able to
-    share the one on the table the same as the partner who did. Only a card
-    already dealt, never one still in the deck, and any doubt is a no.
-    """
-    try:
-        user_id, _ = _identity(authorization, None)
-    except HTTPException:
-        return False
-    code = code.strip().upper()
-    if not invites.valid_code(code):
-        return False
-    async with get_db() as session:
-        room = await RoomRepository.get_by_code(session, code)
-        if room is None or user_id not in _seats(room):
-            return False
-        if datetime.utcnow() - room.updated_at > ROOM_TTL:
-            return False
-        if (room.theme, room.level or None, room.content_type) != (
-            theme.value,
-            level or None,
-            content_type.value,
-        ):
-            return False
-        dealt = list(room.card_order or [])[: room.idx + 1]
-        return index in dealt
-
-
 @router.post("", dependencies=[Depends(throttle("create"))])
 async def create_room(
     body: CreateRoomRequest,

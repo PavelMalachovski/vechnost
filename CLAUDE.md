@@ -287,8 +287,7 @@ python scripts/smoke_production.py $URL --deep  # ...and its database and bot he
   carries on from the next one. It used to be decided once, by the creator,
   at creation (audit B-20). An 18+ room also keeps its seat empty until the
   person opening the link sends `nsfw=1` (403 until then), so a partner who
-  says no is never seated. `/api/card?room=` lets the partner who did not
-  pay share a card the room has dealt them, and only such a card.
+  says no is never seated.
 - **Taking a seat makes a pair.** Whichever door the guest came in by,
   the join calls `payments/partners.py::seat_taken` in its transaction,
   right after the conditional UPDATE and never for a creator reopening their
@@ -432,7 +431,7 @@ python scripts/smoke_production.py $URL --deep  # ...and its database and bot he
   `data/library/art/nude_guide/<key>.webp`, 540 by 585, the old drawing's
   12:13 frame. It needs Blender as a Python module (`bpy`), which is built
   for Python 3.11 only: a venv of its own with `pip install -e ".[art]"`;
-  about two minutes a picture, an hour for all 29. The pictures replaced
+  about two minutes a picture, an hour for all 28. The pictures replaced
   line drawings generated in the page, then numpy renders of smooth
   figures that read as plasticine. Six things hold them together:
   - **Served like the words, never linked.** `GET
@@ -443,7 +442,10 @@ python scripts/smoke_production.py $URL --deep  # ...and its database and bot he
     initData as its card nears the screen (`loadGuideArt`) and keeps it for
     the session; an `<img src>` cannot send initData, and a static file
     would be the paywall's back door. `guide_art_path` looks a key up by
-    name and never uses it as a path.
+    name and never uses it as a path. The browser may keep a picture for a
+    day, and a re-rendered one keeps its key, so each item carries the
+    fingerprint of its picture (`art_rev`, `library.guide_art_rev`) and the
+    page asks for `…/art/<key>?v=<art_rev>`: a new picture is a new address.
   - **The bodies are MakeHuman's.** The HM08 mesh, its morph targets and
     the default skeleton with its weights, all CC0, read without MakeHuman
     by `guide_art/makehuman.py` from the `anny` wheel on PyPI, which ships
@@ -456,7 +458,10 @@ python scripts/smoke_production.py $URL --deep  # ...and its database and bot he
     (`hair.py`): from a scalp above a hairline drawn round the head
     (`human.HAIRLINE`; MakeHuman's hair helper sits off the head and leaves
     the forehead bald), along it first, then falling behind the shoulders
-    and over whatever the body lies on.
+    and over whatever the body lies on. A head bowed low gets the `down`
+    style, hair that leaves the scalp at once and hangs: combed back, it
+    wound round a skull whose back faces the ceiling, and the lotus woman
+    read as a man with a crop.
   - **A pose is the old drawing's, reached for by the new body.**
     `skeleton.py` resolves a scene's pose - the pelvis, the frames of
     pelvis, chest and head, each limb by target points or in the body's own
@@ -465,25 +470,35 @@ python scripts/smoke_production.py $URL --deep  # ...and its database and bot he
     the body's own lengths (never stretched), and a raised arm takes its
     collarbone along. The rig is MakeHuman's `default` with linear
     blending; the game-engine rig, and volume preservation, balloon the
-    shoulder of a raised arm.
-  - **The free steps are shot in lingerie; the poses show no anatomy.**
-    Light, camera and editing are open without the 18+ question, so nobody
-    in them is undressed. The pose steps imply nudity: before anything is
-    rendered each nipple is laid flat onto the breast's own curve - a
-    quadric fitted to the skin round it (`Human._soften`); drawing vertices
-    toward their neighbours left two millimetres standing, which a bra
-    printed through - and the skin has no colour of its own there, the base
-    mesh carries no genitals, and the pose, a sheet or the shadow does the
-    rest. Close
-    garments are cut from the body's own surface, split finely and skinned
-    with the weights of the skin under them (`outfits.py`); a signed field
-    on the rest body says where the fabric ends and the material draws the
-    edge there, and a shrinkwrap puts back on top whatever a pose pushed
-    under the skin. A strap is narrower than that surface is fine - it
-    broke into beads over the shoulder - so straps are ribbons of their
-    own, laid along a path on the skin. A wrapped sheet is cloth, hung
-    round the posed body and left to settle; a towel is cloth laid across
-    a seated lap, dropped with the arms left out so the hands rest on it.
+    shoulder of a raised arm. Only her breasts settle toward the floor
+    (`Poser.apply(settle=...)`): settled, his chest read as soft as hers
+    under a hard side light.
+  - **The free steps are shot in lingerie; the poses show no anatomy; he
+    wears trousers.** Light, camera and editing are open without the 18+
+    question, so nobody in them is undressed. Every pose for him is shot in
+    trousers - jeans in «Контраст», whose card names them - because the
+    owner asked for it: his poses are about the back, the shoulders and
+    the arms (`test_library.py` reads each scene). The pose steps for her
+    imply nudity: before anything is rendered each nipple is laid flat onto
+    the breast's own curve - a quadric fitted to the skin round it
+    (`Human._soften`); drawing vertices toward their neighbours left two
+    millimetres standing, which a bra printed through - and the skin has no
+    colour of its own there, the base mesh carries no genitals, and the
+    pose, a sheet or the shadow does the rest. Close garments are cut from
+    the body's own surface, split finely and skinned with the weights of
+    the skin under them (`outfits.py`); a signed field on the rest body says
+    where the fabric ends and the material draws the edge there, and a
+    shrinkwrap puts back on top whatever a pose pushed under the skin. A
+    strap is narrower than that surface is fine - it broke into beads over
+    the shoulder - so straps are ribbons of their own, laid along a path on
+    the skin. Trousers stand off the shin (`_ease_legs`), span the seat in
+    one surface over both cheeks (`_ease_seat`), and keep only what a pose
+    pushed under the skin out of it (shrinkwrap `OUTSIDE`): laid on the
+    skin all the way, as the close garments are, they read as leggings and
+    showed the cleft. The hand counts as part of the arm when a garment is
+    cut, or a hand hanging level with the hips was dressed in the garment's
+    fabric. A wrapped sheet is cloth, hung round the posed body and left to
+    settle; a towel is cloth thrown over a shoulder and dropped there.
   - **The caption says the view and the light** (`ART_CAPTIONS`): at 136px
     a body turned away and a body in profile read nearly alike. Four cards
     about the phone's screen carry its controls over the photo in the old
@@ -671,14 +686,14 @@ python scripts/smoke_production.py $URL --deep  # ...and its database and bot he
   dependencies (the client's budget is checked before the global one, and an
   attempt counts only once it passes both - refused requests used to spend
   everyone's ceiling, so one address could lock every couple out): `throttle("join")` on anything that takes a six-character
-  code, `throttle("render")` on `/api/card`, `throttle("admin")` on the
+  code, `throttle("admin")` on the
   admin routes, `throttle("write")` on in-game writes. Windows are
   in-process (every throttled endpoint lives in the single web process;
   the bot runs beside it as a second process), and the `join` bucket also
   has a **global** ceiling because `X-Forwarded-For` is client-settable and
   a per-client budget alone would not bound a code sweep. The per-client
   budget is the **person** where the Mini App calls (`BY_PERSON`: create,
-  join, write, render) and the initData validates, keyed `tg:<id>`; the
+  join, write, events) and the initData validates, keyed `tg:<id>`; the
   address otherwise (anonymous requests, the webhook, admin). Keyed by
   address, strangers behind one carrier NAT shared one `join` and `write`
   budget, and initData that fails validation still counts against its
@@ -1059,20 +1074,34 @@ python scripts/smoke_production.py $URL --deep  # ...and its database and bot he
   nothing but the ↩ button went back. The ↩ button and the left arrow key
   go back without a flight; a room has no back, so a swipe right there
   springs back. Extend those, don't fork them.
-- **A deck's panel has three fixed slots, and a deck has one counter.**
-  Back, forward and share each own a column of `.deck-controls`, so a deck
-  without one of them – a room has no back, the Library no share – leaves
-  the slot empty and forward stays in the middle; it used to slide 36 px
-  either way (audit D-29). A deck of one card, the question of the day, is
-  marked `one-card` and shows no bar, hint or buttons. The count is printed
-  on the card with its unit – «Карта 3 из 20» (`cardOf`), «День 271 из
-  365» – and the bar above it is a gauge (`role="progressbar"`, set by
+- **A deck's panel has fixed slots, and a deck has one counter.** Back
+  and forward each own a column of `.deck-controls`, forward the middle of
+  three, so a deck without a back – a room has none – leaves the slot empty
+  and forward stays in the middle; it used to slide 36 px either way (audit
+  D-29). The third column held a share button and stays empty, keeping
+  forward centred under the card (see the next bullet). A deck of one
+  card, the question of the day, is marked `one-card` and shows no bar,
+  hint or buttons. The count is printed on the card with its unit –
+  «Карта 3 из 20» (`cardOf`), «День 271 из 365» – and the bar above it is
+  a gauge (`role="progressbar"`, set by
   `showProgress`) that reads the same words to a screen reader; the bare
   «3 / 20» beside it is gone (audit D-30). The compatibility test has no
   card, so its one counter stays over the question, unit and all («Вопрос
   12 из 40»). A browser test reads where a deck is from the bar's
   `aria-valuenow` and `aria-valuemax` (`PROGRESS_JS` in
   `tests/e2e/browser/app.py`).
+- **A card is played, not kept.** The owner asked for the way to save a
+  card and send it on to go: the deck's share button (the card as a JPEG
+  through the phone's share sheet, Telegram's share link or a download)
+  is gone, and `/api/card`, which rendered that JPEG, with it. In the bot
+  each card goes out with `protect_content`, which Telegram honours by
+  refusing to forward or save it; protection is fixed when a message is
+  sent, so `callback_handlers._show_card` edits only a protected card into
+  the next one; under anything else - the calendar's text, a card from
+  before - the card arrives as a new message, and an old unprotected card
+  is deleted. An invite still goes out by Telegram's share link: a link to
+  a game is not a card. `tests/test_webapp_static.py` and
+  `test_bot_card_delivery.py` hold it.
 - **A web font is one file per face, cut to what the app sets** (audit
   D-41). `webapp/fonts/` holds Inter 400, 600 and 700 and Lora 400, each one
   woff2 of Cyrillic, printable ASCII and the punctuation of Russian
@@ -1095,7 +1124,7 @@ python scripts/smoke_production.py $URL --deep  # ...and its database and bot he
   hand, could not see a lifetime purchase. To grant access by hand, mint one
   certificate (`generate_certificates.py 1`) and send the code.
 - Brand: dark aubergine background, pink gradient accents, playing-card
-  motifs (suits, "V" emblem). Keep card watermarks/share images on-brand.
+  motifs (suits, "V" emblem). Keep card watermarks on-brand.
 
 ## Gotchas
 

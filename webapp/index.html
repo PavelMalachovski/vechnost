@@ -744,17 +744,18 @@
 
   .hint { text-align: center; font-size: 12.5px; color: var(--muted-on-dark); margin-bottom: 8px; }
 
-  /* Three fixed slots – back, forward, share – and a deck that has no use
-     for one leaves it empty rather than closing up (audit D-29): the room
-     hides back and the Library has no share, and the forward button used
-     to slide sideways between the three. */
+  /* Back and forward in fixed columns, forward in the middle of three: a
+     deck that has no back leaves its slot empty rather than closing up
+     (audit D-29) - the room hides it - and the forward button used to
+     slide sideways. The third column stays empty, a button's width that
+     keeps forward centred under the card; it held a share button, and a
+     card is no longer saved or sent out of the app. */
   .deck-controls {
     display: grid; grid-template-columns: 58px 72px 58px;
     justify-content: center; align-items: center; gap: 14px;
   }
   .deck-controls .ctrl { grid-row: 1; grid-column: 1; }
   .deck-controls .ctrl.main { grid-column: 2; }
-  .deck-controls .ctrl.aside { grid-column: 3; }
   /* A deck of one card, the question of the day, has nowhere to go: no
      gauge, no hint, no buttons that could only ever be disabled. */
   .one-card .progress-wrap, .one-card .hint, .one-card .deck-controls { display: none; }
@@ -1292,7 +1293,6 @@
     <div class="deck-controls">
       <button class="ctrl" id="libPrev" data-i18n-aria="ariaPrev">↩</button>
       <button class="ctrl main" id="libNext" data-i18n-aria="ariaNext">→</button>
-      <!-- the third slot: no share here, and nothing moves into its place -->
     </div>
   </section>
 
@@ -1456,7 +1456,6 @@
     <div class="deck-controls">
       <button class="ctrl" id="btnPrev" data-i18n-aria="ariaPrev">↩</button>
       <button class="ctrl main" id="btnNext" data-i18n-aria="ariaNext">→</button>
-      <button class="ctrl aside" id="btnShare" data-i18n-aria="ariaShare">📤</button>
     </div>
   </section>
 
@@ -1617,7 +1616,6 @@
       payNotYet: 'Оплата ещё не пришла. Попробуйте через минуту.',
       roomOpened: 'Колода открыта целиком для вас обоих',
       freeCount: 'бесплатно {free} из {total}',
-      shareText: 'Вопрос из VECHNOST, игры для пар',
       shareError: 'Не получилось поделиться',
       coopBtn: '👥 Пригласить партнёра', coopTitle: 'Игра вдвоём',
       coopIntro: 'Создайте игру и отправьте партнёру ссылку. Он нажмёт на неё и окажется в вашей колоде.',
@@ -1737,7 +1735,7 @@
       // What a screen reader says for a button that shows only a sign
       // (audit D-14); applyI18n sets each as that button's aria-label.
       ariaPrev: 'Предыдущая карта', ariaNext: 'Следующая карта',
-      ariaShare: 'Поделиться картой', ariaShuffle: 'Перемешать колоду',
+      ariaShuffle: 'Перемешать колоду',
       ariaMap: 'Поле',
       // The deck's gauge; what it reads out is cardOf (audit D-30).
       ariaProgress: 'Колода'
@@ -2103,8 +2101,6 @@
       gift.remove();
     }
   }
-  let BOT_URL = null;
-
   const fmt = (tpl, vars) => tpl.replace(/\{(\w+)\}/g, (_, k) => vars[k] != null ? vars[k] : '');
 
   // One paywall for every door a payment opens: the end of the free cards,
@@ -2191,7 +2187,6 @@
       }
       DATA = json.themes;
       setAccess(access);
-      BOT_URL = json.bot_url || null;
       PAY_PENDING = false;
       const ctx = PAYWALL_CTX;
       closePaywall();
@@ -2280,7 +2275,6 @@
           const json = await res.json();
           DATA = json.themes;
           setAccess(json.access || { paid: true });
-          BOT_URL = json.bot_url || null;
           return null;
         } catch (e) {
           DATA = null;
@@ -2850,59 +2844,6 @@
     renderStage(false);
   };
   $('deckBack').onclick = leaveDeck;
-
-  /* ---------------- share ---------------- */
-  async function shareCard() {
-    if (deckDirty) return;
-    let theme, level, type, idx, cardText;
-    if (COOP.active) {
-      if (!C.st) return;
-      theme = C.st.theme; level = C.st.level || 0; type = C.st.type;
-      idx = C.st.card_index; cardText = C.st.card_text;
-    } else {
-      const items = deckItems();
-      if (!items.length) return;
-      theme = S.theme; level = S.level || 0; type = S.type;
-      idx = S.order[S.idx]; cardText = items[idx];
-    }
-    haptic('light');
-    const params = new URLSearchParams({
-      theme: theme, idx: idx, level: level, type: type, lang: lang
-    });
-    // In a room, the card on the table is the room's to share: the partner
-    // who did not pay plays a paid room's whole deck, and /api/card lets
-    // them render the card the room dealt them.
-    if (COOP.active && C.code) params.set('room', C.code);
-    $('loader').classList.add('show');
-    try {
-      const headers = {};
-      if (tg && tg.initData) headers['Authorization'] = 'tma ' + tg.initData;
-      const res = await fetch('/api/card?' + params, { headers });
-      if (!res.ok) throw new Error('http ' + res.status);
-      const blob = await res.blob();
-      const file = new File([blob], 'vechnost-card.jpg', { type: 'image/jpeg' });
-      const shareText = T().shareText + (BOT_URL ? '\n' + BOT_URL : '');
-      if (navigator.canShare && navigator.canShare({ files: [file] })) {
-        await navigator.share({ files: [file], text: shareText });
-        haptic('ok');
-      } else if (tg && BOT_URL) {
-        const text = cardText + '\n\n' + shareText;
-        tg.openTelegramLink('https://t.me/share/url?url=' + encodeURIComponent(BOT_URL) + '&text=' + encodeURIComponent(text));
-      } else {
-        const a = document.createElement('a');
-        a.href = URL.createObjectURL(blob);
-        a.download = 'vechnost-card.jpg';
-        a.click();
-        URL.revokeObjectURL(a.href);
-      }
-    } catch (e) {
-      if (e && e.name === 'AbortError') return; // user closed the share sheet
-      toast(T().shareError);
-    } finally {
-      $('loader').classList.remove('show');
-    }
-  }
-  $('btnShare').onclick = shareCard;
 
   /* ---------------- finish ---------------- */
   function deckTotalFull() {
@@ -4123,7 +4064,7 @@
         item.tips.map(t => '<li>' + escapeHTML(t) + '</li>').join('') + '</ul>'
       : '';
     return '<div class="guide-item">' +
-             guideArt(item.art) +
+             guideArt(item.art, item.art_rev) +
              '<div>' +
                '<div class="guide-item-title">' + escapeHTML(item.title) + '</div>' +
                '<div class="guide-item-text">' + escapeHTML(item.text) + '</div>' +
@@ -4205,19 +4146,18 @@
     'her-5': 'вид сбоку · свет от окна сзади',
     'her-6': 'вид сверху от ног · свет из-за головы',
     'her-7': 'кадр крупным планом · свет слева',
-    'her-8': 'вид сверху сбоку · свет сзади',
+    'her-8': 'вид сбоку · свет сзади',
     'her-9': 'вид сбоку · свет слева через жалюзи',
-    'her-10': 'вид со спины · свет слева',
     'him-1': 'вид со спины · свет слева',
     'him-2': 'вид спереди · свет сверху',
     'him-3': 'вид спереди · свет справа',
     'him-4': 'вид в три четверти · свет спереди',
     'him-5': 'вид сбоку · свет сзади',
-    'him-6': 'вид сбоку со спины · свет сбоку',
+    'him-6': 'вид со спины в три четверти · свет слева',
     'him-7': 'вид спереди · холодный свет сверху',
-    'him-8': 'вид спереди · свет от окна сбоку',
+    'him-8': 'вид со спины · свет слева',
     'him-9': 'вид сбоку · тёплый свет справа',
-    'him-10': 'кадр крупным планом · свет справа',
+    'him-10': 'кадр анфас крупным планом · свет справа',
     'edit-bw': 'справа: ч/б, тени глубже, зерно 10-15%',
     'edit-privacy': 'лицо в кадр не попадает, тело скажет само'
   };
@@ -4254,15 +4194,19 @@
   };
 
   // The one entry point: a key in, a frame out. The picture itself arrives
-  // later (loadGuideArt), so the frame holds its place until it does.
-  function guideArt(key) {
+  // later (loadGuideArt), so the frame holds its place until it does. `rev`
+  // is the picture's fingerprint from the server: it rides in the picture's
+  // address, so a re-rendered picture is fetched again rather than taken
+  // from what the browser kept of the old one.
+  function guideArt(key, rev) {
     if (!key) return '';
     const over = ART_OVERLAYS[key]
       ? '<svg class="art-over" viewBox="0 0 120 130" aria-hidden="true">' + ART_OVERLAYS[key] + '</svg>'
       : '';
     const cap = ART_CAPTIONS[key];
     return '<div class="art-wrap">' +
-             '<div class="art-photo skeleton" data-art="' + escapeHTML(key) + '">' +
+             '<div class="art-photo skeleton" data-art="' + escapeHTML(key) + '"' +
+               (rev ? ' data-rev="' + escapeHTML(rev) + '"' : '') + '>' +
                '<img class="guide-art" alt="" aria-hidden="true" decoding="async" width="540" height="585">' +
                over +
              '</div>' +
@@ -4283,7 +4227,8 @@
         const headers = {};
         if (tg && tg.initData) headers['Authorization'] = 'tma ' + tg.initData;
         const path = '/api/library/' + moduleId + '/art/' + encodeURIComponent(slot.dataset.art) +
-                     '?lang=' + lang + libNsfwParam();
+                     '?lang=' + lang + libNsfwParam() +
+                     (slot.dataset.rev ? '&v=' + encodeURIComponent(slot.dataset.rev) : '');
         const res = await timedFetch(path, { headers });
         if (!res.ok) throw await httpError(res, path);
         ART_CACHE[id] = URL.createObjectURL(await res.blob());

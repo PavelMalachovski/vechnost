@@ -137,7 +137,10 @@ class Poser:
         return self.bones[names[0]].head_local.copy(), self.bones[names[-1]].tail_local.copy()
 
     # --- the whole figure ----------------------------------------------
-    def apply(self, t: Target):
+    def apply(self, t: Target, settle=True):
+        """Pose the figure; `settle` lets the breasts settle toward the
+        floor, which a woman's do and a man's chest, being muscle, does not:
+        settled, it read as soft as hers under a hard side light."""
         for pb in self.pose.bones:
             pb.matrix_basis = Matrix.Identity(4)
         self._update()
@@ -166,7 +169,8 @@ class Poser:
                 self._arm(side, limb, Rc)
             else:
                 self._fingers(side, 0.3)
-        self._breasts(Rc)
+        if settle:
+            self._breasts(Rc)
 
     def _reach(self, upper, lower, root: Vector, hint: Vector, target: Vector, frame: Matrix):
         """Two segments from `root` toward `target`, bending toward `hint`:

@@ -29,8 +29,8 @@ def lowest(ob) -> float:
 
 class Person:
     """`pose` is a scene pose (skeleton.pose); `ground`, a height in cm to
-    set the lowest point of the body on; `outfit`, one of lingerie, boxers,
-    jeans, towel; `hair`, a style (long for her and short for him unless
+    set the lowest point of the body on; `outfit`, one of lingerie, jeans,
+    trousers; `hair`, a style (long for her and short for him unless
     told); `grip`, where held hair is held (by default between the hands)."""
 
     def __init__(
@@ -55,24 +55,24 @@ class Person:
             skin=self.skin,
             iris=iris,
         )
-        Poser(self.h.arm).apply(target(self.sk))
+        Poser(self.h.arm).apply(target(self.sk), settle=sex == "f")
         bpy.context.view_layer.update()
         if ground is not None:
             self.h.arm.location.z += ground / 100.0 - lowest(self.h.ob)
             bpy.context.view_layer.update()
-        if outfit == "towel":
-            outfits.towel(self.h, colliders)
-        elif outfit is not None:
-            {"lingerie": outfits.lingerie, "boxers": outfits.boxers, "jeans": outfits.jeans}[
-                outfit
-            ](self.h)
+        if outfit is not None:
+            {
+                "lingerie": outfits.lingerie,
+                "jeans": outfits.jeans,
+                "trousers": outfits.trousers,
+            }[outfit](self.h)
         style = hair or ("long" if sex == "f" else ("wet" if wet else "short"))
         grip = None
         if style == "held":
             # Between the hands, where the fingers close round it.
             grip = sum(self.h.bone_now(f"finger3-1.{s}") for s in "LR") / 2
         hair_mat = M.hair(melanin=melanin, redness=0.3, wet=wet, name="hair")
-        many = style in ("long", "held", "bun")
+        many = style in ("long", "held", "bun", "down")
         self.hair = grow_hair(
             self.h, style, [self.h.ob, *colliders], hair_mat, grip=grip,
             strands=65000 if many else 70000, guides=600 if many else 900,

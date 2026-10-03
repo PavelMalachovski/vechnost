@@ -206,7 +206,7 @@ class Settings(BaseSettings):
         default="tvoya_vechnost_bot",
         validation_alias="BOT_USERNAME",
         description="Bot username without @, used for the brand watermark on "
-        "shared card images and share links.",
+        "the bot's card images and for invite, referral and gift links.",
     )
 
     webapp_short_name: str | None = Field(
